@@ -3,30 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>UMHC Finance Hub</title>
+    <title>UMHC Treasurer</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
-    <div id="app">
-      <div id="login-container">
-        <h1>UMHC Finance Hub</h1>
+    <div class="container">
+      <div id="login-container" class="card">
+        <h2>Login</h2>
         <form id="login-form">
-          <p>Enter the shared key to access the application.</p>
-          <input
-            type="password"
-            id="shared-key"
-            placeholder="Shared Key"
-            required
-          />
-          <button type="submit">Login</button>
+          <div class="form-group">
+            <label for="shared-key">Shared Key:</label>
+            <input type="password" id="shared-key" required />
+          </div>
+          <button type="submit" class="btn">Login</button>
           <p id="error-message" class="error-message"></p>
         </form>
       </div>
 
-      <div id="main-content" style="display: none">
-        <!-- Main application content will go here -->
-        <h2>Main Application</h2>
-        <button id="logout-button">Logout</button>
+      <div id="main-content" class="card" style="display: none;">
+        <h2>Welcome, Treasurer!</h2>
+        <p>This is your main content area.</p>
+        <div id="a2-value-display"></div>
+        <button id="logout-button" class="btn">Logout</button>
       </div>
     </div>
 

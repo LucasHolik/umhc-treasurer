@@ -1,7 +1,7 @@
 // This file will handle communication with the Google Sheets backend using JSONP.
 
 const WEB_APP_URL =
-  "https://script.google.com/macros/s/AKfycbxlUBfOPcHuI1VCL7ZBTnqABqu1V5CWXZrhqK09cLedLWFTXqToOhfwL-5g-8qg3yIM/exec";
+  "https://script.google.com/macros/s/AKfycbwcdFrM8UPNLQ0eUA1yTwDCV8WjWpJsNY769OA09TypQ3gVX_nhCm313xE-czrRD7pI/exec";
 
 /**
  * Makes a JSONP request to the Google Apps Script Web App.
@@ -61,5 +61,28 @@ async function verifySharedKey(sharedKey) {
   } catch (error) {
     console.error("Error verifying shared key:", error);
     return false;
+  }
+}
+
+/**
+ * Fetches the value from cell A2 of the Config sheet.
+ * @param {string} sharedKey The shared key for authorization.
+ * @returns {Promise<string|null>} The value of A2 if successful, otherwise null.
+ */
+async function getA2Value(sharedKey) {
+  try {
+    const result = await jsonpFetch(WEB_APP_URL, {
+      sharedKey: sharedKey,
+      action: "getA2Value",
+    });
+    if (result.success) {
+      return result.data;
+    } else {
+      console.error("Error fetching A2 value:", result.message);
+      return null;
+    }
+  } catch (error) {
+    console.error("Error fetching A2 value:", error);
+    return null;
   }
 }

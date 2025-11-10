@@ -44,6 +44,9 @@ function doGet(e) {
           // Pass the entire parameter object to changeKey
           response = changeKey(configSheet, configKeyCell, e.parameter);
           break;
+        case "getA2Value":
+          response = getA2ValueFromConfig(configSheet);
+          break;
         default:
           response = { success: false, message: "Invalid action specified." };
           break;
@@ -58,4 +61,15 @@ function doGet(e) {
   return ContentService
     .createTextOutput(callback + "(" + JSON.stringify(response) + ")")
     .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+
+/**
+ * Reads the value from cell A2 of the "Config" sheet.
+ *
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The "Config" sheet object.
+ * @returns {object} A success object containing the value of A2.
+ */
+function getA2ValueFromConfig(sheet) {
+  const a2Value = sheet.getRange("A2").getValue();
+  return { success: true, data: a2Value };
 }
