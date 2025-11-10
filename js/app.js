@@ -1,67 +1,23 @@
-// This file contains the main application logic.
+const SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbyOuvUpzAAW2E75NjK7oeOixQRgxdyIRzl6c-qsX_8pyrwxbPK_w6SgQMdmsP1P8s8/exec";
 
-document.addEventListener("DOMContentLoaded", () => {
-  const loginContainer = document.getElementById("login-container");
-  const mainContent = document.getElementById("main-content");
-  const loginForm = document.getElementById("login-form");
-  const sharedKeyInput = document.getElementById("shared-key");
-  const errorMessage = document.getElementById("error-message");
-  const logoutButton = document.getElementById("logout-button");
-  const a2ValueDisplay = document.getElementById("a2-value-display");
+// Create a unique callback function name
+const callbackName = "jsonp_callback_" + Math.round(100000 * Math.random());
 
-  // Check if the user is already logged in
-  const sessionKey = sessionStorage.getItem("sharedKey");
-  if (sessionKey) {
-    showMainContent();
-    fetchAndDisplayA2Value(sessionKey);
-  } else {
-    showLogin();
-  }
+// Create a script element
+const script = document.createElement("script");
 
-  loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const key = sharedKeyInput.value;
-    errorMessage.textContent = "";
+// Define the callback function
+window[callbackName] = function (data) {
+  document.querySelector("h1").textContent = data.value;
 
-    const isValid = await verifySharedKey(key);
+  // Clean up: remove the script tag and the callback function
+  document.body.removeChild(script);
+  delete window[callbackName];
+};
 
-    if (isValid) {
-      sessionStorage.setItem("sharedKey", key);
-      showMainContent();
-      fetchAndDisplayA2Value(key);
-    } else {
-      errorMessage.textContent = "Invalid shared key. Please try again.";
-    }
-  });
+// Set the script source to the Google Apps Script URL with the callback
+script.src = SCRIPT_URL + "?callback=" + callbackName;
 
-  logoutButton.addEventListener("click", () => {
-    sessionStorage.removeItem("sharedKey");
-    showLogin();
-    if (a2ValueDisplay) {
-      a2ValueDisplay.textContent = "";
-    }
-  });
-
-  function showLogin() {
-    loginContainer.style.display = "block";
-    mainContent.style.display = "none";
-    sharedKeyInput.value = "";
-  }
-
-  function showMainContent() {
-    loginContainer.style.display = "none";
-    mainContent.style.display = "block";
-  }
-
-  async function fetchAndDisplayA2Value(key) {
-    if (a2ValueDisplay) {
-      a2ValueDisplay.textContent = "Loading A2 value...";
-      const a2Value = await getA2Value(key);
-      if (a2Value !== null) {
-        a2ValueDisplay.textContent = `Value from Config!A2: ${a2Value}`;
-      } else {
-        a2ValueDisplay.textContent = "Failed to load A2 value.";
-      }
-    }
-  }
-});
+// Append the script to the body to make the request
+document.body.appendChild(script);
