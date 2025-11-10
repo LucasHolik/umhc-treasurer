@@ -22,6 +22,13 @@ Follow these steps to deploy the script to your Google Sheet.
 3.  **Copy and Paste the Code:**
     *   For each of the four files in this directory, copy its content and paste it into the corresponding file in your Apps Script editor.
 
+## Initial Setup
+
+1.  **Set the Initial Shared Key:**
+    *   Go back to your "UMHC Finances" Google Sheet.
+    *   Navigate to the `Config` sheet.
+    *   In cell `A1`, enter a strong, secret key. This will be your initial `sharedKey` for authenticating with the web app. Make sure to keep this key secure.
+
 4.  **Deploy the Web App:**
     *   Click the **Deploy** button and select **New deployment**.
     *   For "Select type," click the gear icon and choose **Web app**.
