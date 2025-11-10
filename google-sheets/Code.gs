@@ -1,6 +1,13 @@
 // See google-sheets/README.md for deployment instructions.
 
 /**
+ * Handles HTTP GET requests for testing deployment.
+ */
+function doGet(e) {
+  return ContentService.createTextOutput("Hello from the correct script - version 2");
+}
+
+/**
  * Handles preflight requests for CORS.
  */
 function doOptions(e) {
