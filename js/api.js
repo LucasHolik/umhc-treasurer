@@ -1,31 +1,62 @@
-// This file will handle communication with the Google Sheets backend.
+// This file will handle communication with the Google Sheets backend using JSONP.
 
-// IMPORTANT: Replace this with the actual Web App URL you got from deploying your Google Apps Script.
 const WEB_APP_URL =
-  "https://script.google.com/macros/s/AKfycbyi0tOxBgP516ht2SlUuXwQ_1I9p-yx841AuxqriPCjaLoE2jYqTWF_roGQPajDNAni/exec";
+  "https://script.google.com/macros/s/AKfycbxlUBfOPcHuI1VCL7ZBTnqABqu1V5CWXZrhqK09cLedLWFTXqToOhfwL-5g-8qg3yIM/exec";
 
 /**
- * Verifies the shared key with the backend.
+ * Makes a JSONP request to the Google Apps Script Web App.
+ * @param {string} url The base URL of the Web App.
+ * @param {object} params An object containing the parameters to send.
+ * @returns {Promise<object>} A promise that resolves with the JSON response from the server.
+ */
+function jsonpFetch(url, params) {
+  return new Promise((resolve, reject) => {
+    // Create a unique callback function name
+    const callbackName = "jsonp_callback_" + Math.round(100000 * Math.random());
+
+    // Define the callback function on the window object
+    window[callbackName] = (data) => {
+      delete window[callbackName]; // Clean up the global function
+      document.body.removeChild(script); // Clean up the script tag
+      resolve(data);
+    };
+
+    // Add the callback name to the URL parameters
+    params.callback = callbackName;
+
+    // Build query string
+    const queryString = Object.keys(params)
+      .map(
+        (key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`
+      )
+      .join("&");
+
+    // Create and append the script tag
+    const script = document.createElement("script");
+    script.src = `${url}?${queryString}`;
+    script.onerror = () => {
+      delete window[callbackName];
+      document.body.removeChild(script);
+      reject(new Error("JSONP request failed"));
+    };
+    document.body.appendChild(script);
+  });
+}
+
+/**
+ * Verifies the shared key with the backend using JSONP.
  * @param {string} sharedKey The key to verify.
  * @returns {Promise<boolean>} True if the key is valid, false otherwise.
  */
 async function verifySharedKey(sharedKey) {
   try {
-    const response = await fetch(WEB_APP_URL, {
-      method: "POST",
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sharedKey: sharedKey,
-        action: "getFinances", // We use getFinances as a way to "ping" the backend and validate the key.
-      }),
+    const result = await jsonpFetch(WEB_APP_URL, {
+      sharedKey: sharedKey,
+      action: "getFinances", // We use getFinances as a way to "ping" the backend and validate the key.
     });
 
-    const result = await response.json();
-
     // The key is considered valid if the request was successful.
-    // The backend's doPost function will return success: false for an invalid key.
+    // The backend's doGet function will return success: false for an invalid key.
     return result.success === true;
   } catch (error) {
     console.error("Error verifying shared key:", error);

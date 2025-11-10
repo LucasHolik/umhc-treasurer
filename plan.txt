@@ -13,11 +13,11 @@ We will follow an iterative development process:
 ### Phase 1: Backend Foundation
 The initial focus is on creating a secure and reliable backend to store and manage financial data.
 - **Database:** A Google Sheet will serve as the central database for all transactions.
-- **API Layer:** A Google Apps Script will be developed to act as a secure API. The code will be managed in a `google-sheets/` directory for version control, organized into logical files (e.g., `Code.gs` for the main entrypoint, `Finances.gs` for transaction logic, `Config.gs` for settings, and `Utils.gs` for helpers).
+- **API Layer:** A Google Apps Script will be developed to act as a secure API using **JSONP (JSON with Padding)** to bypass CORS restrictions. The code will be managed in a `google-sheets/` directory for version control, organized into logical files (e.g., `Code.gs` for the main entrypoint, `Finances.gs` for transaction logic, `Config.gs` for settings, and `Utils.gs` for helpers).
 
 ### Phase 2: Frontend User Interface
 With the backend in place, we will build the user-facing web application.
-- **Technology:** The frontend will be built with standard HTML, CSS, and JavaScript, and hosted on GitHub Pages for easy access.
+- **Technology:** The frontend will be built with standard HTML, CSS, and JavaScript, utilizing a **JSONP client** to communicate with the Google Apps Script backend, and hosted on GitHub Pages for easy access.
 - **Core Features:**
     - Secure, key-based authentication.
     - A user-friendly form for adding new expense/income entries.
@@ -27,4 +27,4 @@ With the backend in place, we will build the user-facing web application.
 Once the core application is functional, we will enhance it with more powerful features.
 - **Data Visualization:** Integrate charting libraries (e.g., Chart.js) to create visual reports, such as breakdowns of expenses by category or event.
 - **PDF Import Utility:** Develop a feature to help parse PDF bank statements and pre-fill the entry form, speeding up data entry.
-- **Administrative Functions:** Build tools for administrative tasks, such as managing access keys.
+- **Administrative Functions:** Build tools for administrative tasks, suchs as managing access keys.

@@ -1,25 +1,16 @@
 // See google-sheets/README.md for deployment instructions.
 
 /**
- * Handles preflight requests for CORS.
- */
-function doOptions(e) {
-  return ContentService.createTextOutput()
-    .addHeader("Access-Control-Allow-Origin", "https://lucasholik.github.io")
-    .addHeader("Access-Control-Allow-Methods", "POST, OPTIONS")
-    .addHeader("Access-Control-Allow-Headers", "Content-Type");
-}
-
-/**
- * @OnlyCurrentDoc
+ * The main entry point for all JSONP web requests.
+ * This function acts as a router, directing the request to the appropriate
+ * function based on the 'action' parameter from the URL.
  *
- * The main entry point for all web requests. This function acts as a router,
- * validating the request and directing it to the appropriate function based on the 'action' parameter.
+ * It returns a JSONP response by wrapping the JSON result in a callback function.
  *
  * @param {Object} e The event parameter from the Apps Script web request.
- * @returns {GoogleAppsScript.Content.TextOutput} A JSON object with the result of the action.
+ * @returns {GoogleAppsScript.Content.TextOutput} A JavaScript response for JSONP.
  */
-function doPost(e) {
+function doGet(e) {
   const sheetNameFinances = "Finances";
   const sheetNameConfig = "Config";
   const configKeyCell = "A1";
@@ -28,31 +19,43 @@ function doPost(e) {
   const financesSheet = spreadsheet.getSheetByName(sheetNameFinances);
   const configSheet = spreadsheet.getSheetByName(sheetNameConfig);
 
-  // Parse the incoming request body
-  let params;
+  let response = {};
+  const action = e.parameter.action;
+  const callback = e.parameter.callback;
+
   try {
-    params = JSON.parse(e.postData.contents);
+    // Get the stored shared key from the Config sheet
+    const storedKey = configSheet.getRange(configKeyCell).getValue();
+
+    // Check for valid key for all actions
+    if (e.parameter.sharedKey !== storedKey) {
+      response = { success: false, message: "Unauthorized: Invalid shared key." };
+    } else {
+      // Use a "switch" statement on the action to decide what to do
+      switch (action) {
+        case "getFinances":
+          response = getFinances(financesSheet);
+          break;
+        case "addEntry":
+          // Pass the entire parameter object to addEntry
+          response = addEntry(financesSheet, e.parameter);
+          break;
+        case "changeKey":
+          // Pass the entire parameter object to changeKey
+          response = changeKey(configSheet, configKeyCell, e.parameter);
+          break;
+        default:
+          response = { success: false, message: "Invalid action specified." };
+          break;
+      }
+    }
   } catch (error) {
-    return createTextOutput({ success: false, message: "Invalid JSON in request body." });
+    response = { success: false, message: "Server Error: " + error.message };
   }
 
-  // Get the stored shared key from the Config sheet
-  const storedKey = configSheet.getRange(configKeyCell).getValue();
-
-  // Check for valid key
-  if (params.sharedKey !== storedKey) {
-    return createTextOutput({ success: false, message: "Unauthorized: Invalid shared key." });
-  }
-
-  // Use a "switch" statement on params.action to decide what to do
-  switch (params.action) {
-    case "getFinances":
-      return createTextOutput(getFinances(financesSheet));
-    case "addEntry":
-      return createTextOutput(addEntry(financesSheet, params.payload));
-    case "changeKey":
-      return createTextOutput(changeKey(configSheet, configKeyCell, params.payload));
-    default:
-      return createTextOutput({ success: false, message: "Invalid action specified." });
-  }
+  // --- The JSONP Response ---
+  // Wrap the JSON response in the callback function and set the MIME type to JAVASCRIPT
+  return ContentService
+    .createTextOutput(callback + "(" + JSON.stringify(response) + ")")
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
