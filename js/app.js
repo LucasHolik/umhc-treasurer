@@ -25,6 +25,37 @@ loginButton.addEventListener('click', () => {
     if (data.success) {
       loginContainer.style.display = 'none';
       mainMenu.style.display = 'block';
+
+      const pdfUpload = document.getElementById('pdf-upload');
+      const pdfContent = document.getElementById('pdf-content');
+
+      pdfUpload.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file || file.type !== 'application/pdf') {
+          pdfContent.textContent = 'Please select a PDF file.';
+          return;
+        }
+
+        const fileReader = new FileReader();
+        fileReader.onload = function() {
+          const typedarray = new Uint8Array(this.result);
+          pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+            let text = '';
+            const promises = [];
+            for (let i = 1; i <= pdf.numPages; i++) {
+              promises.push(pdf.getPage(i).then(page => {
+                return page.getTextContent().then(textContent => {
+                  return textContent.items.map(item => item.str).join(' ');
+                });
+              }));
+            }
+            Promise.all(promises).then(pageTexts => {
+              pdfContent.textContent = pageTexts.join('\n\n');
+            });
+          });
+        };
+        fileReader.readAsArrayBuffer(file);
+      });
     } else {
       errorMessage.textContent = data.message;
     }

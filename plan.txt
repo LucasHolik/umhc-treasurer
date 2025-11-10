@@ -1,0 +1,20 @@
+# Project Plan: UMHC Finance Hub
+
+## Phase 1: Foundation & Login
+
+The project has been restarted with a focus on building a simple and secure foundation first.
+
+### Completed:
+- **Project Reset:** Removed initial complex structure for a more iterative approach.
+- **Backend API:** A Google Apps Script (`Code.gs`) was created to act as a secure JSONP API.
+- **Authentication:**
+    - A basic login system has been implemented.
+    - The web app authenticates against a key stored in cell A1 of the 'Config' Google Sheet.
+    - A successful login displays a placeholder "Main Menu" screen.
+- **Frontend:**
+    - A simple login interface (`index.html`) was created.
+    - Client-side logic (`js/app.js`) handles user input and communication with the backend API.
+
+## Next Steps
+- Develop the main menu functionality.
+- Implement features for adding and viewing financial data.
