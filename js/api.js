@@ -2,7 +2,7 @@
 
 // IMPORTANT: Replace this with the actual Web App URL you got from deploying your Google Apps Script.
 const WEB_APP_URL =
-  "https://script.google.com/macros/s/AKfycbw5PW6p2DtKAuF6nWhUGHhynqpdm5F_EY8-W1_q1so50i5UdMgBt-9cb_uGu3DkoZWX/exec";
+  "https://script.google.com/macros/s/AKfycbyi0tOxBgP516ht2SlUuXwQ_1I9p-yx841AuxqriPCjaLoE2jYqTWF_roGQPajDNAni/exec";
 
 /**
  * Verifies the shared key with the backend.
