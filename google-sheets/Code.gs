@@ -1,6 +1,16 @@
 // See google-sheets/README.md for deployment instructions.
 
 /**
+ * Handles preflight requests for CORS.
+ */
+function doOptions(e) {
+  return ContentService.createTextOutput()
+    .addHeader("Access-Control-Allow-Origin", "https://lucasholik.github.io")
+    .addHeader("Access-Control-Allow-Methods", "POST, OPTIONS")
+    .addHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+/**
  * @OnlyCurrentDoc
  *
  * The main entry point for all web requests. This function acts as a router,
