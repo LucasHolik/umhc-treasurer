@@ -13,17 +13,13 @@
 
   <div id="main-menu" style="display: none;">
     <h1>Main Menu</h1>
-    <input type="file" id="pdf-upload" accept=".pdf">
+    <input type="file" id="file-upload" accept=".xlsx">
     <hr>
-    <h2>Extracted PDF Text:</h2>
-    <pre id="pdf-content"></pre>
+    <h2>Extracted File Content:</h2>
+    <pre id="file-content"></pre>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-  <script>
-    // Required by PDF.js
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
-  </script>
+  <script src="js/read-excel-file.min.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
