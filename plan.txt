@@ -18,3 +18,34 @@ The project has been restarted with a focus on building a simple and secure foun
 ## Next Steps
 - Develop the main menu functionality.
 - Implement features for adding and viewing financial data.
+
+## Phase 2: Data Management Features
+
+Added functionality to process Excel files and sync data to Google Sheets
+
+### Completed:
+- **XLSX Processing:** Added ability to read and parse Excel files client-side
+- **Data Mapping:** Properly map Excel columns (Document, Date, Description, cashIn, cashOut) to Google Sheet columns (Document, Time-uploaded, Date, Description, Trip/Event, Category, Income, Expense)
+- **Google Sheets Integration:** Save data to the 'Finances' sheet with proper column order
+- **Data Retrieval:** Implemented ability to pull data from Google Sheets and display in browser
+- **UI/UX Improvements:** Enhanced interface with file upload, data display table, and status messages
+- **Duplicate Prevention:** Implemented robust duplicate checking using normalized data formats
+- **Performance Optimization:** Implemented client-side duplicate checking to improve upload performance
+- **Date Normalization:** Fixed date format differences between Excel and Google Sheets for proper duplicate detection
+- **Debugging Features:** Added comprehensive logging for troubleshooting
+
+### Ongoing:
+- **Large File Performance:** Address upload time for large Excel files
+
+## Phase 3: Large File Upload Optimization
+
+Implemented chunked upload approach to handle large datasets efficiently
+
+### Completed:
+- **URL Length Management:** Implemented client-side chunking to overcome GET request URL length limitations (~2000 characters)
+- **Sequential Upload:** Split large datasets into smaller chunks and upload them sequentially
+- **Progress Tracking:** Added progress indicators to show chunk-by-chunk upload progress
+- **Safe Chunk Size:** Calculated conservative chunk sizes to ensure URL parameters stay within limits
+- **Batch Processing:** Maintained server-side batching for large datasets (>999 rows) for efficient Google Sheets API usage
+- **Error Handling:** Preserved error handling and status messages during chunked uploads
+- **CORS Compatibility:** Continued using JSONP approach for cross-domain requests that are CORS-compatible

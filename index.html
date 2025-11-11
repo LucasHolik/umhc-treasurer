@@ -2,6 +2,59 @@
 <html>
 <head>
   <title>UMHC Treasurer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    #main-menu {
+      max-width: 1200px;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    .section h2 {
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+    }
+    button {
+      padding: 8px 15px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .status-message {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+  </style>
 </head>
 <body>
   <div id="login-container">
@@ -13,10 +66,41 @@
 
   <div id="main-menu" style="display: none;">
     <h1>Main Menu</h1>
-    <input type="file" id="file-upload" accept=".xlsx">
-    <hr>
-    <h2>Extracted File Content:</h2>
-    <pre id="file-content"></pre>
+    
+    <div class="section">
+      <h2>Upload Financial Data</h2>
+      <input type="file" id="file-upload" accept=".xlsx">
+      <button id="upload-to-sheet">Upload to Google Sheet</button>
+      <div id="upload-status"></div>
+    </div>
+    
+    <div class="section">
+      <h2>Extracted File Content:</h2>
+      <pre id="file-content"></pre>
+    </div>
+    
+    <div class="section">
+      <h2>Financial Data from Google Sheet</h2>
+      <button id="load-from-sheet">Load Data from Google Sheet</button>
+      <div id="data-status"></div>
+      <div id="data-display" style="display: none;">
+        <table id="data-table">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Trip/Event</th>
+              <th>Category</th>
+              <th>Income</th>
+              <th>Expense</th>
+              <th>Time Uploaded</th>
+            </tr>
+          </thead>
+          <tbody id="data-body"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script src="js/read-excel-file.min.js"></script>
