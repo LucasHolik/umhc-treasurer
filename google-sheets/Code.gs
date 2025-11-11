@@ -66,10 +66,11 @@ function saveDataToSheet(e) {
     const startRow = financeSheet.getLastRow() + 1;
 
     // Prepare records to add - data is already filtered on the client side
+    // Ensure dates are in consistent format (YYYY-MM-DD) to prevent auto-conversion in Google Sheets
     const recordsToAdd = data.map((row) => [
       row.document || "",
       new Date(), // Time-uploaded
-      row.date || "",
+      row.date || "", // Date - already normalized to YYYY-MM-DD format on client side
       row.description || "",
       "", // Trip/Event - to be filled later
       "", // Category - to be filled later
@@ -84,17 +85,19 @@ function saveDataToSheet(e) {
 
       if (recordsToAdd.length <= maxBatchSize) {
         // Process all at once if under limit
-        financeSheet
-          .getRange(startRow, 1, recordsToAdd.length, 8)
-          .setValues(recordsToAdd);
+        // Format the date column as text before adding values to prevent auto-conversion
+        const dateColumnRange = financeSheet.getRange(startRow, 3, recordsToAdd.length, 1); // Column 3 is the Date column
+        dateColumnRange.setNumberFormat('@'); // @ = text format in Google Sheets
+        financeSheet.getRange(startRow, 1, recordsToAdd.length, 8).setValues(recordsToAdd);
       } else {
         // Process in chunks to avoid limits and timeout issues
         for (let i = 0; i < recordsToAdd.length; i += maxBatchSize) {
           const chunk = recordsToAdd.slice(i, i + maxBatchSize);
           const chunkStartRow = startRow + i;
-          financeSheet
-            .getRange(chunkStartRow, 1, chunk.length, 8)
-            .setValues(chunk);
+          // Format the date column as text before adding values to prevent auto-conversion
+          const dateColumnRange = financeSheet.getRange(chunkStartRow, 3, chunk.length, 1); // Column 3 is the Date column
+          dateColumnRange.setNumberFormat('@'); // @ = text format in Google Sheets
+          financeSheet.getRange(chunkStartRow, 1, chunk.length, 8).setValues(chunk);
         }
       }
     }
@@ -141,6 +144,11 @@ function getDataFromSheet() {
       const obj = {};
       for (let i = 0; i < headers.length; i++) {
         obj[headers[i]] = row[i];
+      }
+      // Ensure dates remain as consistent strings to prevent timezone conversion issues
+      // Google Sheets may auto-convert string dates to Date objects, so we format them back to string
+      if (obj["Date"] instanceof Date) {
+        obj["Date"] = Utilities.formatDate(obj["Date"], "UTC", "yyyy-MM-dd");
       }
       return obj;
     });

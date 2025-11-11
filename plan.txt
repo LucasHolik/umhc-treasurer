@@ -1,51 +1,42 @@
-# Project Plan: UMHC Finance Hub
+# UMHC Finance Hub - Current Implementation
 
-## Phase 1: Foundation & Login
+## Overview
+A web application that allows users to upload financial data from Excel files (.xlsx) to a Google Sheet, with robust duplicate detection and timezone-safe date handling.
 
-The project has been restarted with a focus on building a simple and secure foundation first.
+## Core Features
 
-### Completed:
-- **Project Reset:** Removed initial complex structure for a more iterative approach.
-- **Backend API:** A Google Apps Script (`Code.gs`) was created to act as a secure JSONP API.
-- **Authentication:**
-    - A basic login system has been implemented.
-    - The web app authenticates against a key stored in cell A1 of the 'Config' Google Sheet.
-    - A successful login displays a placeholder "Main Menu" screen.
-- **Frontend:**
-    - A simple login interface (`index.html`) was created.
-    - Client-side logic (`js/app.js`) handles user input and communication with the backend API.
+### Authentication
+- Secure login system using API key stored in Google Sheet
+- JSONP communication with Google Apps Script backend
 
-## Next Steps
-- Develop the main menu functionality.
-- Implement features for adding and viewing financial data.
+### Excel Processing
+- Client-side Excel file parsing using read-excel-file library
+- Maps Excel data (Date, Description, Document, cashIn, cashOut) to Google Sheet columns
+- Normalizes date strings to consistent YYYY-MM-DD format
 
-## Phase 2: Data Management Features
+### Google Sheets Integration
+- Uploads data to 'Finances' Google Sheet with proper column mapping
+- Retrieves existing data for duplicate checking
+- Formats date column as text to prevent automatic date conversion
 
-Added functionality to process Excel files and sync data to Google Sheets
+### Duplicate Detection
+- Client-side duplicate checking to avoid uploading existing records
+- Compares records using Document, Date, Description, Income, and Expense fields
+- String-based comparison with consistent date formatting
 
-### Completed:
-- **XLSX Processing:** Added ability to read and parse Excel files client-side
-- **Data Mapping:** Properly map Excel columns (Document, Date, Description, cashIn, cashOut) to Google Sheet columns (Document, Time-uploaded, Date, Description, Trip/Event, Category, Income, Expense)
-- **Google Sheets Integration:** Save data to the 'Finances' sheet with proper column order
-- **Data Retrieval:** Implemented ability to pull data from Google Sheets and display in browser
-- **UI/UX Improvements:** Enhanced interface with file upload, data display table, and status messages
-- **Duplicate Prevention:** Implemented robust duplicate checking using normalized data formats
-- **Performance Optimization:** Implemented client-side duplicate checking to improve upload performance
-- **Date Normalization:** Fixed date format differences between Excel and Google Sheets for proper duplicate detection
-- **Debugging Features:** Added comprehensive logging for troubleshooting
+### Data Processing
+- Chunked upload system for large datasets to handle URL length limitations
+- Sequential upload processing with progress tracking
+- Server-side batching for efficient Google Sheets operations
 
-### Ongoing:
-- **Large File Performance:** Address upload time for large Excel files
+### Date Handling
+- String-only date processing to prevent timezone conversion issues
+- Handles multiple date formats (DD/MM/YYYY from Excel, YYYY-MM-DD, ISO strings)
+- Explicit text formatting in Google Sheets prevents auto-conversion to date objects
+- Resolves duplicate detection issues caused by BST/UTC timezone transitions
 
-## Phase 3: Large File Upload Optimization
-
-Implemented chunked upload approach to handle large datasets efficiently
-
-### Completed:
-- **URL Length Management:** Implemented client-side chunking to overcome GET request URL length limitations (~2000 characters)
-- **Sequential Upload:** Split large datasets into smaller chunks and upload them sequentially
-- **Progress Tracking:** Added progress indicators to show chunk-by-chunk upload progress
-- **Safe Chunk Size:** Calculated conservative chunk sizes to ensure URL parameters stay within limits
-- **Batch Processing:** Maintained server-side batching for large datasets (>999 rows) for efficient Google Sheets API usage
-- **Error Handling:** Preserved error handling and status messages during chunked uploads
-- **CORS Compatibility:** Continued using JSONP approach for cross-domain requests that are CORS-compatible
+### User Interface
+- Simple login interface with API key authentication
+- File upload and data preview functionality
+- Data table display with status indicators
+- Progress tracking for upload operations
