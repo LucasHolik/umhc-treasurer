@@ -54,3 +54,40 @@ function _addTag(type, value) {
 
   return { success: true, message: "Tag added successfully." };
 }
+
+function _deleteTag(type, value) {
+  const tagSheet = _getTagSheet();
+  const lastRow = tagSheet.getLastRow();
+  let column;
+
+  if (type === "Trip/Event") {
+    column = 1;
+  } else if (type === "Category") {
+    column = 2;
+  } else {
+    return { success: false, message: "Invalid tag type." };
+  }
+
+  if (lastRow < 2) {
+    return { success: false, message: "No tags to delete." };
+  }
+
+  const tagsRange = tagSheet.getRange(2, column, lastRow - 1, 1);
+  const tags = tagsRange.getValues().flat();
+  const tagIndex = tags.indexOf(value);
+
+  if (tagIndex === -1) {
+    return { success: false, message: "Tag not found." };
+  }
+
+  const deleteRow = tagIndex + 2;
+  
+  if (deleteRow < lastRow) {
+    const rangeToMove = tagSheet.getRange(deleteRow + 1, column, lastRow - deleteRow, 1);
+    rangeToMove.moveTo(tagSheet.getRange(deleteRow, column));
+  } else {
+    tagSheet.getRange(deleteRow, column).clearContent();
+  }
+
+  return { success: true, message: "Tag deleted successfully." };
+}

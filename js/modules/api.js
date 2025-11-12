@@ -48,5 +48,10 @@ export const API = {
     const stringifiedData = JSON.stringify(data);
     const url = `${SCRIPT_URL}?action=updateExpenses&apiKey=${encodeURIComponent(apiKey)}&data=${encodeURIComponent(stringifiedData)}`;
     jsonpRequest(url, callback);
+  },
+
+  deleteTag(apiKey, type, value, callback) {
+    const url = `${SCRIPT_URL}?action=deleteTag&apiKey=${encodeURIComponent(apiKey)}&type=${encodeURIComponent(type)}&value=${encodeURIComponent(value)}`;
+    jsonpRequest(url, callback);
   }
 };

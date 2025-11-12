@@ -82,5 +82,21 @@ export const Editor = {
   },
   clearChanges: () => {
     changes = {};
+  },
+  updateTagInExpenses: (type, value) => {
+    const editorBody = document.getElementById('editor-body');
+    const selects = editorBody.querySelectorAll(`select[data-type="${type}"]`);
+    selects.forEach(select => {
+      if (select.value === value) {
+        select.value = '';
+      }
+      // Remove the deleted tag from the options
+      for (let i = 0; i < select.options.length; i++) {
+        if (select.options[i].value === value) {
+          select.remove(i);
+          break;
+        }
+      }
+    });
   }
 };

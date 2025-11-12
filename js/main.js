@@ -33,6 +33,7 @@ function setupMainMenuListeners() {
   document.getElementById('view-edit-expenses-button').addEventListener('click', handleViewEditExpenses);
   document.getElementById('add-trip-event-button').addEventListener('click', () => handleAddTag('Trip/Event'));
   document.getElementById('add-category-button').addEventListener('click', () => handleAddTag('Category'));
+  document.getElementById('edit-tags-button').addEventListener('click', handleEditTags);
   document.getElementById('save-changes-button').addEventListener('click', handleSaveChanges);
 }
 
@@ -162,6 +163,18 @@ function handleAddTag(type) {
     Editor.rerender();
     input.value = '';
   }
+}
+
+function handleEditTags() {
+  const allTags = Tags.getTags();
+  UI.displayTagsForEditing(allTags, handleDeleteTag);
+}
+
+function handleDeleteTag(type, value) {
+  Tags.deleteTag(type, value);
+  Editor.updateTagInExpenses(type, value);
+  // After deleting a tag, we might want to refresh the edit tags UI
+  setTimeout(() => handleEditTags(), 100);
 }
 
 function handleSaveChanges() {

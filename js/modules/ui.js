@@ -13,6 +13,7 @@ export const UI = {
   dataDisplay: document.getElementById('data-display'),
   dataBody: document.getElementById('data-body'),
   tagStatus: document.getElementById('tag-status'),
+  tagList: document.getElementById('tag-list'),
 
   showLogin() {
     this.loginContainer.style.display = 'block';
@@ -57,6 +58,26 @@ export const UI = {
     });
 
     this.dataDisplay.style.display = 'block';
+  },
+
+  displayTagsForEditing(tags, deleteHandler) {
+    this.tagList.innerHTML = '';
+    this.tagList.style.display = 'block';
+
+    for (const type in tags) {
+      const container = document.createElement('div');
+      container.innerHTML = `<h4>${type}</h4>`;
+      tags[type].forEach(tag => {
+        const tagEl = document.createElement('div');
+        tagEl.textContent = tag;
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = 'Delete';
+        deleteButton.addEventListener('click', () => deleteHandler(type, tag));
+        tagEl.appendChild(deleteButton);
+        container.appendChild(tagEl);
+      });
+      this.tagList.appendChild(container);
+    }
   },
 
   getApiKey() {

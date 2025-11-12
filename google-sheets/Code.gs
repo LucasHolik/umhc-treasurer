@@ -27,11 +27,24 @@ function doGet(e) {
     case "updateExpenses":
       response = handleUpdateExpenses(e);
       break;
+    case "deleteTag":
+      response = handleDeleteTag(e);
+      break;
     default:
       response = { success: false, message: "Invalid action" };
   }
 
   return createJsonResponse(response, e.parameter.callback);
+}
+
+function handleDeleteTag(e) {
+  const type = e.parameter.type;
+  const value = e.parameter.value;
+  const deleteResult = _deleteTag(type, value);
+  if (deleteResult.success) {
+    _removeTagFromExpenses(type, value);
+  }
+  return deleteResult;
 }
 
 function handleGetAppData() {

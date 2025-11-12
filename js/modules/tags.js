@@ -39,10 +39,30 @@ function addTag(type, value) {
   });
 }
 
+function deleteTag(type, value) {
+  const index = tags[type].indexOf(value);
+  if (index > -1) {
+    tags[type].splice(index, 1);
+  }
+
+  API.deleteTag(UI.getApiKey(), type, value, (response) => {
+    if (response.success) {
+      UI.showStatusMessage('tag-status', `Tag '${value}' deleted successfully.`, 'success');
+    } else {
+      UI.showStatusMessage('tag-status', `Error deleting tag: ${response.message}`, 'error');
+      // If the server failed to delete, maybe add it back to the local list
+      if (!tags[type].includes(value)) {
+        tags[type].push(value);
+      }
+    }
+  });
+}
+
 export const Tags = {
   getTags: () => tags,
   setTags: (newTags) => {
     tags = newTags;
   },
-  addTag
+  addTag,
+  deleteTag
 };

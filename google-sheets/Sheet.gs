@@ -135,3 +135,31 @@ function handleUpdateExpenses(e) {
     return { success: false, message: "Error updating expenses: " + error.message };
   }
 }
+
+function _removeTagFromExpenses(type, value) {
+  const financeSheet = _getFinanceSheet();
+  const lastRow = financeSheet.getLastRow();
+  if (lastRow <= 1) {
+    return;
+  }
+
+  let column;
+  if (type === "Trip/Event") {
+    column = 5; // Column E
+  } else if (type === "Category") {
+    column = 6; // Column F
+  } else {
+    return;
+  }
+
+  const range = financeSheet.getRange(2, column, lastRow - 1, 1);
+  const values = range.getValues();
+
+  for (let i = 0; i < values.length; i++) {
+    if (values[i][0] === value) {
+      values[i][0] = "";
+    }
+  }
+
+  range.setValues(values);
+}
