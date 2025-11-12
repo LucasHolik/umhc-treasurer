@@ -32,6 +32,8 @@ function handleSaveData(e) {
       financeSheet.getRange(startRow, 1, recordsToAdd.length, 8).setValues(recordsToAdd);
     }
 
+    _sortSheetByDate();
+
     return {
       success: true,
       message: "Successfully added " + recordsToAdd.length + " new records to the sheet.",
@@ -41,6 +43,37 @@ function handleSaveData(e) {
     console.error("Error saving data:", error);
     return { success: false, message: "Error saving data: " + error.message };
   }
+}
+
+function _sortSheetByDate() {
+  const financeSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME);
+  const lastRow = financeSheet.getLastRow();
+
+  if (lastRow <= 1) {
+    return; // No data to sort
+  }
+
+  const range = financeSheet.getRange(2, 1, lastRow - 1, 8);
+  const values = range.getValues();
+
+  const dataWithDateObjects = values.map(row => {
+    const dateString = row[2]; // Date is in the 3rd column (index 2)
+    const parts = dateString.split('-');
+    const dateObject = new Date(parts[0], parts[1] - 1, parts[2]);
+    return {
+      rowData: row,
+      dateObject: dateObject
+    };
+  });
+
+  dataWithDateObjects.sort((a, b) => b.dateObject - a.dateObject);
+
+  const sortedValues = dataWithDateObjects.map(item => item.rowData);
+
+  range.clearContent();
+  const newRange = financeSheet.getRange(2, 1, sortedValues.length, 8);
+  newRange.setValues(sortedValues);
+  newRange.offset(0, 2, sortedValues.length, 1).setNumberFormat('@');
 }
 
 function handleGetData() {

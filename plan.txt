@@ -17,6 +17,7 @@ A web application that allows users to upload financial data from Excel files (.
 
 ### Server-Side (Google Apps Script)
 - **Modular Architecture:** The Google Apps Script code is organized into separate files for the main entry point, configuration, sheet interaction, and authentication.
+- **Automatic Sorting:** The Google Sheet is automatically sorted by date (most recent first) after every data upload, while carefully handling date and timezone conversions.
 - **API Endpoints:** Provides endpoints for login, saving data, and retrieving data.
 - **Batch Operations:** Uses batch operations for efficient Google Sheets updates.
 - **Robust Error Handling:** Includes error handling for all major operations.
