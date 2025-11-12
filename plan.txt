@@ -1,42 +1,23 @@
-# UMHC Finance Hub - Current Implementation
+# UMHC Finance Hub - Refactored Implementation
 
 ## Overview
-A web application that allows users to upload financial data from Excel files (.xlsx) to a Google Sheet, with robust duplicate detection and timezone-safe date handling.
+A web application that allows users to upload financial data from Excel files (.xlsx) to a Google Sheet, with robust duplicate detection and timezone-safe date handling. The application has been refactored to be modular and expandable.
 
 ## Core Features
 
-### Authentication
-- Secure login system using API key stored in Google Sheet
-- JSONP communication with Google Apps Script backend
+### Client-Side (JavaScript)
+- **Modular Architecture:** The JavaScript code is divided into modules for UI, API, Excel parsing, and data handling.
+- **Authentication:** Secure login system using API key stored in Google Sheet.
+- **Excel Processing:** Client-side Excel file parsing using `read-excel-file` library.
+- **Google Sheets Integration:** Uploads data to 'Finances' Google Sheet.
+- **Duplicate Detection:** Client-side duplicate checking to avoid uploading existing records.
+- **Data Processing:** Chunked upload system for large datasets.
+- **Date Handling:** String-only date processing to prevent timezone conversion issues.
+- **User Interface:** Simple login, file upload, and data preview functionality.
 
-### Excel Processing
-- Client-side Excel file parsing using read-excel-file library
-- Maps Excel data (Date, Description, Document, cashIn, cashOut) to Google Sheet columns
-- Normalizes date strings to consistent YYYY-MM-DD format
-
-### Google Sheets Integration
-- Uploads data to 'Finances' Google Sheet with proper column mapping
-- Retrieves existing data for duplicate checking
-- Formats date column as text to prevent automatic date conversion
-
-### Duplicate Detection
-- Client-side duplicate checking to avoid uploading existing records
-- Compares records using Document, Date, Description, Income, and Expense fields
-- String-based comparison with consistent date formatting
-
-### Data Processing
-- Chunked upload system for large datasets to handle URL length limitations
-- Sequential upload processing with progress tracking
-- Server-side batching for efficient Google Sheets operations
-
-### Date Handling
-- String-only date processing to prevent timezone conversion issues
-- Handles multiple date formats (DD/MM/YYYY from Excel, YYYY-MM-DD, ISO strings)
-- Explicit text formatting in Google Sheets prevents auto-conversion to date objects
-- Resolves duplicate detection issues caused by BST/UTC timezone transitions
-
-### User Interface
-- Simple login interface with API key authentication
-- File upload and data preview functionality
-- Data table display with status indicators
-- Progress tracking for upload operations
+### Server-Side (Google Apps Script)
+- **Modular Architecture:** The Google Apps Script code is organized into separate files for the main entry point, configuration, sheet interaction, and authentication.
+- **API Endpoints:** Provides endpoints for login, saving data, and retrieving data.
+- **Batch Operations:** Uses batch operations for efficient Google Sheets updates.
+- **Robust Error Handling:** Includes error handling for all major operations.
+- **JSONP Communication:** Uses JSONP for communication with the client-side application.
