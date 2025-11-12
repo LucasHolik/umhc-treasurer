@@ -12,16 +12,21 @@ let parsedData = [];
 function login() {
   const apiKey = UI.getApiKey();
   if (!apiKey) {
-    UI.showStatusMessage('error-message', 'Please enter a key.', 'error');
+    UI.showLoginStatus('Please enter a key.', 'error');
     return;
   }
 
+  UI.showLoginStatus(null, 'info', true);
+
   API.login(apiKey, (response) => {
     if (response.success) {
-      UI.showMainMenu();
-      setupMainMenuListeners();
+      UI.showLoginStatus('Success!', 'success');
+      setTimeout(() => {
+        UI.showMainMenu();
+        setupMainMenuListeners();
+      }, 1000);
     } else {
-      UI.showStatusMessage('error-message', response.message, 'error');
+      UI.showLoginStatus(response.message, 'error');
     }
   });
 }
@@ -194,6 +199,11 @@ function handleSaveChanges() {
 
 function init() {
   UI.loginButton.addEventListener('click', login);
+  UI.apiKeyInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      login();
+    }
+  });
 }
 
 init();

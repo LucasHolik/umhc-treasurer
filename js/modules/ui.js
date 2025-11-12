@@ -3,8 +3,8 @@
 export const UI = {
   loginButton: document.getElementById('login-button'),
   apiKeyInput: document.getElementById('api-key'),
-  errorMessage: document.getElementById('error-message'),
-  loginContainer: document.getElementById('login-container'),
+  loginStatus: document.getElementById('login-status'),
+  loginContainer: document.querySelector('.login-container'),
   mainMenu: document.getElementById('main-menu'),
   fileUpload: document.getElementById('file-upload'),
   fileContent: document.getElementById('file-content'),
@@ -15,84 +15,117 @@ export const UI = {
   tagStatus: document.getElementById('tag-status'),
   tagList: document.getElementById('tag-list'),
 
-  showLogin() {
-    this.loginContainer.style.display = 'block';
-    this.mainMenu.style.display = 'none';
+  showMainMenu() {
+    if (this.loginContainer) {
+      this.loginContainer.style.display = 'none';
+    }
+    this.mainMenu.style.display = 'block';
   },
 
-  showMainMenu() {
-    this.loginContainer.style.display = 'none';
-    this.mainMenu.style.display = 'block';
+  showLoginStatus(message, type, showLoader = false) {
+    this.loginStatus.innerHTML = ''; // Clear previous content
+
+    if (showLoader) {
+      const loader = document.createElement('div');
+      loader.className = 'loader';
+      this.loginStatus.appendChild(loader);
+    }
+    
+    if (message) {
+      const messageEl = document.createElement('div');
+      messageEl.className = `status-message ${type}`;
+      messageEl.textContent = message;
+      this.loginStatus.appendChild(messageEl);
+    }
+  },
+
+  hideLoginStatus() {
+    this.loginStatus.innerHTML = ''; // Clear the content
   },
 
   showStatusMessage(elementId, message, type) {
     const element = document.getElementById(elementId);
-    element.textContent = message;
-    element.className = `status-message ${type}`;
+    if (element) {
+      element.textContent = message;
+      element.className = `status-message ${type}`;
+      element.style.display = 'block';
+    }
   },
 
   displayDataInTable(data) {
-    this.dataBody.innerHTML = ''; // Clear existing data
+    if (this.dataBody) {
+      this.dataBody.innerHTML = ''; // Clear existing data
 
-    if (data.length === 0) {
-      const row = document.createElement('tr');
-      const cell = document.createElement('td');
-      cell.setAttribute('colspan', 8);
-      cell.textContent = 'No data available';
-      row.appendChild(cell);
-      this.dataBody.appendChild(row);
-      return;
-    }
-
-    data.forEach(item => {
-      const row = document.createElement('tr');
-
-      const columns = ['Document', 'Date', 'Description', 'Trip/Event', 'Category', 'Income', 'Expense', 'Time-uploaded'];
-      columns.forEach(col => {
+      if (data.length === 0) {
+        const row = document.createElement('tr');
         const cell = document.createElement('td');
-        cell.textContent = item[col] || '';
+        cell.setAttribute('colspan', 8);
+        cell.textContent = 'No data available';
         row.appendChild(cell);
+        this.dataBody.appendChild(row);
+        return;
+      }
+
+      data.forEach(item => {
+        const row = document.createElement('tr');
+
+        const columns = ['Document', 'Date', 'Description', 'Trip/Event', 'Category', 'Income', 'Expense', 'Time-uploaded'];
+        columns.forEach(col => {
+          const cell = document.createElement('td');
+          cell.textContent = item[col] || '';
+          row.appendChild(cell);
+        });
+
+        this.dataBody.appendChild(row);
       });
 
-      this.dataBody.appendChild(row);
-    });
-
-    this.dataDisplay.style.display = 'block';
+      if (this.dataDisplay) {
+        this.dataDisplay.style.display = 'block';
+      }
+    }
   },
 
   displayTagsForEditing(tags, deleteHandler) {
-    this.tagList.innerHTML = '';
-    this.tagList.style.display = 'block';
+    if (this.tagList) {
+      this.tagList.innerHTML = '';
+      this.tagList.style.display = 'block';
 
-    for (const type in tags) {
-      const container = document.createElement('div');
-      container.innerHTML = `<h4>${type}</h4>`;
-      tags[type].forEach(tag => {
-        const tagEl = document.createElement('div');
-        tagEl.textContent = tag;
-        const deleteButton = document.createElement('button');
-        deleteButton.textContent = 'Delete';
-        deleteButton.addEventListener('click', () => deleteHandler(type, tag));
-        tagEl.appendChild(deleteButton);
-        container.appendChild(tagEl);
-      });
-      this.tagList.appendChild(container);
+      for (const type in tags) {
+        const container = document.createElement('div');
+        container.innerHTML = `<h4>${type}</h4>`;
+        tags[type].forEach(tag => {
+          const tagEl = document.createElement('div');
+          tagEl.textContent = tag;
+          const deleteButton = document.createElement('button');
+          deleteButton.textContent = 'Delete';
+          deleteButton.addEventListener('click', () => deleteHandler(type, tag));
+          tagEl.appendChild(deleteButton);
+          container.appendChild(tagEl);
+        });
+        this.tagList.appendChild(container);
+      }
     }
   },
 
   getApiKey() {
-    return this.apiKeyInput.value;
+    return this.apiKeyInput?.value;
   },
 
   setFileContent(content) {
-    this.fileContent.textContent = content;
+    if (this.fileContent) {
+      this.fileContent.textContent = content;
+    }
   },
 
   showDataDisplay() {
-    this.dataDisplay.style.display = 'block';
+    if (this.dataDisplay) {
+      this.dataDisplay.style.display = 'block';
+    }
   },
 
   hideDataDisplay() {
-    this.dataDisplay.style.display = 'none';
+    if (this.dataDisplay) {
+      this.dataDisplay.style.display = 'none';
+    }
   }
 };
