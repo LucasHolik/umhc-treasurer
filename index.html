@@ -82,6 +82,7 @@
     <div class="section">
       <h2>Financial Data from Google Sheet</h2>
       <button id="load-from-sheet">Load Data from Google Sheet</button>
+      <button id="view-edit-expenses-button">View/Edit Expenses</button>
       <div id="data-status"></div>
       <div id="data-display" style="display: none;">
         <table id="data-table">
@@ -98,6 +99,38 @@
             </tr>
           </thead>
           <tbody id="data-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="editor-section" style="display: none;">
+      <h2>Edit Expenses</h2>
+      <div class="section">
+        <h3>Add Tags</h3>
+        <input type="text" id="new-trip-event" placeholder="New Trip/Event">
+        <button id="add-trip-event-button">Add Trip/Event</button>
+        <input type="text" id="new-category" placeholder="New Category">
+        <button id="add-category-button">Add Category</button>
+        <div id="tag-status"></div>
+      </div>
+      <div class="section">
+        <button id="save-changes-button">Save Changes</button>
+        <div id="editor-status"></div>
+        <table id="editor-table">
+          <thead>
+            <tr>
+              <th>Row</th>
+              <th>Document</th>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Trip/Event</th>
+              <th>Category</th>
+              <th>Income</th>
+              <th>Expense</th>
+              <th>Time Uploaded</th>
+            </tr>
+          </thead>
+          <tbody id="editor-body"></tbody>
         </table>
       </div>
     </div>

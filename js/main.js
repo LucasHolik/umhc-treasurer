@@ -4,6 +4,8 @@ import { UI } from './modules/ui.js';
 import { API } from './modules/api.js';
 import { Excel } from './modules/excel.js';
 import { Data } from './modules/data.js';
+import { Editor } from './modules/editor.js';
+import { Tags } from './modules/tags.js';
 
 let parsedData = [];
 
@@ -28,6 +30,10 @@ function setupMainMenuListeners() {
   UI.fileUpload.addEventListener('change', handleFileSelect);
   UI.uploadButton.addEventListener('click', handleUpload);
   UI.loadDataButton.addEventListener('click', loadDataFromSheet);
+  document.getElementById('view-edit-expenses-button').addEventListener('click', handleViewEditExpenses);
+  document.getElementById('add-trip-event-button').addEventListener('click', () => handleAddTag('Trip/Event'));
+  document.getElementById('add-category-button').addEventListener('click', () => handleAddTag('Category'));
+  document.getElementById('save-changes-button').addEventListener('click', handleSaveChanges);
 }
 
 function handleFileSelect(event) {
@@ -85,12 +91,15 @@ function uploadNewRecords(newRecords) {
 
   console.log(`Uploading ${newRecords.length} records in ${totalChunks} chunks of ${recordsPerChunk} records each`);
 
-  processChunk(0, newRecords, recordsPerChunk, totalChunks);
+  processChunk(0, newRecords, recordsPerChunk, totalChunks, 'saveData', 'upload-status');
 }
 
-function processChunk(chunkIndex, allRecords, recordsPerChunk, totalChunks) {
+function processChunk(chunkIndex, allRecords, recordsPerChunk, totalChunks, action, statusElementId) {
   if (chunkIndex >= totalChunks) {
-    UI.showStatusMessage('upload-status', `All ${allRecords.length} records uploaded successfully!`, 'success');
+    UI.showStatusMessage(statusElementId, `All ${allRecords.length} records processed successfully!`, 'success');
+    if (action === 'updateExpenses') {
+      Editor.clearChanges();
+    }
     return;
   }
 
@@ -98,16 +107,18 @@ function processChunk(chunkIndex, allRecords, recordsPerChunk, totalChunks) {
   const endIdx = startIdx + recordsPerChunk;
   const recordsForThisChunk = allRecords.slice(startIdx, endIdx);
 
-  UI.showStatusMessage('upload-status', `Uploading chunk ${chunkIndex + 1}/${totalChunks} (${recordsForThisChunk.length} records)...`, 'info');
+  UI.showStatusMessage(statusElementId, `Processing chunk ${chunkIndex + 1}/${totalChunks} (${recordsForThisChunk.length} records)...`, 'info');
 
-  API.saveData(UI.getApiKey(), recordsForThisChunk, (response) => {
+  const apiFunction = action === 'saveData' ? API.saveData : API.updateExpenses;
+
+  apiFunction(UI.getApiKey(), recordsForThisChunk, (response) => {
     if (response.success) {
-      console.log(`Chunk ${chunkIndex + 1} uploaded successfully`);
+      console.log(`Chunk ${chunkIndex + 1} processed successfully`);
       setTimeout(() => {
-        processChunk(chunkIndex + 1, allRecords, recordsPerChunk, totalChunks);
+        processChunk(chunkIndex + 1, allRecords, recordsPerChunk, totalChunks, action, statusElementId);
       }, 100);
     } else {
-      UI.showStatusMessage('upload-status', `Error uploading chunk ${chunkIndex + 1}: ${response.message}`, 'error');
+      UI.showStatusMessage(statusElementId, `Error processing chunk ${chunkIndex + 1}: ${response.message}`, 'error');
     }
   });
 }
@@ -125,6 +136,47 @@ function loadDataFromSheet() {
       UI.showStatusMessage('data-status', response.message, 'error');
     }
   });
+}
+
+function handleViewEditExpenses() {
+  UI.showStatusMessage('editor-status', 'Loading app data...', 'info');
+  document.getElementById('editor-section').style.display = 'block';
+
+  API.getAppData(UI.getApiKey(), (response) => {
+    if (response.success) {
+      UI.showStatusMessage('editor-status', 'Data loaded successfully.', 'success');
+      Tags.setTags(response.data.tags);
+      Editor.render(response.data.expenses);
+    } else {
+      UI.showStatusMessage('editor-status', `Error loading data: ${response.message}`, 'error');
+    }
+  });
+}
+
+function handleAddTag(type) {
+  const inputId = type === 'Trip/Event' ? 'new-trip-event' : 'new-category';
+  const input = document.getElementById(inputId);
+  const value = input.value.trim();
+  if (value) {
+    Tags.addTag(type, value);
+    Editor.rerender();
+    input.value = '';
+  }
+}
+
+function handleSaveChanges() {
+  const changes = Editor.getChanges();
+  if (changes.length === 0) {
+    UI.showStatusMessage('editor-status', 'No changes to save.', 'info');
+    return;
+  }
+
+  const recordsPerChunk = 20;
+  const totalChunks = Math.ceil(changes.length / recordsPerChunk);
+
+  console.log(`Saving ${changes.length} changes in ${totalChunks} chunks of ${recordsPerChunk} records each`);
+
+  processChunk(0, changes, recordsPerChunk, totalChunks, 'updateExpenses', 'editor-status');
 }
 
 function init() {

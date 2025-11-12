@@ -1,5 +1,15 @@
 // google-sheets/Sheet.gs
 
+function _getFinanceSheet() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  let financeSheet = spreadsheet.getSheetByName(CONFIG.SHEET_NAME);
+  if (!financeSheet) {
+    financeSheet = spreadsheet.insertSheet(CONFIG.SHEET_NAME);
+    financeSheet.appendRow(CONFIG.HEADERS);
+  }
+  return financeSheet;
+}
+
 function handleSaveData(e) {
   try {
     const data = JSON.parse(e.parameter.data || "[]");
@@ -8,11 +18,7 @@ function handleSaveData(e) {
       return { success: true, message: "No data to save.", added: 0 };
     }
 
-    const financeSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME);
-
-    if (financeSheet.getLastRow() === 0) {
-      financeSheet.appendRow(CONFIG.HEADERS);
-    }
+    const financeSheet = _getFinanceSheet();
 
     const startRow = financeSheet.getLastRow() + 1;
     const recordsToAdd = data.map((row) => [
@@ -46,7 +52,7 @@ function handleSaveData(e) {
 }
 
 function _sortSheetByDate() {
-  const financeSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME);
+  const financeSheet = _getFinanceSheet();
   const lastRow = financeSheet.getLastRow();
 
   if (lastRow <= 1) {
@@ -78,7 +84,7 @@ function _sortSheetByDate() {
 
 function handleGetData() {
   try {
-    const financeSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME);
+    const financeSheet = _getFinanceSheet();
     const lastRow = financeSheet.getLastRow();
 
     if (lastRow <= 1) {
@@ -88,8 +94,8 @@ function handleGetData() {
     const range = financeSheet.getRange(2, 1, lastRow - 1, 8);
     const values = range.getValues();
 
-    const data = values.map((row) => {
-      const obj = {};
+    const data = values.map((row, index) => {
+      const obj = { row: index + 2 }; // Add row number for unique identification
       for (let i = 0; i < CONFIG.HEADERS.length; i++) {
         obj[CONFIG.HEADERS[i]] = row[i];
       }
@@ -103,5 +109,29 @@ function handleGetData() {
   } catch (error) {
     console.error("Error getting data:", error);
     return { success: false, message: "Error getting data: " + error.message };
+  }
+}
+
+function handleUpdateExpenses(e) {
+  try {
+    const updates = JSON.parse(e.parameter.data || "[]");
+    if (updates.length === 0) {
+      return { success: true, message: "No updates to save." };
+    }
+
+    const financeSheet = _getFinanceSheet();
+
+    updates.forEach(update => {
+      const row = update.row;
+      if (row) {
+        financeSheet.getRange(row, 5).setValue(update.tripEvent); // Column 5 is Trip/Event
+        financeSheet.getRange(row, 6).setValue(update.category);  // Column 6 is Category
+      }
+    });
+
+    return { success: true, message: "Expenses updated successfully." };
+  } catch (error) {
+    console.error("Error updating expenses:", error);
+    return { success: false, message: "Error updating expenses: " + error.message };
   }
 }

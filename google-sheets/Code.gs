@@ -18,11 +18,26 @@ function doGet(e) {
     case "getData":
       response = handleGetData();
       break;
+    case "getAppData":
+      response = handleGetAppData();
+      break;
+    case "addTag":
+      response = _addTag(e.parameter.type, e.parameter.value);
+      break;
+    case "updateExpenses":
+      response = handleUpdateExpenses(e);
+      break;
     default:
       response = { success: false, message: "Invalid action" };
   }
 
   return createJsonResponse(response, e.parameter.callback);
+}
+
+function handleGetAppData() {
+  const expenses = handleGetData();
+  const tags = _getTags();
+  return { success: true, data: { expenses: expenses.data, tags: tags } };
 }
 
 function createJsonResponse(data, callback) {

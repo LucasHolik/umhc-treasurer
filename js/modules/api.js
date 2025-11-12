@@ -28,9 +28,25 @@ export const API = {
     jsonpRequest(url, callback);
   },
 
+  getAppData(apiKey, callback) {
+    const url = `${SCRIPT_URL}?action=getAppData&apiKey=${encodeURIComponent(apiKey)}`;
+    jsonpRequest(url, callback);
+  },
+
   saveData(apiKey, data, callback) {
     const stringifiedData = JSON.stringify(data);
     const url = `${SCRIPT_URL}?action=saveData&apiKey=${encodeURIComponent(apiKey)}&data=${encodeURIComponent(stringifiedData)}`;
+    jsonpRequest(url, callback);
+  },
+
+  addTag(apiKey, type, value, callback) {
+    const url = `${SCRIPT_URL}?action=addTag&apiKey=${encodeURIComponent(apiKey)}&type=${encodeURIComponent(type)}&value=${encodeURIComponent(value)}`;
+    jsonpRequest(url, callback);
+  },
+
+  updateExpenses(apiKey, data, callback) {
+    const stringifiedData = JSON.stringify(data);
+    const url = `${SCRIPT_URL}?action=updateExpenses&apiKey=${encodeURIComponent(apiKey)}&data=${encodeURIComponent(stringifiedData)}`;
     jsonpRequest(url, callback);
   }
 };

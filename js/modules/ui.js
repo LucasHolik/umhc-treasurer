@@ -12,6 +12,7 @@ export const UI = {
   loadDataButton: document.getElementById('load-from-sheet'),
   dataDisplay: document.getElementById('data-display'),
   dataBody: document.getElementById('data-body'),
+  tagStatus: document.getElementById('tag-status'),
 
   showLogin() {
     this.loginContainer.style.display = 'block';
