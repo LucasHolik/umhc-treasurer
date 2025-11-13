@@ -127,6 +127,20 @@ function parseDate(dateString) {
   return date;
 }
 
+// Function to convert timeframe value to readable label
+function getTimeframeLabel(timeframe) {
+  const labels = {
+    'current_month': 'Current Month',
+    'past_30_days': 'Past 30 Days',
+    'past_3_months': 'Past 3 Months',
+    'past_6_months': 'Past 6 Months',
+    'past_year': 'Past Year',
+    'all_time': 'All Time'
+  };
+
+  return labels[timeframe] || 'Past 30 Days'; // Default fallback
+}
+
 function filterTransactionsByTimeframe(transactions, timeframe) {
   if (!transactions || transactions.length === 0) return [];
 
@@ -173,6 +187,9 @@ function loadDashboardData(timeframe = 'past_30_days') {
   // Show loading placeholder and hide loaded content
   showDashboardLoadingPlaceholder(true);
 
+  // Update dashboard title with the selected timeframe
+  updateDashboardTitle(timeframe);
+
   // Check if we already have cached data
   if (cachedData !== null && cachedOpeningBalance !== null) {
     // Use cached data
@@ -213,6 +230,15 @@ function loadDashboardData(timeframe = 'past_30_days') {
       }
     });
   });
+}
+
+// Function to update the dashboard title with the selected timeframe
+function updateDashboardTitle(timeframe) {
+  const pageTitle = document.getElementById('page-title');
+  if (pageTitle) {
+    const timeframeLabel = getTimeframeLabel(timeframe);
+    pageTitle.textContent = `Dashboard - ${timeframeLabel}`;
+  }
 }
 
 // Function to manually refresh data from API
@@ -272,11 +298,12 @@ function calculateAndDisplayStats(data, openingBalance = 0, timeframe = 'past_30
   });
 
   const currentBalance = openingBalance + allTimeTotalIncome - allTimeTotalExpenses;
+  const netChange = totalIncome - totalExpenses; // Net income/net change for the selected timeframe
 
   document.getElementById('current-balance').textContent = `£${currentBalance.toFixed(2)}`;
   document.getElementById('total-income').textContent = `£${totalIncome.toFixed(2)}`;
   document.getElementById('total-expenses').textContent = `£${totalExpenses.toFixed(2)}`;
-  document.getElementById('recent-transactions').textContent = filteredData.length;
+  document.getElementById('recent-transactions').textContent = `£${netChange.toFixed(2)}`; // Show net change instead of transaction count
 
   // Display recent transactions based on the selected timeframe
   displayRecentTransactions(filteredData, timeframe);
@@ -303,6 +330,9 @@ function displayRecentTransactions(transactions, timeframe) {
   } else {
     displayTransactions = sortedTransactions; // Show all transactions in the selected timeframe
   }
+
+  // Update the transaction count in the section header
+  updateTransactionCountHeader(transactions.length, timeframe);
 
   const recentContainer = document.getElementById('recent-transactions-content');
   if (recentContainer) {
@@ -335,6 +365,36 @@ function displayRecentTransactions(transactions, timeframe) {
     } else {
       recentContainer.textContent = 'No transactions found in selected timeframe';
     }
+  }
+}
+
+// Function to update the transaction count in the section header
+function updateTransactionCountHeader(count, timeframe) {
+  // Update the main header back to just "Transactions"
+  const headerElement = document.querySelector('.transactions-header h2');
+  if (headerElement) {
+    headerElement.textContent = `Transactions`;
+  }
+
+  // Add the transaction count as a small italicized subtitle below
+  const transactionsHeader = document.querySelector('.transactions-header');
+  if (transactionsHeader) {
+    // Remove any existing count element
+    const existingCountElement = document.querySelector('.transaction-count-subtitle');
+    if (existingCountElement) {
+      existingCountElement.remove();
+    }
+
+    // Create new element for the count
+    const countElement = document.createElement('div');
+    countElement.className = 'transaction-count-subtitle';
+
+    const timeframeLabel = getTimeframeLabel(timeframe).toLowerCase();
+    const transactionWord = count === 1 ? 'transaction' : 'transactions';
+    countElement.textContent = `${count} ${transactionWord} in the ${timeframeLabel}`;
+
+    // Insert after the h2 element
+    transactionsHeader.appendChild(countElement);
   }
 }
 
@@ -597,7 +657,15 @@ function setActiveNavItem(tabName) {
     // Update page title to match the active tab
     const pageTitle = document.getElementById('page-title');
     if (pageTitle) {
-      pageTitle.textContent = targetNavItem.querySelector('.nav-text').textContent;
+      if (tabName === 'dashboard') {
+        // For dashboard, include the timeframe in the title
+        const timeframeSelect = document.getElementById('timeframe-select');
+        const selectedTimeframe = timeframeSelect ? timeframeSelect.value : 'past_30_days';
+        const timeframeLabel = getTimeframeLabel(selectedTimeframe);
+        pageTitle.textContent = `Dashboard - ${timeframeLabel}`;
+      } else {
+        pageTitle.textContent = targetNavItem.querySelector('.nav-text').textContent;
+      }
     }
 
     // If switching to dashboard, update the stats
