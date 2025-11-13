@@ -23,7 +23,12 @@ function login() {
       UI.showLoginStatus('Success!', 'success');
       setTimeout(() => {
         UI.showMainMenu();
+        initializeTabNavigation(); // Initialize tab navigation first
         setupMainMenuListeners();
+        // Force dashboard to be active and refresh data
+        showTabContent('dashboard');
+        setActiveNavItem('dashboard');
+        loadDashboardData();
       }, 1000);
     } else {
       UI.showLoginStatus(response.message, 'error');
@@ -32,14 +37,121 @@ function login() {
 }
 
 function setupMainMenuListeners() {
-  UI.fileUpload.addEventListener('change', handleFileSelect);
-  UI.uploadButton.addEventListener('click', handleUpload);
-  UI.loadDataButton.addEventListener('click', loadDataFromSheet);
-  document.getElementById('view-edit-expenses-button').addEventListener('click', handleViewEditExpenses);
-  document.getElementById('add-trip-event-button').addEventListener('click', () => handleAddTag('Trip/Event'));
-  document.getElementById('add-category-button').addEventListener('click', () => handleAddTag('Category'));
-  document.getElementById('edit-tags-button').addEventListener('click', handleEditTags);
-  document.getElementById('save-changes-button').addEventListener('click', handleSaveChanges);
+  // Set up event listeners for elements that exist in the current UI
+  if (UI.fileUpload) UI.fileUpload.addEventListener('change', handleFileSelect);
+  if (UI.uploadButton) UI.uploadButton.addEventListener('click', handleUpload);
+  if (UI.loadDataButton) UI.loadDataButton.addEventListener('click', loadDataFromSheet);
+  
+  // Use document.getElementById for elements not in the UI object
+  const viewEditExpensesBtn = document.getElementById('view-edit-expenses-button');
+  if (viewEditExpensesBtn) viewEditExpensesBtn.addEventListener('click', handleViewEditExpenses);
+  
+  const addTripEventBtn = document.getElementById('add-trip-event-button');
+  if (addTripEventBtn) addTripEventBtn.addEventListener('click', () => handleAddTag('Trip/Event'));
+  
+  const addCategoryBtn = document.getElementById('add-category-button');
+  if (addCategoryBtn) addCategoryBtn.addEventListener('click', () => handleAddTag('Category'));
+  
+  const editTagsBtn = document.getElementById('edit-tags-button');
+  if (editTagsBtn) editTagsBtn.addEventListener('click', handleEditTags);
+  
+  const saveChangesBtn = document.getElementById('save-changes-button');
+  if (saveChangesBtn) saveChangesBtn.addEventListener('click', handleSaveChanges);
+  
+  // Initialize dashboard with stats
+  loadDashboardData();
+}
+
+function loadDashboardData() {
+  // Show loading indicator
+  showDashboardLoading(true);
+  
+  // This will be expanded later to load actual data from the API
+  API.getData(UI.getApiKey(), (response) => {
+    // Hide loading indicator regardless of success or failure
+    showDashboardLoading(false);
+    
+    if (response.success) {
+      const data = response.data;
+      calculateAndDisplayStats(data);
+    } else {
+      // Handle error case
+      document.getElementById('current-balance').textContent = '$0.00';
+      document.getElementById('total-income').textContent = '$0.00';
+      document.getElementById('total-expenses').textContent = '$0.00';
+      document.getElementById('recent-transactions').textContent = '0';
+      
+      const recentContainer = document.getElementById('recent-transactions-content');
+      if (recentContainer) {
+        recentContainer.innerHTML = '<p>Error loading data. Please try again later.</p>';
+      }
+    }
+  });
+}
+
+function showDashboardLoading(show) {
+  const loaderOverlay = document.getElementById('dashboard-loader-overlay');
+  if (loaderOverlay) {
+    loaderOverlay.style.display = show ? 'flex' : 'none';
+  }
+}
+
+function calculateAndDisplayStats(data) {
+  let totalIncome = 0;
+  let totalExpenses = 0;
+  
+  data.forEach(item => {
+    if (item.Income && !isNaN(parseFloat(item.Income))) {
+      totalIncome += parseFloat(item.Income);
+    }
+    if (item.Expense && !isNaN(parseFloat(item.Expense))) {
+      totalExpenses += parseFloat(item.Expense);
+    }
+  });
+  
+  const currentBalance = totalIncome - totalExpenses;
+  
+  document.getElementById('current-balance').textContent = `$${currentBalance.toFixed(2)}`;
+  document.getElementById('total-income').textContent = `$${totalIncome.toFixed(2)}`;
+  document.getElementById('total-expenses').textContent = `$${totalExpenses.toFixed(2)}`;
+  document.getElementById('recent-transactions').textContent = data.length;
+  
+  // Display recent transactions
+  const recentContainer = document.getElementById('recent-transactions-content');
+  if (recentContainer) {
+    recentContainer.innerHTML = '';
+    
+    // Sort by date to get most recent first (simplified approach)
+    const recentTransactions = data.slice(0, 5); // Get first 5 as example
+    
+    if (recentTransactions.length > 0) {
+      const table = document.createElement('table');
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${recentTransactions.map(item => {
+            const amount = item.Income ? `+${item.Income}` : `-${item.Expense}`;
+            return `
+              <tr>
+                <td>${item.Date || 'N/A'}</td>
+                <td>${item.Description || 'N/A'}</td>
+                <td>${amount || 'N/A'}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      `;
+      recentContainer.appendChild(table);
+    } else {
+      recentContainer.textContent = 'No transactions found';
+    }
+  }
 }
 
 function handleFileSelect(event) {
@@ -195,6 +307,59 @@ function handleSaveChanges() {
   console.log(`Saving ${changes.length} changes in ${totalChunks} chunks of ${recordsPerChunk} records each`);
 
   processChunk(0, changes, recordsPerChunk, totalChunks, 'updateExpenses', 'editor-status');
+}
+
+// Initialize tab navigation for sidebar
+function initializeTabNavigation() {
+  const navItems = document.querySelectorAll('.nav-item');
+  
+  navItems.forEach(item => {
+    item.addEventListener('click', function(e) {
+      e.preventDefault();
+      
+      const targetTab = this.getAttribute('data-tab');
+      
+      // Set active nav item and update content
+      setActiveNavItem(targetTab);
+      
+      // Show target tab content
+      showTabContent(targetTab);
+    });
+  });
+}
+
+// Function to set active navigation item
+function setActiveNavItem(tabName) {
+  // Remove active class from all nav items
+  document.querySelectorAll('.nav-item').forEach(navItem => {
+    navItem.classList.remove('active');
+  });
+  
+  // Add active class to the selected nav item
+  const targetNavItem = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
+  if (targetNavItem) {
+    targetNavItem.classList.add('active');
+    
+    // Update page title to match the active tab
+    const pageTitle = document.getElementById('page-title');
+    if (pageTitle) {
+      pageTitle.textContent = targetNavItem.querySelector('.nav-text').textContent;
+    }
+  }
+}
+
+// Function to show specific tab content
+function showTabContent(tabName) {
+  // Hide all tab contents
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.remove('active');
+  });
+  
+  // Show the selected tab content
+  const targetContent = document.getElementById(`${tabName}-content`);
+  if (targetContent) {
+    targetContent.classList.add('active');
+  }
 }
 
 function init() {

@@ -19,7 +19,7 @@ export const UI = {
     if (this.loginContainer) {
       this.loginContainer.style.display = 'none';
     }
-    this.mainMenu.style.display = 'block';
+    this.mainMenu.style.display = 'flex'; // Use flex to match the CSS display property
   },
 
   showLoginStatus(message, type, showLoader = false) {

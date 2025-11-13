@@ -18,76 +18,179 @@
     </div>
   </div>
 
-  <div id="main-menu" style="display: none;">
-    <h1>Main Menu</h1>
-    
-    <div class="section">
-      <h2>Upload Financial Data</h2>
-      <input type="file" id="file-upload" accept=".xlsx">
-      <button id="upload-to-sheet">Upload to Google Sheet</button>
-      <div id="upload-status"></div>
-    </div>
-    
-    <div class="section">
-      <h2>Extracted File Content:</h2>
-      <pre id="file-content"></pre>
-    </div>
-    
-    <div class="section">
-      <h2>Financial Data from Google Sheet</h2>
-      <button id="load-from-sheet">Load Data from Google Sheet</button>
-      <button id="view-edit-expenses-button">View/Edit Expenses</button>
-      <div id="data-status"></div>
-      <div id="data-display" style="display: none;">
-        <table id="data-table">
-          <thead>
-            <tr>
-              <th>Document</th>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Trip/Event</th>
-              <th>Category</th>
-              <th>Income</th>
-              <th>Expense</th>
-              <th>Time Uploaded</th>
-            </tr>
-          </thead>
-          <tbody id="data-body"></tbody>
-        </table>
+  <div id="main-menu" class="main-menu-container" style="display: none;">
+    <div class="sidebar">
+      <div class="logo-section">
+        <img src="Logo.jpg" alt="UMHC Logo" class="sidebar-logo">
+        <h2>UMHC Treasurer</h2>
       </div>
+      <nav class="nav-menu">
+        <ul>
+          <li class="nav-item active" data-tab="dashboard">
+            <a href="#" class="nav-link">
+              <span class="nav-icon">📊</span>
+              <span class="nav-text">Dashboard</span>
+            </a>
+          </li>
+          <li class="nav-item" data-tab="upload">
+            <a href="#" class="nav-link">
+              <span class="nav-icon">📤</span>
+              <span class="nav-text">Upload Data</span>
+            </a>
+          </li>
+          <li class="nav-item" data-tab="tags">
+            <a href="#" class="nav-link">
+              <span class="nav-icon">🏷️</span>
+              <span class="nav-text">Manage Tags</span>
+            </a>
+          </li>
+          <li class="nav-item" data-tab="analysis">
+            <a href="#" class="nav-link">
+              <span class="nav-icon">📈</span>
+              <span class="nav-text">Analysis</span>
+            </a>
+          </li>
+          <li class="nav-item" data-tab="transactions">
+            <a href="#" class="nav-link">
+              <span class="nav-icon">📋</span>
+              <span class="nav-text">Transactions</span>
+            </a>
+          </li>
+          <li class="nav-item" data-tab="reports">
+            <a href="#" class="nav-link">
+              <span class="nav-icon">📊</span>
+              <span class="nav-text">Reports</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
     </div>
+    
+    <div class="main-content">
+      <header class="main-header">
+        <h1 id="page-title">Dashboard</h1>
+      </header>
+      
+      <div class="content-wrapper">
+        <!-- Dashboard Content -->
+        <div id="dashboard-content" class="tab-content active">
+          <div class="loading-content" id="dashboard-content-wrapper">
+            <div class="stats-container">
+              <div class="stat-card">
+                <h3>Current Balance</h3>
+                <p class="stat-value" id="current-balance">$0.00</p>
+              </div>
+              <div class="stat-card">
+                <h3>Total Income</h3>
+                <p class="stat-value" id="total-income">$0.00</p>
+              </div>
+              <div class="stat-card">
+                <h3>Total Expenses</h3>
+                <p class="stat-value" id="total-expenses">$0.00</p>
+              </div>
+              <div class="stat-card">
+                <h3>Recent Transactions</h3>
+                <p class="stat-value" id="recent-transactions">0</p>
+              </div>
+            </div>
+            
+            <div class="section">
+              <h2>Recent Transactions</h2>
+              <div id="recent-transactions-content">
+                <p>Loading data...</p>
+              </div>
+            </div>
+          </div>
+          <div class="loading-overlay" id="dashboard-loader-overlay" style="display: none;">
+            <div class="loader"></div>
+          </div>
+        </div>
+        
+        <!-- Upload Data Content -->
+        <div id="upload-content" class="tab-content">
+          <div class="section">
+            <h2>Upload Financial Data</h2>
+            <input type="file" id="file-upload" accept=".xlsx">
+            <button id="upload-to-sheet">Upload to Google Sheet</button>
+            <div id="upload-status"></div>
+          </div>
 
-    <div id="editor-section" style="display: none;">
-      <h2>Edit Expenses</h2>
-      <div class="section">
-        <h3>Add Tags</h3>
-        <input type="text" id="new-trip-event" placeholder="New Trip/Event">
-        <button id="add-trip-event-button">Add Trip/Event</button>
-        <input type="text" id="new-category" placeholder="New Category">
-        <button id="add-category-button">Add Category</button>
-        <button id="edit-tags-button">Edit Tags</button>
-        <div id="tag-status"></div>
-        <div id="tag-list" style="display: none;"></div>
-      </div>
-      <div class="section">
-        <button id="save-changes-button">Save Changes</button>
-        <div id="editor-status"></div>
-        <table id="editor-table">
-          <thead>
-            <tr>
-              <th>Row</th>
-              <th>Document</th>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Trip/Event</th>
-              <th>Category</th>
-              <th>Income</th>
-              <th>Expense</th>
-              <th>Time Uploaded</th>
-            </tr>
-          </thead>
-          <tbody id="editor-body"></tbody>
-        </table>
+          <div class="section">
+            <h2>Extracted File Content:</h2>
+            <pre id="file-content"></pre>
+          </div>
+        </div>
+        
+        <!-- Manage Tags Content -->
+        <div id="tags-content" class="tab-content">
+          <div class="section">
+            <h2>Add New Tag</h2>
+            <div class="input-group">
+              <input type="text" id="new-trip-event" placeholder="New Trip/Event">
+              <button id="add-trip-event-button">Add Trip/Event</button>
+            </div>
+            <div class="input-group">
+              <input type="text" id="new-category" placeholder="New Category">
+              <button id="add-category-button">Add Category</button>
+            </div>
+          </div>
+          
+          <div class="section">
+            <h2>Manage Existing Tags</h2>
+            <button id="edit-tags-button">Edit Tags</button>
+            <div id="tag-status"></div>
+            <div id="tag-list" style="display: none;"></div>
+          </div>
+        </div>
+        
+        <!-- Analysis Content -->
+        <div id="analysis-content" class="tab-content">
+          <div class="section">
+            <h2>Financial Analysis</h2>
+            <p>Interactive charts and graphs will be displayed here.</p>
+            <div id="analysis-placeholder">
+              <p>Analysis tools and visualizations will be implemented here.</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Transactions Content -->
+        <div id="transactions-content" class="tab-content">
+          <div class="section">
+            <h2>All Transactions</h2>
+            <button id="load-from-sheet">Load Data from Google Sheet</button>
+            <button id="view-edit-expenses-button">View/Edit Expenses</button>
+            <div id="data-status"></div>
+            <div id="data-display" style="display: none;">
+              <table id="data-table">
+                <thead>
+                  <tr>
+                    <th>Document</th>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Trip/Event</th>
+                    <th>Category</th>
+                    <th>Income</th>
+                    <th>Expense</th>
+                    <th>Time Uploaded</th>
+                  </tr>
+                </thead>
+                <tbody id="data-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Reports Content -->
+        <div id="reports-content" class="tab-content">
+          <div class="section">
+            <h2>Reports</h2>
+            <p>Generate various financial reports here.</p>
+            <div id="reports-placeholder">
+              <p>Report generation tools will be implemented here.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
