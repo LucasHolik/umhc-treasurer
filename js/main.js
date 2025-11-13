@@ -67,8 +67,8 @@ function setupMainMenuListeners() {
 }
 
 function loadDashboardData() {
-  // Show loading indicator
-  showDashboardLoading(true);
+  // Show loading placeholder and hide loaded content
+  showDashboardLoadingPlaceholder(true);
   
   // Load opening balance first, then the transaction data
   API.getOpeningBalance(UI.getApiKey(), (balanceResponse) => {
@@ -80,14 +80,14 @@ function loadDashboardData() {
     
     // Now load the transaction data
     API.getData(UI.getApiKey(), (response) => {
-      // Hide loading indicator regardless of success or failure
-      showDashboardLoading(false);
+      // Hide loading placeholder and show loaded content
+      showDashboardLoadingPlaceholder(false);
       
       if (response.success) {
         const data = response.data;
         calculateAndDisplayStats(data, openingBalance);
       } else {
-        // Handle error case
+        // Handle error case - still show the dashboard but with error info
         document.getElementById('current-balance').textContent = `£${openingBalance.toFixed(2)}`;
         document.getElementById('total-income').textContent = '£0.00';
         document.getElementById('total-expenses').textContent = '£0.00';
@@ -106,6 +106,19 @@ function showDashboardLoading(show) {
   const loaderOverlay = document.getElementById('dashboard-loader-overlay');
   if (loaderOverlay) {
     loaderOverlay.style.display = show ? 'flex' : 'none';
+  }
+}
+
+function showDashboardLoadingPlaceholder(show) {
+  const loadingPlaceholder = document.getElementById('dashboard-loading-placeholder');
+  const loadedContent = document.getElementById('dashboard-loaded-content');
+  
+  if (loadingPlaceholder) {
+    loadingPlaceholder.style.display = show ? 'flex' : 'none';
+  }
+  
+  if (loadedContent) {
+    loadedContent.style.display = show ? 'none' : 'block';
   }
 }
 

@@ -81,29 +81,35 @@
         <!-- Dashboard Content -->
         <div id="dashboard-content" class="tab-content active">
           <div class="loading-content" id="dashboard-content-wrapper">
-            <div class="stats-container">
-              <div class="stat-card">
-                <h3>Current Balance</h3>
-                <p class="stat-value" id="current-balance">$0.00</p>
-              </div>
-              <div class="stat-card">
-                <h3>Total Income</h3>
-                <p class="stat-value" id="total-income">$0.00</p>
-              </div>
-              <div class="stat-card">
-                <h3>Total Expenses</h3>
-                <p class="stat-value" id="total-expenses">$0.00</p>
-              </div>
-              <div class="stat-card">
-                <h3>Recent Transactions</h3>
-                <p class="stat-value" id="recent-transactions">0</p>
-              </div>
+            <div id="dashboard-loading-placeholder" class="dashboard-loading-placeholder">
+              <div class="loader"></div>
+              <p>Loading expenses...</p>
             </div>
-            
-            <div class="section">
-              <h2>Recent Transactions</h2>
-              <div id="recent-transactions-content">
-                <p>Loading data...</p>
+            <div id="dashboard-loaded-content" style="display: none;">
+              <div class="stats-container">
+                <div class="stat-card">
+                  <h3>Current Balance</h3>
+                  <p class="stat-value" id="current-balance">£0.00</p>
+                </div>
+                <div class="stat-card">
+                  <h3>Total Income</h3>
+                  <p class="stat-value" id="total-income">£0.00</p>
+                </div>
+                <div class="stat-card">
+                  <h3>Total Expenses</h3>
+                  <p class="stat-value" id="total-expenses">£0.00</p>
+                </div>
+                <div class="stat-card">
+                  <h3>Recent Transactions</h3>
+                  <p class="stat-value" id="recent-transactions">0</p>
+                </div>
+              </div>
+              
+              <div class="section">
+                <h2>Recent Transactions</h2>
+                <div id="recent-transactions-content">
+                  <p>Loading data...</p>
+                </div>
               </div>
             </div>
           </div>
