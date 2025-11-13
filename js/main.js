@@ -20,7 +20,6 @@ function login() {
 
   API.login(apiKey, (response) => {
     if (response.success) {
-      UI.showLoginStatus('Success!', 'success');
       setTimeout(() => {
         UI.showMainMenu();
         initializeTabNavigation(); // Initialize tab navigation first
@@ -41,27 +40,27 @@ function setupMainMenuListeners() {
   if (UI.fileUpload) UI.fileUpload.addEventListener('change', handleFileSelect);
   if (UI.uploadButton) UI.uploadButton.addEventListener('click', handleUpload);
   if (UI.loadDataButton) UI.loadDataButton.addEventListener('click', loadDataFromSheet);
-  
+
   // Use document.getElementById for elements not in the UI object
   const viewEditExpensesBtn = document.getElementById('view-edit-expenses-button');
   if (viewEditExpensesBtn) viewEditExpensesBtn.addEventListener('click', handleViewEditExpenses);
-  
+
   const addTripEventBtn = document.getElementById('add-trip-event-button');
   if (addTripEventBtn) addTripEventBtn.addEventListener('click', () => handleAddTag('Trip/Event'));
-  
+
   const addCategoryBtn = document.getElementById('add-category-button');
   if (addCategoryBtn) addCategoryBtn.addEventListener('click', () => handleAddTag('Category'));
-  
+
   const editTagsBtn = document.getElementById('edit-tags-button');
   if (editTagsBtn) editTagsBtn.addEventListener('click', handleEditTags);
-  
+
   const saveChangesBtn = document.getElementById('save-changes-button');
   if (saveChangesBtn) saveChangesBtn.addEventListener('click', handleSaveChanges);
-  
+
   // Add settings event listeners
   const saveOpeningBalanceBtn = document.getElementById('save-opening-balance');
   if (saveOpeningBalanceBtn) saveOpeningBalanceBtn.addEventListener('click', saveOpeningBalance);
-  
+
   // Initialize dashboard with stats
   loadDashboardData();
 }
@@ -69,20 +68,20 @@ function setupMainMenuListeners() {
 function loadDashboardData() {
   // Show loading placeholder and hide loaded content
   showDashboardLoadingPlaceholder(true);
-  
+
   // Load opening balance first, then the transaction data
   API.getOpeningBalance(UI.getApiKey(), (balanceResponse) => {
     let openingBalance = 0; // Default to 0 if not found
-    
+
     if (balanceResponse.success) {
       openingBalance = parseFloat(balanceResponse.balance) || 0;
     }
-    
+
     // Now load the transaction data
     API.getData(UI.getApiKey(), (response) => {
       // Hide loading placeholder and show loaded content
       showDashboardLoadingPlaceholder(false);
-      
+
       if (response.success) {
         const data = response.data;
         calculateAndDisplayStats(data, openingBalance);
@@ -92,7 +91,7 @@ function loadDashboardData() {
         document.getElementById('total-income').textContent = '£0.00';
         document.getElementById('total-expenses').textContent = '£0.00';
         document.getElementById('recent-transactions').textContent = '0';
-        
+
         const recentContainer = document.getElementById('recent-transactions-content');
         if (recentContainer) {
           recentContainer.innerHTML = '<p>Error loading data. Please try again later.</p>';
@@ -112,11 +111,11 @@ function showDashboardLoading(show) {
 function showDashboardLoadingPlaceholder(show) {
   const loadingPlaceholder = document.getElementById('dashboard-loading-placeholder');
   const loadedContent = document.getElementById('dashboard-loaded-content');
-  
+
   if (loadingPlaceholder) {
     loadingPlaceholder.style.display = show ? 'flex' : 'none';
   }
-  
+
   if (loadedContent) {
     loadedContent.style.display = show ? 'none' : 'block';
   }
@@ -125,7 +124,7 @@ function showDashboardLoadingPlaceholder(show) {
 function calculateAndDisplayStats(data, openingBalance = 0) {
   let totalIncome = 0;
   let totalExpenses = 0;
-  
+
   data.forEach(item => {
     if (item.Income && !isNaN(parseFloat(item.Income))) {
       totalIncome += parseFloat(item.Income);
@@ -134,22 +133,22 @@ function calculateAndDisplayStats(data, openingBalance = 0) {
       totalExpenses += parseFloat(item.Expense);
     }
   });
-  
+
   const currentBalance = openingBalance + totalIncome - totalExpenses; // Include opening balance
-  
+
   document.getElementById('current-balance').textContent = `£${currentBalance.toFixed(2)}`;
   document.getElementById('total-income').textContent = `£${totalIncome.toFixed(2)}`;
   document.getElementById('total-expenses').textContent = `£${totalExpenses.toFixed(2)}`;
   document.getElementById('recent-transactions').textContent = data.length;
-  
+
   // Display recent transactions
   const recentContainer = document.getElementById('recent-transactions-content');
   if (recentContainer) {
     recentContainer.innerHTML = '';
-    
+
     // Sort by date to get most recent first (simplified approach)
     const recentTransactions = data.slice(0, 5); // Get first 5 as example
-    
+
     if (recentTransactions.length > 0) {
       const table = document.createElement('table');
       table.innerHTML = `
@@ -213,7 +212,7 @@ function uploadDataToSheet(data) {
   API.getData(UI.getApiKey(), (response) => {
     if (response.success) {
       UI.showStatusMessage('upload-status', `Found ${response.data.length} existing records. Checking for duplicates...`, 'info');
-      
+
       const existingData = response.data;
       const newRecords = Data.findUniqueRecords(data, existingData);
 
@@ -339,13 +338,13 @@ function saveOpeningBalance() {
   const openingBalanceInput = document.getElementById('opening-balance');
   const balanceValue = openingBalanceInput.value;
   const settingsStatus = document.getElementById('settings-status');
-  
+
   if (!balanceValue) {
     settingsStatus.textContent = 'Please enter an opening balance.';
     settingsStatus.className = 'status-message error';
     return;
   }
-  
+
   // Validate that it's a number
   const balanceNum = parseFloat(balanceValue);
   if (isNaN(balanceNum)) {
@@ -353,10 +352,10 @@ function saveOpeningBalance() {
     settingsStatus.className = 'status-message error';
     return;
   }
-  
+
   settingsStatus.textContent = 'Saving...';
   settingsStatus.className = 'status-message info';
-  
+
   API.saveOpeningBalance(UI.getApiKey(), balanceValue, (response) => {
     if (response.success) {
       settingsStatus.textContent = 'Opening balance saved successfully!';
@@ -384,19 +383,19 @@ function loadOpeningBalance() {
 // Initialize tab navigation for sidebar
 function initializeTabNavigation() {
   const navItems = document.querySelectorAll('.nav-item');
-  
+
   navItems.forEach(item => {
     item.addEventListener('click', function(e) {
       e.preventDefault();
-      
+
       const targetTab = this.getAttribute('data-tab');
-      
+
       // Set active nav item and update content
       setActiveNavItem(targetTab);
-      
+
       // Show target tab content
       showTabContent(targetTab);
-      
+
       // Load opening balance if navigating to settings
       if (targetTab === 'settings') {
         loadOpeningBalance();
@@ -411,12 +410,12 @@ function setActiveNavItem(tabName) {
   document.querySelectorAll('.nav-item').forEach(navItem => {
     navItem.classList.remove('active');
   });
-  
+
   // Add active class to the selected nav item
   const targetNavItem = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
   if (targetNavItem) {
     targetNavItem.classList.add('active');
-    
+
     // Update page title to match the active tab
     const pageTitle = document.getElementById('page-title');
     if (pageTitle) {
@@ -431,7 +430,7 @@ function showTabContent(tabName) {
   document.querySelectorAll('.tab-content').forEach(content => {
     content.classList.remove('active');
   });
-  
+
   // Show the selected tab content
   const targetContent = document.getElementById(`${tabName}-content`);
   if (targetContent) {
