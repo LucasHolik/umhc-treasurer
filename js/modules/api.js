@@ -53,5 +53,17 @@ export const API = {
   deleteTag(apiKey, type, value, callback) {
     const url = `${SCRIPT_URL}?action=deleteTag&apiKey=${encodeURIComponent(apiKey)}&type=${encodeURIComponent(type)}&value=${encodeURIComponent(value)}`;
     jsonpRequest(url, callback);
+  },
+  
+  // Get the opening balance from the Config sheet
+  getOpeningBalance(apiKey, callback) {
+    const url = `${SCRIPT_URL}?action=getOpeningBalance&apiKey=${encodeURIComponent(apiKey)}`;
+    jsonpRequest(url, callback);
+  },
+  
+  // Save the opening balance to the Config sheet
+  saveOpeningBalance(apiKey, balance, callback) {
+    const url = `${SCRIPT_URL}?action=saveOpeningBalance&apiKey=${encodeURIComponent(apiKey)}&balance=${encodeURIComponent(balance)}`;
+    jsonpRequest(url, callback);
   }
 };

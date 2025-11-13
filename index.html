@@ -62,6 +62,12 @@
               <span class="nav-text">Reports</span>
             </a>
           </li>
+          <li class="nav-item" data-tab="settings">
+            <a href="#" class="nav-link">
+              <span class="nav-icon">⚙️</span>
+              <span class="nav-text">Settings</span>
+            </a>
+          </li>
         </ul>
       </nav>
     </div>
@@ -188,6 +194,19 @@
             <p>Generate various financial reports here.</p>
             <div id="reports-placeholder">
               <p>Report generation tools will be implemented here.</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Settings Content -->
+        <div id="settings-content" class="tab-content">
+          <div class="section">
+            <h2>Application Settings</h2>
+            <div class="setting-item">
+              <label for="opening-balance">Opening Account Balance (£):</label>
+              <input type="number" id="opening-balance" step="0.01" placeholder="Enter opening balance (e.g., -2000.00)">
+              <button id="save-opening-balance">Save Opening Balance</button>
+              <div id="settings-status"></div>
             </div>
           </div>
         </div>

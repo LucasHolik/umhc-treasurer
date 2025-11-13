@@ -30,6 +30,12 @@ function doGet(e) {
     case "deleteTag":
       response = handleDeleteTag(e);
       break;
+    case "getOpeningBalance":
+      response = handleGetOpeningBalance();
+      break;
+    case "saveOpeningBalance":
+      response = handleSaveOpeningBalance(e);
+      break;
     default:
       response = { success: false, message: "Invalid action" };
   }
@@ -58,4 +64,59 @@ function createJsonResponse(data, callback) {
   return ContentService.createTextOutput(jsonp).setMimeType(
     ContentService.MimeType.JAVASCRIPT
   );
+}
+
+function handleGetOpeningBalance() {
+  try {
+    const configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.CONFIG_SHEET);
+    if (!configSheet) {
+      // Create Config sheet if it doesn't exist
+      const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(CONFIG.CONFIG_SHEET);
+      // Initialize with default values - set opening balance to 0
+      newSheet.getRange(CONFIG.API_KEY_CELL).setValue('API Key');
+      newSheet.getRange(CONFIG.OPENING_BALANCE_CELL).setValue(0);
+      return { success: true, balance: 0 };
+    }
+    
+    // Get the value from the opening balance cell (B1)
+    const balanceCell = configSheet.getRange(CONFIG.OPENING_BALANCE_CELL);
+    const balance = balanceCell.getValue();
+    
+    // If balance is empty, set it to 0
+    if (balance === '' || balance === null || balance === undefined) {
+      balanceCell.setValue(0);
+      return { success: true, balance: 0 };
+    }
+    
+    return { success: true, balance: parseFloat(balance) || 0 };
+  } catch (error) {
+    console.error("Error getting opening balance:", error);
+    return { success: false, message: "Error getting opening balance: " + error.message };
+  }
+}
+
+function handleSaveOpeningBalance(e) {
+  try {
+    const balance = parseFloat(e.parameter.balance);
+    if (isNaN(balance)) {
+      return { success: false, message: "Invalid balance value" };
+    }
+    
+    // Get or create the Config sheet
+    let configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.CONFIG_SHEET);
+    if (!configSheet) {
+      configSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(CONFIG.CONFIG_SHEET);
+      // Initialize with default values
+      configSheet.getRange(CONFIG.API_KEY_CELL).setValue('API Key');
+      configSheet.getRange(CONFIG.OPENING_BALANCE_CELL).setValue(''); // Will be set below
+    }
+    
+    // Set the opening balance in the designated cell
+    configSheet.getRange(CONFIG.OPENING_BALANCE_CELL).setValue(balance);
+    
+    return { success: true, message: "Opening balance saved successfully" };
+  } catch (error) {
+    console.error("Error saving opening balance:", error);
+    return { success: false, message: "Error saving opening balance: " + error.message };
+  }
 }

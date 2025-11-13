@@ -58,6 +58,10 @@ function setupMainMenuListeners() {
   const saveChangesBtn = document.getElementById('save-changes-button');
   if (saveChangesBtn) saveChangesBtn.addEventListener('click', handleSaveChanges);
   
+  // Add settings event listeners
+  const saveOpeningBalanceBtn = document.getElementById('save-opening-balance');
+  if (saveOpeningBalanceBtn) saveOpeningBalanceBtn.addEventListener('click', saveOpeningBalance);
+  
   // Initialize dashboard with stats
   loadDashboardData();
 }
@@ -66,26 +70,35 @@ function loadDashboardData() {
   // Show loading indicator
   showDashboardLoading(true);
   
-  // This will be expanded later to load actual data from the API
-  API.getData(UI.getApiKey(), (response) => {
-    // Hide loading indicator regardless of success or failure
-    showDashboardLoading(false);
+  // Load opening balance first, then the transaction data
+  API.getOpeningBalance(UI.getApiKey(), (balanceResponse) => {
+    let openingBalance = 0; // Default to 0 if not found
     
-    if (response.success) {
-      const data = response.data;
-      calculateAndDisplayStats(data);
-    } else {
-      // Handle error case
-      document.getElementById('current-balance').textContent = '$0.00';
-      document.getElementById('total-income').textContent = '$0.00';
-      document.getElementById('total-expenses').textContent = '$0.00';
-      document.getElementById('recent-transactions').textContent = '0';
-      
-      const recentContainer = document.getElementById('recent-transactions-content');
-      if (recentContainer) {
-        recentContainer.innerHTML = '<p>Error loading data. Please try again later.</p>';
-      }
+    if (balanceResponse.success) {
+      openingBalance = parseFloat(balanceResponse.balance) || 0;
     }
+    
+    // Now load the transaction data
+    API.getData(UI.getApiKey(), (response) => {
+      // Hide loading indicator regardless of success or failure
+      showDashboardLoading(false);
+      
+      if (response.success) {
+        const data = response.data;
+        calculateAndDisplayStats(data, openingBalance);
+      } else {
+        // Handle error case
+        document.getElementById('current-balance').textContent = `£${openingBalance.toFixed(2)}`;
+        document.getElementById('total-income').textContent = '£0.00';
+        document.getElementById('total-expenses').textContent = '£0.00';
+        document.getElementById('recent-transactions').textContent = '0';
+        
+        const recentContainer = document.getElementById('recent-transactions-content');
+        if (recentContainer) {
+          recentContainer.innerHTML = '<p>Error loading data. Please try again later.</p>';
+        }
+      }
+    });
   });
 }
 
@@ -96,7 +109,7 @@ function showDashboardLoading(show) {
   }
 }
 
-function calculateAndDisplayStats(data) {
+function calculateAndDisplayStats(data, openingBalance = 0) {
   let totalIncome = 0;
   let totalExpenses = 0;
   
@@ -109,11 +122,11 @@ function calculateAndDisplayStats(data) {
     }
   });
   
-  const currentBalance = totalIncome - totalExpenses;
+  const currentBalance = openingBalance + totalIncome - totalExpenses; // Include opening balance
   
-  document.getElementById('current-balance').textContent = `$${currentBalance.toFixed(2)}`;
-  document.getElementById('total-income').textContent = `$${totalIncome.toFixed(2)}`;
-  document.getElementById('total-expenses').textContent = `$${totalExpenses.toFixed(2)}`;
+  document.getElementById('current-balance').textContent = `£${currentBalance.toFixed(2)}`;
+  document.getElementById('total-income').textContent = `£${totalIncome.toFixed(2)}`;
+  document.getElementById('total-expenses').textContent = `£${totalExpenses.toFixed(2)}`;
   document.getElementById('recent-transactions').textContent = data.length;
   
   // Display recent transactions
@@ -131,7 +144,7 @@ function calculateAndDisplayStats(data) {
           <tr>
             <th>Date</th>
             <th>Description</th>
-            <th>Amount</th>
+            <th>Amount (£)</th>
           </tr>
         </thead>
         <tbody>
@@ -309,6 +322,52 @@ function handleSaveChanges() {
   processChunk(0, changes, recordsPerChunk, totalChunks, 'updateExpenses', 'editor-status');
 }
 
+function saveOpeningBalance() {
+  const openingBalanceInput = document.getElementById('opening-balance');
+  const balanceValue = openingBalanceInput.value;
+  const settingsStatus = document.getElementById('settings-status');
+  
+  if (!balanceValue) {
+    settingsStatus.textContent = 'Please enter an opening balance.';
+    settingsStatus.className = 'status-message error';
+    return;
+  }
+  
+  // Validate that it's a number
+  const balanceNum = parseFloat(balanceValue);
+  if (isNaN(balanceNum)) {
+    settingsStatus.textContent = 'Please enter a valid number.';
+    settingsStatus.className = 'status-message error';
+    return;
+  }
+  
+  settingsStatus.textContent = 'Saving...';
+  settingsStatus.className = 'status-message info';
+  
+  API.saveOpeningBalance(UI.getApiKey(), balanceValue, (response) => {
+    if (response.success) {
+      settingsStatus.textContent = 'Opening balance saved successfully!';
+      settingsStatus.className = 'status-message success';
+    } else {
+      settingsStatus.textContent = response.message || 'Error saving opening balance.';
+      settingsStatus.className = 'status-message error';
+    }
+  });
+}
+
+function loadOpeningBalance() {
+  API.getOpeningBalance(UI.getApiKey(), (response) => {
+    if (response.success) {
+      const openingBalanceInput = document.getElementById('opening-balance');
+      if (openingBalanceInput && response.balance !== undefined) {
+        openingBalanceInput.value = response.balance;
+      }
+    } else {
+      console.log('Could not load opening balance:', response.message || 'Unknown error');
+    }
+  });
+}
+
 // Initialize tab navigation for sidebar
 function initializeTabNavigation() {
   const navItems = document.querySelectorAll('.nav-item');
@@ -324,6 +383,11 @@ function initializeTabNavigation() {
       
       // Show target tab content
       showTabContent(targetTab);
+      
+      // Load opening balance if navigating to settings
+      if (targetTab === 'settings') {
+        loadOpeningBalance();
+      }
     });
   });
 }
