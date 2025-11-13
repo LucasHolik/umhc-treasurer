@@ -71,12 +71,12 @@
         </ul>
       </nav>
     </div>
-    
+
     <div class="main-content">
       <header class="main-header">
         <h1 id="page-title">Dashboard</h1>
       </header>
-      
+
       <div class="content-wrapper">
         <!-- Dashboard Content -->
         <div id="dashboard-content" class="tab-content active">
@@ -104,9 +104,22 @@
                   <p class="stat-value" id="recent-transactions">0</p>
                 </div>
               </div>
-              
+
               <div class="section">
-                <h2>Recent Transactions</h2>
+                <div class="transactions-header">
+                  <h2>Recent Transactions</h2>
+                  <div class="timeframe-selector">
+                    <label for="timeframe-select">Timeframe:</label>
+                    <select id="timeframe-select">
+                      <option value="current_month">Current Month</option>
+                      <option value="past_30_days" selected>Past 30 Days</option>
+                      <option value="past_3_months">Past 3 Months</option>
+                      <option value="past_6_months">Past 6 Months</option>
+                      <option value="past_year">Past Year</option>
+                      <option value="all_time">All Time</option>
+                    </select>
+                  </div>
+                </div>
                 <div id="recent-transactions-content">
                   <p>Loading data...</p>
                 </div>
@@ -117,7 +130,7 @@
             <div class="loader"></div>
           </div>
         </div>
-        
+
         <!-- Upload Data Content -->
         <div id="upload-content" class="tab-content">
           <div class="section">
@@ -132,7 +145,7 @@
             <pre id="file-content"></pre>
           </div>
         </div>
-        
+
         <!-- Manage Tags Content -->
         <div id="tags-content" class="tab-content">
           <div class="section">
@@ -146,7 +159,7 @@
               <button id="add-category-button">Add Category</button>
             </div>
           </div>
-          
+
           <div class="section">
             <h2>Manage Existing Tags</h2>
             <button id="edit-tags-button">Edit Tags</button>
@@ -154,7 +167,7 @@
             <div id="tag-list" style="display: none;"></div>
           </div>
         </div>
-        
+
         <!-- Analysis Content -->
         <div id="analysis-content" class="tab-content">
           <div class="section">
@@ -165,7 +178,7 @@
             </div>
           </div>
         </div>
-        
+
         <!-- Transactions Content -->
         <div id="transactions-content" class="tab-content">
           <div class="section">
@@ -192,7 +205,7 @@
             </div>
           </div>
         </div>
-        
+
         <!-- Reports Content -->
         <div id="reports-content" class="tab-content">
           <div class="section">
@@ -203,7 +216,7 @@
             </div>
           </div>
         </div>
-        
+
         <!-- Settings Content -->
         <div id="settings-content" class="tab-content">
           <div class="section">

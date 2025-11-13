@@ -61,20 +61,133 @@ function setupMainMenuListeners() {
   const saveOpeningBalanceBtn = document.getElementById('save-opening-balance');
   if (saveOpeningBalanceBtn) saveOpeningBalanceBtn.addEventListener('click', saveOpeningBalance);
 
+  // Add timeframe selector event listener
+  const timeframeSelect = document.getElementById('timeframe-select');
+  if (timeframeSelect) {
+    timeframeSelect.addEventListener('change', function() {
+      loadDashboardData(this.value);
+    });
+  }
+
   // Initialize dashboard with stats
   loadDashboardData();
 }
 
-function loadDashboardData() {
+// Utility functions to calculate time-based date ranges
+function getCurrentMonthRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { start, end };
+}
+
+function getPastDaysRange(days) {
+  const now = new Date();
+  const start = new Date();
+  start.setDate(now.getDate() - days);
+  const end = now;
+  return { start, end };
+}
+
+function getPastMonthsRange(months) {
+  const now = new Date();
+  const start = new Date();
+  start.setMonth(now.getMonth() - months);
+  const end = now;
+  return { start, end };
+}
+
+function getPastYearRange() {
+  const now = new Date();
+  const start = new Date();
+  start.setFullYear(now.getFullYear() - 1);
+  const end = now;
+  return { start, end };
+}
+
+function parseDate(dateString) {
+  // Convert date string to Date object for comparison
+  if (!dateString) return null;
+
+  // Handle different date formats
+  let date = new Date(dateString);
+
+  // If the date parsing failed, try different formats
+  if (isNaN(date.getTime())) {
+    // Try to replace various date separators and parse
+    const formattedDate = dateString.replace(/[-./]/g, '/');
+    date = new Date(formattedDate);
+  }
+
+  // If still invalid, return null
+  if (isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
+function filterTransactionsByTimeframe(transactions, timeframe) {
+  if (!transactions || transactions.length === 0) return [];
+
+  let { start, end } = { start: null, end: new Date() };
+
+  switch(timeframe) {
+    case 'current_month':
+      ({ start, end } = getCurrentMonthRange());
+      break;
+    case 'past_30_days':
+      ({ start, end } = getPastDaysRange(30));
+      break;
+    case 'past_3_months':
+      ({ start, end } = getPastMonthsRange(3));
+      break;
+    case 'past_6_months':
+      ({ start, end } = getPastMonthsRange(6));
+      break;
+    case 'past_year':
+      ({ start, end } = getPastYearRange());
+      break;
+    case 'all_time':
+      // For all time, use the very first date possible
+      start = new Date(0);
+      break;
+    default:
+      ({ start, end } = getPastDaysRange(30)); // Default to past 30 days
+  }
+
+  // Filter transactions based on the date range
+  return transactions.filter(transaction => {
+    const date = parseDate(transaction.Date);
+    if (!date) return false; // Skip transactions with invalid dates
+
+    return date >= start && date <= end;
+  });
+}
+
+// Cached data to avoid reloading from Google Sheets every time
+let cachedData = null;
+let cachedOpeningBalance = null;
+
+function loadDashboardData(timeframe = 'past_30_days') {
   // Show loading placeholder and hide loaded content
   showDashboardLoadingPlaceholder(true);
 
-  // Load opening balance first, then the transaction data
+  // Check if we already have cached data
+  if (cachedData !== null && cachedOpeningBalance !== null) {
+    // Use cached data
+    showDashboardLoadingPlaceholder(false);
+    calculateAndDisplayStats(cachedData, cachedOpeningBalance, timeframe);
+    return;
+  }
+
+  // If no cached data, load from API
   API.getOpeningBalance(UI.getApiKey(), (balanceResponse) => {
     let openingBalance = 0; // Default to 0 if not found
 
     if (balanceResponse.success) {
       openingBalance = parseFloat(balanceResponse.balance) || 0;
+      cachedOpeningBalance = openingBalance; // Cache the opening balance
     }
 
     // Now load the transaction data
@@ -84,7 +197,8 @@ function loadDashboardData() {
 
       if (response.success) {
         const data = response.data;
-        calculateAndDisplayStats(data, openingBalance);
+        cachedData = data; // Cache the data
+        calculateAndDisplayStats(data, openingBalance, timeframe);
       } else {
         // Handle error case - still show the dashboard but with error info
         document.getElementById('current-balance').textContent = `£${openingBalance.toFixed(2)}`;
@@ -99,6 +213,13 @@ function loadDashboardData() {
       }
     });
   });
+}
+
+// Function to manually refresh data from API
+function refreshDashboardData(timeframe = 'past_30_days') {
+  cachedData = null;  // Clear cache to force reload
+  cachedOpeningBalance = null;
+  loadDashboardData(timeframe);
 }
 
 function showDashboardLoading(show) {
@@ -121,11 +242,14 @@ function showDashboardLoadingPlaceholder(show) {
   }
 }
 
-function calculateAndDisplayStats(data, openingBalance = 0) {
+function calculateAndDisplayStats(data, openingBalance = 0, timeframe = 'past_30_days') {
+  // Filter the data based on the selected timeframe
+  const filteredData = filterTransactionsByTimeframe(data, timeframe);
+
   let totalIncome = 0;
   let totalExpenses = 0;
 
-  data.forEach(item => {
+  filteredData.forEach(item => {
     if (item.Income && !isNaN(parseFloat(item.Income))) {
       totalIncome += parseFloat(item.Income);
     }
@@ -134,22 +258,57 @@ function calculateAndDisplayStats(data, openingBalance = 0) {
     }
   });
 
-  const currentBalance = openingBalance + totalIncome - totalExpenses; // Include opening balance
+  // Calculate the current balance based on ALL transactions, not just the filtered ones
+  let allTimeTotalIncome = 0;
+  let allTimeTotalExpenses = 0;
+
+  data.forEach(item => {
+    if (item.Income && !isNaN(parseFloat(item.Income))) {
+      allTimeTotalIncome += parseFloat(item.Income);
+    }
+    if (item.Expense && !isNaN(parseFloat(item.Expense))) {
+      allTimeTotalExpenses += parseFloat(item.Expense);
+    }
+  });
+
+  const currentBalance = openingBalance + allTimeTotalIncome - allTimeTotalExpenses;
 
   document.getElementById('current-balance').textContent = `£${currentBalance.toFixed(2)}`;
   document.getElementById('total-income').textContent = `£${totalIncome.toFixed(2)}`;
   document.getElementById('total-expenses').textContent = `£${totalExpenses.toFixed(2)}`;
-  document.getElementById('recent-transactions').textContent = data.length;
+  document.getElementById('recent-transactions').textContent = filteredData.length;
 
-  // Display recent transactions
+  // Display recent transactions based on the selected timeframe
+  displayRecentTransactions(filteredData, timeframe);
+}
+
+function displayRecentTransactions(transactions, timeframe) {
+  // Sort by date to get most recent first
+  const sortedTransactions = transactions.sort((a, b) => {
+    const dateA = parseDate(a.Date);
+    const dateB = parseDate(b.Date);
+
+    if (!dateA && !dateB) return 0;
+    if (!dateA) return 1;
+    if (!dateB) return -1;
+
+    return dateB - dateA; // Sort descending (most recent first)
+  });
+
+  // For all time, show all transactions; otherwise, limit to reasonable number
+  let displayTransactions;
+  if (timeframe === 'all_time') {
+    // Show first 20 transactions for all time to avoid overwhelming the UI
+    displayTransactions = sortedTransactions.slice(0, 20);
+  } else {
+    displayTransactions = sortedTransactions; // Show all transactions in the selected timeframe
+  }
+
   const recentContainer = document.getElementById('recent-transactions-content');
   if (recentContainer) {
     recentContainer.innerHTML = '';
 
-    // Sort by date to get most recent first (simplified approach)
-    const recentTransactions = data.slice(0, 5); // Get first 5 as example
-
-    if (recentTransactions.length > 0) {
+    if (displayTransactions.length > 0) {
       const table = document.createElement('table');
       table.innerHTML = `
         <thead>
@@ -160,7 +319,7 @@ function calculateAndDisplayStats(data, openingBalance = 0) {
           </tr>
         </thead>
         <tbody>
-          ${recentTransactions.map(item => {
+          ${displayTransactions.map(item => {
             const amount = item.Income ? `+${item.Income}` : `-${item.Expense}`;
             return `
               <tr>
@@ -174,7 +333,7 @@ function calculateAndDisplayStats(data, openingBalance = 0) {
       `;
       recentContainer.appendChild(table);
     } else {
-      recentContainer.textContent = 'No transactions found';
+      recentContainer.textContent = 'No transactions found in selected timeframe';
     }
   }
 }
@@ -243,6 +402,12 @@ function processChunk(chunkIndex, allRecords, recordsPerChunk, totalChunks, acti
     if (action === 'updateExpenses') {
       Editor.clearChanges();
     }
+
+    // Refresh cached data after successful upload or update
+    if (action === 'saveData' || action === 'updateExpenses') {
+      refreshDashboardData();
+    }
+
     return;
   }
 
@@ -275,6 +440,11 @@ function loadDataFromSheet() {
       UI.showStatusMessage('data-status', `${response.data.length} records loaded successfully`, 'success');
       UI.displayDataInTable(response.data);
       UI.showDataDisplay();
+      // Refresh cached data after loading new data
+      cachedData = response.data;
+      const timeframeSelect = document.getElementById('timeframe-select');
+      const selectedTimeframe = timeframeSelect ? timeframeSelect.value : 'past_30_days';
+      calculateAndDisplayStats(cachedData, cachedOpeningBalance, selectedTimeframe);
     } else {
       UI.showStatusMessage('data-status', response.message, 'error');
     }
@@ -360,6 +530,12 @@ function saveOpeningBalance() {
     if (response.success) {
       settingsStatus.textContent = 'Opening balance saved successfully!';
       settingsStatus.className = 'status-message success';
+      // Update the cached opening balance
+      cachedOpeningBalance = balanceNum;
+      // Refresh the dashboard to show the updated balance
+      const timeframeSelect = document.getElementById('timeframe-select');
+      const selectedTimeframe = timeframeSelect ? timeframeSelect.value : 'past_30_days';
+      calculateAndDisplayStats(cachedData, cachedOpeningBalance, selectedTimeframe);
     } else {
       settingsStatus.textContent = response.message || 'Error saving opening balance.';
       settingsStatus.className = 'status-message error';
@@ -374,6 +550,8 @@ function loadOpeningBalance() {
       if (openingBalanceInput && response.balance !== undefined) {
         openingBalanceInput.value = response.balance;
       }
+      // Update cached opening balance as well
+      cachedOpeningBalance = parseFloat(response.balance) || 0;
     } else {
       console.log('Could not load opening balance:', response.message || 'Unknown error');
     }
@@ -420,6 +598,13 @@ function setActiveNavItem(tabName) {
     const pageTitle = document.getElementById('page-title');
     if (pageTitle) {
       pageTitle.textContent = targetNavItem.querySelector('.nav-text').textContent;
+    }
+
+    // If switching to dashboard, update the stats
+    if (tabName === 'dashboard') {
+      const timeframeSelect = document.getElementById('timeframe-select');
+      const selectedTimeframe = timeframeSelect ? timeframeSelect.value : 'past_30_days';
+      loadDashboardData(selectedTimeframe);
     }
   }
 }
