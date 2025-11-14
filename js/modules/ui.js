@@ -443,8 +443,121 @@ export const UI = {
     }
   },
 
+  // Global loading state
+  isGloballyLoading: false,
+  globalLoadingElements: {}, // Track loading elements by tab
+
   getApiKey() {
     return this.apiKeyInput?.value;
+  },
+
+  setGlobalLoadingState(isLoading) {
+    this.isGloballyLoading = isLoading;
+  },
+
+  isGlobalLoading() {
+    return this.isGloballyLoading;
+  },
+
+  // Create a loading placeholder element that can be customized with text
+  createLoadingPlaceholder(customText = "Loading...") {
+    const container = document.createElement("div");
+    container.className = "dashboard-loading-placeholder";
+    container.style.display = "flex";
+    container.style.flexDirection = "column";
+    container.style.alignItems = "center";
+    container.style.justifyContent = "center";
+    container.style.height = "300px";
+    container.style.textAlign = "center";
+    container.style.padding = "20px";
+
+    const loader = document.createElement("div");
+    loader.className = "loader";
+    loader.style.marginBottom = "15px";
+
+    const text = document.createElement("p");
+    text.textContent = customText;
+    text.style.margin = "0";
+    text.style.fontSize = "1.1em";
+    text.style.color = "#f0ad4e";
+
+    container.appendChild(loader);
+    container.appendChild(text);
+
+    return container;
+  },
+
+  // Show loading placeholder in a specific container as an overlay
+  showLoadingInContainer(containerId, customText = "Loading...") {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // Remove existing loading overlay if present
+    const existingOverlay = container.querySelector('.loading-overlay');
+    if (existingOverlay && existingOverlay.parentNode === container) {
+      container.removeChild(existingOverlay);
+    }
+
+    // Create overlay loading element
+    const overlay = document.createElement("div");
+    overlay.className = "loading-overlay";
+    overlay.style.display = "flex";
+    overlay.style.justifyContent = "center";
+    overlay.style.alignItems = "center";
+    overlay.style.position = "absolute";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.width = "100%";
+    overlay.style.height = "100%";
+    overlay.style.backgroundColor = "#196C0F"; // Solid green background
+    overlay.style.zIndex = "10";
+    overlay.style.pointerEvents = "none";
+
+    const loaderContent = document.createElement("div");
+    loaderContent.className = "dashboard-loading-placeholder";
+    loaderContent.style.display = "flex";
+    loaderContent.style.flexDirection = "column";
+    loaderContent.style.alignItems = "center";
+    loaderContent.style.justifyContent = "center";
+    loaderContent.style.height = "100%";
+
+    const loader = document.createElement("div");
+    loader.className = "loader";
+    loader.style.marginBottom = "15px";
+
+    const text = document.createElement("p");
+    text.textContent = customText;
+    text.style.margin = "0";
+    text.style.fontSize = "1.1em";
+    text.style.color = "#f0ad4e";
+
+    loaderContent.appendChild(loader);
+    loaderContent.appendChild(text);
+    overlay.appendChild(loaderContent);
+
+    // Set container position to relative if not already set
+    if (window.getComputedStyle(container).position === 'static') {
+      container.style.position = "relative";
+    }
+
+    container.appendChild(overlay);
+
+    // Store reference to this loading element
+    this.globalLoadingElements[containerId] = overlay;
+  },
+
+  // Hide loading placeholder in a specific container
+  hideLoadingInContainer(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const existingOverlay = container.querySelector('.loading-overlay');
+    if (existingOverlay && existingOverlay.parentNode === container) {
+      container.removeChild(existingOverlay);
+    }
+
+    // Remove reference to this loading element
+    delete this.globalLoadingElements[containerId];
   },
 
   showDataDisplay() {

@@ -28,10 +28,11 @@ function login() {
         UI.showMainMenu();
         initializeTabNavigation(); // Initialize tab navigation first
         setupMainMenuListeners();
-        // Force dashboard to be active and refresh data
+        // Force dashboard to be active and trigger global refresh data
         showTabContent("dashboard");
         setActiveNavItem("dashboard");
-        loadDashboardData();
+        // Trigger global refresh to load data for all tabs with consistent loading
+        globalRefreshAllData();
       }, 1000);
     } else {
       UI.showLoginStatus(response.message, "error");
@@ -147,9 +148,6 @@ function setupMainMenuListeners() {
       loadDashboardData(this.value);
     });
   }
-
-  // Initialize dashboard with stats
-  loadDashboardData();
 }
 
 // Utility functions to calculate time-based date ranges
@@ -264,6 +262,15 @@ let cachedData = null;
 let cachedOpeningBalance = null;
 
 function loadDashboardData(timeframe = "past_30_days") {
+  // Don't load if global loading is active - only allow dashboard loading as part of global refresh
+  if (UI.isGlobalLoading()) {
+    // If global loading is active, ensure this tab shows the loading state
+    UI.showLoadingInContainer("dashboard-content-wrapper", "Loading dashboard data...");
+    return;
+  }
+
+  // For individual dashboard loading (e.g. timeframe change), don't use individual loading
+  // Just use the existing dashboard loading placeholder mechanism
   // Show loading placeholder and hide loaded content
   showDashboardLoadingPlaceholder(true);
   // Hide the loaded content while loading
@@ -707,6 +714,21 @@ function processChunk(
 }
 
 function loadDataFromSheet() {
+  // Don't load if global loading is active
+  if (UI.isGlobalLoading()) {
+    // If global loading is active, ensure this tab shows the loading state
+    // Remove any existing overlay first to avoid duplicates
+    removeLoadingOverlay("transactions-content");
+
+    // Use the UI module's overlay loading method which will apply the solid green background
+    UI.showLoadingInContainer("transactions-content", "Loading transaction data...");
+    return;
+  }
+
+  // For individual loading, show the overlay
+  removeLoadingOverlay("transactions-content");
+  UI.showLoadingInContainer("transactions-content", "Loading transaction data...");
+
   UI.showStatusMessage(
     "data-status",
     "Loading data from Google Sheet...",
@@ -715,6 +737,9 @@ function loadDataFromSheet() {
   UI.hideDataDisplay();
 
   API.getData(UI.getApiKey(), (response) => {
+    // Remove the loading overlay after loading completes
+    removeLoadingOverlay("transactions-content");
+
     if (response.success) {
       UI.showStatusMessage(
         "data-status",
@@ -975,8 +1000,8 @@ function initializeTabNavigation() {
       // Show target tab content
       showTabContent(targetTab);
 
-      // Load opening balance if navigating to settings
-      if (targetTab === "settings") {
+      // Load opening balance if navigating to settings (only if not in global loading)
+      if (targetTab === "settings" && !UI.isGlobalLoading()) {
         loadOpeningBalance();
       }
     });
@@ -1017,6 +1042,12 @@ function setActiveNavItem(tabName) {
     // Toggle the refresh button visibility based on the active tab
     toggleRefreshButton(tabName);
 
+    // If global loading is active, just activate the tab without loading content
+    if (UI.isGlobalLoading()) {
+      // Tab will be activated and loading state will be shown by showTabContent
+      return;
+    }
+
     // If switching to dashboard, update the stats
     if (tabName === "dashboard") {
       const timeframeSelect = document.getElementById("timeframe-select");
@@ -1026,7 +1057,7 @@ function setActiveNavItem(tabName) {
       loadDashboardData(selectedTimeframe);
     }
 
-    // If switching to tags, load and show the tags table
+    // If switching to tags, load and show the tags table (but not during global load)
     if (tabName === "tags") {
       const allTags = Tags.getTags();
       const tagExpenseCounts = calculateTagExpenseCounts(cachedData || []);
@@ -1046,6 +1077,43 @@ function showTabContent(tabName) {
   // Show the selected tab content
   const targetContent = document.getElementById(`${tabName}-content`);
   if (targetContent) {
+    // If global loading is active, show loading in this tab
+    if (UI.isGlobalLoading()) {
+      // For dashboard tab, use the existing dashboard loading mechanism
+      if (tabName === 'dashboard') {
+        showDashboardLoadingPlaceholder(true);
+        const dashboardLoadedContent = document.getElementById("dashboard-loaded-content");
+        if (dashboardLoadedContent) {
+          dashboardLoadedContent.style.display = "none";
+        }
+      } else {
+        // For other tabs, use the UI module's overlay loading method for consistency
+        // Remove any existing overlay first to avoid duplicates
+        removeLoadingOverlay(`${tabName}-content`);
+
+        // Use the UI module method which will apply the solid green background
+        let loadingText = "Loading...";
+        switch(tabName) {
+          case 'transactions':
+            loadingText = "Loading transaction data...";
+            break;
+          case 'tags':
+            loadingText = "Loading tag data...";
+            break;
+          case 'analysis':
+            loadingText = "Loading analysis data...";
+            break;
+          case 'reports':
+            loadingText = "Loading reports data...";
+            break;
+          default:
+            loadingText = "Loading...";
+        }
+
+        UI.showLoadingInContainer(`${tabName}-content`, loadingText);
+      }
+    }
+
     targetContent.classList.add("active");
   }
 }
@@ -1111,20 +1179,13 @@ function addRefreshButtonToDashboard() {
       refreshBtn = document.createElement("button");
       refreshBtn.id = "refresh-dashboard";
       refreshBtn.className = "refresh-btn";
-      refreshBtn.title = "Refresh Dashboard";
+      refreshBtn.title = "Refresh All Data";
       refreshBtn.innerHTML = "🔄";
 
-      // Add click event to refresh dashboard
+      // Add click event to refresh ALL data
       refreshBtn.addEventListener("click", function () {
-        // Clear cache to force reload from API and show loading placeholder
-        cachedData = null;
-        cachedOpeningBalance = null;
-
-        const timeframeSelect = document.getElementById("timeframe-select");
-        const selectedTimeframe = timeframeSelect
-          ? timeframeSelect.value
-          : "past_30_days";
-        loadDashboardData(selectedTimeframe); // This will show the nice loading placeholder
+        // Trigger global refresh across all tabs
+        globalRefreshAllData();
       });
 
       // Only add refresh button if headerContent doesn't already have it
@@ -1139,10 +1200,133 @@ function addRefreshButtonToDashboard() {
 function toggleRefreshButton(tabName) {
   const refreshBtn = document.getElementById("refresh-dashboard");
   if (refreshBtn) {
-    if (tabName === "dashboard") {
+    if (tabName === "dashboard" || tabName === "transactions" || tabName === "tags" || tabName === "analysis" || tabName === "reports") {
       refreshBtn.style.display = "flex";
     } else {
       refreshBtn.style.display = "none";
+    }
+  }
+}
+
+// Function to globally refresh data across all tabs
+function globalRefreshAllData() {
+  // Set global loading state
+  UI.setGlobalLoadingState(true);
+
+  // Update refresh button to show hourglass during loading
+  const refreshBtn = document.getElementById("refresh-dashboard");
+  if (refreshBtn) {
+    refreshBtn.innerHTML = "⏳"; // Hourglass icon during loading
+  }
+
+  // Show the same loading style for all tabs using dashboard loading as the template
+  // For dashboard, use the existing loading mechanism
+  showDashboardLoadingPlaceholder(true);
+  const dashboardLoadedContent = document.getElementById("dashboard-loaded-content");
+  if (dashboardLoadedContent) {
+    dashboardLoadedContent.style.display = "none";
+  }
+
+  // For other tabs, use the UI module's overlay loading method for consistency
+  UI.showLoadingInContainer("transactions-content", "Loading transaction data...");
+  UI.showLoadingInContainer("tags-content", "Loading tag data...");
+  UI.showLoadingInContainer("analysis-content", "Loading analysis data...");
+  UI.showLoadingInContainer("reports-content", "Loading reports data...");
+
+  // Clear caches to force reload
+  cachedData = null;
+  cachedOpeningBalance = null;
+
+  // Track completion of all async operations
+  let completedOperations = 0;
+  const totalOperations = 2; // Opening balance + app data (which includes expenses and tags), and separate transaction data
+
+  // Operation 1: Refresh opening balance and app data (expenses + tags)
+  API.getOpeningBalance(UI.getApiKey(), (balanceResponse) => {
+    let openingBalance = 0;
+    if (balanceResponse.success) {
+      openingBalance = parseFloat(balanceResponse.balance) || 0;
+      cachedOpeningBalance = openingBalance;
+    }
+
+    API.getAppData(UI.getApiKey(), (response) => {
+      if (response.success) {
+        cachedData = response.data.expenses;
+        Tags.setTags(response.data.tags); // Update tags globally
+
+        // Update dashboard content if dashboard is active
+        const activeTab = document.querySelector('.nav-item.active');
+        if (activeTab && activeTab.getAttribute('data-tab') === 'dashboard') {
+          const timeframeSelect = document.getElementById("timeframe-select");
+          const selectedTimeframe = timeframeSelect?.value || "past_30_days";
+          calculateAndDisplayStats(cachedData, cachedOpeningBalance, selectedTimeframe);
+        }
+
+        // Update tags content
+        const tagExpenseCounts = calculateTagExpenseCounts(cachedData || []);
+        UI.displayTagsTable(Tags.getTags(), tagExpenseCounts);
+        UI.showTagsTableView();
+      }
+
+      completedOperations++;
+      checkGlobalRefreshComplete(completedOperations, totalOperations);
+    });
+  });
+
+  // Operation 2: Refresh transaction data (this will also update cachedData)
+  API.getData(UI.getApiKey(), (response) => {
+    if (response.success) {
+      // Update cached data with transaction data
+      cachedData = response.data;
+
+      // Update transactions content if transactions tab is active
+      const activeTab = document.querySelector('.nav-item.active');
+      if (activeTab && activeTab.getAttribute('data-tab') === 'transactions') {
+        UI.displayDataInTable(response.data);
+        UI.showDataDisplay();
+      }
+    }
+
+    completedOperations++;
+    checkGlobalRefreshComplete(completedOperations, totalOperations);
+  });
+}
+
+// Check if all data refresh operations are complete
+function checkGlobalRefreshComplete(completed, total) {
+  if (completed >= total) {
+    // Hide loading from all containers
+    // For dashboard, use the existing mechanism
+    showDashboardLoadingPlaceholder(false);
+    const dashboardLoadedContent = document.getElementById("dashboard-loaded-content");
+    if (dashboardLoadedContent) {
+      dashboardLoadedContent.style.display = "block";
+    }
+
+    // For other tabs, use the UI module's method to hide loading
+    UI.hideLoadingInContainer("transactions-content");
+    UI.hideLoadingInContainer("tags-content");
+    UI.hideLoadingInContainer("analysis-content");
+    UI.hideLoadingInContainer("reports-content");
+
+    // Reset global loading state
+    UI.setGlobalLoadingState(false);
+
+    // Restore refresh icon on the refresh button
+    const refreshBtn = document.getElementById("refresh-dashboard");
+    if (refreshBtn) {
+      refreshBtn.innerHTML = "🔄"; // Refresh icon after loading complete
+    }
+  }
+}
+
+// Function to remove the loading overlay from a content area
+function removeLoadingOverlay(contentId) {
+  const content = document.getElementById(contentId);
+  if (content) {
+    const existingOverlay = content.querySelector('.loading-overlay');
+    if (existingOverlay) {
+      content.removeChild(existingOverlay);
     }
   }
 }

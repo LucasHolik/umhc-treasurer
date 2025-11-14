@@ -32,7 +32,7 @@ A web application that allows users to upload financial data from Excel files (.
 - **Visual Integration:** The login container now blends seamlessly with the background, removing visible borders and shadows.
 - **Consistent Layout:** Status messages appear in a fixed-height container to maintain consistent UI position regardless of message content.
 - **Professional Styling:** Enhanced visual design with improved spacing, typography, and responsive behavior.
-- **Dashboard Enhancements:** 
+- **Dashboard Enhancements:**
   - Added a refresh button that only appears on the dashboard tab
   - Improved loading states with unified "nice looking" placeholder
   - Fixed "All Time" timeframe to show all transactions without artificial limits
@@ -42,6 +42,12 @@ A web application that allows users to upload financial data from Excel files (.
   - Only show extracted content section after file upload
   - Better visual separation between header and file input
   - Dynamic column detection in Excel parsing for cashIn/cashOut values
+- **Loading System Improvements:**
+  - Implemented global loading system that displays consistent loading overlays across all tabs
+  - All loading overlays now use solid green background (#196C0F) with no transparency
+  - Refresh button shows hourglass icon (⏳) during loading and returns to refresh icon (🔄) when complete
+  - Users can switch between tabs during loading, with appropriate loading indicators displayed
+  - Loading experience is consistent across dashboard, transactions, tags, analysis, and reports tabs
 
 ### Technical Details
 - The application uses a client-server architecture with Google Apps Script as the backend
