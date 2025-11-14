@@ -7,6 +7,10 @@ import { Data } from "./modules/data.js";
 import { Editor } from "./modules/editor.js";
 import { Tags } from "./modules/tags.js";
 
+// Make UI and Tags objects globally available for use in UI module
+window.UI = UI;
+window.Tags = Tags;
+
 let parsedData = [];
 
 function login() {
@@ -49,20 +53,87 @@ function setupMainMenuListeners() {
   if (viewEditExpensesBtn)
     viewEditExpensesBtn.addEventListener("click", handleViewEditExpenses);
 
-  const addTripEventBtn = document.getElementById("add-trip-event-button");
-  if (addTripEventBtn)
-    addTripEventBtn.addEventListener("click", () => handleAddTag("Trip/Event"));
 
-  const addCategoryBtn = document.getElementById("add-category-button");
-  if (addCategoryBtn)
-    addCategoryBtn.addEventListener("click", () => handleAddTag("Category"));
-
+  // Update the edit tags button to use the new functionality
   const editTagsBtn = document.getElementById("edit-tags-button");
   if (editTagsBtn) editTagsBtn.addEventListener("click", handleEditTags);
 
   const saveChangesBtn = document.getElementById("save-changes-button");
   if (saveChangesBtn)
     saveChangesBtn.addEventListener("click", handleSaveChanges);
+
+  // NEW: Add event listeners for the new tags interface
+  if (UI.cancelEditTagsButton) {
+    UI.cancelEditTagsButton.addEventListener("click", function() {
+      // Switch back to table view without saving changes
+      const allTags = Tags.getTags();
+      const tagExpenseCounts = calculateTagExpenseCounts(cachedData || []);
+      UI.displayTagsTable(allTags, tagExpenseCounts);
+      UI.showTagsTableView();
+    });
+  }
+
+  if (UI.saveTagsChangesButton) {
+    UI.saveTagsChangesButton.addEventListener("click", function() {
+      // Save all tag changes to Google Sheets
+      Tags.saveChangesToSheets((response) => {
+        if (response.success) {
+          // After saving, update the UI to show the new state
+          const allTags = Tags.getTags();
+          const tagExpenseCounts = calculateTagExpenseCounts(cachedData || []);
+          UI.displayTagsTable(allTags, tagExpenseCounts);
+          UI.showTagsTableView();
+        } else {
+          UI.showStatusMessage("tag-status", `Error saving tags: ${response.message}`, "error");
+        }
+      });
+    });
+  }
+
+  if (UI.confirmAddTripEventButton) {
+    UI.confirmAddTripEventButton.addEventListener("click", function() {
+      const input = UI.addTripEventInput;
+      const value = input.value.trim();
+      if (value) {
+        Tags.addTag("Trip/Event", value);
+        input.value = "";
+        // Update the UI to show the new tag
+        const allTags = Tags.getTags();
+        UI.displayTagsForEdit(allTags, handleTagChange);
+      }
+    });
+  }
+
+  if (UI.confirmAddCategoryButton) {
+    UI.confirmAddCategoryButton.addEventListener("click", function() {
+      const input = UI.addCategoryInput;
+      const value = input.value.trim();
+      if (value) {
+        Tags.addTag("Category", value);
+        input.value = "";
+        // Update the UI to show the new tag
+        const allTags = Tags.getTags();
+        UI.displayTagsForEdit(allTags, handleTagChange);
+      }
+    });
+  }
+
+  // Handle Enter key in the add tag inputs
+  if (UI.addTripEventInput) {
+    UI.addTripEventInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        UI.confirmAddTripEventButton.click();
+      }
+    });
+  }
+
+  if (UI.addCategoryInput) {
+    UI.addCategoryInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        UI.confirmAddCategoryButton.click();
+      }
+    });
+  }
 
   // Add settings event listeners
   const saveOpeningBalanceBtn = document.getElementById("save-opening-balance");
@@ -224,8 +295,8 @@ function loadDashboardData(timeframe = "past_30_days") {
       cachedOpeningBalance = openingBalance; // Cache the opening balance
     }
 
-    // Now load the transaction data
-    API.getData(UI.getApiKey(), (response) => {
+    // Now load the complete app data (including expenses and tags)
+    API.getAppData(UI.getApiKey(), (response) => {
       // Hide loading placeholder and show loaded content
       showDashboardLoadingPlaceholder(false);
       if (loadedContent) {
@@ -233,8 +304,10 @@ function loadDashboardData(timeframe = "past_30_days") {
       }
 
       if (response.success) {
-        const data = response.data;
+        const data = response.data.expenses;
         cachedData = data; // Cache the data
+        // Set the tags in the Tags module so they're available throughout the app
+        Tags.setTags(response.data.tags);
         calculateAndDisplayStats(data, openingBalance, timeframe);
       } else {
         // Handle error case - still show the dashboard but with error info
@@ -701,9 +774,76 @@ function handleAddTag(type) {
   }
 }
 
+// NEW: Calculate expense counts for each tag
+function calculateTagExpenseCounts(expensesData) {
+  const expenseCounts = {
+    "Trip/Event": {},
+    "Category": {}
+  };
+
+  // Initialize the tag types to ensure they exist
+  if (!expenseCounts["Trip/Event"]) expenseCounts["Trip/Event"] = {};
+  if (!expenseCounts["Category"]) expenseCounts["Category"] = {};
+
+  // Count expenses for each tag
+  expensesData.forEach(item => {
+    const tripEventTag = item["Trip/Event"];
+    const categoryTag = item["Category"];
+
+    // Count Trip/Event tags
+    if (tripEventTag && tripEventTag.trim() !== "") {
+      if (!expenseCounts["Trip/Event"][tripEventTag]) {
+        expenseCounts["Trip/Event"][tripEventTag] = 0;
+      }
+      expenseCounts["Trip/Event"][tripEventTag]++;
+    }
+
+    // Count Category tags
+    if (categoryTag && categoryTag.trim() !== "") {
+      if (!expenseCounts["Category"][categoryTag]) {
+        expenseCounts["Category"][categoryTag] = 0;
+      }
+      expenseCounts["Category"][categoryTag]++;
+    }
+  });
+
+  return expenseCounts;
+}
+
+// NEW: Show tags in table view with expense counts
+function showTagsTable() {
+  const allTags = Tags.getTags();
+  const tagExpenseCounts = calculateTagExpenseCounts(cachedData || []);
+  UI.displayTagsTable(allTags, tagExpenseCounts);
+  UI.showTagsTableView();
+}
+
+// NEW: Handle switching to edit mode for tags
 function handleEditTags() {
   const allTags = Tags.getTags();
-  UI.displayTagsForEditing(allTags, handleDeleteTag);
+  UI.displayTagsForEdit(allTags, handleTagChange);
+  UI.showTagsEditView();
+}
+
+// NEW: Handle tag changes (rename/delete) - tracks changes locally only
+function handleTagChange(type, originalValue, newValue) {
+  // If newValue is null, it's a delete operation
+  if (newValue === null) {
+    // For deletion, mark for deletion but don't sync to sheets yet
+    Tags.deleteTag(type, originalValue);
+    // Only update editor if it's currently visible/active
+    if (document.getElementById("editor-body")) {
+      Editor.updateTagInExpenses(type, originalValue);
+    }
+  } else if (newValue !== originalValue) {
+    // If the value changed, it's a rename operation - track locally only
+    Tags.renameTag(type, originalValue, newValue);
+    // Only update editor if it's currently visible/active
+    if (document.getElementById("editor-body")) {
+      Editor.updateTagInExpenses(type, originalValue, newValue);
+    }
+  }
+  // The changes will be synced to Google Sheets only when the main "Save Changes" button is clicked
 }
 
 function handleDeleteTag(type, value) {
@@ -715,26 +855,44 @@ function handleDeleteTag(type, value) {
 
 function handleSaveChanges() {
   const changes = Editor.getChanges();
-  if (changes.length === 0) {
-    UI.showStatusMessage("editor-status", "No changes to save.", "info");
-    return;
+  const tagOperations = Tags.getOperations();
+
+  // Save expense changes first
+  if (changes.length > 0) {
+    const recordsPerChunk = 20;
+    const totalChunks = Math.ceil(changes.length / recordsPerChunk);
+
+    console.log(
+      `Saving ${changes.length} expense changes in ${totalChunks} chunks of ${recordsPerChunk} records each`
+    );
+
+    processChunk(
+      0,
+      changes,
+      recordsPerChunk,
+      totalChunks,
+      "updateExpenses",
+      "editor-status"
+    );
+  } else {
+    UI.showStatusMessage("editor-status", "No expense changes to save.", "info");
   }
 
-  const recordsPerChunk = 20;
-  const totalChunks = Math.ceil(changes.length / recordsPerChunk);
+  // Then save tag operations
+  if (tagOperations.length > 0) {
+    console.log(`Saving ${tagOperations.length} tag operations`);
 
-  console.log(
-    `Saving ${changes.length} changes in ${totalChunks} chunks of ${recordsPerChunk} records each`
-  );
-
-  processChunk(
-    0,
-    changes,
-    recordsPerChunk,
-    totalChunks,
-    "updateExpenses",
-    "editor-status"
-  );
+    // Call the function to save tag changes to sheets
+    Tags.saveChangesToSheets((response) => {
+      if (!response.success) {
+        UI.showStatusMessage("tag-status", `Error saving tag changes: ${response.message}`, "error");
+      }
+    });
+  } else {
+    if (changes.length === 0) {
+      UI.showStatusMessage("editor-status", "No changes to save.", "info");
+    }
+  }
 }
 
 function saveOpeningBalance() {
@@ -866,6 +1024,14 @@ function setActiveNavItem(tabName) {
         ? timeframeSelect.value
         : "past_30_days";
       loadDashboardData(selectedTimeframe);
+    }
+
+    // If switching to tags, load and show the tags table
+    if (tabName === "tags") {
+      const allTags = Tags.getTags();
+      const tagExpenseCounts = calculateTagExpenseCounts(cachedData || []);
+      UI.displayTagsTable(allTags, tagExpenseCounts);
+      UI.showTagsTableView(); // Ensure we're in the table view by default
     }
   }
 }

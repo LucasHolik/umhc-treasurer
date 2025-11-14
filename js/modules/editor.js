@@ -83,18 +83,38 @@ export const Editor = {
   clearChanges: () => {
     changes = {};
   },
-  updateTagInExpenses: (type, value) => {
+  updateTagInExpenses: (type, oldValue, newValue) => {
     const editorBody = document.getElementById("editor-body");
+    // Check if editorBody exists before trying to query it
+    if (!editorBody) return;
+
     const selects = editorBody.querySelectorAll(`select[data-type="${type}"]`);
     selects.forEach((select) => {
-      if (select.value === value) {
-        select.value = "";
-      }
-      // Remove the deleted tag from the options
-      for (let i = 0; i < select.options.length; i++) {
-        if (select.options[i].value === value) {
-          select.remove(i);
-          break;
+      // If we're renaming (newValue is provided), update the selected value
+      if (newValue !== undefined && newValue !== null) {
+        if (select.value === oldValue) {
+          select.value = newValue;
+
+          // Update the specific option text for the renamed tag
+          for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === oldValue) {
+              select.options[i].value = newValue;
+              select.options[i].textContent = newValue;
+              break;
+            }
+          }
+        }
+      } else {
+        // If newValue is not provided, it's a delete operation
+        if (select.value === oldValue) {
+          select.value = "";
+        }
+        // Remove the deleted tag from the options
+        for (let i = 0; i < select.options.length; i++) {
+          if (select.options[i].value === oldValue) {
+            select.remove(i);
+            break;
+          }
         }
       }
     });

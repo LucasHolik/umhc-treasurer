@@ -33,6 +33,12 @@ function doGet(e) {
     case "deleteTag":
       response = handleDeleteTag(e);
       break;
+    case "renameTag":
+      response = handleRenameTag(e);
+      break;
+    case "processTagOperations":
+      response = handleProcessTagOperations(e);
+      break;
     case "getOpeningBalance":
       response = handleGetOpeningBalance();
       break;
@@ -54,6 +60,29 @@ function handleDeleteTag(e) {
     _removeTagFromExpenses(type, value);
   }
   return deleteResult;
+}
+
+function handleRenameTag(e) {
+  const type = e.parameter.type;
+  const oldValue = e.parameter.oldValue;
+  const newValue = e.parameter.newValue;
+  return _renameTag(type, oldValue, newValue);
+}
+
+function handleProcessTagOperations(e) {
+  try {
+    // Parse the operations array from the parameter
+    const operationsParam = e.parameter.operations;
+    if (!operationsParam) {
+      return { success: false, message: "No operations parameter provided" };
+    }
+
+    const operations = JSON.parse(operationsParam);
+    return _processTagOperations(operations);
+  } catch (error) {
+    console.error("Error processing tag operations:", error);
+    return { success: false, message: "Error processing tag operations: " + error.message };
+  }
 }
 
 function handleGetAppData() {

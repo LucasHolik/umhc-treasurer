@@ -186,30 +186,82 @@
           <!-- Manage Tags Content -->
           <div id="tags-content" class="tab-content">
             <div class="section">
-              <h2>Add New Tag</h2>
-              <div class="input-group">
-                <input
-                  type="text"
-                  id="new-trip-event"
-                  placeholder="New Trip/Event"
-                />
-                <button id="add-trip-event-button">Add Trip/Event</button>
+              <div class="tags-header">
+                <h2>Existing Tags</h2>
+                <button id="edit-tags-button" class="secondary-btn">Edit Tags</button>
               </div>
-              <div class="input-group">
-                <input
-                  type="text"
-                  id="new-category"
-                  placeholder="New Category"
-                />
-                <button id="add-category-button">Add Category</button>
-              </div>
-            </div>
-
-            <div class="section">
-              <h2>Manage Existing Tags</h2>
-              <button id="edit-tags-button">Edit Tags</button>
               <div id="tag-status"></div>
-              <div id="tag-list" style="display: none"></div>
+
+              <!-- Normal view: tags table in dual columns -->
+              <div id="tags-table-container" style="display: block;">
+                <div class="tags-grid">
+                  <div class="tags-column">
+                    <h3>Trip/Event Tags</h3>
+                    <table id="trip-event-tags-table" class="section-table">
+                      <thead>
+                        <tr>
+                          <th>Tag</th>
+                          <th>Expense Count</th>
+                        </tr>
+                      </thead>
+                      <tbody id="trip-event-tags-table-body">
+                        <!-- Trip/Event tags will be populated here -->
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div class="tags-column">
+                    <h3>Category Tags</h3>
+                    <table id="category-tags-table" class="section-table">
+                      <thead>
+                        <tr>
+                          <th>Tag</th>
+                          <th>Expense Count</th>
+                        </tr>
+                      </thead>
+                      <tbody id="category-tags-table-body">
+                        <!-- Category tags will be populated here -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Edit view: tag management interface -->
+              <div id="tags-edit-container" style="display: none;">
+                <div class="tags-edit-grid">
+                  <div class="tags-edit-column">
+                    <div class="tags-edit-section">
+                      <div class="input-group">
+                        <input type="text" id="add-trip-event" placeholder="Add new Trip/Event tag">
+                        <button id="confirm-add-trip-event">Add</button>
+                      </div>
+                      <h3>Edit Trip/Event Tags</h3>
+                      <div id="edit-trip-event-tags" class="tag-edit-list">
+                        <!-- Trip/Event tags will be populated here -->
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="tags-edit-column">
+                    <div class="tags-edit-section">
+                      <div class="input-group">
+                        <input type="text" id="add-category" placeholder="Add new Category tag">
+                        <button id="confirm-add-category">Add</button>
+                      </div>
+                      <h3>Edit Category Tags</h3>
+                      <div id="edit-category-tags" class="tag-edit-list">
+                        <!-- Category tags will be populated here -->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="button-group">
+                  <button id="cancel-edit-tags" class="secondary-btn">Cancel</button>
+                  <button id="save-tags-changes">Save Changes</button>
+                </div>
+              </div>
             </div>
           </div>
 

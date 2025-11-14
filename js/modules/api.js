@@ -68,6 +68,23 @@ export const API = {
     jsonpRequest(url, callback);
   },
 
+  renameTag(apiKey, type, oldValue, newValue, callback) {
+    const url = `${SCRIPT_URL}?action=renameTag&apiKey=${encodeURIComponent(
+      apiKey
+    )}&type=${encodeURIComponent(type)}&oldValue=${encodeURIComponent(
+      oldValue
+    )}&newValue=${encodeURIComponent(newValue)}`;
+    jsonpRequest(url, callback);
+  },
+
+  processTagOperations(apiKey, operations, callback) {
+    const operationsString = JSON.stringify(operations);
+    const url = `${SCRIPT_URL}?action=processTagOperations&apiKey=${encodeURIComponent(
+      apiKey
+    )}&operations=${encodeURIComponent(operationsString)}`;
+    jsonpRequest(url, callback);
+  },
+
   // Get the opening balance from the Config sheet
   getOpeningBalance(apiKey, callback) {
     const url = `${SCRIPT_URL}?action=getOpeningBalance&apiKey=${encodeURIComponent(
