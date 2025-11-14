@@ -6,6 +6,23 @@ function _getFinanceSheet() {
   if (!financeSheet) {
     financeSheet = spreadsheet.insertSheet(CONFIG.SHEET_NAME);
     financeSheet.appendRow(CONFIG.HEADERS);
+  } else {
+    // Check if the sheet has headers in the first row
+    const lastRow = financeSheet.getLastRow();
+    if (lastRow === 0) {
+      // Sheet is completely empty, add headers
+      financeSheet.appendRow(CONFIG.HEADERS);
+    } else {
+      // Check if the first row contains headers by comparing with expected headers
+      const firstRowRange = financeSheet.getRange(1, 1, 1, CONFIG.HEADERS.length);
+      const firstRowValues = firstRowRange.getValues()[0];
+      const hasHeaders = CONFIG.HEADERS.every((header, index) => firstRowValues[index] === header);
+      if (!hasHeaders) {
+        // Insert headers at the top, shifting existing data down if any
+        financeSheet.insertRowBefore(1);
+        financeSheet.getRange(1, 1, 1, CONFIG.HEADERS.length).setValues([CONFIG.HEADERS]);
+      }
+    }
   }
   return financeSheet;
 }
