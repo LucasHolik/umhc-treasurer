@@ -1,7 +1,9 @@
-body, html {
+body,
+html {
   height: 100%;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
   background-color: #135909;
   color: #fff;
   display: flex;
@@ -116,8 +118,12 @@ body, html {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 #api-key:focus {
@@ -220,6 +226,9 @@ body, html {
 }
 
 .main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background-color: rgba(0, 0, 0, 0.1);
@@ -228,6 +237,34 @@ body, html {
 .main-header h1 {
   margin: 0;
   font-size: 1.5em;
+  color: #fff;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.refresh-btn {
+  background: transparent;
+  border: 1px solid #f0ad4e;
+  color: #f0ad4e;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  margin-left: 15px;
+}
+
+.refresh-btn:hover {
+  background-color: #f0ad4e;
   color: #fff;
 }
 
@@ -249,8 +286,12 @@ body, html {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Stats container */
@@ -293,6 +334,19 @@ body, html {
 .section h2 {
   margin-top: 0;
   color: #f0ad4e;
+  display: inline-block; /* Make the header only as wide as the text content */
+  padding-bottom: 10px; /* Space between text and border */
+  border-bottom: 2.4px solid #8b4513; /* 40% of 6px = 2.4px, using brown color - only under the text */
+}
+
+.section input[type="file"] {
+  margin-left: 20px; /* Add horizontal space to move file input to the right */
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.section #upload-to-sheet {
+  margin-top: 15px; /* Add space above upload button */
 }
 
 .section pre {
@@ -309,7 +363,8 @@ body, html {
   margin-top: 15px;
 }
 
-.section th, .section td {
+.section th,
+.section td {
   padding: 10px;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -317,6 +372,47 @@ body, html {
 
 .section th {
   background-color: rgba(240, 173, 78, 0.2);
+  color: #fff;
+}
+
+/* Table for extracted content */
+#extracted-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+#extracted-table th,
+#extracted-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#extracted-table th {
+  background-color: rgba(240, 173, 78, 0.2);
+  color: #fff;
+}
+
+/* View toggle buttons */
+.view-toggle {
+  margin: 15px 0;
+}
+
+.view-toggle-btn {
+  padding: 8px 15px;
+  border: 1px solid #f0ad4e;
+  background-color: transparent;
+  color: #f0ad4e;
+  cursor: pointer;
+  margin-right: 5px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.view-toggle-btn.active,
+.view-toggle-btn:hover {
+  background-color: #f0ad4e;
   color: #fff;
 }
 
@@ -528,7 +624,7 @@ body, html {
 }
 
 .rope-weave-border::after {
-  content: '';
+  content: "";
   position: absolute;
   pointer-events: none;
 }
@@ -536,25 +632,18 @@ body, html {
 /* Simple brown border for sidebar */
 .sidebar {
   position: relative;
-  border-right: 2.8px solid #8B4513; /* 40% of 7px = 2.8px, using brown color */
+  border-right: 2.8px solid #8b4513; /* 40% of 7px = 2.8px, using brown color */
 }
 
 /* Simple brown border for main header */
 .main-header {
   position: relative;
-  border-bottom: 2.8px solid #8B4513; /* 40% of 7px = 2.8px, using brown color */
+  border-bottom: 2.8px solid #8b4513; /* 40% of 7px = 2.8px, using brown color */
   margin-bottom: 0;
   padding-bottom: 15px; /* Adjust spacing */
 }
 
-/* Simple brown border for section headers */
-.section h2 {
-  position: relative;
-  margin-top: 0;
-  margin-bottom: 15px;
-  border-bottom: 2.4px solid #8B4513; /* 40% of 6px = 2.4px, using brown color */
-  padding-bottom: 10px; /* Adjust spacing */
-}
+/* Responsive design for timeframe selector */
 
 /* Responsive design for timeframe selector */
 @media (max-width: 768px) {

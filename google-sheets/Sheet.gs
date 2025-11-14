@@ -14,13 +14,22 @@ function _getFinanceSheet() {
       financeSheet.appendRow(CONFIG.HEADERS);
     } else {
       // Check if the first row contains headers by comparing with expected headers
-      const firstRowRange = financeSheet.getRange(1, 1, 1, CONFIG.HEADERS.length);
+      const firstRowRange = financeSheet.getRange(
+        1,
+        1,
+        1,
+        CONFIG.HEADERS.length
+      );
       const firstRowValues = firstRowRange.getValues()[0];
-      const hasHeaders = CONFIG.HEADERS.every((header, index) => firstRowValues[index] === header);
+      const hasHeaders = CONFIG.HEADERS.every(
+        (header, index) => firstRowValues[index] === header
+      );
       if (!hasHeaders) {
         // Insert headers at the top, shifting existing data down if any
         financeSheet.insertRowBefore(1);
-        financeSheet.getRange(1, 1, 1, CONFIG.HEADERS.length).setValues([CONFIG.HEADERS]);
+        financeSheet
+          .getRange(1, 1, 1, CONFIG.HEADERS.length)
+          .setValues([CONFIG.HEADERS]);
       }
     }
   }
@@ -50,16 +59,26 @@ function handleSaveData(e) {
     ]);
 
     if (recordsToAdd.length > 0) {
-      const dateColumnRange = financeSheet.getRange(startRow, 3, recordsToAdd.length, 1);
-      dateColumnRange.setNumberFormat('@');
-      financeSheet.getRange(startRow, 1, recordsToAdd.length, 8).setValues(recordsToAdd);
+      const dateColumnRange = financeSheet.getRange(
+        startRow,
+        3,
+        recordsToAdd.length,
+        1
+      );
+      dateColumnRange.setNumberFormat("@");
+      financeSheet
+        .getRange(startRow, 1, recordsToAdd.length, 8)
+        .setValues(recordsToAdd);
     }
 
     _sortSheetByDate();
 
     return {
       success: true,
-      message: "Successfully added " + recordsToAdd.length + " new records to the sheet.",
+      message:
+        "Successfully added " +
+        recordsToAdd.length +
+        " new records to the sheet.",
       added: recordsToAdd.length,
     };
   } catch (error) {
@@ -79,24 +98,24 @@ function _sortSheetByDate() {
   const range = financeSheet.getRange(2, 1, lastRow - 1, 8);
   const values = range.getValues();
 
-  const dataWithDateObjects = values.map(row => {
+  const dataWithDateObjects = values.map((row) => {
     const dateString = row[2]; // Date is in the 3rd column (index 2)
-    const parts = dateString.split('-');
+    const parts = dateString.split("-");
     const dateObject = new Date(parts[0], parts[1] - 1, parts[2]);
     return {
       rowData: row,
-      dateObject: dateObject
+      dateObject: dateObject,
     };
   });
 
   dataWithDateObjects.sort((a, b) => b.dateObject - a.dateObject);
 
-  const sortedValues = dataWithDateObjects.map(item => item.rowData);
+  const sortedValues = dataWithDateObjects.map((item) => item.rowData);
 
   range.clearContent();
   const newRange = financeSheet.getRange(2, 1, sortedValues.length, 8);
   newRange.setValues(sortedValues);
-  newRange.offset(0, 2, sortedValues.length, 1).setNumberFormat('@');
+  newRange.offset(0, 2, sortedValues.length, 1).setNumberFormat("@");
 }
 
 function handleGetData() {
@@ -138,18 +157,21 @@ function handleUpdateExpenses(e) {
 
     const financeSheet = _getFinanceSheet();
 
-    updates.forEach(update => {
+    updates.forEach((update) => {
       const row = update.row;
       if (row) {
         financeSheet.getRange(row, 5).setValue(update.tripEvent); // Column 5 is Trip/Event
-        financeSheet.getRange(row, 6).setValue(update.category);  // Column 6 is Category
+        financeSheet.getRange(row, 6).setValue(update.category); // Column 6 is Category
       }
     });
 
     return { success: true, message: "Expenses updated successfully." };
   } catch (error) {
     console.error("Error updating expenses:", error);
-    return { success: false, message: "Error updating expenses: " + error.message };
+    return {
+      success: false,
+      message: "Error updating expenses: " + error.message,
+    };
   }
 }
 

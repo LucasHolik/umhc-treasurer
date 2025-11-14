@@ -14,14 +14,22 @@ function _getTags() {
   const tagSheet = _getTagSheet();
   const lastRow = tagSheet.getLastRow();
   if (lastRow < 2) {
-    return { "Trip/Event": [], "Category": [] };
+    return { "Trip/Event": [], Category: [] };
   }
-  const tripEventTags = tagSheet.getRange(2, 1, lastRow - 1, 1).getValues().flat().filter(String);
-  const categoryTags = tagSheet.getRange(2, 2, lastRow - 1, 1).getValues().flat().filter(String);
+  const tripEventTags = tagSheet
+    .getRange(2, 1, lastRow - 1, 1)
+    .getValues()
+    .flat()
+    .filter(String);
+  const categoryTags = tagSheet
+    .getRange(2, 2, lastRow - 1, 1)
+    .getValues()
+    .flat()
+    .filter(String);
 
   return {
     "Trip/Event": tripEventTags,
-    "Category": categoryTags
+    Category: categoryTags,
   };
 }
 
@@ -40,7 +48,10 @@ function _addTag(type, value) {
   }
 
   if (lastRow > 1) {
-    existingTags = tagSheet.getRange(2, column, lastRow - 1, 1).getValues().flat();
+    existingTags = tagSheet
+      .getRange(2, column, lastRow - 1, 1)
+      .getValues()
+      .flat();
     if (existingTags.includes(value)) {
       return { success: false, message: "Tag already exists." };
     }
@@ -49,7 +60,7 @@ function _addTag(type, value) {
   // Find the next empty row in the specified column
   const columnValues = tagSheet.getRange(1, column, lastRow, 1).getValues();
   let nextEmptyRow = columnValues.filter(String).length + 1;
-  
+
   tagSheet.getRange(nextEmptyRow, column).setValue(value);
 
   return { success: true, message: "Tag added successfully." };
@@ -81,9 +92,14 @@ function _deleteTag(type, value) {
   }
 
   const deleteRow = tagIndex + 2;
-  
+
   if (deleteRow < lastRow) {
-    const rangeToMove = tagSheet.getRange(deleteRow + 1, column, lastRow - deleteRow, 1);
+    const rangeToMove = tagSheet.getRange(
+      deleteRow + 1,
+      column,
+      lastRow - deleteRow,
+      1
+    );
     rangeToMove.moveTo(tagSheet.getRange(deleteRow, column));
   } else {
     tagSheet.getRange(deleteRow, column).clearContent();

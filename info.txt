@@ -1,4 +1,4 @@
-# UMHC Finance Hub - Refactored Implementation
+# UMHC Finance Hub - Project Information
 
 ## Overview
 A web application that allows users to upload financial data from Excel files (.xlsx) to a Google Sheet, with robust duplicate detection and timezone-safe date handling. The application has been refactored to be modular and expandable.
@@ -9,18 +9,18 @@ A web application that allows users to upload financial data from Excel files (.
 - **Modular Architecture:** The JavaScript code is divided into modules for UI, API, Excel parsing, and data handling.
 - **Tag Management:** Users can view, add, and assign 'Trip/Event' and 'Category' tags to expenses. New tags are available for use immediately. Users can also delete tags, which removes them from the list of available tags and from all expenses that have them.
 - **Authentication:** Secure login system using API key stored in Google Sheet.
-- **Excel Processing:** Client-side Excel file parsing using `read-excel-file` library.
+- **Excel Processing:** Client-side Excel file parsing using `read-excel-file` library with dynamic column mapping to handle various Excel file formats.
 - **Google Sheets Integration:** Uploads data to 'Finances' Google Sheet.
-- **Duplicate Detection:** Client-side duplicate checking to avoid uploading existing records.
+- **Duplicate Detection:** Client-side duplicate checking using cached data to avoid re-downloading existing records.
 - **Data Processing:** Chunked upload system for large datasets.
 - **Date Handling:** String-only date processing to prevent timezone conversion issues.
-- **User Interface:** Simple login, file upload, and data preview functionality.
+- **User Interface:** Simple login, file upload, and data preview functionality with toggle between table and JSON view for extracted content.
 
 ### Server-Side (Google Apps Script)
 - **Modular Architecture:** The Google Apps Script code is organized into separate files for the main entry point, configuration, sheet interaction, and authentication.
 - **Tag Deletion:** Provides an endpoint to delete a tag from the 'Tags' sheet and remove it from all expenses in the 'Finances' sheet.
 - **Automatic Sorting:** The Google Sheet is automatically sorted by date (most recent first) after every data upload, while carefully handling date and timezone conversions.
-- **Robustness:** The script now automatically creates the 'Finances' and 'Tags' sheets if they don't exist, preventing errors.
+- **Robustness:** The script now automatically creates the 'Finances' and 'Tags' sheets if they don't exist, ensuring headers are present even if the sheet is empty or missing headers.
 - **Data Integrity:** Prevents duplicate tags from being added and ensures tags are stored in their respective columns without creating blank rows.
 - **API Endpoints:** Provides endpoints for login, saving data, and retrieving data.
 - **Batch Operations:** Uses batch operations for efficient Google Sheets updates.
@@ -32,3 +32,20 @@ A web application that allows users to upload financial data from Excel files (.
 - **Visual Integration:** The login container now blends seamlessly with the background, removing visible borders and shadows.
 - **Consistent Layout:** Status messages appear in a fixed-height container to maintain consistent UI position regardless of message content.
 - **Professional Styling:** Enhanced visual design with improved spacing, typography, and responsive behavior.
+- **Dashboard Enhancements:** 
+  - Added a refresh button that only appears on the dashboard tab
+  - Improved loading states with unified "nice looking" placeholder
+  - Fixed "All Time" timeframe to show all transactions without artificial limits
+  - Enhanced loading behavior with proper state management
+- **File Upload Improvements:**
+  - Toggle between table and JSON view for extracted content
+  - Only show extracted content section after file upload
+  - Better visual separation between header and file input
+  - Dynamic column detection in Excel parsing for cashIn/cashOut values
+
+### Technical Details
+- The application uses a client-server architecture with Google Apps Script as the backend
+- All data processing happens client-side for performance
+- Duplicate detection uses cached data to avoid unnecessary API calls
+- Responsive design works on various screen sizes
+- Proper error handling throughout the application
