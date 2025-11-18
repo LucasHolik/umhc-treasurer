@@ -6,6 +6,7 @@ import { Excel } from "./modules/excel.js";
 import { Data } from "./modules/data.js";
 import { Editor } from "./modules/editor.js";
 import { Tags } from "./modules/tags.js";
+import { RequestManager } from "./modules/request-manager.js";
 
 // Make UI and Tags objects globally available for use in UI module
 window.UI = UI;
@@ -28,9 +29,9 @@ function login() {
         UI.showMainMenu();
         initializeTabNavigation(); // Initialize tab navigation first
         setupMainMenuListeners();
-        // Force dashboard to be active and trigger global refresh data
+        // Force dashboard to be active - but only call global refresh, not individual loading
         showTabContent("dashboard");
-        setActiveNavItem("dashboard");
+        setActiveNavItem("dashboard", true); // Set as active without loading data individually during login
         // Trigger global refresh to load data for all tabs with consistent loading
         globalRefreshAllData();
       }, 1000);
@@ -670,7 +671,28 @@ function processChunk(
 
     // Refresh cached data after successful upload or update
     if (action === "saveData" || action === "updateExpenses") {
-      refreshDashboardData();
+      // Only update the cache without triggering full dashboard reload to avoid loading conflicts
+      // The global refresh handles the UI updates, so just update the cached values
+      API.getAppData(UI.getApiKey(), (response) => {
+        if (response.success) {
+          cachedData = response.data.expenses;
+          Tags.setTags(response.data.tags); // Update tags globally
+
+          // Only calculate and display stats for the dashboard if it's the active tab
+          const activeTab = document.querySelector('.nav-item.active');
+          if (activeTab && activeTab.getAttribute('data-tab') === 'dashboard') {
+            const timeframeSelect = document.getElementById("timeframe-select");
+            const selectedTimeframe = timeframeSelect?.value || "past_30_days";
+            calculateAndDisplayStats(cachedData, cachedOpeningBalance, selectedTimeframe);
+          }
+
+          // Update tags content if tags tab is active
+          if (activeTab && activeTab.getAttribute('data-tab') === 'tags') {
+            const tagExpenseCounts = calculateTagExpenseCounts(cachedData || []);
+            UI.displayTagsTable(Tags.getTags(), tagExpenseCounts);
+          }
+        }
+      });
     }
 
     return;
@@ -1009,7 +1031,7 @@ function initializeTabNavigation() {
 }
 
 // Function to set active navigation item
-function setActiveNavItem(tabName) {
+function setActiveNavItem(tabName, skipDataLoad = false) {
   // Remove active class from all nav items
   document.querySelectorAll(".nav-item").forEach((navItem) => {
     navItem.classList.remove("active");
@@ -1048,8 +1070,8 @@ function setActiveNavItem(tabName) {
       return;
     }
 
-    // If switching to dashboard, update the stats
-    if (tabName === "dashboard") {
+    // If switching to dashboard, update the stats (only if not skipping data load)
+    if (tabName === "dashboard" && !skipDataLoad) {
       const timeframeSelect = document.getElementById("timeframe-select");
       const selectedTimeframe = timeframeSelect
         ? timeframeSelect.value
@@ -1331,4 +1353,19 @@ function removeLoadingOverlay(contentId) {
   }
 }
 
+// Initialize periodic cleanup of stale requests
+function startRequestCleanup() {
+  // Clean up stale requests every 30 seconds
+  setInterval(() => {
+    RequestManager.cleanupStaleRequests();
+  }, 30000); // 30 seconds
+}
+
+// Function to clear all active requests (e.g., on logout)
+function clearAllActiveRequests() {
+  RequestManager.clearAllRequests();
+}
+
+// Start the cleanup process after initialization
 init();
+startRequestCleanup();
