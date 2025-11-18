@@ -55,3 +55,11 @@ A web application that allows users to upload financial data from Excel files (.
 - Duplicate detection uses cached data to avoid unnecessary API calls
 - Responsive design works on various screen sizes
 - Proper error handling throughout the application
+
+## Recent Changes (Nov 18, 2025)
+- Fixed issue with multiple API calls during dashboard loading (6+ calls reduced to expected 2)
+- Implemented RequestManager module for tracking and deduplicating API requests
+- Fixed loading state conflicts that caused sections to load forever
+- Improved upload process to properly update cached data without creating loading conflicts
+- Enhanced data synchronization between different application sections
+- Added proper cleanup for stale requests and loading states
