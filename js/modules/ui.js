@@ -35,6 +35,27 @@ export const UI = {
   jsonViewButton: document.getElementById("json-view-btn"),
   fileContentJson: document.getElementById("file-content-json"),
 
+  // New elements for transactions
+  tagTransactionsButton: document.getElementById("tag-transactions-btn"),
+  bulkAddTagsButton: document.getElementById("bulk-add-tags-btn"),
+  saveTransactionChangesButton: document.getElementById("save-transaction-changes"),
+  transactionStatus: document.getElementById("transaction-status"),
+  filterTripEvent: document.getElementById("filter-trip-event"),
+  filterCategory: document.getElementById("filter-category"),
+  transactionsTableBody: document.getElementById("transactions-tbody"),
+  tagTransactionsView: document.getElementById("tag-transactions-view"),
+  bulkAddTagsView: document.getElementById("bulk-add-tags-view"),
+  transactionsDisplay: document.getElementById("transactions-display"),
+  tagTransactionsTableBody: document.getElementById("tag-transactions-tbody"),
+  bulkTransactionsTableBody: document.getElementById("bulk-transactions-tbody"),
+  selectAllTransactions: document.getElementById("select-all-transactions"),
+  selectAllBulk: document.getElementById("select-all-bulk"),
+  backToTransactions: document.getElementById("back-to-transactions"),
+  backToTransactionsBulk: document.getElementById("back-to-transactions-bulk"),
+  bulkTripEventSelect: document.getElementById("bulk-trip-event"),
+  bulkCategorySelect: document.getElementById("bulk-category"),
+  applyBulkTagsButton: document.getElementById("apply-bulk-tags"),
+
   showMainMenu() {
     if (this.loginContainer) {
       this.loginContainer.style.display = "none";
@@ -569,6 +590,321 @@ export const UI = {
   hideDataDisplay() {
     if (this.dataDisplay) {
       this.dataDisplay.style.display = "none";
+    }
+  },
+
+  // Show transaction status message
+  showTransactionStatus(message, type) {
+    if (this.transactionStatus) {
+      this.transactionStatus.textContent = message;
+      this.transactionStatus.className = `status-message ${type}`;
+      this.transactionStatus.style.display = "block";
+    }
+  },
+
+  // Display transactions in the main table
+  displayTransactions(data) {
+    if (this.transactionsTableBody) {
+      this.transactionsTableBody.innerHTML = ""; // Clear existing data
+
+      if (!data || data.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.setAttribute("colspan", 8);
+        cell.textContent = "No transactions available";
+        row.appendChild(cell);
+        this.transactionsTableBody.appendChild(row);
+        return;
+      }
+
+      data.forEach((item) => {
+        const row = document.createElement("tr");
+        row.dataset.rowId = item.row; // Store row ID for later reference
+
+        // Create table cells for each column
+        const dateCell = document.createElement("td");
+        dateCell.textContent = item.Date || "";
+        row.appendChild(dateCell);
+
+        const descriptionCell = document.createElement("td");
+        descriptionCell.textContent = item.Description || "";
+        row.appendChild(descriptionCell);
+
+        const tripEventCell = document.createElement("td");
+        tripEventCell.textContent = item["Trip/Event"] || "";
+        row.appendChild(tripEventCell);
+
+        const categoryCell = document.createElement("td");
+        categoryCell.textContent = item["Category"] || "";
+        row.appendChild(categoryCell);
+
+        const incomeCell = document.createElement("td");
+        incomeCell.textContent = item.Income || "";
+        row.appendChild(incomeCell);
+
+        const expenseCell = document.createElement("td");
+        expenseCell.textContent = item.Expense || "";
+        row.appendChild(expenseCell);
+
+        const documentCell = document.createElement("td");
+        documentCell.textContent = item.Document || "";
+        row.appendChild(documentCell);
+
+        const timeUploadedCell = document.createElement("td");
+        timeUploadedCell.textContent = item["Time-uploaded"] || "";
+        row.appendChild(timeUploadedCell);
+
+        this.transactionsTableBody.appendChild(row);
+      });
+
+      if (this.transactionsDisplay) {
+        this.transactionsDisplay.style.display = "block";
+      }
+    }
+  },
+
+  // Display transactions in tag view with dropdowns for tagging
+  displayTransactionsForTagging(data, allTags) {
+    if (this.tagTransactionsTableBody) {
+      this.tagTransactionsTableBody.innerHTML = ""; // Clear existing data
+
+      if (!data || data.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.setAttribute("colspan", 7);
+        cell.textContent = "No transactions to tag";
+        row.appendChild(cell);
+        this.tagTransactionsTableBody.appendChild(row);
+        return;
+      }
+
+      data.forEach((item) => {
+        const row = document.createElement("tr");
+        row.dataset.rowId = item.row; // Store row ID for later reference
+
+        // Checkbox for selection
+        const checkboxCell = document.createElement("td");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.dataset.rowId = item.row;
+        checkboxCell.appendChild(checkbox);
+        row.appendChild(checkboxCell);
+
+        // Create table cells for each column
+        const dateCell = document.createElement("td");
+        dateCell.textContent = item.Date || "";
+        row.appendChild(dateCell);
+
+        const descriptionCell = document.createElement("td");
+        descriptionCell.textContent = item.Description || "";
+        row.appendChild(descriptionCell);
+
+        // Trip/Event dropdown with existing value or empty option
+        const tripEventCell = document.createElement("td");
+        const tripEventSelect = document.createElement("select");
+        tripEventSelect.dataset.rowId = item.row;
+        tripEventSelect.dataset.field = "tripEvent";
+
+        // Add empty option
+        const emptyOption = document.createElement("option");
+        emptyOption.value = "";
+        emptyOption.textContent = "None";
+        tripEventSelect.appendChild(emptyOption);
+
+        // Add existing tags
+        const tripEventTags = allTags["Trip/Event"] || [];
+        tripEventTags.forEach(tag => {
+          const option = document.createElement("option");
+          option.value = tag;
+          option.textContent = tag;
+          if (item["Trip/Event"] === tag) {
+            option.selected = true;
+          }
+          tripEventSelect.appendChild(option);
+        });
+
+        tripEventCell.appendChild(tripEventSelect);
+        row.appendChild(tripEventCell);
+
+        // Category dropdown with existing value or empty option
+        const categoryCell = document.createElement("td");
+        const categorySelect = document.createElement("select");
+        categorySelect.dataset.rowId = item.row;
+        categorySelect.dataset.field = "category";
+
+        // Add empty option
+        const emptyOption2 = document.createElement("option");
+        emptyOption2.value = "";
+        emptyOption2.textContent = "None";
+        categorySelect.appendChild(emptyOption2);
+
+        // Add existing tags
+        const categoryTags = allTags["Category"] || [];
+        categoryTags.forEach(tag => {
+          const option = document.createElement("option");
+          option.value = tag;
+          option.textContent = tag;
+          if (item["Category"] === tag) {
+            option.selected = true;
+          }
+          categorySelect.appendChild(option);
+        });
+
+        categoryCell.appendChild(categorySelect);
+        row.appendChild(categoryCell);
+
+        const incomeCell = document.createElement("td");
+        incomeCell.textContent = item.Income || "";
+        row.appendChild(incomeCell);
+
+        const expenseCell = document.createElement("td");
+        expenseCell.textContent = item.Expense || "";
+        row.appendChild(expenseCell);
+
+        this.tagTransactionsTableBody.appendChild(row);
+      });
+    }
+  },
+
+  // Display transactions in bulk tagging view
+  displayTransactionsForBulkTagging(data, allTags) {
+    if (this.bulkTransactionsTableBody) {
+      this.bulkTransactionsTableBody.innerHTML = ""; // Clear existing data
+
+      if (!data || data.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.setAttribute("colspan", 7);
+        cell.textContent = "No transactions for bulk tagging";
+        row.appendChild(cell);
+        this.bulkTransactionsTableBody.appendChild(row);
+        return;
+      }
+
+      data.forEach((item) => {
+        const row = document.createElement("tr");
+        row.dataset.rowId = item.row; // Store row ID for later reference
+
+        // Checkbox for selection
+        const checkboxCell = document.createElement("td");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.dataset.rowId = item.row;
+        checkboxCell.appendChild(checkbox);
+        row.appendChild(checkboxCell);
+
+        // Create table cells for each column
+        const dateCell = document.createElement("td");
+        dateCell.textContent = item.Date || "";
+        row.appendChild(dateCell);
+
+        const descriptionCell = document.createElement("td");
+        descriptionCell.textContent = item.Description || "";
+        row.appendChild(descriptionCell);
+
+        const tripEventCell = document.createElement("td");
+        tripEventCell.textContent = item["Trip/Event"] || "";
+        row.appendChild(tripEventCell);
+
+        const categoryCell = document.createElement("td");
+        categoryCell.textContent = item["Category"] || "";
+        row.appendChild(categoryCell);
+
+        const incomeCell = document.createElement("td");
+        incomeCell.textContent = item.Income || "";
+        row.appendChild(incomeCell);
+
+        const expenseCell = document.createElement("td");
+        expenseCell.textContent = item.Expense || "";
+        row.appendChild(expenseCell);
+
+        this.bulkTransactionsTableBody.appendChild(row);
+      });
+
+      // Populate the bulk tag dropdowns
+      if (this.bulkTripEventSelect) {
+        this.bulkTripEventSelect.innerHTML = '<option value="">Select Trip/Event</option>';
+        const tripEventTags = allTags["Trip/Event"] || [];
+        tripEventTags.forEach(tag => {
+          const option = document.createElement("option");
+          option.value = tag;
+          option.textContent = tag;
+          this.bulkTripEventSelect.appendChild(option);
+        });
+      }
+
+      if (this.bulkCategorySelect) {
+        this.bulkCategorySelect.innerHTML = '<option value="">Select Category</option>';
+        const categoryTags = allTags["Category"] || [];
+        categoryTags.forEach(tag => {
+          const option = document.createElement("option");
+          option.value = tag;
+          option.textContent = tag;
+          this.bulkCategorySelect.appendChild(option);
+        });
+      }
+    }
+  },
+
+  // Update filter dropdowns with available tags
+  updateFilterDropdowns(allTags) {
+    if (this.filterTripEvent) {
+      this.filterTripEvent.innerHTML = '<option value="">All Trip/Event Tags</option>';
+      const tripEventTags = allTags["Trip/Event"] || [];
+      tripEventTags.forEach(tag => {
+        const option = document.createElement("option");
+        option.value = tag;
+        option.textContent = tag;
+        this.filterTripEvent.appendChild(option);
+      });
+    }
+
+    if (this.filterCategory) {
+      this.filterCategory.innerHTML = '<option value="">All Category Tags</option>';
+      const categoryTags = allTags["Category"] || [];
+      categoryTags.forEach(tag => {
+        const option = document.createElement("option");
+        option.value = tag;
+        option.textContent = tag;
+        this.filterCategory.appendChild(option);
+      });
+    }
+  },
+
+  // Show/hide different views
+  showTransactionsView() {
+    if (this.transactionsDisplay) {
+      this.transactionsDisplay.style.display = "block";
+    }
+    if (this.tagTransactionsView) {
+      this.tagTransactionsView.style.display = "none";
+    }
+    if (this.bulkAddTagsView) {
+      this.bulkAddTagsView.style.display = "none";
+    }
+  },
+
+  showTagTransactionsView() {
+    if (this.transactionsDisplay) {
+      this.transactionsDisplay.style.display = "none";
+    }
+    if (this.tagTransactionsView) {
+      this.tagTransactionsView.style.display = "block";
+    }
+    if (this.bulkAddTagsView) {
+      this.bulkAddTagsView.style.display = "none";
+    }
+  },
+
+  showBulkAddTagsView() {
+    if (this.transactionsDisplay) {
+      this.transactionsDisplay.style.display = "none";
+    }
+    if (this.tagTransactionsView) {
+      this.tagTransactionsView.style.display = "none";
+    }
+    if (this.bulkAddTagsView) {
+      this.bulkAddTagsView.style.display = "block";
     }
   },
 
