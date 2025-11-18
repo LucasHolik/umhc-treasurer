@@ -92,6 +92,9 @@ function setupMainMenuListeners() {
     });
   }
 
+  // Setup transaction listeners
+  setupTransactionListeners();
+
   if (UI.confirmAddTripEventButton) {
     UI.confirmAddTripEventButton.addEventListener("click", function() {
       const input = UI.addTripEventInput;
@@ -676,6 +679,8 @@ function processChunk(
       API.getAppData(UI.getApiKey(), (response) => {
         if (response.success) {
           cachedData = response.data.expenses;
+          transactionData = response.data.expenses; // Update transaction data as well
+          originalTransactionData = JSON.parse(JSON.stringify(response.data.expenses)); // Update original transactions for changes comparison
           Tags.setTags(response.data.tags); // Update tags globally
 
           // Only calculate and display stats for the dashboard if it's the active tab
@@ -684,6 +689,14 @@ function processChunk(
             const timeframeSelect = document.getElementById("timeframe-select");
             const selectedTimeframe = timeframeSelect?.value || "past_30_days";
             calculateAndDisplayStats(cachedData, cachedOpeningBalance, selectedTimeframe);
+          }
+
+          // Update transactions content if transactions tab is active
+          if (activeTab && activeTab.getAttribute('data-tab') === 'transactions') {
+            UI.displayTransactions(response.data.expenses);
+            // Update filter dropdowns with available tags
+            const allTags = Tags.getTags();
+            UI.updateFilterDropdowns(allTags);
           }
 
           // Update tags content if tags tab is active
@@ -740,16 +753,16 @@ function loadDataFromSheet() {
   if (UI.isGlobalLoading()) {
     // If global loading is active, ensure this tab shows the loading state
     // Remove any existing overlay first to avoid duplicates
-    removeLoadingOverlay("transactions-content");
+    removeLoadingOverlay("data-display");
 
     // Use the UI module's overlay loading method which will apply the solid green background
-    UI.showLoadingInContainer("transactions-content", "Loading transaction data...");
+    UI.showLoadingInContainer("data-display", "Loading transaction data...");
     return;
   }
 
   // For individual loading, show the overlay
-  removeLoadingOverlay("transactions-content");
-  UI.showLoadingInContainer("transactions-content", "Loading transaction data...");
+  removeLoadingOverlay("data-display");
+  UI.showLoadingInContainer("data-display", "Loading transaction data...");
 
   UI.showStatusMessage(
     "data-status",
@@ -760,7 +773,7 @@ function loadDataFromSheet() {
 
   API.getData(UI.getApiKey(), (response) => {
     // Remove the loading overlay after loading completes
-    removeLoadingOverlay("transactions-content");
+    removeLoadingOverlay("data-display");
 
     if (response.success) {
       UI.showStatusMessage(
@@ -772,6 +785,18 @@ function loadDataFromSheet() {
       UI.showDataDisplay();
       // Refresh cached data after loading new data
       cachedData = response.data;
+      transactionData = response.data; // Also update transaction data
+      originalTransactionData = JSON.parse(JSON.stringify(response.data)); // Deep copy for changes comparison
+
+      // Update transactions content if transactions tab is active
+      const activeTab = document.querySelector('.nav-item.active');
+      if (activeTab && activeTab.getAttribute('data-tab') === 'transactions') {
+        UI.displayTransactions(response.data);
+        // Update filter dropdowns with available tags
+        const allTags = Tags.getTags();
+        UI.updateFilterDropdowns(allTags);
+      }
+
       const timeframeSelect = document.getElementById("timeframe-select");
       const selectedTimeframe = timeframeSelect
         ? timeframeSelect.value
@@ -809,6 +834,294 @@ function handleViewEditExpenses() {
     }
   });
 }
+
+// New functionality for transactions section
+let transactionData = [];
+let originalTransactionData = [];
+let tagChanges = {}; // Store changes made locally
+
+// Handle switching to tag transactions view
+function handleTagTransactions() {
+  if (!transactionData || transactionData.length === 0) {
+    UI.showTransactionStatus("Please load transactions first (use the dashboard to load data).", "error");
+    return;
+  }
+
+  const allTags = Tags.getTags();
+  UI.displayTransactionsForTagging(transactionData, allTags);
+  UI.showTagTransactionsView();
+}
+
+// Handle switching to bulk add tags view
+function handleBulkAddTags() {
+  if (!transactionData || transactionData.length === 0) {
+    UI.showTransactionStatus("Please load transactions first (use the dashboard to load data).", "error");
+    return;
+  }
+
+  const allTags = Tags.getTags();
+  UI.displayTransactionsForBulkTagging(transactionData, allTags);
+  UI.showBulkAddTagsView();
+}
+
+// Handle saving transaction changes
+function handleSaveTransactionChanges() {
+  if (Object.keys(tagChanges).length === 0) {
+    UI.showTransactionStatus("No changes to save.", "info");
+    return;
+  }
+
+  // Prepare the changes for upload
+  const changesForUpload = [];
+
+  for (const rowId in tagChanges) {
+    const change = tagChanges[rowId];
+    const originalTransaction = originalTransactionData.find(item => item.row === parseInt(rowId));
+
+    if (originalTransaction) {
+      const updatedTransaction = { ...originalTransaction };
+      updatedTransaction["Trip/Event"] = change.tripEvent;
+      updatedTransaction["Category"] = change.category;
+      changesForUpload.push(updatedTransaction);
+    }
+  }
+
+  if (changesForUpload.length === 0) {
+    UI.showTransactionStatus("No valid changes found to save.", "error");
+    return;
+  }
+
+  UI.showTransactionStatus("Saving transaction changes...", "info");
+
+  // Upload changes to Google Sheets
+  const recordsPerChunk = 20;
+  const totalChunks = Math.ceil(changesForUpload.length / recordsPerChunk);
+
+  console.log(
+    `Saving ${changesForUpload.length} transaction changes in ${totalChunks} chunks of ${recordsPerChunk} records each`
+  );
+
+  processChunk(
+    0,
+    changesForUpload,
+    recordsPerChunk,
+    totalChunks,
+    "updateExpenses", // Use the same action as the editor
+    "transaction-status"
+  );
+}
+
+// Event listeners for transaction controls
+function setupTransactionListeners() {
+  if (UI.tagTransactionsButton) {
+    UI.tagTransactionsButton.addEventListener("click", handleTagTransactions);
+  }
+
+  if (UI.bulkAddTagsButton) {
+    UI.bulkAddTagsButton.addEventListener("click", handleBulkAddTags);
+  }
+
+  if (UI.saveTransactionChangesButton) {
+    UI.saveTransactionChangesButton.addEventListener("click", handleSaveTransactionChanges);
+  }
+
+  if (UI.backToTransactions) {
+    UI.backToTransactions.addEventListener("click", function() {
+      UI.displayTransactions(transactionData);
+      UI.showTransactionsView();
+    });
+  }
+
+  if (UI.backToTransactionsBulk) {
+    UI.backToTransactionsBulk.addEventListener("click", function() {
+      UI.displayTransactions(transactionData);
+      UI.showTransactionsView();
+    });
+  }
+
+  // Filter dropdown event listeners
+  if (UI.filterTripEvent) {
+    UI.filterTripEvent.addEventListener("change", handleTransactionFilter);
+  }
+
+  if (UI.filterCategory) {
+    UI.filterCategory.addEventListener("change", handleTransactionFilter);
+  }
+
+  // Add event listeners for sorting in the main transactions table
+  document.querySelectorAll('#transactions-table th.sortable').forEach(header => {
+    header.addEventListener('click', function() {
+      const sortField = this.getAttribute('data-sort');
+      sortTransactions(sortField);
+    });
+  });
+
+  // Add event listeners for the select all checkboxes
+  if (UI.selectAllTransactions) {
+    UI.selectAllTransactions.addEventListener('change', function() {
+      const checkboxes = document.querySelectorAll('#tag-transactions-table tbody input[type="checkbox"]');
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+      });
+    });
+  }
+
+  if (UI.selectAllBulk) {
+    UI.selectAllBulk.addEventListener('change', function() {
+      const checkboxes = document.querySelectorAll('#bulk-transactions-table tbody input[type="checkbox"]');
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+      });
+    });
+  }
+
+  if (UI.applyBulkTagsButton) {
+    UI.applyBulkTagsButton.addEventListener('click', applyBulkTags);
+  }
+
+  // Add event listeners for tag selection in the tagging view
+  document.addEventListener('change', function(e) {
+    if (e.target.tagName === 'SELECT' && e.target.closest('#tag-transactions-table')) {
+      const rowId = e.target.dataset.rowId;
+      const field = e.target.dataset.field;
+      const value = e.target.value;
+
+      // Initialize changes object for this row if it doesn't exist
+      if (!tagChanges[rowId]) {
+        tagChanges[rowId] = {
+          tripEvent: originalTransactionData.find(item => item.row === parseInt(rowId))?.["Trip/Event"] || "",
+          category: originalTransactionData.find(item => item.row === parseInt(rowId))?.["Category"] || ""
+        };
+      }
+
+      // Update the changes object
+      tagChanges[rowId][field] = value;
+    }
+  });
+}
+
+// Handle transaction filtering
+function handleTransactionFilter() {
+  const tripEventFilter = UI.filterTripEvent ? UI.filterTripEvent.value : "";
+  const categoryFilter = UI.filterCategory ? UI.filterCategory.value : "";
+
+  // Filter the data based on selections
+  const filteredData = originalTransactionData.filter(item => {
+    const tripEventMatch = !tripEventFilter || item["Trip/Event"] === tripEventFilter;
+    const categoryMatch = !categoryFilter || item["Category"] === categoryFilter;
+    return tripEventMatch && categoryMatch;
+  });
+
+  UI.displayTransactions(filteredData);
+}
+
+// Sort transactions by different fields
+function sortTransactions(sortField) {
+  // Get current sort direction
+  const header = document.querySelector(`#transactions-table th[data-sort="${sortField}"]`);
+  let isAscending = header.dataset.sortDirection === 'asc';
+
+  // Update sort indicator
+  document.querySelectorAll('#transactions-table th.sortable .sort-indicator').forEach(indicator => {
+    indicator.textContent = '';
+  });
+
+  const sortIndicator = header.querySelector('.sort-indicator');
+  if (isAscending) {
+    sortIndicator.textContent = '↓'; // Descending
+  } else {
+    sortIndicator.textContent = '↑'; // Ascending
+  }
+
+  // Update sort direction
+  header.dataset.sortDirection = isAscending ? 'desc' : 'asc';
+
+  // Map the sort field to the actual data field
+  let dataField = sortField;
+  if (sortField === 'tripEvent') {
+    dataField = 'Trip/Event';
+  } else if (sortField === 'category') {
+    dataField = 'Category';
+  }
+
+  // Sort the data
+  transactionData.sort((a, b) => {
+    let valueA = a[dataField] || '';
+    let valueB = b[dataField] || '';
+
+    // Handle date sorting specifically
+    if (sortField === 'date') {
+      valueA = new Date(valueA);
+      valueB = new Date(valueB);
+
+      // Handle invalid dates
+      if (isNaN(valueA.getTime())) valueA = new Date(0);
+      if (isNaN(valueB.getTime())) valueB = new Date(0);
+    } else {
+      // For other fields, convert to string for comparison
+      valueA = valueA.toString().toLowerCase();
+      valueB = valueB.toString().toLowerCase();
+    }
+
+    if (valueA < valueB) return isAscending ? -1 : 1;
+    if (valueA > valueB) return isAscending ? 1 : -1;
+    return 0;
+  });
+
+  UI.displayTransactions(transactionData);
+}
+
+// Apply bulk tags to selected transactions
+function applyBulkTags() {
+  const tripEventValue = UI.bulkTripEventSelect ? UI.bulkTripEventSelect.value : "";
+  const categoryValue = UI.bulkCategorySelect ? UI.bulkCategorySelect.value : "";
+
+  if (!tripEventValue && !categoryValue) {
+    UI.showTransactionStatus("Please select at least one tag to apply.", "error");
+    return;
+  }
+
+  // Get selected transactions
+  const selectedCheckboxes = document.querySelectorAll('#bulk-transactions-table tbody input[type="checkbox"]:checked');
+  if (selectedCheckboxes.length === 0) {
+    UI.showTransactionStatus("Please select at least one transaction.", "error");
+    return;
+  }
+
+  // Update the transaction data for selected items
+  selectedCheckboxes.forEach(checkbox => {
+    const rowId = checkbox.dataset.rowId;
+    const transaction = transactionData.find(item => item.row === parseInt(rowId));
+
+    if (transaction) {
+      // Initialize changes object for this row if it doesn't exist
+      if (!tagChanges[rowId]) {
+        tagChanges[rowId] = {
+          tripEvent: originalTransactionData.find(item => item.row === parseInt(rowId))?.["Trip/Event"] || "",
+          category: originalTransactionData.find(item => item.row === parseInt(rowId))?.["Category"] || ""
+        };
+      }
+
+      // Update the changes object and the in-memory data
+      if (tripEventValue) {
+        tagChanges[rowId].tripEvent = tripEventValue;
+        transaction["Trip/Event"] = tripEventValue;
+      }
+      if (categoryValue) {
+        tagChanges[rowId].category = categoryValue;
+        transaction["Category"] = categoryValue;
+      }
+    }
+  });
+
+  UI.showTransactionStatus(`Applied tags to ${selectedCheckboxes.length} transaction(s).`, "success");
+
+  // Update the bulk view to reflect changes
+  const allTags = Tags.getTags();
+  UI.displayTransactionsForBulkTagging(transactionData, allTags);
+}
+
+// Update main setupMainMenuListeners function to include transaction listeners
 
 function handleAddTag(type) {
   const inputId = type === "Trip/Event" ? "new-trip-event" : "new-category";
@@ -1086,6 +1399,21 @@ function setActiveNavItem(tabName, skipDataLoad = false) {
       UI.displayTagsTable(allTags, tagExpenseCounts);
       UI.showTagsTableView(); // Ensure we're in the table view by default
     }
+
+    // If switching to transactions, load and show the transactions from cached data
+    if (tabName === "transactions") {
+      if (cachedData) {
+        transactionData = cachedData; // Use cached data for transactions view
+        originalTransactionData = JSON.parse(JSON.stringify(cachedData)); // Deep copy for changes comparison
+        UI.displayTransactions(cachedData);
+
+        // Update filter dropdowns with available tags
+        const allTags = Tags.getTags();
+        UI.updateFilterDropdowns(allTags);
+      } else {
+        UI.showTransactionStatus("No data loaded. Please refresh from dashboard first.", "error");
+      }
+    }
   }
 }
 
@@ -1254,6 +1582,7 @@ function globalRefreshAllData() {
   UI.showLoadingInContainer("tags-content", "Loading tag data...");
   UI.showLoadingInContainer("analysis-content", "Loading analysis data...");
   UI.showLoadingInContainer("reports-content", "Loading reports data...");
+  UI.showLoadingInContainer("settings-content", "Loading settings data...");
 
   // Clear caches to force reload
   cachedData = null;
@@ -1304,8 +1633,16 @@ function globalRefreshAllData() {
       // Update transactions content if transactions tab is active
       const activeTab = document.querySelector('.nav-item.active');
       if (activeTab && activeTab.getAttribute('data-tab') === 'transactions') {
-        UI.displayDataInTable(response.data);
-        UI.showDataDisplay();
+        // Check which view is currently active in the transactions tab
+        if (document.getElementById('data-display') && document.getElementById('data-display').style.display === 'block') {
+          // Old view is active
+          UI.displayDataInTable(response.data);
+          UI.showDataDisplay();
+        } else {
+          // New view is active, update transactionData which is used by new view
+          transactionData = response.data;
+          UI.displayTransactions(response.data);
+        }
       }
     }
 
@@ -1330,6 +1667,7 @@ function checkGlobalRefreshComplete(completed, total) {
     UI.hideLoadingInContainer("tags-content");
     UI.hideLoadingInContainer("analysis-content");
     UI.hideLoadingInContainer("reports-content");
+    UI.hideLoadingInContainer("settings-content");
 
     // Reset global loading state
     UI.setGlobalLoadingState(false);

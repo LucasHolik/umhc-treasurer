@@ -281,25 +281,116 @@
           <!-- Transactions Content -->
           <div id="transactions-content" class="tab-content">
             <div class="section">
-              <h2>All Transactions</h2>
-              <button id="load-from-sheet">Load Data from Google Sheet</button>
-              <button id="view-edit-expenses-button">View/Edit Expenses</button>
-              <div id="data-status"></div>
-              <div id="data-display" style="display: none">
-                <table id="data-table">
+              <div class="transactions-header">
+                <h2>Transactions</h2>
+                <div class="transactions-controls">
+                  <button id="tag-transactions-btn" class="secondary-btn">Tag Transactions</button>
+                  <button id="bulk-add-tags-btn" class="secondary-btn">Bulk Add Tags</button>
+                  <button id="save-transaction-changes" class="save-btn">Save Changes</button>
+                </div>
+              </div>
+
+              <div id="transaction-status"></div>
+
+              <!-- Filter Controls -->
+              <div class="filter-controls">
+                <div class="filter-row">
+                  <select id="filter-trip-event">
+                    <option value="">All Trip/Event Tags</option>
+                    <!-- Will be populated dynamically -->
+                  </select>
+                  <select id="filter-category">
+                    <option value="">All Category Tags</option>
+                    <!-- Will be populated dynamically -->
+                  </select>
+                </div>
+              </div>
+
+              <!-- Transactions Display View -->
+              <div id="transactions-display" class="transactions-view">
+                <table id="transactions-table" class="section-table">
                   <thead>
                     <tr>
+                      <th class="sortable" data-sort="date">Date <span class="sort-indicator"></span></th>
+                      <th class="sortable" data-sort="description">Description <span class="sort-indicator"></span></th>
+                      <th class="sortable" data-sort="tripEvent">Trip/Event <span class="sort-indicator"></span></th>
+                      <th class="sortable" data-sort="category">Category <span class="sort-indicator"></span></th>
+                      <th>Income</th>
+                      <th>Expense</th>
                       <th>Document</th>
+                      <th>Time Uploaded</th>
+                    </tr>
+                  </thead>
+                  <tbody id="transactions-tbody">
+                    <!-- Transactions will be populated here -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Tag Transactions View -->
+              <div id="tag-transactions-view" class="transactions-view" style="display: none;">
+                <div class="tag-transactions-controls">
+                  <button id="back-to-transactions" class="secondary-btn">Back to Transactions</button>
+                </div>
+                <table id="tag-transactions-table" class="section-table">
+                  <thead>
+                    <tr>
+                      <th class="select-all-header">
+                        <input type="checkbox" id="select-all-transactions">
+                      </th>
                       <th>Date</th>
                       <th>Description</th>
                       <th>Trip/Event</th>
                       <th>Category</th>
                       <th>Income</th>
                       <th>Expense</th>
-                      <th>Time Uploaded</th>
                     </tr>
                   </thead>
-                  <tbody id="data-body"></tbody>
+                  <tbody id="tag-transactions-tbody">
+                    <!-- Transactions for tagging will be populated here -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Bulk Add Tags View -->
+              <div id="bulk-add-tags-view" class="transactions-view" style="display: none;">
+                <div class="bulk-add-controls">
+                  <button id="back-to-transactions-bulk" class="secondary-btn">Back to Transactions</button>
+                  <div class="bulk-tag-selection">
+                    <div class="bulk-tag-item">
+                      <label for="bulk-trip-event">Trip/Event:</label>
+                      <select id="bulk-trip-event">
+                        <option value="">Select Trip/Event</option>
+                        <!-- Will be populated dynamically -->
+                      </select>
+                    </div>
+                    <div class="bulk-tag-item">
+                      <label for="bulk-category">Category:</label>
+                      <select id="bulk-category">
+                        <option value="">Select Category</option>
+                        <!-- Will be populated dynamically -->
+                      </select>
+                    </div>
+                    <button id="apply-bulk-tags" class="secondary-btn">Apply Tags to Selected</button>
+                  </div>
+                </div>
+                <table id="bulk-transactions-table" class="section-table">
+                  <thead>
+                    <tr>
+                      <th class="select-all-header">
+                        <input type="checkbox" id="select-all-bulk">
+                      </th>
+                      <th>Date</th>
+                      <th>Description</th>
+                      <th>Trip/Event</th>
+                      <th>Category</th>
+                      <th>Income</th>
+                      <th>Expense</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bulk-transactions-tbody">
+                    <!-- Transactions for bulk tagging will be populated here -->
+                  </tbody>
                 </table>
               </div>
             </div>
