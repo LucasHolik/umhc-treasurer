@@ -3,14 +3,54 @@
 const SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbyOuvUpzAAW2E75NjK7oeOixQRgxdyIRzl6c-qsX_8pyrwxbPK_w6SgQMdmsP1P8s8/exec";
 
-function jsonpRequest(url, callback) {
+function jsonpRequest(url, callback, timeout = 10000) { // 10 second default timeout
   const callbackName = "jsonp_callback_" + Math.round(100000 * Math.random());
   const script = document.createElement("script");
 
+  // Create a timeout to handle hanging requests
+  const timeoutId = setTimeout(() => {
+    // Clean up if request timed out
+    if (window[callbackName]) {
+      delete window[callbackName];
+    }
+    if (document.body.contains(script)) {
+      document.body.removeChild(script);
+    }
+
+    // Call the callback with an error response
+    callback({
+      success: false,
+      message: "Request timed out after " + (timeout/1000) + " seconds. Please try again."
+    });
+  }, timeout);
+
   window[callbackName] = function (data) {
-    callback(data);
-    document.body.removeChild(script);
+    // Clear timeout since request completed successfully
+    clearTimeout(timeoutId);
+
+    // Make sure to clean up the script element
+    if (document.body.contains(script)) {
+      document.body.removeChild(script);
+    }
     delete window[callbackName];
+
+    callback(data);
+  };
+
+  script.onerror = function() {
+    // Handle script loading errors
+    clearTimeout(timeoutId);
+    if (window[callbackName]) {
+      delete window[callbackName];
+    }
+    if (document.body.contains(script)) {
+      document.body.removeChild(script);
+    }
+
+    callback({
+      success: false,
+      message: "Network error occurred. Please check your connection and try again."
+    });
   };
 
   script.src =
