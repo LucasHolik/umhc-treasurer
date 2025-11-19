@@ -13,13 +13,53 @@ class LoginComponent {
 
   render() {
     this.element.innerHTML = `
+      <style>
+        .login-box {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .login-logo {
+          width: 80px;
+          margin-bottom: 20px;
+        }
+        .input-group {
+          display: flex;
+          width: 100%;
+        }
+        #api-key-input {
+          padding: 15px;
+          border: 1px solid #f0ad4e;
+          border-right: none;
+          border-radius: 5px 0 0 5px;
+          font-size: 16px;
+          width: 100%;
+          text-align: center;
+          box-sizing: border-box;
+          background-color: #1a6b10;
+          color: #fff;
+        }
+        #api-key-input:focus {
+          outline: none;
+        }
+        #login-button {
+          padding: 15px 25px;
+          border: 1px solid #f0ad4e;
+          border-radius: 0 5px 5px 0;
+          background-color: #f0ad4e;
+          color: #fff;
+          font-size: 16px;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+      </style>
       <div class="login-container">
         <div class="login-box">
           <img src="Logo.jpg" alt="UMHC Logo" class="login-logo">
-          <h2>Treasurer's App</h2>
-          <p>Please enter the API key to continue.</p>
-          <input type="password" id="api-key-input" placeholder="API Key">
-          <button id="login-button">Login</button>
+          <div class="input-group">
+            <input type="password" id="api-key-input" placeholder="API Key">
+            <button id="login-button">Login</button>
+          </div>
           <div id="login-status"></div>
         </div>
       </div>
