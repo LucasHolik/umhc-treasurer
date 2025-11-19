@@ -1,4 +1,43 @@
-// google-sheets/Tags.gs
+const Service_Tags = {
+  getTags: function() {
+    return _getTags();
+  },
+
+  addTag: function(type, value) {
+    return _addTag(type, value);
+  },
+
+  deleteTag: function(e) {
+    const type = e.parameter.type;
+    const value = e.parameter.value;
+    const deleteResult = _deleteTag(type, value);
+    if (deleteResult.success) {
+      Service_Sheet.removeTagFromExpenses(type, value);
+    }
+    return deleteResult;
+  },
+
+  renameTag: function(e) {
+    const type = e.parameter.type;
+    const oldValue = e.parameter.oldValue;
+    const newValue = e.parameter.newValue;
+    return _renameTag(type, oldValue, newValue);
+  },
+
+  processTagOperations: function(e) {
+    try {
+      const operationsParam = e.parameter.operations;
+      if (!operationsParam) {
+        return { success: false, message: "No operations parameter provided" };
+      }
+      const operations = JSON.parse(operationsParam);
+      return _processTagOperations(operations);
+    } catch (error) {
+      console.error("Error processing tag operations:", error);
+      return { success: false, message: "Error processing tag operations: " + error.message };
+    }
+  }
+};
 
 function _getTagSheet() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
@@ -57,7 +96,6 @@ function _addTag(type, value) {
     }
   }
 
-  // Find the next empty row in the specified column
   const columnValues = tagSheet.getRange(1, column, lastRow, 1).getValues();
   let nextEmptyRow = columnValues.filter(String).length + 1;
 
@@ -125,64 +163,25 @@ function _renameTag(type, oldValue, newValue) {
     return { success: false, message: "No tags to rename." };
   }
 
-  // Check if the new tag value already exists
   const tagsRange = tagSheet.getRange(2, column, lastRow - 1, 1);
   const tags = tagsRange.getValues().flat();
   if (tags.includes(newValue)) {
     return { success: false, message: "New tag value already exists." };
   }
 
-  // Find the row with the old tag value
   const tagIndex = tags.indexOf(oldValue);
   if (tagIndex === -1) {
     return { success: false, message: "Old tag value not found." };
   }
 
-  // Update the tag value in the Tags sheet
   const updateRow = tagIndex + 2;
   tagSheet.getRange(updateRow, column).setValue(newValue);
 
-  // Now update all expenses in the Finances sheet that have the old tag value
-  _updateExpensesWithTag(oldValue, newValue, type);
+  Service_Sheet.updateExpensesWithTag(oldValue, newValue, type);
 
   return { success: true, message: "Tag renamed successfully." };
 }
 
-function _updateExpensesWithTag(oldTag, newTag, type) {
-  const financeSheet = _getFinanceSheet(); // Uses the function from Sheet.gs
-  const lastRow = financeSheet.getLastRow();
-
-  if (lastRow <= 1) {
-    return; // No expenses to update
-  }
-
-  let column;
-  if (type === "Trip/Event") {
-    column = 5; // Column E
-  } else if (type === "Category") {
-    column = 6; // Column F
-  } else {
-    return;
-  }
-
-  const range = financeSheet.getRange(2, column, lastRow - 1, 1);
-  const values = range.getValues();
-
-  for (let i = 0; i < values.length; i++) {
-    if (values[i][0] === oldTag) {
-      values[i][0] = newTag;
-    }
-  }
-
-  // Write the updated values back to the sheet
-  range.setValues(values);
-}
-
-/**
- * Process an array of tag operations in order
- * Each operation is [oldValue, newValue, operationType, tagType]
- * operationType can be "add", "delete", or "rename"
- */
 function _processTagOperations(operations) {
   if (!operations || !Array.isArray(operations)) {
     return { success: false, message: "Invalid operations array" };
@@ -204,7 +203,7 @@ function _processTagOperations(operations) {
       case "delete":
         result = _deleteTag(tagType, oldValue);
         if (result.success) {
-          _removeTagFromExpenses(tagType, oldValue); // Use the existing function from Sheet.gs
+          Service_Sheet.removeTagFromExpenses(tagType, oldValue);
         }
         break;
       case "rename":
@@ -214,7 +213,6 @@ function _processTagOperations(operations) {
         return { success: false, message: `Unknown operation type: ${operationType}` };
     }
 
-    // If any operation fails, stop processing and return the error
     if (!result.success) {
       return {
         success: false,
