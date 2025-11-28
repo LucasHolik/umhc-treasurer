@@ -4,6 +4,7 @@ import store from '../core/state.js';
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyOuvUpzAAW2E75NjK7oeOixQRgxdyIRzl6c-qsX_8pyrwxbPK_w6SgQMdmsP1P8s8/exec";
 const activeRequests = new Map();
+let loadingRequestCount = 0;
 
 /**
  * Performs a JSONP request to the Google Apps Script backend.
@@ -12,9 +13,10 @@ const activeRequests = new Map();
  *
  * @param {string} action - The backend action to perform.
  * @param {object} params - The parameters for the action.
+ * @param {object} options - Request options (e.g., { skipLoading: true }).
  * @returns {Promise<any>} - A promise that resolves with the response data.
  */
-const request = (action, params = {}) => {
+const request = (action, params = {}, options = {}) => {
   const apiKey = store.getState('apiKey');
   if (!apiKey) {
     return Promise.reject(new Error("API key is not set."));
@@ -30,8 +32,11 @@ const request = (action, params = {}) => {
     return activeRequests.get(requestKey);
   }
 
-  if (activeRequests.size === 0) {
-    store.setState('isLoading', true);
+  if (!options.skipLoading) {
+    if (loadingRequestCount === 0) {
+      store.setState('isLoading', true);
+    }
+    loadingRequestCount++;
   }
 
   const promise = new Promise((resolve, reject) => {
@@ -62,8 +67,12 @@ const request = (action, params = {}) => {
         document.body.removeChild(script);
       }
       activeRequests.delete(requestKey);
-      if (activeRequests.size === 0) {
-        store.setState('isLoading', false);
+      
+      if (!options.skipLoading) {
+        loadingRequestCount--;
+        if (loadingRequestCount === 0) {
+          store.setState('isLoading', false);
+        }
       }
     };
 
@@ -93,7 +102,7 @@ const ApiService = {
   login: () => request('login'),
   getAppData: () => request('getAppData'),
   getData: () => request('getData'),
-  saveData: (data) => request('saveData', { data: JSON.stringify(data) }),
+  saveData: (data, options = {}) => request('saveData', { data: JSON.stringify(data) }, options),
   addTag: (type, value) => request('addTag', { type, value }),
   updateExpenses: (data) => request('updateExpenses', { data: JSON.stringify(data) }),
   deleteTag: (type, value) => request('deleteTag', { type, value }),

@@ -18,7 +18,8 @@ class App {
     AuthService.init();
     this.render();
     store.subscribe('currentUser', this.render.bind(this));
-    store.subscribe('isLoading', this.handleLoadingState.bind(this));
+    store.subscribe('isLoading', () => this.handleLoadingState());
+    store.subscribe('isUploading', () => this.handleLoadingState());
     document.addEventListener('dataUploaded', this.loadInitialData.bind(this));
   }
 
@@ -111,7 +112,7 @@ class App {
     `;
     this.initComponents();
     this.attachEventListeners();
-    this.handleLoadingState(store.getState('isLoading'));
+    this.handleLoadingState();
     this.loadInitialData();
   }
 
@@ -139,13 +140,22 @@ class App {
     router.start();
   }
 
-  handleLoadingState(isLoading) {
+  handleLoadingState() {
+    const isLoading = store.getState('isLoading');
+    const isUploading = store.getState('isUploading');
+    
+    const activeNavItem = this.element.querySelector('.nav-item.active');
+    const activeTab = activeNavItem ? activeNavItem.getAttribute('data-tab') : 'dashboard';
+
     const loaderContainer = this.element.querySelector('#global-loader-container');
     const contentWrapper = this.element.querySelector('.content-wrapper');
     const refreshBtn = this.element.querySelector('.refresh-btn');
     
+    // Show global loader if loading (standard) OR if uploading and NOT on upload tab
+    const shouldShowGlobalLoader = isLoading || (isUploading && activeTab !== 'upload');
+
     if (loaderContainer && contentWrapper) {
-        if (isLoading) {
+        if (shouldShowGlobalLoader) {
             loaderContainer.style.display = 'flex';
             contentWrapper.style.display = 'none';
             if (refreshBtn) refreshBtn.textContent = "⏳";
@@ -181,6 +191,8 @@ class App {
             this.element.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             // show current tab content
             this.element.querySelector(`#${tabName}-content`).classList.add('active');
+
+            this.handleLoadingState();
         });
     });
 

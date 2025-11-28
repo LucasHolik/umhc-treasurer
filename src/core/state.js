@@ -68,6 +68,7 @@ const store = createStore({
   expenses: [],
   tags: { "Trip/Event": [], Category: [] },
   isLoading: false,
+  isUploading: false,
   error: null,
   currentUser: null,
   openingBalance: 0,

@@ -9,6 +9,8 @@ class UploadComponent {
     this.parsedData = [];
     this.render();
     this.attachEventListeners();
+    store.subscribe('isUploading', this.handleUploadingState.bind(this));
+    this.handleUploadingState(store.getState('isUploading'));
   }
 
   render() {
@@ -63,6 +65,20 @@ class UploadComponent {
     this.uploadButton.addEventListener('click', this.handleUpload.bind(this));
     this.tableViewButton.addEventListener('click', this.switchToTableView.bind(this));
     this.jsonViewButton.addEventListener('click', this.switchToJsonView.bind(this));
+  }
+
+  handleUploadingState(isUploading) {
+    if (this.fileUpload) {
+      this.fileUpload.disabled = isUploading;
+    }
+    if (this.uploadButton) {
+      this.uploadButton.disabled = isUploading;
+      if (isUploading) {
+        this.uploadButton.textContent = 'Uploading...';
+      } else {
+        this.uploadButton.textContent = 'Upload to Sheet';
+      }
+    }
   }
 
   async handleFileSelect(event) {
@@ -135,6 +151,7 @@ class UploadComponent {
     this.displayUploadStatus('Checking for duplicates...', 'info');
 
     try {
+      store.setState('isUploading', true);
       const existingData = store.getState('expenses') || [];
       const newRecords = this._findUniqueRecords(this.parsedData, existingData);
 
@@ -148,6 +165,8 @@ class UploadComponent {
 
     } catch (error) {
       this.displayUploadStatus(`Error uploading data: ${error.message}`, 'error');
+    } finally {
+      store.setState('isUploading', false);
     }
   }
 
@@ -160,7 +179,7 @@ class UploadComponent {
         const end = start + recordsPerChunk;
         const chunk = records.slice(start, end);
         this.displayUploadStatus(`Uploading chunk ${i + 1} of ${totalChunks}...`, 'info');
-        await ApiService.saveData(chunk);
+        await ApiService.saveData(chunk, { skipLoading: true });
     }
     
     this.displayUploadStatus(`Successfully uploaded ${records.length} records!`, 'success');
