@@ -13,8 +13,8 @@ class UploadComponent {
 
   render() {
     this.element.innerHTML = `
-      <div class="upload-container">
-        <h3>Upload Excel File</h3>
+      <div class="upload-container section">
+        <h2>Upload Excel File</h2>
         <p>Select an Excel file with transaction data to upload to the sheet.</p>
         <input type="file" id="file-upload" accept=".xlsx, .xls">
         <button id="upload-to-sheet-btn">Upload to Sheet</button>
@@ -26,7 +26,7 @@ class UploadComponent {
             <button id="json-view-btn">JSON View</button>
           </div>
           <div id="table-view-content">
-            <table class="data-table">
+            <table class="section-table">
               <thead>
                 <tr>
                   <th>Date</th>

@@ -37,26 +37,31 @@ class TransactionsComponent {
 
   renderTransactionsDisplay() {
     this.transactionsDisplay.innerHTML = `
-        <div class="filters">
-            <select id="filter-trip-event"></select>
-            <select id="filter-category"></select>
+        <div class="section">
+            <div class="transactions-header">
+                <h2>All Transactions</h2>
+            </div>
+            <div class="filters" style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <select id="filter-trip-event" style="padding: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: #1a6b10; color: white;"></select>
+                <select id="filter-category" style="padding: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: #1a6b10; color: white;"></select>
+            </div>
+            <div class="transaction-actions" style="margin-bottom: 15px;">
+                <button id="tag-transactions-btn" class="secondary-btn">Tag Transactions</button>
+            </div>
+            <table id="transactions-table" class="section-table">
+                <thead>
+                    <tr>
+                        <th data-sort="Date" class="sortable" style="cursor: pointer;">Date <span class="sort-indicator"></span></th>
+                        <th data-sort="Description" class="sortable" style="cursor: pointer;">Description <span class="sort-indicator"></span></th>
+                        <th data-sort="Trip/Event" class="sortable" style="cursor: pointer;">Trip/Event <span class="sort-indicator"></span></th>
+                        <th data-sort="Category" class="sortable" style="cursor: pointer;">Category <span class="sort-indicator"></span></th>
+                        <th data-sort="Income" class="sortable" style="cursor: pointer;">Income <span class="sort-indicator"></span></th>
+                        <th data-sort="Expense" class="sortable" style="cursor: pointer;">Expense <span class="sort-indicator"></span></th>
+                    </tr>
+                </thead>
+                <tbody id="transactions-tbody"></tbody>
+            </table>
         </div>
-        <div class="transaction-actions">
-            <button id="tag-transactions-btn">Tag Transactions</button>
-        </div>
-        <table id="transactions-table" class="data-table">
-            <thead>
-                <tr>
-                    <th data-sort="Date" class="sortable">Date <span class="sort-indicator"></span></th>
-                    <th data-sort="Description" class="sortable">Description <span class="sort-indicator"></span></th>
-                    <th data-sort="Trip/Event" class="sortable">Trip/Event <span class="sort-indicator"></span></th>
-                    <th data-sort="Category" class="sortable">Category <span class="sort-indicator"></span></th>
-                    <th data-sort="Income" class="sortable">Income <span class="sort-indicator"></span></th>
-                    <th data-sort="Expense" class="sortable">Expense <span class="sort-indicator"></span></th>
-                </tr>
-            </thead>
-            <tbody id="transactions-tbody"></tbody>
-        </table>
     `;
     this.tbody = this.element.querySelector('#transactions-tbody');
     this.filterTripEvent = this.element.querySelector('#filter-trip-event');
@@ -80,23 +85,28 @@ class TransactionsComponent {
 
   renderTagTransactionsView() {
     this.tagTransactionsView.innerHTML = `
-        <div class="transaction-actions">
-            <button id="save-tag-changes-btn">Save Changes</button>
-            <button id="cancel-tag-changes-btn">Cancel</button>
+        <div class="section">
+            <div class="transactions-header">
+                <h2>Tag Transactions</h2>
+            </div>
+            <div class="transaction-actions" style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <button id="save-tag-changes-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Save Changes</button>
+                <button id="cancel-tag-changes-btn" class="secondary-btn" style="border-color: #d9534f; color: #d9534f;">Cancel</button>
+            </div>
+            <table id="tagging-table" class="section-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Trip/Event</th>
+                        <th>Category</th>
+                        <th>Income</th>
+                        <th>Expense</th>
+                    </tr>
+                </thead>
+                <tbody id="tagging-tbody"></tbody>
+            </table>
         </div>
-        <table id="tagging-table" class="data-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Trip/Event</th>
-                    <th>Category</th>
-                    <th>Income</th>
-                    <th>Expense</th>
-                </tr>
-            </thead>
-            <tbody id="tagging-tbody"></tbody>
-        </table>
     `;
 
     const tbody = this.tagTransactionsView.querySelector('#tagging-tbody');
