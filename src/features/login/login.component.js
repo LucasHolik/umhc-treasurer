@@ -1,10 +1,12 @@
 // src/features/login/login.component.js
 import AuthService from '../../services/auth.service.js';
 import store from '../../core/state.js';
+import LoaderComponent from '../../shared/loader.component.js';
 
 class LoginComponent {
   constructor(element) {
     this.element = element;
+    this.loader = new LoaderComponent();
     this.render();
     this.attachEventListeners();
     store.subscribe('error', this.handleError.bind(this));
@@ -52,6 +54,14 @@ class LoginComponent {
           cursor: pointer;
           white-space: nowrap;
         }
+        #login-status {
+          margin-top: 20px;
+          height: 40px;
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
       </style>
       <div class="login-container">
         <div class="login-box">
@@ -89,14 +99,21 @@ class LoginComponent {
 
   handleError(error) {
     if (this.loginStatus) {
-        this.loginStatus.innerHTML = error ? `<div class="status-message error">${error}</div>` : '';
+        if (error) {
+            this.loginStatus.innerHTML = `<div class="status-message error">${error}</div>`;
+        } else {
+            // Only clear if we are NOT loading to avoid wiping the loader
+            if (!store.getState('isLoading')) {
+                this.loginStatus.innerHTML = '';
+            }
+        }
     }
   }
 
   handleLoading(isLoading) {
     if (this.loginStatus) {
         if (isLoading) {
-            this.loginStatus.innerHTML = `<div class="loader"></div>`;
+            this.loginStatus.innerHTML = this.loader.render();
         } else {
             // Don't clear error messages when loading is finished
             if (!store.getState('error')) {
