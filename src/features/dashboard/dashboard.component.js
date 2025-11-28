@@ -17,41 +17,46 @@ class DashboardComponent {
   render() {
     this.element.innerHTML = `
       <div id="dashboard-content-wrapper">
-        <div class="dashboard-header">
-          <select id="timeframe-select">
-            <option value="current_month">Current Month</option>
-            <option value="past_30_days" selected>Past 30 Days</option>
-            <option value="past_3_months">Past 3 Months</option>
-            <option value="past_6_months">Past 6 Months</option>
-            <option value="past_year">Past Year</option>
-            <option value="all_time">All Time</option>
-          </select>
+        <div class="dashboard-header" style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+          <div class="timeframe-selector">
+            <label for="timeframe-select">Timeframe: </label>
+            <select id="timeframe-select">
+              <option value="current_month">Current Month</option>
+              <option value="past_30_days" selected>Past 30 Days</option>
+              <option value="past_3_months">Past 3 Months</option>
+              <option value="past_6_months">Past 6 Months</option>
+              <option value="past_year">Past Year</option>
+              <option value="all_time">All Time</option>
+            </select>
+          </div>
         </div>
         <div id="dashboard-loading-placeholder" style="display: none;"></div>
         <div id="dashboard-loaded-content">
-            <div class="stats-grid">
+            <div class="stats-container">
               <div class="stat-card">
-                <h4>Current Balance</h4>
-                <p id="current-balance">£0.00</p>
+                <h3>Current Balance</h3>
+                <p id="current-balance" class="stat-value">£0.00</p>
               </div>
               <div class="stat-card">
-                <h4>Total Income</h4>
-                <p id="total-income">£0.00</p>
+                <h3>Total Income</h3>
+                <p id="total-income" class="stat-value">£0.00</p>
               </div>
               <div class="stat-card">
-                <h4>Total Expenses</h4>
-                <p id="total-expenses">£0.00</p>
+                <h3>Total Expenses</h3>
+                <p id="total-expenses" class="stat-value">£0.00</p>
               </div>
               <div class="stat-card">
-                <h4>Net Change</h4>
-                <p id="net-change">£0.00</p>
+                <h3>Net Change</h3>
+                <p id="net-change" class="stat-value">£0.00</p>
               </div>
             </div>
-            <div class="transactions-header">
-              <h2>Recent Transactions</h2>
-              <div class="transaction-count-subtitle"></div>
+            <div class="section">
+              <div class="transactions-header">
+                <h2>Recent Transactions</h2>
+                <div class="transaction-count-subtitle"></div>
+              </div>
+              <div id="recent-transactions-content"></div>
             </div>
-            <div id="recent-transactions-content"></div>
         </div>
       </div>
     `;
@@ -84,7 +89,15 @@ class DashboardComponent {
     this.timeframeSelect.addEventListener('change', (e) => {
       this.timeframe = e.target.value;
       this.calculateAndDisplayStats();
+      this.updateTitle();
     });
+  }
+
+  updateTitle() {
+    const titleEl = document.getElementById('page-title');
+    if (titleEl) {
+      titleEl.textContent = `Dashboard - ${this.getTimeframeLabel(this.timeframe)}`;
+    }
   }
 
   calculateAndDisplayStats() {
