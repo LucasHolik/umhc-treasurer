@@ -1,4 +1,4 @@
-const Service_Tags = {
+var Service_Tags = {
   getTags: function() {
     return _getTags();
   },

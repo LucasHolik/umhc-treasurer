@@ -1,5 +1,6 @@
 // src/features/dashboard/dashboard.component.js
 import store from '../../core/state.js';
+import LoaderComponent from '../../shared/loader.component.js';
 
 class DashboardComponent {
   constructor(element) {
@@ -9,6 +10,8 @@ class DashboardComponent {
     this.attachEventListeners();
     store.subscribe('expenses', () => this.calculateAndDisplayStats());
     store.subscribe('openingBalance', () => this.calculateAndDisplayStats());
+    store.subscribe('isLoading', (isLoading) => this.handleLoading(isLoading));
+    this.handleLoading(store.getState('isLoading'));
   }
 
   render() {
@@ -59,6 +62,22 @@ class DashboardComponent {
     this.netChangeEl = this.element.querySelector('#net-change');
     this.recentTransactionsContentEl = this.element.querySelector('#recent-transactions-content');
     this.transactionCountSubtitleEl = this.element.querySelector('.transaction-count-subtitle');
+    
+    this.loadingPlaceholder = this.element.querySelector('#dashboard-loading-placeholder');
+    this.loadedContent = this.element.querySelector('#dashboard-loaded-content');
+    this.loadingPlaceholder.innerHTML = new LoaderComponent().render();
+  }
+
+  handleLoading(isLoading) {
+    if (this.loadingPlaceholder && this.loadedContent) {
+        if (isLoading) {
+            this.loadingPlaceholder.style.display = 'block';
+            this.loadedContent.style.display = 'none';
+        } else {
+            this.loadingPlaceholder.style.display = 'none';
+            this.loadedContent.style.display = 'block';
+        }
+    }
   }
 
   attachEventListeners() {

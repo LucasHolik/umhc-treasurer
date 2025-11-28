@@ -168,16 +168,24 @@ class App {
   async loadInitialData() {
     store.setState('isLoading', true);
     try {
+      console.log("Fetching initial data...");
       const appData = await ApiService.getAppData();
+      console.log("API Response:", appData);
+
       if (appData.success) {
+        console.log("Expenses loaded:", appData.data.expenses ? appData.data.expenses.length : 0);
+        if (appData.data.expenses && appData.data.expenses.length > 0) {
+            console.log("First expense sample:", appData.data.expenses[0]);
+        }
         store.setState('expenses', appData.data.expenses);
         store.setState('tags', appData.data.tags);
-      }
-      const balanceData = await ApiService.getOpeningBalance();
-      if (balanceData.success) {
-        store.setState('openingBalance', balanceData.balance);
+        store.setState('openingBalance', appData.data.openingBalance);
+      } else {
+          console.error("API returned success: false", appData);
+          store.setState('error', appData.message || "Failed to load data");
       }
     } catch (error) {
+      console.error("Load initial data error:", error);
       store.setState('error', error.message);
     } finally {
       store.setState('isLoading', false);
