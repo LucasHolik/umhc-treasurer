@@ -21,7 +21,6 @@ const AuthService = {
    * @returns {Promise<boolean>} - True if login is successful, false otherwise.
    */
   login: async function(apiKey) {
-    store.setState('isLoading', true);
     store.setState('error', null);
     store.setState('apiKey', apiKey); // Tentatively set the key
 
@@ -30,7 +29,6 @@ const AuthService = {
       if (response.success) {
         localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
         store.setState('currentUser', { loggedIn: true });
-        store.setState('isLoading', false);
         return true;
       } else {
         throw new Error(response.message || 'Login failed.');

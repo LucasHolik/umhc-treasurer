@@ -10,6 +10,7 @@ import TransactionsComponent from './features/transactions/transactions.componen
 import TagsComponent from './features/tags/tags.component.js';
 import AnalysisComponent from './features/analysis/analysis.component.js';
 import SettingsComponent from './features/settings/settings.component.js';
+import LoaderComponent from './shared/loader.component.js';
 
 class App {
   constructor(element) {
@@ -17,6 +18,7 @@ class App {
     AuthService.init();
     this.render();
     store.subscribe('currentUser', this.render.bind(this));
+    store.subscribe('isLoading', this.handleLoadingState.bind(this));
     document.addEventListener('dataUploaded', this.loadInitialData.bind(this));
   }
 
@@ -34,6 +36,7 @@ class App {
   }
 
   renderMainApp() {
+    store.setState('isLoading', true);
     this.element.innerHTML = `
       <div class="main-menu-container">
         <aside class="sidebar">
@@ -89,9 +92,12 @@ class App {
             <header class="main-header">
               <div class="header-content">
                 <h1 id="page-title">Dashboard</h1>
-                <button class="refresh-btn" title="Refresh Data">↻</button>
+                <button class="refresh-btn" title="Refresh Data">🔄</button>
               </div>
             </header>
+            <div id="global-loader-container" style="display: none; justify-content: center; align-items: center; height: 80%; width: 100%;">
+                ${new LoaderComponent().render()}
+            </div>
             <div class="content-wrapper">
                 <section id="dashboard-content" class="tab-content"></section>
                 <section id="transactions-content" class="tab-content"></section>
@@ -105,6 +111,7 @@ class App {
     `;
     this.initComponents();
     this.attachEventListeners();
+    this.handleLoadingState(store.getState('isLoading'));
     this.loadInitialData();
   }
 
@@ -130,6 +137,24 @@ class App {
     router.register('analysis', analysisEl);
     router.register('settings', settingsEl);
     router.start();
+  }
+
+  handleLoadingState(isLoading) {
+    const loaderContainer = this.element.querySelector('#global-loader-container');
+    const contentWrapper = this.element.querySelector('.content-wrapper');
+    const refreshBtn = this.element.querySelector('.refresh-btn');
+    
+    if (loaderContainer && contentWrapper) {
+        if (isLoading) {
+            loaderContainer.style.display = 'flex';
+            contentWrapper.style.display = 'none';
+            if (refreshBtn) refreshBtn.textContent = "⏳";
+        } else {
+            loaderContainer.style.display = 'none';
+            contentWrapper.style.display = 'block';
+            if (refreshBtn) refreshBtn.textContent = "🔄";
+        }
+    }
   }
 
   attachEventListeners() {
@@ -161,12 +186,13 @@ class App {
 
     // Set initial active tab
     const initialTab = window.location.hash.slice(1) || 'dashboard';
-    this.element.querySelector(`.nav-item[data-tab="${initialTab}"]`).click();
-
+    const activeNavItem = this.element.querySelector(`.nav-item[data-tab="${initialTab}"]`);
+    if (activeNavItem) {
+        activeNavItem.click();
+    }
   }
 
   async loadInitialData() {
-    store.setState('isLoading', true);
     try {
       console.log("Fetching initial data...");
       const appData = await ApiService.getAppData();
@@ -187,8 +213,6 @@ class App {
     } catch (error) {
       console.error("Load initial data error:", error);
       store.setState('error', error.message);
-    } finally {
-      store.setState('isLoading', false);
     }
   }
 }

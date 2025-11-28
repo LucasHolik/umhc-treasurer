@@ -30,6 +30,10 @@ const request = (action, params = {}) => {
     return activeRequests.get(requestKey);
   }
 
+  if (activeRequests.size === 0) {
+    store.setState('isLoading', true);
+  }
+
   const promise = new Promise((resolve, reject) => {
     const url = new URL(SCRIPT_URL);
     url.searchParams.append('action', action);
@@ -58,6 +62,9 @@ const request = (action, params = {}) => {
         document.body.removeChild(script);
       }
       activeRequests.delete(requestKey);
+      if (activeRequests.size === 0) {
+        store.setState('isLoading', false);
+      }
     };
 
     window[callbackName] = (data) => {
