@@ -1,0 +1,128 @@
+/* Analysis Feature Styles */
+
+.analysis-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.analysis-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.control-group label {
+  font-size: 0.9em;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.control-input {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background-color: #1a6b10;
+  color: #fff;
+  font-size: 0.95em;
+}
+
+.control-input:focus {
+  outline: none;
+  border-color: #f0ad4e;
+}
+
+/* Custom Checkbox List for Tags */
+.tag-selector {
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background-color: #1a6b10;
+  padding: 5px;
+}
+
+.tag-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.tag-checkbox-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tag-checkbox-item input[type="checkbox"] {
+  accent-color: #f0ad4e;
+  cursor: pointer;
+}
+
+.analysis-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.btn-analyze {
+  background-color: #f0ad4e;
+  color: #135909;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-analyze:hover {
+  background-color: #e09d3e;
+}
+
+.btn-download {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-download:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.chart-container {
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 20px;
+  border-radius: 8px;
+  position: relative;
+  min-height: 400px;
+}
+
+canvas {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 600px;
+}
+
+@media (max-width: 768px) {
+  .analysis-controls {
+    grid-template-columns: 1fr;
+  }
+}
