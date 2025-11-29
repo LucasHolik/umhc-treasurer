@@ -25,8 +25,8 @@ class UploadComponent {
         <div id="extracted-content-section" style="display: none;">
           <h4>Extracted Data</h4>
           <div class="view-toggle">
-            <button id="table-view-btn" class="active">Table View</button>
-            <button id="json-view-btn">JSON View</button>
+            <button id="table-view-btn" class="active view-toggle-btn">Table View</button>
+            <button id="json-view-btn" class="view-toggle-btn">JSON View</button>
           </div>
           <div id="table-view-content">
             <table class="section-table">
