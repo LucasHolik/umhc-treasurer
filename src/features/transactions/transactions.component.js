@@ -233,19 +233,36 @@ class TransactionsComponent {
   async applyBulkTags() {
       if (this.selectedRows.size === 0) return;
 
-      const trip = this.bulkTripEvent.value;
-      const category = this.bulkCategory.value;
+      const tripVal = this.bulkTripEvent.value;
+      const catVal = this.bulkCategory.value;
 
-      if (!trip && !category) return; // Nothing to apply
+      if (!tripVal && !catVal) return; 
 
       const changesList = [];
       
       this.selectedRows.forEach(rowId => {
           const original = this.originalTransactionData.find(t => t.row == rowId);
           if (original) {
-              const update = { row: rowId }; // Only send row ID and updates
-              if (trip) update.tripEvent = trip; // Match backend property name expected (updateExpenses uses tripEvent/category)
-              if (category) update.category = category;
+              const update = { row: rowId }; 
+              
+              // Handle Trip/Event
+              if (tripVal === '__REMOVE__') {
+                  update.tripEvent = ""; 
+              } else if (tripVal) {
+                  update.tripEvent = tripVal; 
+              } else {
+                  update.tripEvent = original['Trip/Event'] || "";
+              }
+
+              // Handle Category
+              if (catVal === '__REMOVE__') {
+                  update.category = "";
+              } else if (catVal) {
+                  update.category = catVal;
+              } else {
+                  update.category = original['Category'] || "";
+              }
+
               changesList.push(update);
           }
       });
@@ -379,6 +396,13 @@ class TransactionsComponent {
         const populate = (select, options, defaultText) => {
             const current = select.value;
             select.innerHTML = `<option value="">${defaultText}</option>`;
+            
+            // Add No Tag option
+            const noTag = document.createElement('option');
+            noTag.value = '__REMOVE__';
+            noTag.textContent = 'No tag';
+            select.appendChild(noTag);
+            
             (options || []).forEach(opt => {
                 const el = document.createElement('option');
                 el.value = opt;
