@@ -1,6 +1,7 @@
 // src/features/transactions/transactions.component.js
 import store from '../../core/state.js';
 import ApiService from '../../services/api.service.js';
+import { formatCurrency } from '../../core/utils.js';
 
 class TransactionsComponent {
   constructor(element) {
@@ -342,8 +343,8 @@ class TransactionsComponent {
         <td>${item.Description || ''}</td>
         <td>${item['Trip/Event'] || ''}</td>
         <td>${item.Category || ''}</td>
-        <td>${item.Income || ''}</td>
-        <td>${item.Expense || ''}</td>
+        <td>${formatCurrency(item.Income)}</td>
+        <td>${formatCurrency(item.Expense)}</td>
       `;
       
       if (this.selectionMode) {

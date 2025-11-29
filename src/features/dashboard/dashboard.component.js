@@ -1,6 +1,7 @@
 // src/features/dashboard/dashboard.component.js
 import store from '../../core/state.js';
 import LoaderComponent from '../../shared/loader.component.js';
+import { formatCurrency } from '../../core/utils.js';
 
 class DashboardComponent {
   constructor(element) {
@@ -132,10 +133,10 @@ class DashboardComponent {
     const currentBalance = openingBalance + allTimeTotalIncome - allTimeTotalExpenses;
     const netChange = totalIncome - totalExpenses;
 
-    this.currentBalanceEl.textContent = `£${currentBalance.toFixed(2)}`;
-    this.totalIncomeEl.textContent = `£${totalIncome.toFixed(2)}`;
-    this.totalExpensesEl.textContent = `£${totalExpenses.toFixed(2)}`;
-    this.netChangeEl.textContent = `£${netChange.toFixed(2)}`;
+    this.currentBalanceEl.textContent = `£${formatCurrency(currentBalance)}`;
+    this.totalIncomeEl.textContent = `£${formatCurrency(totalIncome)}`;
+    this.totalExpensesEl.textContent = `£${formatCurrency(totalExpenses)}`;
+    this.netChangeEl.textContent = `£${formatCurrency(netChange)}`;
 
     this.displayRecentTransactions(filteredData);
   }
@@ -168,8 +169,8 @@ class DashboardComponent {
                 ${sortedTransactions
                     .map((item) => {
                     const amount = item.Income
-                        ? `+${item.Income}`
-                        : `-${item.Expense}`;
+                        ? `+${formatCurrency(item.Income)}`
+                        : `-${formatCurrency(item.Expense)}`;
                     return `
                     <tr>
                         <td>${item.Date || "N/A"}</td>

@@ -2,6 +2,7 @@
 import store from '../../core/state.js';
 import ApiService from '../../services/api.service.js';
 import ExcelService from '../../services/excel.service.js';
+import { formatCurrency } from '../../core/utils.js';
 
 class UploadComponent {
   constructor(element) {
@@ -120,8 +121,8 @@ class UploadComponent {
             <td>${item.date || ""}</td>
             <td>${item.description || ""}</td>
             <td>${item.document || ""}</td>
-            <td>${item.cashIn || ""}</td>
-            <td>${item.cashOut || ""}</td>
+            <td>${formatCurrency(item.cashIn)}</td>
+            <td>${formatCurrency(item.cashOut)}</td>
         `;
         this.extractedTableBody.appendChild(row);
     });
