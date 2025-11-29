@@ -72,6 +72,7 @@ class TransactionsComponent {
                             <option value="Date">Date</option>
                             <option value="Income">Income</option>
                             <option value="Expense">Expense</option>
+                            <option value="Net">Money In/Out</option>
                         </select>
                         <select id="sort-order" class="theme-select">
                             <option value="desc">Desc (High-Low)</option>
@@ -174,7 +175,10 @@ class TransactionsComponent {
     this.filterTripEvent.addEventListener('change', () => this.filterTransactions());
     this.filterCategory.addEventListener('change', () => this.filterTransactions());
     
-    this.sortField.addEventListener('change', () => this.sortTransactions(this.sortField.value, true));
+    this.sortField.addEventListener('change', () => {
+        this.updateSortDropdownOptions();
+        this.sortTransactions(this.sortField.value, true)
+    });
     this.sortOrder.addEventListener('change', () => {
         this.sortState.ascending = this.sortOrder.value === 'asc';
         this.sortTransactions(this.sortField.value, true);
@@ -182,6 +186,7 @@ class TransactionsComponent {
 
     // Initialize dropdowns
     this.sortField.value = this.sortState.field;
+    this.updateSortDropdownOptions();
     this.sortOrder.value = this.sortState.ascending ? 'asc' : 'desc';
 
     // If returning from tagging, these might be null initially if we just rendered the loading view
@@ -393,6 +398,13 @@ class TransactionsComponent {
     const createOptions = (select, options) => {
         const currentValue = select.value;
         select.innerHTML = '<option value="">All</option>';
+
+        // Add No tag option
+        const noTagOption = document.createElement('option');
+        noTagOption.value = '__NO_TAG__';
+        noTagOption.textContent = 'No tag';
+        select.appendChild(noTagOption);
+
         (options || []).forEach(option => {
             const opt = document.createElement('option');
             opt.value = option;
@@ -434,12 +446,48 @@ class TransactionsComponent {
     const tripEventFilter = this.filterTripEvent.value;
     const categoryFilter = this.filterCategory.value;
 
+    const checkMatch = (itemValue, filterValue) => {
+        if (!filterValue) return true; // All
+        if (filterValue === '__NO_TAG__') return !itemValue; // No tag (empty or null)
+        return itemValue === filterValue; // Specific tag
+    };
+
     this.transactionData = this.originalTransactionData.filter(item => {
-        const tripEventMatch = !tripEventFilter || item['Trip/Event'] === tripEventFilter;
-        const categoryMatch = !categoryFilter || item['Category'] === categoryFilter;
+        const tripEventMatch = checkMatch(item['Trip/Event'], tripEventFilter);
+        const categoryMatch = checkMatch(item['Category'], categoryFilter);
         return tripEventMatch && categoryMatch;
     });
     this.displayTransactions(this.transactionData);
+  }
+
+  updateSortDropdownOptions() {
+      const field = this.sortField.value;
+      const currentOrder = this.sortOrder.value;
+      
+      this.sortOrder.innerHTML = '';
+      
+      if (field === 'Net') {
+          const opt1 = document.createElement('option');
+          opt1.value = 'desc';
+          opt1.textContent = 'Money In First';
+          this.sortOrder.appendChild(opt1);
+
+          const opt2 = document.createElement('option');
+          opt2.value = 'asc';
+          opt2.textContent = 'Money Out First';
+          this.sortOrder.appendChild(opt2);
+      } else {
+          const opt1 = document.createElement('option');
+          opt1.value = 'desc';
+          opt1.textContent = 'Desc (High-Low)';
+          this.sortOrder.appendChild(opt1);
+
+          const opt2 = document.createElement('option');
+          opt2.value = 'asc';
+          opt2.textContent = 'Asc (Low-High)';
+          this.sortOrder.appendChild(opt2);
+      }
+      this.sortOrder.value = currentOrder;
   }
 
   sortTransactions(field, force = false) {
@@ -456,15 +504,39 @@ class TransactionsComponent {
         let valA = a[field] || '';
         let valB = b[field] || '';
 
-        if (field === 'Date') {
+        if (field === 'Net') {
+             const incomeA = parseFloat(a['Income']) || 0;
+             const expenseA = parseFloat(a['Expense']) || 0;
+             valA = incomeA - expenseA;
+
+             const incomeB = parseFloat(b['Income']) || 0;
+             const expenseB = parseFloat(b['Expense']) || 0;
+             valB = incomeB - expenseB;
+        } else if (field === 'Income' || field === 'Expense') {
+             // Special handling for Income/Expense to keep non-zero values at the top
+             const numA = parseFloat(valA) || 0;
+             const numB = parseFloat(valB) || 0;
+
+             // If one is > 0 and the other is <= 0, the > 0 one comes first
+             const isPosA = numA > 0;
+             const isPosB = numB > 0;
+
+             if (isPosA && !isPosB) return -1; // A comes first
+             if (!isPosA && isPosB) return 1;  // B comes first
+             
+             // If both are positive, compare them normally
+             if (isPosA && isPosB) {
+                 valA = numA;
+                 valB = numB;
+             } else {
+                 // If both are zero/negative (the "other" group), sort by the OTHER field
+                 const otherField = field === 'Income' ? 'Expense' : 'Income';
+                 valA = parseFloat(a[otherField]) || 0;
+                 valB = parseFloat(b[otherField]) || 0;
+             }
+        } else if (field === 'Date') {
             valA = new Date(valA);
             valB = new Date(valB);
-        }
-
-        // Number sorting for Income/Expense
-        if (field === 'Income' || field === 'Expense') {
-             valA = parseFloat(valA) || 0;
-             valB = parseFloat(valB) || 0;
         }
 
         if (valA < valB) return this.sortState.ascending ? -1 : 1;
