@@ -21,6 +21,7 @@ class App {
     store.subscribe('isLoading', () => this.handleLoadingState());
     store.subscribe('isUploading', () => this.handleLoadingState());
     store.subscribe('isTagging', () => this.handleLoadingState());
+    store.subscribe('savingTags', () => this.handleLoadingState());
     document.addEventListener('dataUploaded', this.loadInitialData.bind(this));
   }
 
@@ -69,7 +70,7 @@ class App {
                     <li class="nav-item" data-tab="tags">
                         <a href="#tags">
                             <span class="nav-icon">🏷️</span>
-                            <span class="nav-text">Tags</span>
+                            <span class="nav-text">Manage Tags</span>
                         </a>
                     </li>
                     <li class="nav-item" data-tab="analysis">
@@ -145,6 +146,7 @@ class App {
     const isLoading = store.getState('isLoading');
     const isUploading = store.getState('isUploading');
     const isTagging = store.getState('isTagging');
+    const savingTags = store.getState('savingTags');
     
     const activeNavItem = this.element.querySelector('.nav-item.active');
     const activeTab = activeNavItem ? activeNavItem.getAttribute('data-tab') : 'dashboard';
@@ -156,9 +158,11 @@ class App {
     // Show global loader if loading (standard) 
     // OR if uploading and NOT on upload tab
     // OR if tagging and NOT on transactions tab
+    // OR if savingTags and NOT on tags tab
     const shouldShowGlobalLoader = isLoading || 
                                   (isUploading && activeTab !== 'upload') ||
-                                  (isTagging && activeTab !== 'transactions');
+                                  (isTagging && activeTab !== 'transactions') ||
+                                  (savingTags && activeTab !== 'tags');
 
     if (loaderContainer && contentWrapper) {
         if (shouldShowGlobalLoader) {

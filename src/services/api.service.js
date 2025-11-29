@@ -107,7 +107,7 @@ const ApiService = {
   updateExpenses: (data, options = {}) => request('updateExpenses', { data: JSON.stringify(data) }, options),
   deleteTag: (type, value) => request('deleteTag', { type, value }),
   renameTag: (type, oldValue, newValue) => request('renameTag', { type, oldValue, newValue }),
-  processTagOperations: (operations) => request('processTagOperations', { operations: JSON.stringify(operations) }),
+  processTagOperations: (operations, options = {}) => request('processTagOperations', { operations: JSON.stringify(operations) }, options),
   getOpeningBalance: () => request('getOpeningBalance'),
   saveOpeningBalance: (balance) => request('saveOpeningBalance', { balance }),
 };

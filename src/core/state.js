@@ -70,6 +70,7 @@ const store = createStore({
   isLoading: false,
   isUploading: false,
   isTagging: false,
+  savingTags: false,
   taggingProgress: null,
   error: null,
   currentUser: null,
