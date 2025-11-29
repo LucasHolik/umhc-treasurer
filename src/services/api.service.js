@@ -109,7 +109,7 @@ const ApiService = {
   renameTag: (type, oldValue, newValue) => request('renameTag', { type, oldValue, newValue }),
   processTagOperations: (operations, options = {}) => request('processTagOperations', { operations: JSON.stringify(operations) }, options),
   getOpeningBalance: () => request('getOpeningBalance'),
-  saveOpeningBalance: (balance) => request('saveOpeningBalance', { balance }),
+  saveOpeningBalance: (balance, options = {}) => request('saveOpeningBalance', { balance }, options),
 };
 
 export default ApiService;

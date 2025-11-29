@@ -75,6 +75,7 @@ const store = createStore({
   error: null,
   currentUser: null,
   openingBalance: 0,
+  settingsSyncing: false,
 });
 
 export default store;

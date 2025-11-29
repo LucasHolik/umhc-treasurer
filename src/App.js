@@ -22,6 +22,7 @@ class App {
     store.subscribe('isUploading', () => this.handleLoadingState());
     store.subscribe('isTagging', () => this.handleLoadingState());
     store.subscribe('savingTags', () => this.handleLoadingState());
+    store.subscribe('settingsSyncing', () => this.handleLoadingState());
     document.addEventListener('dataUploaded', this.loadInitialData.bind(this));
   }
 
@@ -147,6 +148,7 @@ class App {
     const isUploading = store.getState('isUploading');
     const isTagging = store.getState('isTagging');
     const savingTags = store.getState('savingTags');
+    const settingsSyncing = store.getState('settingsSyncing');
     
     const activeNavItem = this.element.querySelector('.nav-item.active');
     const activeTab = activeNavItem ? activeNavItem.getAttribute('data-tab') : 'dashboard';
@@ -159,10 +161,12 @@ class App {
     // OR if uploading and NOT on upload tab
     // OR if tagging and NOT on transactions tab
     // OR if savingTags and NOT on tags tab
+    // OR if settingsSyncing and NOT on settings tab
     const shouldShowGlobalLoader = isLoading || 
                                   (isUploading && activeTab !== 'upload') ||
                                   (isTagging && activeTab !== 'transactions') ||
-                                  (savingTags && activeTab !== 'tags');
+                                  (savingTags && activeTab !== 'tags') ||
+                                  (settingsSyncing && activeTab !== 'settings');
 
     if (loaderContainer && contentWrapper) {
         if (shouldShowGlobalLoader) {
