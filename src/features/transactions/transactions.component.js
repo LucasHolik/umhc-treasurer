@@ -244,31 +244,44 @@ class TransactionsComponent {
       this.selectedRows.forEach(rowId => {
           const original = this.originalTransactionData.find(t => t.row == rowId);
           if (original) {
-              const update = { row: rowId }; 
-              
+              let newTripEvent, newCategory;
+
               // Handle Trip/Event
               if (tripVal === '__REMOVE__') {
-                  update.tripEvent = ""; 
+                  newTripEvent = ""; 
               } else if (tripVal) {
-                  update.tripEvent = tripVal; 
+                  newTripEvent = tripVal; 
               } else {
-                  update.tripEvent = original['Trip/Event'] || "";
+                  newTripEvent = original['Trip/Event'] || "";
               }
 
               // Handle Category
               if (catVal === '__REMOVE__') {
-                  update.category = "";
+                  newCategory = "";
               } else if (catVal) {
-                  update.category = catVal;
+                  newCategory = catVal;
               } else {
-                  update.category = original['Category'] || "";
+                  newCategory = original['Category'] || "";
               }
 
-              changesList.push(update);
+              // Check if anything actually changed
+              const currentTripEvent = original['Trip/Event'] || "";
+              const currentCategory = original['Category'] || "";
+
+              if (newTripEvent !== currentTripEvent || newCategory !== currentCategory) {
+                  changesList.push({
+                      row: rowId,
+                      tripEvent: newTripEvent,
+                      category: newCategory
+                  });
+              }
           }
       });
 
-      if (changesList.length === 0) return;
+      if (changesList.length === 0) {
+          alert("No changes detected.");
+          return;
+      }
 
       store.setState('isTagging', true);
       
