@@ -104,7 +104,7 @@ const ApiService = {
   getData: () => request('getData'),
   saveData: (data, options = {}) => request('saveData', { data: JSON.stringify(data) }, options),
   addTag: (type, value) => request('addTag', { type, value }),
-  updateExpenses: (data) => request('updateExpenses', { data: JSON.stringify(data) }),
+  updateExpenses: (data, options = {}) => request('updateExpenses', { data: JSON.stringify(data) }, options),
   deleteTag: (type, value) => request('deleteTag', { type, value }),
   renameTag: (type, oldValue, newValue) => request('renameTag', { type, oldValue, newValue }),
   processTagOperations: (operations) => request('processTagOperations', { operations: JSON.stringify(operations) }),

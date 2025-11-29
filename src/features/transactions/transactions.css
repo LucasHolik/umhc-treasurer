@@ -1,0 +1,96 @@
+/* Transaction Controls Toolbar */
+.transaction-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 20px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 15px;
+    border-radius: 8px;
+    align-items: flex-end;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.control-label {
+    font-size: 0.85em;
+    color: #f0ad4e;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.control-inputs {
+    display: flex;
+    gap: 10px;
+}
+
+/* Theme Select Dropdown */
+.theme-select {
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background-color: #1a6b10;
+    color: #fff;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+}
+
+.theme-select:focus {
+    outline: none;
+    border-color: #f0ad4e;
+}
+
+.theme-select.wide {
+    min-width: 120px;
+}
+
+/* Bulk Actions Toolbar */
+.bulk-actions-toolbar {
+    display: none; /* Hidden by default */
+    background: rgba(240, 173, 78, 0.15);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #f0ad4e;
+}
+
+.bulk-actions-content {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.bulk-label {
+    color: #f0ad4e;
+    font-weight: bold;
+}
+
+.selection-count {
+    font-size: 0.9em;
+    color: #ddd;
+}
+
+/* Table Selection */
+.row-select {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+#select-all-header {
+    display: none; /* Hidden by default */
+    width: 40px;
+    text-align: center;
+}
+
+/* Disabled state for main controls */
+.transaction-controls.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}

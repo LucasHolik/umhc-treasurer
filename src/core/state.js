@@ -69,6 +69,8 @@ const store = createStore({
   tags: { "Trip/Event": [], Category: [] },
   isLoading: false,
   isUploading: false,
+  isTagging: false,
+  taggingProgress: null,
   error: null,
   currentUser: null,
   openingBalance: 0,
