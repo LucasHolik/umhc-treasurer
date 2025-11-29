@@ -4,13 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>UMHC Treasurer</title>
-    <link rel="stylesheet" href="src/legacy/main.css" />
+    
+    <!-- Base & Shared Styles -->
+    <link rel="stylesheet" href="src/styles/base.css" />
+    <link rel="stylesheet" href="src/styles/shared.css" />
+    <link rel="stylesheet" href="src/App.css" />
+    <link rel="stylesheet" href="src/shared/loader.css" />
+
+    <!-- Feature Styles -->
+    <link rel="stylesheet" href="src/features/login/login.css" />
+    <link rel="stylesheet" href="src/features/dashboard/dashboard.css" />
     <link rel="stylesheet" href="src/features/transactions/transactions.css" />
+    <link rel="stylesheet" href="src/features/tags/tags.css" />
+    <link rel="stylesheet" href="src/features/upload/upload.css" />
   </head>
   <body>
     <div id="app"></div>
 
-    <script src="src/legacy/read-excel-file.min.js"></script>
+    <script src="src/lib/read-excel-file.min.js"></script>
     <script type="module" src="src/App.js"></script>
   </body>
 </html>

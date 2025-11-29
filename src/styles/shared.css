@@ -1,0 +1,110 @@
+/* Shared UI Components */
+
+/* Section styling */
+.section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.section h2 {
+  margin-top: 0;
+  color: #f0ad4e;
+  display: inline-block;
+  padding-bottom: 10px;
+  border-bottom: 2.4px solid #8b4513;
+}
+
+.section input[type="file"] {
+  margin-left: 20px;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.section pre {
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 15px;
+  border-radius: 5px;
+  overflow: auto;
+  color: #f8f8f8;
+}
+
+.section table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.section th,
+.section td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section th {
+  background-color: rgba(240, 173, 78, 0.2);
+  color: #fff;
+}
+
+/* Shared Table Styling (Explicit class) */
+.section-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.section-table th,
+.section-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-table th {
+  background-color: rgba(240, 173, 78, 0.2);
+  color: #fff;
+}
+
+.section-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Buttons */
+.secondary-btn {
+  background-color: transparent;
+  border: 1px solid #f0ad4e;
+  color: #f0ad4e;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.secondary-btn:hover {
+  background-color: #f0ad4e;
+  color: #fff;
+}
+
+/* View toggle buttons */
+.view-toggle {
+  margin: 15px 0;
+}
+
+.view-toggle-btn {
+  padding: 8px 15px;
+  border: 1px solid #f0ad4e;
+  background-color: transparent;
+  color: #f0ad4e;
+  cursor: pointer;
+  margin-right: 5px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.view-toggle-btn.active,
+.view-toggle-btn:hover {
+  background-color: #f0ad4e;
+  color: #fff;
+}

@@ -1,0 +1,24 @@
+/* Upload Feature Styles */
+
+.section #upload-to-sheet {
+  margin-top: 15px;
+}
+
+/* Extracted Table */
+#extracted-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+#extracted-table th,
+#extracted-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#extracted-table th {
+  background-color: rgba(240, 173, 78, 0.2);
+  color: #fff;
+}
