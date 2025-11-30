@@ -1,6 +1,7 @@
 import store from '../../core/state.js';
 import { formatCurrency } from '../../core/utils.js';
 import ModalComponent from '../../shared/modal.component.js';
+import AnalysisLogic from './analysis.logic.js';
 
 class AnalysisComponent {
   constructor(element) {
@@ -8,6 +9,7 @@ class AnalysisComponent {
     this.chartInstance = null;
     this.chartLibLoaded = false;
     this.modal = new ModalComponent();
+    this.analysisLogic = AnalysisLogic;
     
     // Default State
     this.state = {
@@ -26,7 +28,16 @@ class AnalysisComponent {
       chartType: 'bar', 
       primaryGroup: 'date', 
       secondaryGroup: 'none', 
-      timeUnit: 'day', 
+      timeUnit: 'day',
+      
+      // Summary Statistics
+      summaryStats: {
+        totalIncome: 0,
+        totalExpense: 0,
+        netChange: 0,
+        transactionCount: 0,
+      },
+      showDataTable: false, // New state for data table visibility
     };
 
     this.loadChartLib();
@@ -39,67 +50,17 @@ class AnalysisComponent {
     store.subscribe('tags', () => this.updateTagSelectors());
   }
 
-  calculateDateRange(timeframe) {
-    let start = new Date();
-    let end = new Date();
-    const now = new Date();
-
-    switch (timeframe) {
-      case "current_month":
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        break;
-      case "past_30_days":
-        start.setDate(now.getDate() - 30);
-        break;
-      case "past_3_months":
-        start.setMonth(now.getMonth() - 3);
-        break;
-      case "past_6_months":
-        start.setMonth(now.getMonth() - 6);
-        break;
-      case "past_year":
-        start.setFullYear(now.getFullYear() - 1);
-        break;
-      case "all_time":
-        const expenses = store.getState('expenses') || [];
-        if (expenses.length > 0) {
-            let earliest = new Date();
-            let found = false;
-            expenses.forEach(item => {
-                const d = new Date(item.Date);
-                if (!isNaN(d.getTime())) {
-                    if (!found || d < earliest) {
-                        earliest = d;
-                        found = true;
-                    }
-                }
-            });
-            if (found) start = earliest;
-            else start = new Date(2000, 0, 1);
-        } else {
-             start = new Date(2000, 0, 1);
-        }
-        break;
-      default:
-        return null; // No change for custom
-    }
-    return { start, end };
-  }
-
   handleTimeframeChange(newTimeframe) {
     this.state.timeframe = newTimeframe;
     if (newTimeframe !== 'custom') {
-        const range = this.calculateDateRange(newTimeframe);
+        const expenses = store.getState('expenses') || [];
+        const range = this.analysisLogic.calculateDateRange(newTimeframe, expenses);
         if (range) {
             this.state.startDate = range.start.toISOString().split('T')[0];
             this.state.endDate = range.end.toISOString().split('T')[0];
             
             // Update inputs
-            const startInput = this.element.querySelector('#start-date');
-            const endInput = this.element.querySelector('#end-date');
-            if (startInput) startInput.value = this.state.startDate;
-            if (endInput) endInput.value = this.state.endDate;
+            this.updateControls();
         }
     }
   }
@@ -124,8 +85,10 @@ class AnalysisComponent {
   }
 
   render() {
-    if (this.state.timeframe !== 'custom') {
-        const range = this.calculateDateRange(this.state.timeframe);
+    // Initialize dates if needed (on first render)
+    if (this.state.timeframe !== 'custom' && !this.state.startDate) {
+        const expenses = store.getState('expenses') || [];
+        const range = this.analysisLogic.calculateDateRange(this.state.timeframe, expenses);
         if (range) {
             this.state.startDate = range.start.toISOString().split('T')[0];
             this.state.endDate = range.end.toISOString().split('T')[0];
@@ -138,6 +101,34 @@ class AnalysisComponent {
         <div class="header-section">
             <h2>Financial Analysis</h2>
             <p>Generate custom reports and visualize your treasury data.</p>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards-container">
+            <div class="summary-card">
+                <h3>Total Income</h3>
+                <p>${formatCurrency(this.state.summaryStats.totalIncome)}</p>
+            </div>
+            <div class="summary-card">
+                <h3>Total Expense</h3>
+                <p>${formatCurrency(this.state.summaryStats.totalExpense)}</p>
+            </div>
+            <div class="summary-card">
+                <h3>Net Change</h3>
+                <p>${formatCurrency(this.state.summaryStats.netChange)}</p>
+            </div>
+            <div class="summary-card">
+                <h3>Transactions</h3>
+                <p>${this.state.summaryStats.transactionCount}</p>
+            </div>
+        </div>
+
+        <!-- Quick Reports / Presets -->
+        <div class="quick-reports-container">
+            <button class="quick-report-btn" data-preset="monthly_trend">📅 Monthly Trend</button>
+            <button class="quick-report-btn" data-preset="spending_habits">🍕 Spending Habits</button>
+            <button class="quick-report-btn" data-preset="trip_analysis">✈️ Trip Analysis</button>
+            <button class="quick-report-btn" data-preset="balance_history">📈 Balance History</button>
         </div>
 
         <div class="analysis-controls">
@@ -232,16 +223,21 @@ class AnalysisComponent {
 
         <div class="analysis-actions">
             <button id="btn-download" class="btn-download">Download Image</button>
+            <button id="btn-toggle-data-table" class="btn-download">${this.state.showDataTable ? 'Hide Data Table' : 'Show Data Table'}</button>
         </div>
 
         <div class="chart-container">
             <canvas id="analysis-chart"></canvas>
         </div>
+
+        <div id="analysis-data-table-container"></div>
       </div>
     `;
 
     this.attachEventListeners();
     setTimeout(() => this.updateTagSelectors(), 0);
+    // Ensure chart is generated on first render (if data exists)
+    setTimeout(() => this.generateChart(), 0); 
   }
 
   attachEventListeners() {
@@ -317,7 +313,120 @@ class AnalysisComponent {
         this.updateTagSelectors(); // Re-render list with filter
     });
     
+    this.element.querySelectorAll('.quick-report-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            this.applyPreset(e.target.dataset.preset);
+        });
+    });
+
     this.element.querySelector('#btn-download').addEventListener('click', () => this.downloadChart());
+    
+    this.element.querySelector('#btn-toggle-data-table').addEventListener('click', () => {
+        this.state.showDataTable = !this.state.showDataTable;
+        this.updateControls(); // Update button text
+        this.generateChart(); // Show/Hide table content
+    });
+  }
+
+  applyPreset(presetName) {
+    // Reset selections for a clean preset application
+    this.state.selectedCategories.clear();
+    this.state.selectedTrips.clear();
+    this.state.categorySearchTerm = '';
+    this.state.tripSearchTerm = '';
+
+    switch (presetName) {
+        case 'monthly_trend':
+            this.state.timeframe = 'past_year';
+            this.state.metric = 'net';
+            this.state.chartType = 'bar';
+            this.state.primaryGroup = 'date';
+            this.state.secondaryGroup = 'none';
+            this.state.timeUnit = 'month';
+            break;
+        case 'spending_habits':
+            this.state.timeframe = 'past_6_months';
+            this.state.metric = 'expense';
+            this.state.chartType = 'doughnut';
+            this.state.primaryGroup = 'category';
+            this.state.secondaryGroup = 'none';
+            this.state.timeUnit = 'month'; // Not relevant for category grouping, but keep default
+            break;
+        case 'trip_analysis':
+            this.state.timeframe = 'past_year';
+            this.state.metric = 'expense';
+            this.state.chartType = 'bar';
+            this.state.primaryGroup = 'trip';
+            this.state.secondaryGroup = 'none';
+            this.state.timeUnit = 'month'; // Not relevant for trip grouping
+            break;
+        case 'balance_history':
+            this.state.timeframe = 'all_time';
+            this.state.metric = 'balance';
+            this.state.chartType = 'line';
+            this.state.primaryGroup = 'date';
+            this.state.secondaryGroup = 'none';
+            this.state.timeUnit = 'week';
+            break;
+    }
+    
+    // Recalculate date range for the new timeframe
+    const expenses = store.getState('expenses') || [];
+    const range = this.analysisLogic.calculateDateRange(this.state.timeframe, expenses);
+    if (range) {
+        this.state.startDate = range.start.toISOString().split('T')[0];
+        this.state.endDate = range.end.toISOString().split('T')[0];
+    }
+
+    // Update controls without full re-render to prevent glitches
+    this.updateControls();
+    this.updateTagSelectors();
+    this.generateChart();
+  }
+
+  updateControls() {
+    // Update Timeframe & Dates
+    const timeframeSelect = this.element.querySelector('#timeframe-select');
+    if (timeframeSelect) timeframeSelect.value = this.state.timeframe;
+    
+    const startDateInput = this.element.querySelector('#start-date');
+    if (startDateInput) startDateInput.value = this.state.startDate;
+    
+    const endDateInput = this.element.querySelector('#end-date');
+    if (endDateInput) endDateInput.value = this.state.endDate;
+
+    // Update Metrics
+    const metricSelect = this.element.querySelector('#metric-select');
+    if (metricSelect) metricSelect.value = this.state.metric;
+
+    const chartTypeSelect = this.element.querySelector('#chart-type-select');
+    if (chartTypeSelect) chartTypeSelect.value = this.state.chartType;
+
+    // Update Grouping
+    const primarySelect = this.element.querySelector('#primary-group-select');
+    if (primarySelect) primarySelect.value = this.state.primaryGroup;
+
+    const secondarySelect = this.element.querySelector('#secondary-group-select');
+    if (secondarySelect) secondarySelect.value = this.state.secondaryGroup;
+
+    const timeUnitSelect = this.element.querySelector('#time-unit-select');
+    if (timeUnitSelect) {
+        timeUnitSelect.value = this.state.timeUnit;
+        timeUnitSelect.style.display = (this.state.primaryGroup === 'date') ? 'block' : 'none';
+    }
+
+    // Update Toggle Button Text
+    const toggleBtn = this.element.querySelector('#btn-toggle-data-table');
+    if (toggleBtn) {
+        toggleBtn.textContent = this.state.showDataTable ? 'Hide Data Table' : 'Show Data Table';
+    }
+
+    // Clear Search Inputs
+    const catSearch = this.element.querySelector('#cat-search');
+    if (catSearch) catSearch.value = this.state.categorySearchTerm;
+
+    const tripSearch = this.element.querySelector('#trip-search');
+    if (tripSearch) tripSearch.value = this.state.tripSearchTerm;
   }
 
   updateTagSelectors() {
@@ -407,163 +516,67 @@ class AnalysisComponent {
     });
   }
 
-  getFilteredData() {
-    const expenses = store.getState('expenses') || [];
-    const start = new Date(this.state.startDate);
-    const end = new Date(this.state.endDate);
-    end.setHours(23, 59, 59, 999);
-
-    return expenses.filter(item => {
-        const date = new Date(item.Date);
-        if (isNaN(date.getTime())) return false;
-        if (date < start || date > end) return false;
-
-        // Category Filter (AND logic)
-        if (this.state.selectedCategories.size > 0) {
-            const itemCategory = item.Category || '';
-            if (!this.state.selectedCategories.has(itemCategory)) {
-                return false; // Must match one of selected categories
-            }
-        }
-
-        // Trip Filter (AND logic)
-        if (this.state.selectedTrips.size > 0) {
-            const itemTrip = item['Trip/Event'] || '';
-            if (!this.state.selectedTrips.has(itemTrip)) {
-                return false; // Must match one of selected trips
-            }
-        }
-
-        return true;
-    });
+  updateStatsDOM() {
+      const stats = this.state.summaryStats;
+      const cards = this.element.querySelectorAll('.summary-card p');
+      if (cards.length >= 4) {
+          cards[0].textContent = formatCurrency(stats.totalIncome);
+          cards[1].textContent = formatCurrency(stats.totalExpense);
+          cards[2].textContent = formatCurrency(stats.netChange);
+          cards[3].textContent = stats.transactionCount;
+      }
   }
 
-  aggregateData(data) {
-    const { primaryGroup, secondaryGroup, metric, timeUnit } = this.state;
-    
-    const primaryMap = {}; 
-    const allSecondaryKeys = new Set();
+  updateDataTable(labels, datasets) {
+      const container = this.element.querySelector('#analysis-data-table-container');
+      if (!container) return;
 
-    const getVal = (item) => {
-        const inc = parseFloat(item.Income || 0);
-        const exp = parseFloat(item.Expense || 0);
-        if (metric === 'income') return inc;
-        if (metric === 'expense') return exp;
-        if (metric === 'net') return inc - exp;
-        return inc - exp; 
-    };
+      if (!this.state.showDataTable) {
+          container.innerHTML = '';
+          return;
+      }
 
-    const getKey = (item, type) => {
-        if (type === 'date') {
-             const date = new Date(item.Date);
-             if (timeUnit === 'day') return date.toISOString().split('T')[0];
-             if (timeUnit === 'week') {
-                 const day = date.getDay();
-                 const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-                 return new Date(date.setDate(diff)).toISOString().split('T')[0];
-             }
-             if (timeUnit === 'year') return date.getFullYear().toString();
-             return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        }
-        if (type === 'category') return item.Category || 'Uncategorized';
-        if (type === 'trip') return item['Trip/Event'] || 'Uncategorized';
-        return 'Unknown';
-    };
+      let tableHeaders = `<th class="data-table-header">${this.state.primaryGroup === 'date' ? `Date (${this.state.timeUnit})` : this.state.primaryGroup.charAt(0).toUpperCase() + this.state.primaryGroup.slice(1)}</th>`;
+      if (this.state.secondaryGroup !== 'none') {
+          const secondaryKeys = datasets.map(d => d.label);
+          tableHeaders += secondaryKeys.map(key => `<th class="data-table-header">${key}</th>`).join('');
+          tableHeaders += `<th class="data-table-header">Total</th>`;
+      } else {
+          tableHeaders += `<th class="data-table-header">${this.state.metric.charAt(0).toUpperCase() + this.state.metric.slice(1)}</th>`;
+      }
 
-    data.forEach(item => {
-        const pKey = getKey(item, primaryGroup);
-        const val = getVal(item);
-        
-        if (!primaryMap[pKey]) {
-            primaryMap[pKey] = secondaryGroup === 'none' ? 0 : {};
-        }
-
-        if (secondaryGroup === 'none') {
-            primaryMap[pKey] += val;
-        } else {
-            const sKey = getKey(item, secondaryGroup);
-            allSecondaryKeys.add(sKey);
-            if (!primaryMap[pKey][sKey]) primaryMap[pKey][sKey] = 0;
-            primaryMap[pKey][sKey] += val;
-        }
-    });
-
-    let sortedPKeys = Object.keys(primaryMap).sort();
-    
-    // Balance Logic
-    if (metric === 'balance' && primaryGroup === 'date' && secondaryGroup === 'none') {
-        const labels = [];
-        const values = [];
-        
-        const allExpenses = store.getState('expenses') || [];
-        const start = new Date(this.state.startDate);
-        let balance = store.getState('openingBalance') || 0;
-        
-        // Pre-calc balance before window
-        allExpenses.forEach(item => {
-            if (new Date(item.Date) < start) {
-                balance += (parseFloat(item.Income||0) - parseFloat(item.Expense||0));
-            }
-        });
-
-        sortedPKeys.forEach(key => {
-            balance += primaryMap[key];
-            labels.push(key);
-            values.push(balance);
-        });
-        
-        return {
-            labels,
-            datasets: [{
-                label: 'Balance',
-                data: values,
-                backgroundColor: '#f0ad4e',
-                borderColor: '#f0ad4e',
-                fill: false,
-                type: 'line'
-            }]
-        };
-    } 
-    
-    const labels = sortedPKeys;
-    const datasets = [];
-    
-    const getColor = (str, index) => {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = str.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        const hue = Math.abs(hash % 360);
-        return `hsl(${hue}, 70%, 50%)`;
-    };
-
-    if (secondaryGroup === 'none') {
-        const dataPoints = labels.map(k => primaryMap[k]);
-        // Conditional coloring for date-grouped non-balance charts
-        const colors = labels.map((k, i) => (primaryGroup === 'date' && metric !== 'balance' ? (dataPoints[i] >= 0 ? '#1a6b10' : '#d9534f') : getColor(k, i)));
-        
-        datasets.push({
-            label: metric.toUpperCase(),
-            data: dataPoints,
-            backgroundColor: colors,
-            borderWidth: 1
-        });
-    } else {
-        const sortedSKeys = Array.from(allSecondaryKeys).sort();
-        
-        sortedSKeys.forEach((sKey, i) => {
-            const dataPoints = labels.map(pKey => primaryMap[pKey][sKey] || 0);
-            datasets.push({
-                label: sKey,
-                data: dataPoints,
-                backgroundColor: getColor(sKey, i),
-                borderWidth: 1,
-                stack: 'stack1'
-            });
-        });
-    }
-
-    return { labels, datasets };
+      let tableRows = labels.map(label => {
+          let rowData = `<td class="data-table-cell">${label}</td>`;
+          if (this.state.secondaryGroup !== 'none') {
+              let rowTotal = 0;
+              datasets.forEach(dataset => {
+                  const dataIndex = labels.indexOf(label);
+                  const value = dataset.data[dataIndex] || 0;
+                  rowData += `<td class="data-table-cell">${formatCurrency(value)}</td>`;
+                  rowTotal += value;
+              });
+              rowData += `<td class="data-table-cell total-column">${formatCurrency(rowTotal)}</td>`;
+          } else {
+              const dataIndex = labels.indexOf(label);
+              const value = datasets[0].data[dataIndex] || 0;
+              rowData += `<td class="data-table-cell">${formatCurrency(value)}</td>`;
+          }
+          return `<tr class="data-table-row">${rowData}</tr>`;
+      }).join('');
+      
+      container.innerHTML = `
+          <div class="data-table-container">
+              <h3>Aggregated Data</h3>
+              <table class="data-table">
+                  <thead>
+                      <tr>${tableHeaders}</tr>
+                  </thead>
+                  <tbody>
+                      ${tableRows}
+                  </tbody>
+              </table>
+          </div>
+      `;
   }
 
   generateChart() {
@@ -572,8 +585,28 @@ class AnalysisComponent {
         return;
     }
 
-    const data = this.getFilteredData();
-    const { labels, datasets } = this.aggregateData(data);
+    const expenses = store.getState('expenses') || [];
+    const filteredData = this.analysisLogic.getFilteredData(expenses, {
+        startDate: this.state.startDate,
+        endDate: this.state.endDate,
+        selectedCategories: this.state.selectedCategories,
+        selectedTrips: this.state.selectedTrips,
+    });
+    
+    // Update summary stats
+    this.state.summaryStats = this.analysisLogic.calculateSummaryStats(filteredData);
+    this.updateStatsDOM();
+    
+    const { labels, datasets } = this.analysisLogic.aggregateData(filteredData, {
+        primaryGroup: this.state.primaryGroup,
+        secondaryGroup: this.state.secondaryGroup,
+        metric: this.state.metric,
+        timeUnit: this.state.timeUnit,
+        startDate: this.state.startDate, // Pass startDate for balance calculation
+    });
+    
+    this.updateDataTable(labels, datasets);
+
     const ctx = this.element.querySelector('#analysis-chart').getContext('2d');
 
     if (this.chartInstance) {
