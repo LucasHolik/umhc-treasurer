@@ -1,32 +1,42 @@
 import store from '../../core/state.js';
 import { formatCurrency } from '../../core/utils.js';
+import ModalComponent from '../../shared/modal.component.js';
 
 class AnalysisComponent {
   constructor(element) {
     this.element = element;
     this.chartInstance = null;
     this.chartLibLoaded = false;
+    this.modal = new ModalComponent();
     
     // Default State
     this.state = {
       timeframe: 'past_30_days',
       startDate: '',
       endDate: '',
-      selectedTags: new Set(),
+      
+      // Split Tag Filters
+      selectedCategories: new Set(),
+      selectedTrips: new Set(),
+      
+      categorySearchTerm: '',
+      tripSearchTerm: '',
+
       metric: 'balance', // income, expense, net, balance
-      chartType: 'line', // line, bar, pie, doughnut
-      groupBy: 'date', // date, category, trip
-      timeUnit: 'day', // day, week, month, year
+      chartType: 'bar', 
+      primaryGroup: 'date', 
+      secondaryGroup: 'none', 
+      timeUnit: 'day', 
     };
 
     this.loadChartLib();
     this.render();
     
     store.subscribe('expenses', () => {
-        this.updateTagSelector();
+        this.updateTagSelectors();
         this.generateChart();
     });
-    store.subscribe('tags', () => this.updateTagSelector());
+    store.subscribe('tags', () => this.updateTagSelectors());
   }
 
   calculateDateRange(timeframe) {
@@ -101,7 +111,6 @@ class AnalysisComponent {
     }
 
     const script = document.createElement('script');
-    // Load from the local library file we saved
     script.src = 'src/lib/chart.umd.min.js';
     script.onload = () => {
       this.chartLibLoaded = true;
@@ -115,7 +124,6 @@ class AnalysisComponent {
   }
 
   render() {
-    // Calculate initial dates based on default timeframe
     if (this.state.timeframe !== 'custom') {
         const range = this.calculateDateRange(this.state.timeframe);
         if (range) {
@@ -161,35 +169,63 @@ class AnalysisComponent {
                     <option value="net" ${this.state.metric === 'net' ? 'selected' : ''}>Net Income (Income - Expense)</option>
                 </select>
                 <select id="chart-type-select" class="control-input" style="margin-top: 5px;">
+                    <option value="bar" ${this.state.chartType === 'bar' ? 'selected' : ''}>Bar Chart (Stacked)</option>
                     <option value="line" ${this.state.chartType === 'line' ? 'selected' : ''}>Line Chart</option>
-                    <option value="bar" ${this.state.chartType === 'bar' ? 'selected' : ''}>Bar Chart</option>
-                    <option value="pie" ${this.state.chartType === 'pie' ? 'selected' : ''}>Pie Chart (Totals)</option>
+                    <option value="pie" ${this.state.chartType === 'pie' ? 'selected' : ''}>Pie Chart</option>
                     <option value="doughnut" ${this.state.chartType === 'doughnut' ? 'selected' : ''}>Doughnut Chart</option>
                 </select>
             </div>
 
-            <!-- Group By -->
+            <!-- Grouping -->
             <div class="control-group">
-                <label>Group By</label>
-                <select id="group-by-select" class="control-input">
-                    <option value="date" ${this.state.groupBy === 'date' ? 'selected' : ''}>Date</option>
-                    <option value="category" ${this.state.groupBy === 'category' ? 'selected' : ''}>Category (Tag)</option>
-                    <option value="trip" ${this.state.groupBy === 'trip' ? 'selected' : ''}>Trip/Event (Tag)</option>
-                </select>
-                <select id="time-unit-select" class="control-input" style="margin-top: 5px; display: ${this.state.groupBy === 'date' ? 'block' : 'none'};">
-                    <option value="day" ${this.state.timeUnit === 'day' ? 'selected' : ''}>Daily</option>
-                    <option value="week" ${this.state.timeUnit === 'week' ? 'selected' : ''}>Weekly</option>
-                    <option value="month" ${this.state.timeUnit === 'month' ? 'selected' : ''}>Monthly</option>
-                    <option value="year" ${this.state.timeUnit === 'year' ? 'selected' : ''}>Yearly</option>
-                </select>
-            </div>
+                <label>Grouping</label>
+                <div style="display:flex; flex-direction:column; gap:5px;">
+                    <select id="primary-group-select" class="control-input" title="Primary Grouping (X-Axis)">
+                        <option value="date" ${this.state.primaryGroup === 'date' ? 'selected' : ''}>By Date</option>
+                        <option value="category" ${this.state.primaryGroup === 'category' ? 'selected' : ''}>By Category</option>
+                        <option value="trip" ${this.state.primaryGroup === 'trip' ? 'selected' : ''}>By Trip/Event</option>
+                    </select>
+                    
+                    <select id="secondary-group-select" class="control-input" title="Secondary Grouping (Segments/Stacks)">
+                        <option value="none" ${this.state.secondaryGroup === 'none' ? 'selected' : ''}>No Sub-grouping</option>
+                        <option value="category" ${this.state.secondaryGroup === 'category' ? 'selected' : ''}>Split by Category</option>
+                        <option value="trip" ${this.state.secondaryGroup === 'trip' ? 'selected' : ''}>Split by Trip/Event</option>
+                    </select>
 
-            <!-- Tag Filter -->
-            <div class="control-group">
-                <label>Filter Tags (Optional)</label>
-                <div id="tag-selector-container" class="tag-selector">
-                    <!-- Populated via JS -->
-                    <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading tags...</div>
+                    <select id="time-unit-select" class="control-input" style="display: ${this.state.primaryGroup === 'date' ? 'block' : 'none'};">
+                        <option value="day" ${this.state.timeUnit === 'day' ? 'selected' : ''}>Daily</option>
+                        <option value="week" ${this.state.timeUnit === 'week' ? 'selected' : ''}>Weekly</option>
+                        <option value="month" ${this.state.timeUnit === 'month' ? 'selected' : ''}>Monthly</option>
+                        <option value="year" ${this.state.timeUnit === 'year' ? 'selected' : ''}>Yearly</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tag Filters (Full Width) -->
+        <div class="analysis-controls" style="margin-top:-10px;">
+             <div class="control-group" style="grid-column: 1 / -1;">
+                <label>Filter Tags</label>
+                <div class="tag-filters-container">
+                    
+                    <!-- Category Filter -->
+                    <div class="tag-filter-column">
+                        <div class="tag-filter-header">Categories</div>
+                        <input type="text" id="cat-search" class="tag-search-input" placeholder="Search categories..." value="${this.state.categorySearchTerm}">
+                        <div id="category-selector-container" class="tag-selector">
+                            <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
+                        </div>
+                    </div>
+
+                    <!-- Trip Filter -->
+                    <div class="tag-filter-column">
+                        <div class="tag-filter-header">Trips / Events</div>
+                        <input type="text" id="trip-search" class="tag-search-input" placeholder="Search trips..." value="${this.state.tripSearchTerm}">
+                        <div id="trip-selector-container" class="tag-selector">
+                            <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -205,23 +241,21 @@ class AnalysisComponent {
     `;
 
     this.attachEventListeners();
-    // Initial tag population
-    setTimeout(() => this.updateTagSelector(), 0);
+    setTimeout(() => this.updateTagSelectors(), 0);
   }
 
   attachEventListeners() {
+    // Timeframe & Date
     this.element.querySelector('#timeframe-select').addEventListener('change', (e) => {
         this.handleTimeframeChange(e.target.value);
         this.generateChart();
     });
-    
     this.element.querySelector('#start-date').addEventListener('change', (e) => {
         this.state.startDate = e.target.value;
         this.state.timeframe = 'custom';
         this.element.querySelector('#timeframe-select').value = 'custom';
         this.generateChart();
     });
-    
     this.element.querySelector('#end-date').addEventListener('change', (e) => {
         this.state.endDate = e.target.value;
         this.state.timeframe = 'custom';
@@ -229,26 +263,39 @@ class AnalysisComponent {
         this.generateChart();
     });
 
+    // Metrics
     this.element.querySelector('#metric-select').addEventListener('change', (e) => {
         this.state.metric = e.target.value;
         this.generateChart();
     });
-    
     this.element.querySelector('#chart-type-select').addEventListener('change', (e) => {
         this.state.chartType = e.target.value;
         this.generateChart();
     });
     
-    const groupBySelect = this.element.querySelector('#group-by-select');
+    // Grouping
+    const primarySelect = this.element.querySelector('#primary-group-select');
+    const secondarySelect = this.element.querySelector('#secondary-group-select');
     const timeUnitSelect = this.element.querySelector('#time-unit-select');
 
-    groupBySelect.addEventListener('change', (e) => {
-        this.state.groupBy = e.target.value;
-        if (this.state.groupBy === 'date') {
-            timeUnitSelect.style.display = 'block';
-        } else {
-            timeUnitSelect.style.display = 'none';
+    primarySelect.addEventListener('change', (e) => {
+        this.state.primaryGroup = e.target.value;
+        timeUnitSelect.style.display = (this.state.primaryGroup === 'date') ? 'block' : 'none';
+        
+        if (this.state.primaryGroup === this.state.secondaryGroup) {
+            this.state.secondaryGroup = 'none';
+            secondarySelect.value = 'none';
         }
+        this.generateChart();
+    });
+
+    secondarySelect.addEventListener('change', (e) => {
+        this.state.secondaryGroup = e.target.value;
+         if (this.state.primaryGroup === this.state.secondaryGroup && this.state.secondaryGroup !== 'none') {
+             this.modal.alert("Secondary grouping cannot be the same as primary.", "Grouping Error");
+             this.state.secondaryGroup = 'none';
+             e.target.value = 'none';
+         }
         this.generateChart();
     });
 
@@ -257,61 +304,103 @@ class AnalysisComponent {
         this.generateChart();
     });
     
+    // Tag Search Inputs
+    const catSearch = this.element.querySelector('#cat-search');
+    catSearch.addEventListener('input', (e) => {
+        this.state.categorySearchTerm = e.target.value.toLowerCase();
+        this.updateTagSelectors(); // Re-render list with filter
+    });
+
+    const tripSearch = this.element.querySelector('#trip-search');
+    tripSearch.addEventListener('input', (e) => {
+        this.state.tripSearchTerm = e.target.value.toLowerCase();
+        this.updateTagSelectors(); // Re-render list with filter
+    });
+    
     this.element.querySelector('#btn-download').addEventListener('click', () => this.downloadChart());
   }
 
-  updateTagSelector() {
-    const container = this.element.querySelector('#tag-selector-container');
-    if (!container) return;
-
-    // Get tags from store (assuming they are in 'tags' object)
+  updateTagSelectors() {
     const tagsData = store.getState('tags') || {};
-    const allTags = new Set();
     
-    // Collect all unique tags from predefined lists
-    if (tagsData['Category']) tagsData['Category'].forEach(t => allTags.add(t));
-    if (tagsData['Trip/Event']) tagsData['Trip/Event'].forEach(t => allTags.add(t));
+    this.populateTagList(
+        'Category', 
+        tagsData['Category'] || [], 
+        this.state.selectedCategories, 
+        this.state.categorySearchTerm,
+        '#category-selector-container',
+        '#cat-search'
+    );
 
-    // Also check existing expenses for any ad-hoc tags not in the list?
-    // For now, stick to the store tags + maybe a scan of expenses if needed.
-    // Let's just use the store tags.
+    this.populateTagList(
+        'Trip/Event', 
+        tagsData['Trip/Event'] || [], 
+        this.state.selectedTrips, 
+        this.state.tripSearchTerm,
+        '#trip-selector-container',
+        '#trip-search'
+    );
+  }
+
+  populateTagList(type, tagsArray, selectionSet, searchTerm, containerId, searchInputId) {
+    const container = this.element.querySelector(containerId);
+    if (!container) return;
 
     container.innerHTML = '';
     
-    if (allTags.size === 0) {
+    if (tagsArray.length === 0) {
         container.innerHTML = '<div style="padding:5px;">No tags found</div>';
         return;
     }
 
-    const sortedTags = Array.from(allTags).sort();
-    
-    // "Select All" helper
-    const selectAllDiv = document.createElement('div');
-    selectAllDiv.className = 'tag-checkbox-item';
-    selectAllDiv.innerHTML = `<input type="checkbox" id="tag-all" /> <label for="tag-all"><em>Select All</em></label>`;
-    selectAllDiv.querySelector('input').addEventListener('change', (e) => {
-        const checkboxes = container.querySelectorAll('.tag-item-input');
-        checkboxes.forEach(cb => {
-            cb.checked = e.target.checked;
-            if (e.target.checked) this.state.selectedTags.add(cb.value);
-            else this.state.selectedTags.delete(cb.value);
-        });
-        this.generateChart();
-    });
-    container.appendChild(selectAllDiv);
+    const sortedTags = [...tagsArray].sort();
+    const visibleTags = sortedTags.filter(tag => tag.toLowerCase().includes(searchTerm));
 
-    sortedTags.forEach(tag => {
+    // "Select All" Option
+    // Only show if we are not filtering via search, OR if search is active we can "select all matches"
+    if (visibleTags.length > 0) {
+        const selectAllDiv = document.createElement('div');
+        selectAllDiv.className = 'tag-checkbox-item';
+        selectAllDiv.innerHTML = `<input type="checkbox" id="all-${type.replace('/','-')}" /> <label for="all-${type.replace('/','-')}"><em>Select All</em></label>`;
+        
+        // Check state of select all box: true if all visible tags are in set
+        const allVisibleSelected = visibleTags.every(t => selectionSet.has(t));
+        const checkbox = selectAllDiv.querySelector('input');
+        checkbox.checked = allVisibleSelected && visibleTags.length > 0 && selectionSet.size > 0;
+
+        checkbox.addEventListener('change', (e) => {
+            visibleTags.forEach(tag => {
+                if (e.target.checked) selectionSet.add(tag);
+                else selectionSet.delete(tag);
+            });
+            this.updateTagSelectors(); // Update UI to reflect check state
+            this.generateChart();
+        });
+        container.appendChild(selectAllDiv);
+    }
+
+    if (visibleTags.length === 0) {
+         container.innerHTML += '<div style="padding:5px; color:#ccc;">No matches found</div>';
+    }
+
+    visibleTags.forEach(tag => {
         const div = document.createElement('div');
         div.className = 'tag-checkbox-item';
-        const isChecked = this.state.selectedTags.has(tag);
+        const isChecked = selectionSet.has(tag);
+        // Unique ID for label
+        const uid = `${type.replace('/','-')}-${tag.replace(/\s+/g,'-')}`; 
         div.innerHTML = `
-            <input type="checkbox" id="tag-${tag}" value="${tag}" class="tag-item-input" ${isChecked ? 'checked' : ''}>
-            <label for="tag-${tag}">${tag}</label>
+            <input type="checkbox" id="${uid}" value="${tag}" class="tag-item-input" ${isChecked ? 'checked' : ''}>
+            <label for="${uid}">${tag}</label>
         `;
         const input = div.querySelector('input');
         input.addEventListener('change', (e) => {
-            if (e.target.checked) this.state.selectedTags.add(tag);
-            else this.state.selectedTags.delete(tag);
+            if (e.target.checked) selectionSet.add(tag);
+            else selectionSet.delete(tag);
+            // We don't need full re-render of list, just chart
+            // But SelectAll checkbox state might need update. For perf, just gen chart.
+            // Actually, let's re-render list to update "Select All" state visual? 
+            // Maybe excessive. Let's just gen chart.
             this.generateChart();
         });
         container.appendChild(div);
@@ -322,27 +411,27 @@ class AnalysisComponent {
     const expenses = store.getState('expenses') || [];
     const start = new Date(this.state.startDate);
     const end = new Date(this.state.endDate);
-    end.setHours(23, 59, 59, 999); // Include the whole end day
+    end.setHours(23, 59, 59, 999);
 
     return expenses.filter(item => {
         const date = new Date(item.Date);
         if (isNaN(date.getTime())) return false;
-        
-        // Date Filter
         if (date < start || date > end) return false;
 
-        // Tag Filter (if any tags are selected)
-        if (this.state.selectedTags.size > 0) {
-            // item.Tag or item.Category or item['Trip/Event']?
-            // Based on dashboard, it seems item properties are capitalized.
-            // Let's assume item has 'Category' and 'Trip/Event' or just 'Tag'.
-            // Checking api.service.js or data structure would confirm.
-            // Assuming standard schema: 'Category', 'Trip/Event'.
+        // Category Filter (AND logic)
+        if (this.state.selectedCategories.size > 0) {
             const itemCategory = item.Category || '';
+            if (!this.state.selectedCategories.has(itemCategory)) {
+                return false; // Must match one of selected categories
+            }
+        }
+
+        // Trip Filter (AND logic)
+        if (this.state.selectedTrips.size > 0) {
             const itemTrip = item['Trip/Event'] || '';
-            
-            const hasSelectedTag = this.state.selectedTags.has(itemCategory) || this.state.selectedTags.has(itemTrip);
-            if (!hasSelectedTag) return false;
+            if (!this.state.selectedTrips.has(itemTrip)) {
+                return false; // Must match one of selected trips
+            }
         }
 
         return true;
@@ -350,182 +439,194 @@ class AnalysisComponent {
   }
 
   aggregateData(data) {
-    const { groupBy, metric, timeUnit } = this.state;
-    const labels = [];
-    const values = [];
-    const backgroundColors = [];
+    const { primaryGroup, secondaryGroup, metric, timeUnit } = this.state;
     
-    // Helper to parse amount
+    const primaryMap = {}; 
+    const allSecondaryKeys = new Set();
+
     const getVal = (item) => {
         const inc = parseFloat(item.Income || 0);
         const exp = parseFloat(item.Expense || 0);
         if (metric === 'income') return inc;
         if (metric === 'expense') return exp;
         if (metric === 'net') return inc - exp;
-        return 0; // Balance handled differently
+        return inc - exp; 
     };
 
-    // Helper to get week start (Monday)
-    const getWeekStart = (d) => {
-        const date = new Date(d);
-        const day = date.getDay(); // 0 (Sun) to 6 (Sat)
-        const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-        return new Date(date.setDate(diff)).toISOString().split('T')[0];
-    };
-
-    // Helper to get key based on time unit
-    const getDateKey = (itemDate) => {
-        const date = new Date(itemDate);
-        if (timeUnit === 'day') {
-             return date.toISOString().split('T')[0];
-        } else if (timeUnit === 'week') {
-             return getWeekStart(date);
-        } else if (timeUnit === 'year') {
-             return date.getFullYear().toString();
-        } else {
-             // Default Month
+    const getKey = (item, type) => {
+        if (type === 'date') {
+             const date = new Date(item.Date);
+             if (timeUnit === 'day') return date.toISOString().split('T')[0];
+             if (timeUnit === 'week') {
+                 const day = date.getDay();
+                 const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+                 return new Date(date.setDate(diff)).toISOString().split('T')[0];
+             }
+             if (timeUnit === 'year') return date.getFullYear().toString();
              return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         }
+        if (type === 'category') return item.Category || 'Uncategorized';
+        if (type === 'trip') return item['Trip/Event'] || 'Uncategorized';
+        return 'Unknown';
     };
 
-    if (groupBy === 'date') {
-        const grouped = {};
-        data.forEach(item => {
-            const key = getDateKey(item.Date);
-            if (!grouped[key]) grouped[key] = 0;
-            grouped[key] += getVal(item);
-        });
-
-        // Sort keys
-        const sortedKeys = Object.keys(grouped).sort();
+    data.forEach(item => {
+        const pKey = getKey(item, primaryGroup);
+        const val = getVal(item);
         
-        if (metric === 'balance') {
-            // Cumulative calculation
-            
-            // 1. Calculate balance at start of period (using all historical expenses)
-            const allExpenses = store.getState('expenses') || [];
-            const start = new Date(this.state.startDate);
-            let balance = store.getState('openingBalance') || 0;
-            
-            allExpenses.forEach(item => {
-                const d = new Date(item.Date);
-                if (d < start) {
-                    balance += (parseFloat(item.Income || 0) - parseFloat(item.Expense || 0));
-                }
-            });
-
-            // 2. Calculate net change per time unit
-            const unitNet = {};
-            data.forEach(item => {
-                 const key = getDateKey(item.Date);
-                 if (!unitNet[key]) unitNet[key] = 0;
-                 unitNet[key] += (parseFloat(item.Income || 0) - parseFloat(item.Expense || 0));
-            });
-
-            // 3. Iterate and accumulate
-            sortedKeys.forEach(key => {
-                balance += (unitNet[key] || 0);
-                labels.push(key);
-                values.push(balance);
-                backgroundColors.push('#f0ad4e');
-            });
-
-        } else {
-            sortedKeys.forEach(key => {
-                labels.push(key);
-                values.push(grouped[key]);
-                backgroundColors.push(grouped[key] >= 0 ? '#1a6b10' : '#d9534f'); // Green for pos, Red for neg
-            });
+        if (!primaryMap[pKey]) {
+            primaryMap[pKey] = secondaryGroup === 'none' ? 0 : {};
         }
 
-    } else {
-        // Group by Tag (Category or Trip)
-        const tagKey = groupBy === 'category' ? 'Category' : 'Trip/Event';
-        const grouped = {};
+        if (secondaryGroup === 'none') {
+            primaryMap[pKey] += val;
+        } else {
+            const sKey = getKey(item, secondaryGroup);
+            allSecondaryKeys.add(sKey);
+            if (!primaryMap[pKey][sKey]) primaryMap[pKey][sKey] = 0;
+            primaryMap[pKey][sKey] += val;
+        }
+    });
 
-        data.forEach(item => {
-            const tag = item[tagKey] || 'Uncategorized';
-            if (!grouped[tag]) grouped[tag] = 0;
-            grouped[tag] += getVal(item);
+    let sortedPKeys = Object.keys(primaryMap).sort();
+    
+    // Balance Logic
+    if (metric === 'balance' && primaryGroup === 'date' && secondaryGroup === 'none') {
+        const labels = [];
+        const values = [];
+        
+        const allExpenses = store.getState('expenses') || [];
+        const start = new Date(this.state.startDate);
+        let balance = store.getState('openingBalance') || 0;
+        
+        // Pre-calc balance before window
+        allExpenses.forEach(item => {
+            if (new Date(item.Date) < start) {
+                balance += (parseFloat(item.Income||0) - parseFloat(item.Expense||0));
+            }
         });
 
-        Object.keys(grouped).forEach((tag, index) => {
-            labels.push(tag);
-            values.push(grouped[tag]);
-            // Generate a color
-            const hue = (index * 137.508) % 360; // Golden angle approximation for distinct colors
-            backgroundColors.push(`hsl(${hue}, 70%, 50%)`);
+        sortedPKeys.forEach(key => {
+            balance += primaryMap[key];
+            labels.push(key);
+            values.push(balance);
+        });
+        
+        return {
+            labels,
+            datasets: [{
+                label: 'Balance',
+                data: values,
+                backgroundColor: '#f0ad4e',
+                borderColor: '#f0ad4e',
+                fill: false,
+                type: 'line'
+            }]
+        };
+    } 
+    
+    const labels = sortedPKeys;
+    const datasets = [];
+    
+    const getColor = (str, index) => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const hue = Math.abs(hash % 360);
+        return `hsl(${hue}, 70%, 50%)`;
+    };
+
+    if (secondaryGroup === 'none') {
+        const dataPoints = labels.map(k => primaryMap[k]);
+        // Conditional coloring for date-grouped non-balance charts
+        const colors = labels.map((k, i) => (primaryGroup === 'date' && metric !== 'balance' ? (dataPoints[i] >= 0 ? '#1a6b10' : '#d9534f') : getColor(k, i)));
+        
+        datasets.push({
+            label: metric.toUpperCase(),
+            data: dataPoints,
+            backgroundColor: colors,
+            borderWidth: 1
+        });
+    } else {
+        const sortedSKeys = Array.from(allSecondaryKeys).sort();
+        
+        sortedSKeys.forEach((sKey, i) => {
+            const dataPoints = labels.map(pKey => primaryMap[pKey][sKey] || 0);
+            datasets.push({
+                label: sKey,
+                data: dataPoints,
+                backgroundColor: getColor(sKey, i),
+                borderWidth: 1,
+                stack: 'stack1'
+            });
         });
     }
 
-    return { labels, values, backgroundColors };
+    return { labels, datasets };
   }
 
   generateChart() {
     if (!this.chartLibLoaded) {
-        alert("Chart library not loaded yet. Please wait a moment and try again.");
+        // Debounce check or just return, user will retry or auto-update
         return;
     }
 
     const data = this.getFilteredData();
-    if (data.length === 0) {
-        alert("No data found for the selected filters.");
-        return;
-    }
-
-    const { labels, values, backgroundColors } = this.aggregateData(data);
-
+    const { labels, datasets } = this.aggregateData(data);
     const ctx = this.element.querySelector('#analysis-chart').getContext('2d');
 
-    // Destroy existing chart
     if (this.chartInstance) {
         this.chartInstance.destroy();
     }
 
-    // Chart Config
+    let type = this.state.chartType;
+    if (this.state.secondaryGroup !== 'none' && (type === 'pie' || type === 'doughnut')) {
+        type = 'bar'; 
+    }
+    if (this.state.metric === 'balance' && this.state.primaryGroup === 'date' && this.state.secondaryGroup === 'none') {
+        type = 'line'; 
+    }
+
     const config = {
-        type: this.state.chartType,
+        type: type,
         data: {
             labels: labels,
-            datasets: [{
-                label: this.state.metric.toUpperCase(),
-                data: values,
-                backgroundColor: backgroundColors,
-                borderColor: 'rgba(255,255,255,0.1)',
-                borderWidth: 1
-            }]
+            datasets: datasets
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    labels: { color: '#fff' }
+                    labels: { color: '#fff' },
+                    display: true
                 },
                 title: {
                     display: true,
-                    text: `Analysis: ${this.state.metric} by ${this.state.groupBy}`,
+                    text: `Analysis: ${this.state.metric.toUpperCase()} by ${this.state.primaryGroup}${this.state.secondaryGroup !== 'none' ? ' & ' + this.state.secondaryGroup : ''}`,
                     color: '#f0ad4e',
                     font: { size: 16 }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
                 }
             },
-            scales: {
+            scales: (type === 'pie' || type === 'doughnut') ? {} : {
                 y: {
+                    stacked: this.state.secondaryGroup !== 'none',
                     ticks: { color: '#ccc' },
                     grid: { color: 'rgba(255,255,255,0.1)' }
                 },
                 x: {
+                    stacked: this.state.secondaryGroup !== 'none',
                     ticks: { color: '#ccc' },
                     grid: { color: 'rgba(255,255,255,0.1)' }
                 }
             }
         }
     };
-
-    // Pie/Doughnut specific tweaks
-    if (this.state.chartType === 'pie' || this.state.chartType === 'doughnut') {
-        delete config.options.scales; // No axes for pie
-    }
 
     this.chartInstance = new Chart(ctx, config);
   }
