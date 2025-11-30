@@ -9,6 +9,7 @@ class AnalysisComponent {
     
     // Default State
     this.state = {
+      timeframe: 'past_30_days',
       startDate: '',
       endDate: '',
       selectedTags: new Set(),
@@ -22,6 +23,71 @@ class AnalysisComponent {
     
     store.subscribe('expenses', () => this.updateTagSelector());
     store.subscribe('tags', () => this.updateTagSelector());
+  }
+
+  calculateDateRange(timeframe) {
+    let start = new Date();
+    let end = new Date();
+    const now = new Date();
+
+    switch (timeframe) {
+      case "current_month":
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+      case "past_30_days":
+        start.setDate(now.getDate() - 30);
+        break;
+      case "past_3_months":
+        start.setMonth(now.getMonth() - 3);
+        break;
+      case "past_6_months":
+        start.setMonth(now.getMonth() - 6);
+        break;
+      case "past_year":
+        start.setFullYear(now.getFullYear() - 1);
+        break;
+      case "all_time":
+        const expenses = store.getState('expenses') || [];
+        if (expenses.length > 0) {
+            let earliest = new Date();
+            let found = false;
+            expenses.forEach(item => {
+                const d = new Date(item.Date);
+                if (!isNaN(d.getTime())) {
+                    if (!found || d < earliest) {
+                        earliest = d;
+                        found = true;
+                    }
+                }
+            });
+            if (found) start = earliest;
+            else start = new Date(2000, 0, 1);
+        } else {
+             start = new Date(2000, 0, 1);
+        }
+        break;
+      default:
+        return null; // No change for custom
+    }
+    return { start, end };
+  }
+
+  handleTimeframeChange(newTimeframe) {
+    this.state.timeframe = newTimeframe;
+    if (newTimeframe !== 'custom') {
+        const range = this.calculateDateRange(newTimeframe);
+        if (range) {
+            this.state.startDate = range.start.toISOString().split('T')[0];
+            this.state.endDate = range.end.toISOString().split('T')[0];
+            
+            // Update inputs
+            const startInput = this.element.querySelector('#start-date');
+            const endInput = this.element.querySelector('#end-date');
+            if (startInput) startInput.value = this.state.startDate;
+            if (endInput) endInput.value = this.state.endDate;
+        }
+    }
   }
 
   loadChartLib() {
@@ -45,13 +111,14 @@ class AnalysisComponent {
   }
 
   render() {
-    // Set default dates (past 6 months)
-    const end = new Date();
-    const start = new Date();
-    start.setMonth(start.getMonth() - 6);
-    
-    this.state.endDate = end.toISOString().split('T')[0];
-    this.state.startDate = start.toISOString().split('T')[0];
+    // Calculate initial dates based on default timeframe
+    if (this.state.timeframe !== 'custom') {
+        const range = this.calculateDateRange(this.state.timeframe);
+        if (range) {
+            this.state.startDate = range.start.toISOString().split('T')[0];
+            this.state.endDate = range.end.toISOString().split('T')[0];
+        }
+    }
 
     this.element.innerHTML = `
       <link rel="stylesheet" href="src/features/analysis/analysis.css">
@@ -65,6 +132,15 @@ class AnalysisComponent {
             <!-- Date Range -->
             <div class="control-group">
                 <label>Date Range</label>
+                <select id="timeframe-select" class="control-input" style="margin-bottom: 10px;">
+                    <option value="current_month" ${this.state.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
+                    <option value="past_30_days" ${this.state.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
+                    <option value="past_3_months" ${this.state.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>
+                    <option value="past_6_months" ${this.state.timeframe === 'past_6_months' ? 'selected' : ''}>Past 6 Months</option>
+                    <option value="past_year" ${this.state.timeframe === 'past_year' ? 'selected' : ''}>Past Year</option>
+                    <option value="all_time" ${this.state.timeframe === 'all_time' ? 'selected' : ''}>All Time</option>
+                    <option value="custom" ${this.state.timeframe === 'custom' ? 'selected' : ''}>Custom</option>
+                </select>
                 <div style="display: flex; gap: 10px;">
                     <input type="date" id="start-date" class="control-input" value="${this.state.startDate}">
                     <input type="date" id="end-date" class="control-input" value="${this.state.endDate}">
@@ -125,8 +201,20 @@ class AnalysisComponent {
   }
 
   attachEventListeners() {
-    this.element.querySelector('#start-date').addEventListener('change', (e) => this.state.startDate = e.target.value);
-    this.element.querySelector('#end-date').addEventListener('change', (e) => this.state.endDate = e.target.value);
+    this.element.querySelector('#timeframe-select').addEventListener('change', (e) => this.handleTimeframeChange(e.target.value));
+    
+    this.element.querySelector('#start-date').addEventListener('change', (e) => {
+        this.state.startDate = e.target.value;
+        this.state.timeframe = 'custom';
+        this.element.querySelector('#timeframe-select').value = 'custom';
+    });
+    
+    this.element.querySelector('#end-date').addEventListener('change', (e) => {
+        this.state.endDate = e.target.value;
+        this.state.timeframe = 'custom';
+        this.element.querySelector('#timeframe-select').value = 'custom';
+    });
+
     this.element.querySelector('#metric-select').addEventListener('change', (e) => this.state.metric = e.target.value);
     this.element.querySelector('#chart-type-select').addEventListener('change', (e) => this.state.chartType = e.target.value);
     this.element.querySelector('#group-by-select').addEventListener('change', (e) => this.state.groupBy = e.target.value);
