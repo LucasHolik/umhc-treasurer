@@ -13,15 +13,19 @@ class AnalysisComponent {
       startDate: '',
       endDate: '',
       selectedTags: new Set(),
-      metric: 'income', // income, expense, net, balance
-      chartType: 'bar', // line, bar, pie, doughnut
+      metric: 'balance', // income, expense, net, balance
+      chartType: 'line', // line, bar, pie, doughnut
       groupBy: 'date', // date, category, trip
+      timeUnit: 'day', // day, week, month, year
     };
 
     this.loadChartLib();
     this.render();
     
-    store.subscribe('expenses', () => this.updateTagSelector());
+    store.subscribe('expenses', () => {
+        this.updateTagSelector();
+        this.generateChart();
+    });
     store.subscribe('tags', () => this.updateTagSelector());
   }
 
@@ -151,16 +155,16 @@ class AnalysisComponent {
             <div class="control-group">
                 <label>Visualization</label>
                 <select id="metric-select" class="control-input">
-                    <option value="income">Income Only</option>
-                    <option value="expense">Expenses Only</option>
-                    <option value="net">Net Income (Income - Expense)</option>
-                    <option value="balance">Cumulative Balance</option>
+                    <option value="balance" ${this.state.metric === 'balance' ? 'selected' : ''}>Cumulative Balance</option>
+                    <option value="income" ${this.state.metric === 'income' ? 'selected' : ''}>Income Only</option>
+                    <option value="expense" ${this.state.metric === 'expense' ? 'selected' : ''}>Expenses Only</option>
+                    <option value="net" ${this.state.metric === 'net' ? 'selected' : ''}>Net Income (Income - Expense)</option>
                 </select>
                 <select id="chart-type-select" class="control-input" style="margin-top: 5px;">
-                    <option value="bar">Bar Chart</option>
-                    <option value="line">Line Chart</option>
-                    <option value="pie">Pie Chart (Totals)</option>
-                    <option value="doughnut">Doughnut Chart</option>
+                    <option value="line" ${this.state.chartType === 'line' ? 'selected' : ''}>Line Chart</option>
+                    <option value="bar" ${this.state.chartType === 'bar' ? 'selected' : ''}>Bar Chart</option>
+                    <option value="pie" ${this.state.chartType === 'pie' ? 'selected' : ''}>Pie Chart (Totals)</option>
+                    <option value="doughnut" ${this.state.chartType === 'doughnut' ? 'selected' : ''}>Doughnut Chart</option>
                 </select>
             </div>
 
@@ -168,9 +172,15 @@ class AnalysisComponent {
             <div class="control-group">
                 <label>Group By</label>
                 <select id="group-by-select" class="control-input">
-                    <option value="date">Date (Monthly)</option>
-                    <option value="category">Category (Tag)</option>
-                    <option value="trip">Trip/Event (Tag)</option>
+                    <option value="date" ${this.state.groupBy === 'date' ? 'selected' : ''}>Date</option>
+                    <option value="category" ${this.state.groupBy === 'category' ? 'selected' : ''}>Category (Tag)</option>
+                    <option value="trip" ${this.state.groupBy === 'trip' ? 'selected' : ''}>Trip/Event (Tag)</option>
+                </select>
+                <select id="time-unit-select" class="control-input" style="margin-top: 5px; display: ${this.state.groupBy === 'date' ? 'block' : 'none'};">
+                    <option value="day" ${this.state.timeUnit === 'day' ? 'selected' : ''}>Daily</option>
+                    <option value="week" ${this.state.timeUnit === 'week' ? 'selected' : ''}>Weekly</option>
+                    <option value="month" ${this.state.timeUnit === 'month' ? 'selected' : ''}>Monthly</option>
+                    <option value="year" ${this.state.timeUnit === 'year' ? 'selected' : ''}>Yearly</option>
                 </select>
             </div>
 
@@ -185,7 +195,6 @@ class AnalysisComponent {
         </div>
 
         <div class="analysis-actions">
-            <button id="btn-generate" class="btn-analyze">Generate Graph</button>
             <button id="btn-download" class="btn-download">Download Image</button>
         </div>
 
@@ -201,25 +210,53 @@ class AnalysisComponent {
   }
 
   attachEventListeners() {
-    this.element.querySelector('#timeframe-select').addEventListener('change', (e) => this.handleTimeframeChange(e.target.value));
+    this.element.querySelector('#timeframe-select').addEventListener('change', (e) => {
+        this.handleTimeframeChange(e.target.value);
+        this.generateChart();
+    });
     
     this.element.querySelector('#start-date').addEventListener('change', (e) => {
         this.state.startDate = e.target.value;
         this.state.timeframe = 'custom';
         this.element.querySelector('#timeframe-select').value = 'custom';
+        this.generateChart();
     });
     
     this.element.querySelector('#end-date').addEventListener('change', (e) => {
         this.state.endDate = e.target.value;
         this.state.timeframe = 'custom';
         this.element.querySelector('#timeframe-select').value = 'custom';
+        this.generateChart();
     });
 
-    this.element.querySelector('#metric-select').addEventListener('change', (e) => this.state.metric = e.target.value);
-    this.element.querySelector('#chart-type-select').addEventListener('change', (e) => this.state.chartType = e.target.value);
-    this.element.querySelector('#group-by-select').addEventListener('change', (e) => this.state.groupBy = e.target.value);
+    this.element.querySelector('#metric-select').addEventListener('change', (e) => {
+        this.state.metric = e.target.value;
+        this.generateChart();
+    });
     
-    this.element.querySelector('#btn-generate').addEventListener('click', () => this.generateChart());
+    this.element.querySelector('#chart-type-select').addEventListener('change', (e) => {
+        this.state.chartType = e.target.value;
+        this.generateChart();
+    });
+    
+    const groupBySelect = this.element.querySelector('#group-by-select');
+    const timeUnitSelect = this.element.querySelector('#time-unit-select');
+
+    groupBySelect.addEventListener('change', (e) => {
+        this.state.groupBy = e.target.value;
+        if (this.state.groupBy === 'date') {
+            timeUnitSelect.style.display = 'block';
+        } else {
+            timeUnitSelect.style.display = 'none';
+        }
+        this.generateChart();
+    });
+
+    timeUnitSelect.addEventListener('change', (e) => {
+        this.state.timeUnit = e.target.value;
+        this.generateChart();
+    });
+    
     this.element.querySelector('#btn-download').addEventListener('click', () => this.downloadChart());
   }
 
@@ -259,6 +296,7 @@ class AnalysisComponent {
             if (e.target.checked) this.state.selectedTags.add(cb.value);
             else this.state.selectedTags.delete(cb.value);
         });
+        this.generateChart();
     });
     container.appendChild(selectAllDiv);
 
@@ -274,6 +312,7 @@ class AnalysisComponent {
         input.addEventListener('change', (e) => {
             if (e.target.checked) this.state.selectedTags.add(tag);
             else this.state.selectedTags.delete(tag);
+            this.generateChart();
         });
         container.appendChild(div);
     });
@@ -341,6 +380,8 @@ class AnalysisComponent {
              return date.toISOString().split('T')[0];
         } else if (timeUnit === 'week') {
              return getWeekStart(date);
+        } else if (timeUnit === 'year') {
+             return date.getFullYear().toString();
         } else {
              // Default Month
              return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
