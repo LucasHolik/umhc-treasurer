@@ -108,3 +108,12 @@
   background-color: #f0ad4e;
   color: #fff;
 }
+
+/* Financial Signifiers */
+.positive {
+  color: #5cb85c; /* A shade of green */
+}
+
+.negative {
+  color: #d9534f; /* A shade of red */
+}

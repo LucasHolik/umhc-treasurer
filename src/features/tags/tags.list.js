@@ -1,6 +1,7 @@
 import store from '../../core/state.js';
 import { formatCurrency, filterTransactionsByTimeframe } from '../../core/utils.js';
 import ModalComponent from '../../shared/modal.component.js';
+import SortableTable from '../../shared/sortable-table.component.js';
 
 export default class TagsList {
     constructor(element, callbacks) {
@@ -13,8 +14,11 @@ export default class TagsList {
             "Category": ""
         };
         this.timeframe = 'all_time';
-        this.sortOrder = "asc"; 
         this.modal = new ModalComponent();
+        
+        // Table instances
+        this.tripTable = null;
+        this.categoryTable = null;
     }
 
     render(isEditMode, localTags, queue) {
@@ -23,7 +27,7 @@ export default class TagsList {
         this.queue = queue;         // Passed from parent
 
         this.element.innerHTML = `
-            <div class="section"> <!-- Added .section wrapper here -->
+            <div class="section">
                 <style>
                     .tags-container {
                         display: flex;
@@ -53,15 +57,9 @@ export default class TagsList {
                                 <option value="current_month" ${this.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
                                 <option value="past_30_days" ${this.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
                                 <option value="past_3_months" ${this.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>
-                                <option value="past_6_months" ${this.timeframe === 'past_6_months' ? 'selected' : ''}>Past 6 Months</option>
+                                <option value="past_6_months" ${this.timeframe === 'past_6_months' ? 'selected' : ''}>Past 6 Months</n>
                                 <option value="past_year" ${this.timeframe === 'past_year' ? 'selected' : ''}>Past Year</option>
                                 <option value="all_time" ${this.timeframe === 'all_time' ? 'selected' : ''}>All Time</option>
-                            </select>
-
-                            <label style="margin-right: 5px; color: #f0ad4e;">Sort:</label>
-                            <select id="tag-sort-select" class="theme-select">
-                                <option value="asc" ${this.sortOrder === 'asc' ? 'selected' : ''}>Name (A-Z)</option>
-                                <option value="desc" ${this.sortOrder === 'desc' ? 'selected' : ''}>Name (Z-A)</option>
                             </select>
                         </div>
                         <div class="actions">
@@ -77,107 +75,127 @@ export default class TagsList {
                 </div>
                 
                 <div class="tags-container">
-                    ${this.renderTagColumn('Trip/Event')}
-                    ${this.renderTagColumn('Category')}
+                    <div id="trip-tags-column" class="tags-column">
+                         <h3>Trip/Event Tags</h3>
+                         <div style="margin-bottom: 10px;">
+                            <input type="text" class="tag-search-input column-search" data-type="Trip/Event" placeholder="Search Trip/Event..." value="${this.searchTerms['Trip/Event']}">
+                         </div>
+                         <div id="trip-tags-table-container"></div>
+                         ${this.renderAddForm('Trip/Event')}
+                    </div>
+                    <div id="category-tags-column" class="tags-column">
+                         <h3>Category Tags</h3>
+                         <div style="margin-bottom: 10px;">
+                            <input type="text" class="tag-search-input column-search" data-type="Category" placeholder="Search Category..." value="${this.searchTerms['Category']}">
+                         </div>
+                         <div id="category-tags-table-container"></div>
+                         ${this.renderAddForm('Category')}
+                    </div>
                 </div>
-            </div> <!-- End .section wrapper -->
+            </div>
         `;
 
         this.attachEventListeners();
+        this.renderTables();
     }
 
-    renderTagColumn(type) {
+    renderAddForm(type) {
+        if (!this.isEditMode) return '';
+        return `
+            <div class="tag-input-group" style="margin-top: 10px;">
+                <input type="text" class="add-tag-input" id="new-tag-${type.replace(/\W/g, '')}" placeholder="Add new ${type} tag...">
+                <button class="secondary-btn add-tag-btn" data-type="${type}">Add</button>
+            </div>
+        `;
+    }
+
+    renderTables() {
+        const tagStats = this.calculateTagStats();
+        this.renderSingleTable('Trip/Event', tagStats);
+        this.renderSingleTable('Category', tagStats);
+    }
+
+    renderSingleTable(type, tagStats) {
+        const containerId = type === 'Trip/Event' ? 'trip-tags-table-container' : 'category-tags-table-container';
+        const container = this.element.querySelector(`#${containerId}`);
+        if (!container) return;
+
         const tagsSource = this.isEditMode ? this.localTags : store.getState('tags');
         const tagsList = (tagsSource && tagsSource[type]) ? tagsSource[type] : [];
-        const tagStats = this.calculateTagStats();
         const searchTerm = this.searchTerms[type] || "";
         
         let visibleTags = tagsList.filter(tag => 
             tag.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
-        visibleTags.sort((a, b) => {
-            const valA = a.toLowerCase();
-            const valB = b.toLowerCase();
-            if (valA < valB) return this.sortOrder === 'asc' ? -1 : 1;
-            if (valA > valB) return this.sortOrder === 'asc' ? 1 : -1;
-            return 0;
+        const data = visibleTags.map(tag => {
+            const stats = tagStats[type][tag] || { count: 0, income: 0, expense: 0 };
+            const net = stats.income - stats.expense;
+            return {
+                tag: tag,
+                type: type, // for actions
+                income: stats.income,
+                expense: stats.expense,
+                net: net,
+                count: stats.count
+            };
         });
 
-        let rows = '';
-        if (visibleTags.length === 0) {
-            const colspan = this.isEditMode ? 6 : 5;
-            rows = `<tr><td colspan="${colspan}">No tags found matching filter.</td></tr>`;
-        } else {
-            rows = visibleTags.map(tag => {
-                const stats = tagStats[type][tag] || { count: 0, income: 0, expense: 0 };
-                const net = stats.income - stats.expense;
-                let netStr = formatCurrency(Math.abs(net));
-                
-                const actions = this.isEditMode ? `
-                    <td style="text-align: right;">
-                        <button class="icon-btn rename-btn" data-tag="${tag}" data-type="${type}" title="Rename">✏️</button>
-                        <button class="icon-btn delete-btn" data-tag="${tag}" data-type="${type}" title="Delete">🗑️</button>
-                    </td>
-                ` : '';
+        const columns = [
+            { key: 'tag', label: 'Tag Name', type: 'text' },
+            { key: 'income', label: 'Income', type: 'currency', class: 'positive tags-table-num text-right' },
+            { key: 'expense', label: 'Expense', type: 'currency', class: 'negative tags-table-num text-right' },
+            { key: 'net', label: 'Net', type: 'currency', class: 'tags-table-num text-right', 
+              render: (item) => `<span class="${item.net > 0 ? 'positive' : (item.net < 0 ? 'negative' : '')}">${formatCurrency(item.net)}</span>` 
+            },
+            { key: 'count', label: 'Uses', type: 'number', class: 'text-center' }
+        ];
 
-                const rowStyle = this.isEditMode ? '' : 'cursor: pointer;';
-                const rowClass = this.isEditMode ? '' : 'tag-row';
-                
-                return `
-                    <tr class="${rowClass}" data-tag="${tag}" data-type="${type}" style="${rowStyle}">
-                        <td>${tag}</td>
-                        <td class="tags-table-num positive">${formatCurrency(stats.income)}</td>
-                        <td class="tags-table-num negative">${formatCurrency(stats.expense)}</td>
-                        <td class="tags-table-num ${net >= 0 ? 'positive' : 'negative'}">${netStr}</td>
-                        <td style="text-align: center;">${stats.count}</td>
-                        ${actions}
-                    </tr>
-                `;
-            }).join('');
+        if (this.isEditMode) {
+            columns.push({
+                key: 'actions',
+                label: 'Actions',
+                type: 'custom',
+                sortable: false,
+                class: 'text-right',
+                render: (item) => `
+                    <button class="icon-btn rename-btn" data-tag="${item.tag}" data-type="${item.type}" title="Rename">✏️</button>
+                    <button class="icon-btn delete-btn" data-tag="${item.tag}" data-type="${item.type}" title="Delete">🗑️</button>
+                `
+            });
         }
 
-        const addForm = this.isEditMode ? `
-            <div class="tag-input-group" style="margin-top: 10px;">
-                <input type="text" class="add-tag-input" id="new-tag-${type.replace(/\W/g, '')}" placeholder="Add new ${type} tag...">
-                <button class="secondary-btn add-tag-btn" data-type="${type}">Add</button>
-            </div>
-        ` : '';
+        const table = new SortableTable(container, {
+            columns: columns,
+            initialSortField: 'tag',
+            initialSortAsc: true,
+            onRowClick: (item) => {
+                if (!this.isEditMode && this.callbacks.onTagClick) {
+                    this.callbacks.onTagClick(type, item.tag);
+                }
+            }
+        });
+        table.update(data);
 
-        const searchInput = `
-            <div style="margin-bottom: 10px;">
-                <input type="text" 
-                    class="tag-search-input column-search" 
-                    data-type="${type}" 
-                    placeholder="Search ${type}..." 
-                    value="${searchTerm}">
-            </div>
-        `;
-
-        return `
-            <div class="tags-column">
-                <h3>${type} Tags</h3>
-                ${searchInput}
-                <div style="overflow-x: auto;">
-                    <table class="section-table">
-                        <thead>
-                            <tr>
-                                <th>Tag Name</th>
-                                <th style="text-align: right;">Income</th>
-                                <th style="text-align: right;">Expense</th>
-                                <th style="text-align: right;">Net</th>
-                                <th style="text-align: center;">Uses</th>
-                                ${this.isEditMode ? '<th style="width: 80px; text-align: right;">Actions</th>' : ''}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rows}
-                        </tbody>
-                    </table>
-                </div>
-                ${addForm}
-            </div>
-        `;
+        // Bind action buttons if in edit mode
+        if (this.isEditMode) {
+            container.querySelectorAll('.rename-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent row click
+                    const tag = e.currentTarget.dataset.tag;
+                    const t = e.currentTarget.dataset.type;
+                    if (this.callbacks.onTagRename) this.callbacks.onTagRename(t, tag);
+                });
+            });
+            container.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent row click
+                    const tag = e.currentTarget.dataset.tag;
+                    const t = e.currentTarget.dataset.type;
+                    if (this.callbacks.onTagDelete) this.callbacks.onTagDelete(t, tag);
+                });
+            });
+        }
     }
 
     calculateTagStats() {
@@ -239,17 +257,11 @@ export default class TagsList {
         const editBtn = this.element.querySelector('#edit-tags-btn');
         const cancelBtn = this.element.querySelector('#cancel-tags-btn');
         const saveBtn = this.element.querySelector('#save-tags-btn');
-        const sortSelect = this.element.querySelector('#tag-sort-select');
         const timeframeSelect = this.element.querySelector('#tag-timeframe-select');
 
         if (editBtn) editBtn.addEventListener('click', () => this.callbacks.onEditModeToggle(true));
         if (cancelBtn) cancelBtn.addEventListener('click', () => this.callbacks.onEditModeToggle(false));
         if (saveBtn) saveBtn.addEventListener('click', () => this.callbacks.onSave());
-        
-        if (sortSelect) sortSelect.addEventListener('change', (e) => {
-            this.sortOrder = e.target.value;
-            this.render(this.isEditMode, this.localTags, this.queue);
-        });
         
         if (timeframeSelect) timeframeSelect.addEventListener('change', (e) => {
             this.timeframe = e.target.value;
@@ -260,22 +272,15 @@ export default class TagsList {
             input.addEventListener('input', (e) => {
                 const type = e.target.dataset.type;
                 this.searchTerms[type] = e.target.value;
-                this.render(this.isEditMode, this.localTags, this.queue);
-                const newInput = this.element.querySelector(`.column-search[data-type="${type}"]`);
-                if (newInput) {
-                    newInput.focus();
-                    newInput.value = e.target.value; 
-                }
+                // Re-render tables only, not whole component to keep focus?
+                // Or just re-render component which is easier but loses focus unless managed.
+                // The previous code managed focus. Let's just re-render tables.
+                const tagStats = this.calculateTagStats();
+                this.renderSingleTable(type, tagStats);
             });
         });
 
         if (this.isEditMode) {
-            // Add, Delete, Rename logic needs to be handled via callbacks or internal queue manipulation
-            // Since `localTags` and `queue` are passed in, we should probably call back to parent to update them?
-            // Or update them locally and re-render? 
-            // The parent `TagsComponent` holds the source of truth for `localTags` and `queue`.
-            // So we should use callbacks for modifications.
-            
             this.element.querySelectorAll('.add-tag-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const type = e.target.dataset.type;
@@ -283,31 +288,6 @@ export default class TagsList {
                     const input = this.element.querySelector(`#${inputId}`);
                     const value = input.value.trim();
                     if (this.callbacks.onTagAdd) this.callbacks.onTagAdd(type, value);
-                });
-            });
-
-            this.element.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const tag = e.target.dataset.tag;
-                    const type = e.target.dataset.type;
-                    if (this.callbacks.onTagDelete) this.callbacks.onTagDelete(type, tag);
-                });
-            });
-
-            this.element.querySelectorAll('.rename-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const tag = e.target.dataset.tag;
-                    const type = e.target.dataset.type;
-                    if (this.callbacks.onTagRename) this.callbacks.onTagRename(type, tag);
-                });
-            });
-        } else {
-            // Tag Click (View Details)
-            this.element.querySelectorAll('.tag-row').forEach(row => {
-                row.addEventListener('click', (e) => {
-                    const tag = row.dataset.tag;
-                    const type = row.dataset.type;
-                    if (this.callbacks.onTagClick) this.callbacks.onTagClick(type, tag);
                 });
             });
         }

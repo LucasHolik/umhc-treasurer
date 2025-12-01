@@ -1,7 +1,6 @@
 import store from '../../core/state.js';
 import { formatCurrency } from '../../core/utils.js';
-import TransactionsTable from '../transactions/transactions.table.js';
-import * as TransactionsLogic from '../transactions/transactions.logic.js';
+import SortableTable from '../../shared/sortable-table.component.js';
 
 export default class TagsDetails {
     constructor(element, callbacks) {
@@ -11,7 +10,6 @@ export default class TagsDetails {
         this.tagType = null;
         this.tagName = null;
         this.transactionsData = [];
-        this.sortState = { field: 'Date', ascending: false };
     }
 
     render(tagType, tagName) {
@@ -22,17 +20,10 @@ export default class TagsDetails {
         const allExpenses = store.getState('expenses') || [];
         this.transactionsData = allExpenses.filter(item => item[tagType] === tagName);
         
-        // Sort
-        this.transactionsData = TransactionsLogic.sortData(
-            this.transactionsData, 
-            this.sortState.field, 
-            this.sortState.ascending
-        );
-
         // Calculate stats
         const stats = this.calculateStats(this.transactionsData);
         const netStr = formatCurrency(Math.abs(stats.income - stats.expense));
-        const netClass = (stats.income - stats.expense) >= 0 ? 'positive' : 'negative';
+        const netClass = (stats.income - stats.expense) > 0 ? 'positive' : ((stats.income - stats.expense) < 0 ? 'negative' : '');
 
         this.element.innerHTML = `
             <div class="section">
@@ -63,21 +54,7 @@ export default class TagsDetails {
                     </div>
                 </div>
                 
-                <div id="tag-transactions-table-container">
-                    <table id="transactions-table" class="section-table">
-                        <thead>
-                            <tr>
-                                <th data-sort="Date" class="sortable" style="cursor: pointer;">Date ${this.getSortIcon('Date')}</th>
-                                <th data-sort="Description" class="sortable" style="cursor: pointer;">Description ${this.getSortIcon('Description')}</th>
-                                <th data-sort="Trip/Event" class="sortable" style="cursor: pointer;">Trip/Event ${this.getSortIcon('Trip/Event')}</th>
-                                <th data-sort="Category" class="sortable" style="cursor: pointer;">Category ${this.getSortIcon('Category')}</th>
-                                <th data-sort="Income" class="sortable" style="cursor: pointer;">Income ${this.getSortIcon('Income')}</th>
-                                <th data-sort="Expense" class="sortable" style="cursor: pointer;">Expense ${this.getSortIcon('Expense')}</th>
-                            </tr>
-                        </thead>
-                        <tbody id="transactions-tbody"></tbody>
-                    </table>
-                </div>
+                <div id="tag-transactions-table-container"></div>
             </div>
         `;
 
@@ -85,10 +62,19 @@ export default class TagsDetails {
         
         // Render Table
         const tableContainer = this.element.querySelector('#tag-transactions-table-container');
-        this.tableComponent = new TransactionsTable(tableContainer, {
-            onSort: (field) => this.handleSort(field)
+        const table = new SortableTable(tableContainer, {
+            columns: [
+                { key: 'Date', label: 'Date', type: 'date' },
+                { key: 'Description', label: 'Description', type: 'text' },
+                { key: 'Trip/Event', label: 'Trip/Event', type: 'text' },
+                { key: 'Category', label: 'Category', type: 'text' },
+                { key: 'Income', label: 'Income', type: 'currency', class: 'positive' },
+                { key: 'Expense', label: 'Expense', type: 'currency', class: 'negative' },
+            ],
+            initialSortField: 'Date',
+            initialSortAsc: false
         });
-        this.tableComponent.render(this.transactionsData, false, new Set());
+        table.update(this.transactionsData);
     }
 
     calculateStats(data) {
@@ -109,21 +95,6 @@ export default class TagsDetails {
         });
 
         return { count, income, expense };
-    }
-
-    getSortIcon(field) {
-        if (this.sortState.field !== field) return '';
-        return this.sortState.ascending ? '▲' : '▼';
-    }
-
-    handleSort(field) {
-        if (this.sortState.field === field) {
-            this.sortState.ascending = !this.sortState.ascending;
-        } else {
-            this.sortState.field = field;
-            this.sortState.ascending = true;
-        }
-        this.render(this.tagType, this.tagName);
     }
 
     attachEventListeners() {

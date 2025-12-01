@@ -1,6 +1,7 @@
 // src/features/analysis/analysis.logic.js
 
 import store from '../../core/state.js';
+import { getDateRange } from '../../core/utils.js';
 
 class AnalysisLogic {
   constructor() {
@@ -15,29 +16,11 @@ class AnalysisLogic {
    * @returns {{start: Date, end: Date}|null} An object with start and end Date objects, or null if custom.
    */
   calculateDateRange(timeframe, expenses) {
-    let start = new Date();
-    let end = new Date();
-    const now = new Date();
+    if (timeframe === "custom") return null;
 
-    switch (timeframe) {
-      case "current_month":
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        break;
-      case "past_30_days":
-        start.setDate(now.getDate() - 30);
-        break;
-      case "past_3_months":
-        start.setMonth(now.getMonth() - 3);
-        break;
-      case "past_6_months":
-        start.setMonth(now.getMonth() - 6);
-        break;
-      case "past_year":
-        start.setFullYear(now.getFullYear() - 1);
-        break;
-      case "all_time":
-        if (expenses.length > 0) {
+    if (timeframe === "all_time") {
+        let start;
+        if (expenses && expenses.length > 0) {
             let earliest = new Date();
             let found = false;
             expenses.forEach(item => {
@@ -49,20 +32,14 @@ class AnalysisLogic {
                     }
                 }
             });
-            if (found) start = earliest;
-            else start = new Date(2000, 0, 1);
+            start = found ? earliest : new Date(2000, 0, 1);
         } else {
-             start = new Date(2000, 0, 1);
+            start = new Date(2000, 0, 1);
         }
-        break;
-      case "custom":
-        return null;
-      default:
-        // Default to past_30_days if an unknown timeframe is passed
-        start.setDate(now.getDate() - 30);
-        break;
+        return { start, end: new Date() };
     }
-    return { start, end };
+
+    return getDateRange(timeframe);
   }
 
   /**

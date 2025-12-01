@@ -1,7 +1,8 @@
 // src/features/dashboard/dashboard.component.js
 import store from '../../core/state.js';
 import LoaderComponent from '../../shared/loader.component.js';
-import { formatCurrency } from '../../core/utils.js';
+import SortableTable from '../../shared/sortable-table.component.js';
+import { formatCurrency, filterTransactionsByTimeframe } from '../../core/utils.js';
 
 class DashboardComponent {
   constructor(element) {
@@ -72,6 +73,35 @@ class DashboardComponent {
     this.loadingPlaceholder = this.element.querySelector('#dashboard-loading-placeholder');
     this.loadedContent = this.element.querySelector('#dashboard-loaded-content');
     this.loadingPlaceholder.innerHTML = new LoaderComponent().render();
+
+    // Initialize SortableTable
+    this.transactionsTable = new SortableTable(this.recentTransactionsContentEl, {
+        columns: [
+            { key: 'Date', label: 'Date', type: 'date' },
+            { key: 'Description', label: 'Description', type: 'text' },
+            { 
+                key: 'Amount', 
+                label: 'Amount (£)', 
+                type: 'custom',
+                render: (item) => {
+                    // Parse values safely, treating null/undefined/empty string as 0
+                    const income = item.Income ? parseFloat(String(item.Income).replace(/,/g, '')) : 0;
+                    const expense = item.Expense ? parseFloat(String(item.Expense).replace(/,/g, '')) : 0;
+                    
+                    // Use 0 if parsing fails (NaN)
+                    const safeIncome = isNaN(income) ? 0 : income;
+                    const safeExpense = isNaN(expense) ? 0 : expense;
+                    
+                    const net = safeIncome - safeExpense;
+                    
+                    const classType = net > 0 ? 'positive' : (net < 0 ? 'negative' : '');
+                    return `<span class="${classType}">${formatCurrency(Math.abs(net))}</span>`;
+                }
+            }
+        ],
+        initialSortField: 'Date',
+        initialSortAsc: false
+    });
   }
 
   handleLoading(isLoading) {
@@ -104,7 +134,7 @@ class DashboardComponent {
   calculateAndDisplayStats() {
     const data = store.getState('expenses') || [];
     const openingBalance = store.getState('openingBalance') || 0;
-    const filteredData = this.filterTransactionsByTimeframe(data, this.timeframe);
+    const filteredData = filterTransactionsByTimeframe(data, this.timeframe);
 
     // Calculate Manual Offset
     let manualIncome = 0;
@@ -156,51 +186,8 @@ class DashboardComponent {
   }
 
   displayRecentTransactions(transactions) {
-    const sortedTransactions = transactions.sort((a, b) => {
-        const dateA = this.parseDate(a.Date);
-        const dateB = this.parseDate(b.Date);
-        if (!dateA) return 1;
-        if (!dateB) return -1;
-        return dateB - dateA;
-    });
-
     this.updateTransactionCountHeader(transactions.length);
-
-    if (this.recentTransactionsContentEl) {
-        this.recentTransactionsContentEl.innerHTML = "";
-
-        if (sortedTransactions.length > 0) {
-            const table = document.createElement("table");
-            table.innerHTML = `
-                <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Amount (£)</th>
-                </tr>
-                </thead>
-                <tbody>
-                ${sortedTransactions
-                    .map((item) => {
-                    const amount = item.Income
-                        ? `+${formatCurrency(item.Income)}`
-                        : `-${formatCurrency(item.Expense)}`;
-                    return `
-                    <tr>
-                        <td>${item.Date || "N/A"}</td>
-                        <td>${item.Description || "N/A"}</td>
-                        <td>${amount || "N/A"}</td>
-                    </tr>
-                    `;
-                    })
-                    .join("")}
-                </tbody>
-            `;
-            this.recentTransactionsContentEl.appendChild(table);
-        } else {
-            this.recentTransactionsContentEl.textContent = "No transactions found in selected timeframe";
-        }
-    }
+    this.transactionsTable.update(transactions);
   }
   
   updateTransactionCountHeader(count) {
@@ -211,50 +198,6 @@ class DashboardComponent {
       }
   }
 
-  filterTransactionsByTimeframe(transactions, timeframe) {
-    if (!transactions || transactions.length === 0) return [];
-    if (timeframe === "all_time") return transactions;
-
-    let { start, end } = { start: null, end: new Date() };
-
-    switch (timeframe) {
-      case "current_month":
-        ({ start, end } = this.getCurrentMonthRange());
-        break;
-      case "past_30_days":
-        ({ start, end } = this.getPastDaysRange(30));
-        break;
-      case "past_3_months":
-        ({ start, end } = this.getPastMonthsRange(3));
-        break;
-      case "past_6_months":
-        ({ start, end } = this.getPastMonthsRange(6));
-        break;
-      case "past_year":
-        ({ start, end } = this.getPastYearRange());
-        break;
-      default:
-        ({ start, end } = this.getPastDaysRange(30));
-    }
-
-    return transactions.filter((transaction) => {
-      const date = this.parseDate(transaction.Date);
-      if (!date) return false;
-      return date >= start && date <= end;
-    });
-  }
-
-  parseDate(dateString) {
-    if (!dateString) return null;
-    let date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      const formattedDate = dateString.replace(/[-./]/g, "/");
-      date = new Date(formattedDate);
-    }
-    if (isNaN(date.getTime())) return null;
-    return date;
-  }
-  
   getTimeframeLabel(timeframe) {
     const labels = {
       current_month: "Current Month",
@@ -265,34 +208,6 @@ class DashboardComponent {
       all_time: "All Time",
     };
     return labels[timeframe] || "Past 30 Days";
-  }
-
-  getCurrentMonthRange = () => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return { start, end };
-  }
-  
-  getPastDaysRange = (days) => {
-    const now = new Date();
-    const start = new Date();
-    start.setDate(now.getDate() - days);
-    return { start, end: now };
-  }
-  
-  getPastMonthsRange = (months) => {
-    const now = new Date();
-    const start = new Date();
-    start.setMonth(now.getMonth() - months);
-    return { start, end: now };
-  }
-  
-  getPastYearRange = () => {
-    const now = new Date();
-    const start = new Date();
-    start.setFullYear(now.getFullYear() - 1);
-    return { start, end: now };
   }
 }
 

@@ -2,6 +2,7 @@
 import store from '../../core/state.js';
 import ApiService from '../../services/api.service.js';
 import ExcelService from '../../services/excel.service.js';
+import SortableTable from '../../shared/sortable-table.component.js';
 import { formatCurrency } from '../../core/utils.js';
 
 class UploadComponent {
@@ -28,20 +29,7 @@ class UploadComponent {
             <button id="table-view-btn" class="active view-toggle-btn">Table View</button>
             <button id="json-view-btn" class="view-toggle-btn">JSON View</button>
           </div>
-          <div id="table-view-content">
-            <table class="section-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th>Document</th>
-                  <th>Cash In</th>
-                  <th>Cash Out</th>
-                </tr>
-              </thead>
-              <tbody id="extracted-table-body"></tbody>
-            </table>
-          </div>
+          <div id="table-view-content"></div>
           <div id="json-view-content" style="display: none;">
             <pre><code id="file-content-json"></code></pre>
           </div>
@@ -55,10 +43,22 @@ class UploadComponent {
     this.extractedContentSection = this.element.querySelector('#extracted-content-section');
     this.tableViewContent = this.element.querySelector('#table-view-content');
     this.jsonViewContent = this.element.querySelector('#json-view-content');
-    this.extractedTableBody = this.element.querySelector('#extracted-table-body');
     this.tableViewButton = this.element.querySelector('#table-view-btn');
     this.jsonViewButton = this.element.querySelector('#json-view-btn');
     this.fileContentJson = this.element.querySelector('#file-content-json');
+
+    // Initialize SortableTable
+    this.table = new SortableTable(this.tableViewContent, {
+        columns: [
+            { key: 'date', label: 'Date', type: 'date' },
+            { key: 'description', label: 'Description', type: 'text' },
+            { key: 'document', label: 'Document', type: 'text' },
+            { key: 'cashIn', label: 'Cash In', type: 'currency', class: 'positive' },
+            { key: 'cashOut', label: 'Cash Out', type: 'currency', class: 'negative' }
+        ],
+        initialSortField: 'date',
+        initialSortAsc: false
+    });
   }
 
   attachEventListeners() {
@@ -103,29 +103,7 @@ class UploadComponent {
 
   displayExtractedData() {
     this.fileContentJson.textContent = JSON.stringify(this.parsedData, null, 2);
-    
-    this.extractedTableBody.innerHTML = '';
-    if (!this.parsedData || this.parsedData.length === 0) {
-        const row = document.createElement("tr");
-        const cell = document.createElement("td");
-        cell.setAttribute("colspan", 5);
-        cell.textContent = "No data available";
-        row.appendChild(cell);
-        this.extractedTableBody.appendChild(row);
-        return;
-    }
-
-    this.parsedData.forEach((item) => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${item.date || ""}</td>
-            <td>${item.description || ""}</td>
-            <td>${item.document || ""}</td>
-            <td>${formatCurrency(item.cashIn)}</td>
-            <td>${formatCurrency(item.cashOut)}</td>
-        `;
-        this.extractedTableBody.appendChild(row);
-    });
+    this.table.update(this.parsedData);
     this.switchToTableView();
   }
 

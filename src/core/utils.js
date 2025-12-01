@@ -66,31 +66,28 @@ export function getPastYearRange() {
     return { start, end: now };
 }
 
+export function getDateRange(timeframe) {
+    switch (timeframe) {
+      case "current_month":
+        return getCurrentMonthRange();
+      case "past_30_days":
+        return getPastDaysRange(30);
+      case "past_3_months":
+        return getPastMonthsRange(3);
+      case "past_6_months":
+        return getPastMonthsRange(6);
+      case "past_year":
+        return getPastYearRange();
+      default:
+        return getPastDaysRange(30);
+    }
+}
+
 export function filterTransactionsByTimeframe(transactions, timeframe) {
     if (!transactions || transactions.length === 0) return [];
     if (timeframe === "all_time") return transactions;
 
-    let { start, end } = { start: null, end: new Date() };
-
-    switch (timeframe) {
-      case "current_month":
-        ({ start, end } = getCurrentMonthRange());
-        break;
-      case "past_30_days":
-        ({ start, end } = getPastDaysRange(30));
-        break;
-      case "past_3_months":
-        ({ start, end } = getPastMonthsRange(3));
-        break;
-      case "past_6_months":
-        ({ start, end } = getPastMonthsRange(6));
-        break;
-      case "past_year":
-        ({ start, end } = getPastYearRange());
-        break;
-      default:
-        ({ start, end } = getPastDaysRange(30));
-    }
+    const { start, end } = getDateRange(timeframe);
 
     return transactions.filter((transaction) => {
       const date = parseDate(transaction.Date);

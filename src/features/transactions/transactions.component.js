@@ -1,11 +1,13 @@
 // src/features/transactions/transactions.component.js
 import store from '../../core/state.js';
 import ApiService from '../../services/api.service.js';
-import TransactionsTable from './transactions.table.js';
+import SortableTable from '../../shared/sortable-table.component.js';
 import TransactionsFilters from './transactions.filters.js';
 import TransactionsBulk from './transactions.bulk.js';
 import TransactionsManualModal from './transactions.manual.js';
 import * as TransactionsLogic from './transactions.logic.js';
+
+import { formatCurrency } from '../../core/utils.js';
 
 class TransactionsComponent {
   constructor(element) {
@@ -14,7 +16,6 @@ class TransactionsComponent {
     this.originalTransactionData = [];
     
     // State
-    this.sortState = { field: 'Date', ascending: false };
     this.selectionMode = false;
     this.selectedRows = new Set();
     
@@ -112,23 +113,6 @@ class TransactionsComponent {
                         </div>
                     </div>
                 </div>
-
-                <!-- Sorting -->
-                <div class="control-group" style="min-width: 200px;">
-                    <label class="control-label">SORT BY</label>
-                     <div class="control-inputs" style="flex-direction: column;">
-                        <select id="sort-field" class="theme-select" style="width: 100%;">
-                            <option value="Date">Date</option>
-                            <option value="Income">Income</option>
-                            <option value="Expense">Expense</option>
-                            <option value="Net">Money In/Out</option>
-                        </select>
-                        <select id="sort-order" class="theme-select" style="width: 100%;">
-                            <option value="desc">Desc (High-Low)</option>
-                            <option value="asc">Asc (Low-High)</option>
-                        </select>
-                    </div>
-                </div>
                 
                 <div class="transaction-actions" style="align-self: flex-start; margin-top: 22px; display: flex; gap: 10px;">
                     <button id="tag-transactions-btn" class="secondary-btn">Bulk Tagging Mode</button>
@@ -172,31 +156,17 @@ class TransactionsComponent {
                 <input type="text" id="desc-search" class="tag-search-input" style="width: 100%; padding: 12px; box-sizing: border-box; font-size: 1em; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);" placeholder="Search transaction descriptions..." value="${this.descriptionSearchTerm}">
             </div>
 
-            <table id="transactions-table" class="section-table">
-                <thead>
-                    <tr>
-                        <th id="select-all-header"><input type="checkbox" id="select-all-checkbox"></th>
-                        <th data-sort="Date" class="sortable" style="cursor: pointer;">Date</th>
-                        <th data-sort="Description" class="sortable" style="cursor: pointer;">Description</th>
-                        <th data-sort="Trip/Event" class="sortable" style="cursor: pointer;">Trip/Event</th>
-                        <th data-sort="Category" class="sortable" style="cursor: pointer;">Category</th>
-                        <th data-sort="Income" class="sortable" style="cursor: pointer;">Income</th>
-                        <th data-sort="Expense" class="sortable" style="cursor: pointer;">Expense</th>
-                    </tr>
-                </thead>
-                <tbody id="transactions-tbody"></tbody>
-            </table>
+            <div id="transactions-table-container"></div>
         </div>
     `;
     
     this.initializeSubComponents();
-    this.initializeSorting();
 
     // Restore UI state if returning from loading
     if (this.selectionMode) {
         this.toggleSelectionMode(true);
     } else {
-        this.applyFiltersAndSort();
+        this.applyFilters();
     }
     
     this.handleTagsChange(); // Populate filters
@@ -204,10 +174,35 @@ class TransactionsComponent {
 
   initializeSubComponents() {
       // Table
-      this.tableComponent = new TransactionsTable(this.transactionsDisplay, {
-          onSort: (field) => this.handleSort(field),
-          onSelectAll: (checked) => this.handleSelectAll(checked),
-          onRowSelect: (rowId, checked) => this.handleRowSelect(rowId, checked)
+      this.tableComponent = new SortableTable(this.transactionsDisplay.querySelector('#transactions-table-container'), {
+          columns: [
+            { key: 'Date', label: 'Date', type: 'date' },
+            { key: 'Description', label: 'Description', type: 'text' },
+            { key: 'Trip/Event', label: 'Trip/Event', type: 'text' },
+            { key: 'Category', label: 'Category', type: 'text' },
+            { 
+                key: 'Amount', 
+                label: 'Amount', 
+                type: 'custom',
+                render: (item) => {
+                    // Parse values safely
+                    const income = item.Income ? parseFloat(String(item.Income).replace(/,/g, '')) : 0;
+                    const expense = item.Expense ? parseFloat(String(item.Expense).replace(/,/g, '')) : 0;
+                    
+                    const safeIncome = isNaN(income) ? 0 : income;
+                    const safeExpense = isNaN(expense) ? 0 : expense;
+                    
+                    const net = safeIncome - safeExpense;
+                    
+                    const classType = net > 0 ? 'positive' : (net < 0 ? 'negative' : '');
+                    return `<span class="${classType}">${formatCurrency(Math.abs(net))}</span>`;
+                }
+            }
+          ],
+          enableSelection: this.selectionMode,
+          initialSortField: 'Date',
+          initialSortAsc: false,
+          onSelectionChange: (selectedIds) => this.handleSelectionChange(selectedIds)
       });
 
       // Filters
@@ -234,7 +229,7 @@ class TransactionsComponent {
       if (descSearch) {
           descSearch.addEventListener('input', (e) => {
               this.descriptionSearchTerm = e.target.value;
-              this.applyFiltersAndSort();
+              this.applyFilters();
           });
       }
   }
@@ -260,46 +255,10 @@ class TransactionsComponent {
       }
   }
 
-  initializeSorting() {
-    this.sortField = this.element.querySelector('#sort-field');
-    this.sortOrder = this.element.querySelector('#sort-order');
-    
-    if (this.sortField && this.sortOrder) {
-        this.sortField.value = this.sortState.field;
-        this.updateSortDropdownOptions(); // Ensure correct options for Net/etc
-        this.sortOrder.value = this.sortState.ascending ? 'asc' : 'desc';
-
-        this.sortField.addEventListener('change', () => {
-            this.updateSortDropdownOptions();
-            this.handleSort(this.sortField.value, true);
-        });
-        this.sortOrder.addEventListener('change', () => {
-            this.sortState.ascending = this.sortOrder.value === 'asc';
-            this.handleSort(this.sortField.value, true);
-        });
-    }
-  }
-
-  updateSortDropdownOptions() {
-      const field = this.sortField.value;
-      const currentOrder = this.sortOrder.value;
-      
-      this.sortOrder.innerHTML = '';
-      
-      if (field === 'Net') {
-          this.sortOrder.add(new Option('Money In First', 'desc'));
-          this.sortOrder.add(new Option('Money Out First', 'asc'));
-      } else {
-          this.sortOrder.add(new Option('Desc (High-Low)', 'desc'));
-          this.sortOrder.add(new Option('Asc (Low-High)', 'asc'));
-      }
-      this.sortOrder.value = currentOrder;
-  }
-
   handleDataChange(data) {
     this.transactionData = [...data];
     this.originalTransactionData = [...data];
-    this.applyFiltersAndSort(); 
+    this.applyFilters(); 
   }
 
   handleTagsChange() {
@@ -320,7 +279,7 @@ class TransactionsComponent {
       this.bulkComponent.renderBulkTagLists();
   }
 
-  // --- Filtering & Sorting ---
+  // --- Filtering ---
 
   handleSearchChange(type, term) {
       if (type === 'Category') this.categorySearchTerm = term.toLowerCase();
@@ -332,13 +291,8 @@ class TransactionsComponent {
       const set = type === 'Category' ? this.selectedCategories : this.selectedTrips;
       if (checked) set.add(tag);
       else set.delete(tag);
-      
-      // Update "Select All" state visuals by re-rendering lists? 
-      // Or just rely on filter update. 
-      // Ideally we re-render lists to update checkboxes, but that might lose focus on inputs?
-      // The input is separate, checkboxes are separate.
       this.handleTagsChange(); 
-      this.applyFiltersAndSort();
+      this.applyFilters();
   }
 
   handleFilterSelectAll(type, tags, checked) {
@@ -348,47 +302,20 @@ class TransactionsComponent {
           else set.delete(tag);
       });
       this.handleTagsChange();
-      this.applyFiltersAndSort();
+      this.applyFilters();
   }
 
-  handleSort(field, force = false) {
-    if (force) {
-        this.sortState.field = field;
-    } else {
-        if (this.sortState.field === field) {
-            this.sortState.ascending = !this.sortState.ascending;
-        } else {
-            this.sortState.field = field;
-            this.sortState.ascending = true;
-        }
-    }
-    
-    // Sync dropdowns if triggered from table header
-    if (this.sortField && this.sortField.value !== this.sortState.field) {
-        this.sortField.value = this.sortState.field;
-        this.updateSortDropdownOptions();
-    }
-    if (this.sortOrder) {
-        this.sortOrder.value = this.sortState.ascending ? 'asc' : 'desc';
-    }
-
-    this.applyFiltersAndSort();
-  }
-
-  applyFiltersAndSort() {
+  applyFilters() {
       // 1. Filter
-      let data = TransactionsLogic.filterData(this.originalTransactionData, {
+      this.transactionData = TransactionsLogic.filterData(this.originalTransactionData, {
           selectedCategories: this.selectedCategories,
           selectedTrips: this.selectedTrips,
           descriptionSearch: this.descriptionSearchTerm
       });
 
-      // 2. Sort
-      this.transactionData = TransactionsLogic.sortData(data, this.sortState.field, this.sortState.ascending);
-
-      // 3. Render
+      // 2. Render (SortableTable handles sorting)
       if (this.tableComponent) {
-          this.tableComponent.render(this.transactionData, this.selectionMode, this.selectedRows);
+          this.tableComponent.update(this.transactionData);
       }
   }
 
@@ -399,6 +326,7 @@ class TransactionsComponent {
       
       if (!active) {
           this.selectedRows.clear();
+          if(this.tableComponent) this.tableComponent.clearSelection();
       }
 
       if (this.bulkComponent) {
@@ -406,24 +334,14 @@ class TransactionsComponent {
       }
       
       if (this.tableComponent) {
-          this.tableComponent.toggleSelectionMode(active);
-          this.tableComponent.render(this.transactionData, active, this.selectedRows);
+          this.tableComponent.enableSelection = active;
+          // Re-render to show/hide checkboxes
+          this.tableComponent.render(); 
       }
   }
 
-  handleSelectAll(checked) {
-      if (checked) {
-           // Select all currently visible
-           this.transactionData.forEach(item => this.selectedRows.add(item.row));
-      } else {
-           this.selectedRows.clear();
-      }
-      this.updateSelectionUI();
-  }
-
-  handleRowSelect(rowId, checked) {
-      if (checked) this.selectedRows.add(rowId);
-      else this.selectedRows.delete(rowId);
+  handleSelectionChange(selectedIds) {
+      this.selectedRows = new Set(selectedIds);
       this.updateSelectionUI();
   }
 
@@ -431,14 +349,6 @@ class TransactionsComponent {
       if (this.bulkComponent) {
           this.bulkComponent.updateSelectionCount(this.selectedRows.size);
       }
-      // Re-render table to update checkbox states (inefficient but robust)
-      // Or we could just let the checkbox state be managed by DOM, 
-      // but re-render ensures consistency with data model.
-      // Given DOM manipulation in `tableComponent` renders checked state based on set, we might not need full render if we just clicked one.
-      // But "Select All" definitely needs it. 
-      // Let's trust `tableComponent.render` is fast enough for now. 
-      // Actually, `handleRowSelect` comes from a change event, so the checkbox is ALREADY checked. 
-      // We don't need to re-render logic for single row select unless we want to update other UI.
   }
 
   async applyBulkTags(tripVal, catVal) {
