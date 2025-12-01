@@ -22,7 +22,6 @@
 .tags-column {
   display: flex;
   flex-direction: column;
-  min-width: 480px;
 }
 
 .tags-column h3 {
@@ -173,35 +172,55 @@
   flex: 1;
   padding: 6px 10px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  border-radius: 44px;
   background-color: #1a6b10;
   color: #fff;
   font-size: 0.9em;
 }
 
 .tag-edit-item .rename-btn,
-.tag-edit-item .delete-btn {
+.tag-edit-item .delete-btn,
+.icon-btn.rename-btn,
+.icon-btn.delete-btn {
   padding: 6px 10px;
   border: 1px solid #f0ad4e;
-  background-color: transparent;
+  background-color: rgba(0, 0, 0, 0.2);
   color: #f0ad4e;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.8em;
   transition: all 0.3s ease;
+  display: inline-block; /* Revert to inline-block */
 }
 
-.tag-edit-item .rename-btn:hover {
+/* Apply flex to the table cell that contains the buttons */
+.sortable-table td.tags-actions-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* Align buttons to the right */
+    justify-content: center; /* Center buttons vertically within the cell */
+}
+
+
+.tag-edit-item .rename-btn,
+.icon-btn.rename-btn {
+  margin-bottom: 5px; /* Vertical space */
+}
+
+.tag-edit-item .rename-btn:hover,
+.icon-btn.rename-btn:hover {
   background-color: #f0ad4e;
   color: #fff;
 }
 
-.tag-edit-item .delete-btn {
+.tag-edit-item .delete-btn,
+.icon-btn.delete-btn {
   border-color: #d9534f;
   color: #d9534f;
 }
 
-.tag-edit-item .delete-btn:hover {
+.tag-edit-item .delete-btn:hover,
+.icon-btn.delete-btn:hover {
   background-color: #d9534f;
   color: #fff;
 }
@@ -269,6 +288,26 @@
 .add-tag-input:focus {
     outline: none;
     border-color: #f0ad4e;
+}
+
+/* Styles moved from tags.list.js for tags-container and tags-column */
+.tags-container {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto; 
+    align-items: flex-start;
+}
+.tags-column {
+    flex: 1;
+    /* Removed min-width: 480px; */
+}
+@media (max-width: 768px) {
+    .tags-container {
+        flex-direction: column;
+    }
+    .tags-column {
+        min-width: 100%;
+    }
 }
 
 /* Responsive design for tags edit view */

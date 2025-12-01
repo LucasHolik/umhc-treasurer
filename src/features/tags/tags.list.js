@@ -28,26 +28,7 @@ export default class TagsList {
 
         this.element.innerHTML = `
             <div class="section">
-                <style>
-                    .tags-container {
-                        display: flex;
-                        gap: 20px;
-                        overflow-x: auto; 
-                        align-items: flex-start;
-                    }
-                    .tags-column {
-                        flex: 1;
-                        min-width: 480px;
-                    }
-                    @media (max-width: 768px) {
-                        .tags-container {
-                            flex-direction: column;
-                        }
-                        .tags-column {
-                            min-width: 100%;
-                        }
-                    }
-                </style>
+
                 <div class="tags-header-actions" style="display: flex; justify-content: space-between; align-items: center;">
                     <h2>Manage Tags</h2>
                     <div class="header-controls-group">
@@ -149,7 +130,7 @@ export default class TagsList {
                 label: 'Actions',
                 type: 'custom',
                 sortable: false,
-                class: 'text-right',
+                class: 'text-right tags-actions-cell', // Added specific class for targeting
                 render: (item) => `
                     <button class="icon-btn rename-btn" data-tag="${item.tag}" data-type="${item.type}" title="Rename">✏️</button>
                     <button class="icon-btn delete-btn" data-tag="${item.tag}" data-type="${item.type}" title="Delete">🗑️</button>
