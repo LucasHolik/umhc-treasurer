@@ -106,6 +106,20 @@ class DashboardComponent {
     const openingBalance = store.getState('openingBalance') || 0;
     const filteredData = this.filterTransactionsByTimeframe(data, this.timeframe);
 
+    // Calculate Manual Offset
+    let manualIncome = 0;
+    let manualExpense = 0;
+    
+    data.forEach(item => {
+        if (item.Type === 'Manual') {
+             if (item.Income && !isNaN(parseFloat(item.Income))) manualIncome += parseFloat(item.Income);
+             if (item.Expense && !isNaN(parseFloat(item.Expense))) manualExpense += parseFloat(item.Expense);
+        }
+    });
+    
+    // Offset negates manual transactions from the running total
+    const manualOffset = manualExpense - manualIncome;
+
     let totalIncome = 0;
     let totalExpenses = 0;
 
@@ -130,7 +144,7 @@ class DashboardComponent {
       }
     });
 
-    const currentBalance = openingBalance + allTimeTotalIncome - allTimeTotalExpenses;
+    const currentBalance = openingBalance + manualOffset + allTimeTotalIncome - allTimeTotalExpenses;
     const netChange = totalIncome - totalExpenses;
 
     this.currentBalanceEl.textContent = `£${formatCurrency(currentBalance)}`;

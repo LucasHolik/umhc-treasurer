@@ -4,6 +4,7 @@ import ApiService from '../../services/api.service.js';
 import TransactionsTable from './transactions.table.js';
 import TransactionsFilters from './transactions.filters.js';
 import TransactionsBulk from './transactions.bulk.js';
+import TransactionsManualModal from './transactions.manual.js';
 import * as TransactionsLogic from './transactions.logic.js';
 
 class TransactionsComponent {
@@ -111,8 +112,9 @@ class TransactionsComponent {
                     </div>
                 </div>
                 
-                <div class="transaction-actions" style="align-self: flex-start; margin-top: 22px;">
+                <div class="transaction-actions" style="align-self: flex-start; margin-top: 22px; display: flex; gap: 10px;">
                     <button id="tag-transactions-btn" class="secondary-btn">Bulk Tagging Mode</button>
+                    <button id="add-manual-btn" class="secondary-btn">Add Manual Transaction</button>
                 </div>
 
             </div>
@@ -197,6 +199,33 @@ class TransactionsComponent {
           onToggleMode: (active) => this.toggleSelectionMode(active),
           onApply: (tripVal, catVal) => this.applyBulkTags(tripVal, catVal)
       });
+
+      // Manual Transaction Button
+      const manualBtn = this.transactionsDisplay.querySelector('#add-manual-btn');
+      if (manualBtn) {
+          manualBtn.addEventListener('click', () => this.openManualModal());
+      }
+  }
+
+  async openManualModal() {
+      const modal = new TransactionsManualModal();
+      const data = await modal.open();
+      if (data) {
+          this.handleManualAdd(data);
+      }
+  }
+
+  async handleManualAdd(data) {
+      store.setState('isLoading', true);
+      try {
+          // Wrap single object in array
+          await ApiService.saveData([data]);
+          document.dispatchEvent(new CustomEvent('dataUploaded'));
+      } catch (error) {
+          console.error("Failed to add manual transaction", error);
+          alert("Failed to add transaction: " + error.message);
+          store.setState('isLoading', false);
+      }
   }
 
   initializeSorting() {

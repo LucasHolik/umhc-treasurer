@@ -14,5 +14,6 @@ var CONFIG = {
     "Category",
     "Income",
     "Expense",
+    "Type",
   ],
 };

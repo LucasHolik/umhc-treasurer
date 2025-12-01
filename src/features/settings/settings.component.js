@@ -12,6 +12,7 @@ class SettingsComponent {
     this.attachEventListeners();
     store.subscribe('openingBalance', this.render.bind(this));
     store.subscribe('settingsSyncing', this.render.bind(this));
+    store.subscribe('expenses', this.render.bind(this));
   }
 
   render() {
@@ -23,7 +24,28 @@ class SettingsComponent {
     }
 
     const currentBalance = store.getState('openingBalance') || 0;
-    const formattedBalance = formatCurrency(currentBalance);
+    const expenses = store.getState('expenses') || [];
+    
+    // Calculate offset from manual transactions
+    let manualIncome = 0;
+    let manualExpense = 0;
+    expenses.forEach(item => {
+        if (item.Type === 'Manual') {
+             if (item.Income && !isNaN(parseFloat(item.Income))) manualIncome += parseFloat(item.Income);
+             if (item.Expense && !isNaN(parseFloat(item.Expense))) manualExpense += parseFloat(item.Expense);
+        }
+    });
+    
+    // If we manually added income, we subtract it from the running total calculation in dashboard
+    // to keep the balance "conserved" relative to the user's opening balance.
+    // Wait, the offset logic in dashboard is: 
+    // Balance = Opening + ManualOffset + TotalIncome - TotalExpense.
+    // TotalIncome includes ManualIncome.
+    // If ManualOffset = -ManualIncome, then they cancel out.
+    // So Offset = ManualExpense - ManualIncome.
+    
+    const manualOffset = manualExpense - manualIncome;
+    const effectiveBalance = currentBalance + manualOffset;
 
     this.element.innerHTML = `
       <div class="section">
@@ -32,13 +54,35 @@ class SettingsComponent {
         </div>
         
         <div style="margin-top: 30px; padding: 20px; background-color: rgba(255, 255, 255, 0.05); border-radius: 8px;">
-             <div style="display: flex; align-items: center; gap: 20px;">
-                <div>
-                    <label style="display: block; color: #f0ad4e; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Opening Balance</label>
-                    <div style="font-size: 1.5em;">${formattedBalance}</div>
+             
+             <!-- Base Opening Balance -->
+             <div style="display: flex; align-items: center; gap: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <label style="display: block; color: #f0ad4e; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Base Opening Balance</label>
+                    <div style="font-size: 1.5em;">£${formatCurrency(currentBalance)}</div>
+                    <div style="color: #aaa; font-size: 0.9em;">Set manually.</div>
                 </div>
                 <button id="edit-opening-balance" class="secondary-btn" title="Edit Opening Balance">✏️ Edit</button>
              </div>
+             
+             <!-- Manual Offset -->
+             <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <label style="display: block; color: #f0ad4e; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Manual Transactions Offset</label>
+                    <div style="font-size: 1.2em; color: ${manualOffset >= 0 ? '#5cb85c' : '#d9534f'}">${manualOffset >= 0 ? '+' : ''}£${formatCurrency(Math.abs(manualOffset))}</div>
+                    <div style="color: #aaa; font-size: 0.9em;">Calculated from manually added old transactions.</div>
+                </div>
+             </div>
+
+             <!-- Effective Start -->
+             <div style="display: flex; align-items: center; gap: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                <div style="flex: 1;">
+                    <label style="display: block; color: #fff; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Effective Start Balance</label>
+                    <div style="font-size: 1.5em;">£${formatCurrency(effectiveBalance)}</div>
+                    <div style="color: #aaa; font-size: 0.9em;">Actual starting point for calculations.</div>
+                </div>
+             </div>
+
         </div>
         
         <div id="settings-status" style="margin-top: 20px;"></div>

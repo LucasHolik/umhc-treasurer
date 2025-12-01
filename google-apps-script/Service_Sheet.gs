@@ -19,9 +19,11 @@ var Service_Sheet = {
         "",
         row.cashIn || "",
         row.cashOut || "",
+        row.isManual ? "Manual" : "",
       ]);
 
       if (recordsToAdd.length > 0) {
+        // Format date column (Column 3 / C)
         const dateColumnRange = financeSheet.getRange(
           startRow,
           3,
@@ -29,8 +31,10 @@ var Service_Sheet = {
           1
         );
         dateColumnRange.setNumberFormat("@");
+        
+        // Set values for all columns (now 9)
         financeSheet
-          .getRange(startRow, 1, recordsToAdd.length, 8)
+          .getRange(startRow, 1, recordsToAdd.length, CONFIG.HEADERS.length)
           .setValues(recordsToAdd);
       }
 
@@ -59,7 +63,7 @@ var Service_Sheet = {
         return { success: true, data: [] };
       }
 
-      const range = financeSheet.getRange(2, 1, lastRow - 1, 8);
+      const range = financeSheet.getRange(2, 1, lastRow - 1, CONFIG.HEADERS.length);
       const values = range.getValues();
 
       const data = values.map((row, index) => {
@@ -237,29 +241,30 @@ function _getFinanceSheet() {
     financeSheet = spreadsheet.insertSheet(CONFIG.SHEET_NAME);
     financeSheet.appendRow(CONFIG.HEADERS);
   } else {
-    // Check if the sheet has headers in the first row
     const lastRow = financeSheet.getLastRow();
     if (lastRow === 0) {
-      // Sheet is completely empty, add headers
       financeSheet.appendRow(CONFIG.HEADERS);
     } else {
-      // Check if the first row contains headers by comparing with expected headers
-      const firstRowRange = financeSheet.getRange(
-        1,
-        1,
-        1,
-        CONFIG.HEADERS.length
-      );
-      const firstRowValues = firstRowRange.getValues()[0];
-      const hasHeaders = CONFIG.HEADERS.every(
-        (header, index) => firstRowValues[index] === header
-      );
-      if (!hasHeaders) {
-        // Insert headers at the top, shifting existing data down if any
-        financeSheet.insertRowBefore(1);
-        financeSheet
-          .getRange(1, 1, 1, CONFIG.HEADERS.length)
-          .setValues([CONFIG.HEADERS]);
+      // Check if headers need update
+      const currentHeadersRange = financeSheet.getRange(1, 1, 1, financeSheet.getLastColumn());
+      const currentHeaders = currentHeadersRange.getValues()[0];
+      
+      // Check if current headers match the beginning of CONFIG.HEADERS
+      let match = true;
+      for (let i = 0; i < currentHeaders.length; i++) {
+        if (currentHeaders[i] !== CONFIG.HEADERS[i]) {
+          match = false;
+          break;
+        }
+      }
+      
+      if (!match) {
+         // If complete mismatch, insert new row (fallback)
+         financeSheet.insertRowBefore(1);
+         financeSheet.getRange(1, 1, 1, CONFIG.HEADERS.length).setValues([CONFIG.HEADERS]);
+      } else if (currentHeaders.length < CONFIG.HEADERS.length) {
+         // If partial match (subset), just update the header row to include new columns
+         financeSheet.getRange(1, 1, 1, CONFIG.HEADERS.length).setValues([CONFIG.HEADERS]);
       }
     }
   }
@@ -274,7 +279,8 @@ function _sortSheetByDate() {
     return; // No data to sort
   }
 
-  const range = financeSheet.getRange(2, 1, lastRow - 1, 8);
+  // Sort all columns (now 9)
+  const range = financeSheet.getRange(2, 1, lastRow - 1, CONFIG.HEADERS.length);
   const values = range.getValues();
 
   const dataWithDateObjects = values.map((row) => {
@@ -292,7 +298,7 @@ function _sortSheetByDate() {
   const sortedValues = dataWithDateObjects.map((item) => item.rowData);
 
   range.clearContent();
-  const newRange = financeSheet.getRange(2, 1, sortedValues.length, 8);
+  const newRange = financeSheet.getRange(2, 1, sortedValues.length, CONFIG.HEADERS.length);
   newRange.setValues(sortedValues);
   newRange.offset(0, 2, sortedValues.length, 1).setNumberFormat("@");
 }
