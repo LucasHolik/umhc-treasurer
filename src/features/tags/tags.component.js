@@ -3,6 +3,7 @@ import store from '../../core/state.js';
 import ApiService from '../../services/api.service.js';
 import LoaderComponent from '../../shared/loader.component.js';
 import ModalComponent from '../../shared/modal.component.js';
+import { formatCurrency } from '../../core/utils.js';
 
 class TagsComponent {
   constructor(element) {
@@ -12,11 +13,20 @@ class TagsComponent {
     this.isEditMode = false;
     this.modal = new ModalComponent();
     
+    // State for filtering and sorting
+    this.searchTerms = {
+        "Trip/Event": "",
+        "Category": ""
+    };
+    this.sortOrder = "asc"; // 'asc' | 'desc'
+    
     // Bind methods
     this.render = this.render.bind(this);
     this.handleEdit = this.handleEdit.bind(this);
     this.handleCancel = this.handleCancel.bind(this);
     this.handleSave = this.handleSave.bind(this);
+    this.handleSearch = this.handleSearch.bind(this);
+    this.handleSort = this.handleSort.bind(this);
     
     this.render();
     
@@ -41,64 +51,35 @@ class TagsComponent {
         .tags-container {
             display: flex;
             gap: 20px;
-            flex-wrap: wrap;
+            /* No wrap to prevent stacking, but add scroll if needed */
+            overflow-x: auto; 
+            align-items: flex-start;
         }
         .tags-column {
             flex: 1;
-            min-width: 300px;
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            padding: 15px;
+            min-width: 480px;
         }
-        .tags-header-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .tag-input-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-            padding: 10px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 4px;
-        }
-        .tag-input-group input {
-            flex: 1;
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #555;
-            background: #333;
-            color: #fff;
-        }
-        .icon-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 1.2em;
-            padding: 5px;
-            transition: transform 0.2s;
-        }
-        .icon-btn:hover {
-            transform: scale(1.1);
-        }
-        .delete-btn { color: #d9534f; }
-        .rename-btn { color: #f0ad4e; }
-        .save-btn { color: #5cb85c; }
-        .cancel-btn { color: #d9534f; }
       </style>
       <div class="section">
-        <div class="tags-header-actions">
+        <div class="tags-header-actions" style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Manage Tags</h2>
-            <div class="actions">
-                ${this.isEditMode 
-                    ? `
-                        <button id="cancel-tags-btn" class="secondary-btn" style="border-color: #d9534f; color: #d9534f; margin-right: 10px;">Cancel</button>
-                        <button id="save-tags-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Save Changes</button>
-                      `
-                    : `<button id="edit-tags-btn" class="secondary-btn">Edit Tags</button>`
-                }
+            <div class="header-controls-group">
+                <div class="header-sort-controls">
+                    <label style="margin-right: 10px; color: #f0ad4e;">Sort:</label>
+                    <select id="tag-sort-select" class="theme-select">
+                        <option value="asc" ${this.sortOrder === 'asc' ? 'selected' : ''}>Name (A-Z)</option>
+                        <option value="desc" ${this.sortOrder === 'desc' ? 'selected' : ''}>Name (Z-A)</option>
+                    </select>
+                </div>
+                <div class="actions">
+                    ${this.isEditMode 
+                        ? `
+                            <button id="cancel-tags-btn" class="secondary-btn" style="border-color: #d9534f; color: #d9534f; margin-right: 10px;">Cancel</button>
+                            <button id="save-tags-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Save Changes</button>
+                          `
+                        : `<button id="edit-tags-btn" class="secondary-btn">Edit Tags</button>`
+                    }
+                </div>
             </div>
         </div>
         
@@ -125,17 +106,35 @@ class TagsComponent {
   renderTagColumn(type) {
     const tagsSource = this.isEditMode ? this.localTags : store.getState('tags');
     const tagsList = (tagsSource && tagsSource[type]) ? tagsSource[type] : [];
-    const expenseCounts = this.calculateExpenseCounts();
+    const tagStats = this.calculateTagStats();
+    const searchTerm = this.searchTerms[type] || "";
     
-    // Sort alphabetically
-    const sortedTags = [...tagsList].sort();
+    // Filter
+    let visibleTags = tagsList.filter(tag => 
+        tag.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Sort
+    visibleTags.sort((a, b) => {
+        const valA = a.toLowerCase();
+        const valB = b.toLowerCase();
+        if (valA < valB) return this.sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return this.sortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
 
     let rows = '';
-    if (sortedTags.length === 0) {
-        rows = `<tr><td colspan="${this.isEditMode ? 3 : 2}">No tags found.</td></tr>`;
+    if (visibleTags.length === 0) {
+        const colspan = this.isEditMode ? 7 : 6;
+        rows = `<tr><td colspan="${colspan}">No tags found matching filter.</td></tr>`;
     } else {
-        rows = sortedTags.map(tag => {
-            const count = expenseCounts[type][tag] || 0;
+        rows = visibleTags.map(tag => {
+            const stats = tagStats[type][tag] || { count: 0, income: 0, expense: 0 };
+            const net = stats.income - stats.expense;
+            
+            // Format net: remove negative sign if needed, rely on color
+            let netStr = formatCurrency(Math.abs(net));
+            
             const actions = this.isEditMode ? `
                 <td style="text-align: right;">
                     <button class="icon-btn rename-btn" data-tag="${tag}" data-type="${type}" title="Rename">✏️</button>
@@ -146,7 +145,10 @@ class TagsComponent {
             return `
                 <tr>
                     <td>${tag}</td>
-                    <td>${count} transactions</td>
+                    <td class="tags-table-num positive">${formatCurrency(stats.income)}</td>
+                    <td class="tags-table-num negative">${formatCurrency(stats.expense)}</td>
+                    <td class="tags-table-num ${net >= 0 ? 'positive' : 'negative'}">${netStr}</td>
+                    <td style="text-align: center;">${stats.count}</td>
                     ${actions}
                 </tr>
             `;
@@ -154,21 +156,36 @@ class TagsComponent {
     }
 
     const addForm = this.isEditMode ? `
-        <div class="tag-input-group">
-            <input type="text" id="new-tag-${type.replace(/\W/g, '')}" placeholder="Add new ${type} tag...">
+        <div class="tag-input-group" style="margin-top: 10px;">
+            <input type="text" class="add-tag-input" id="new-tag-${type.replace(/\W/g, '')}" placeholder="Add new ${type} tag...">
             <button class="secondary-btn add-tag-btn" data-type="${type}">Add</button>
         </div>
     ` : '';
 
+    // Search Input
+    const searchInput = `
+        <div style="margin-bottom: 10px;">
+            <input type="text" 
+                class="tag-search-input column-search" 
+                data-type="${type}" 
+                placeholder="Search ${type}..." 
+                value="${searchTerm}">
+        </div>
+    `;
+
     return `
         <div class="tags-column">
             <h3>${type} Tags</h3>
+            ${searchInput}
             <div style="overflow-x: auto;">
                 <table class="section-table">
                     <thead>
                         <tr>
                             <th>Tag Name</th>
-                            <th style="width: 120px;">Usage</th>
+                            <th style="text-align: right;">Income</th>
+                            <th style="text-align: right;">Expense</th>
+                            <th style="text-align: right;">Net</th>
+                            <th style="text-align: center;">Uses</th>
                             ${this.isEditMode ? '<th style="width: 80px; text-align: right;">Actions</th>' : ''}
                         </tr>
                     </thead>
@@ -182,56 +199,76 @@ class TagsComponent {
     `;
   }
 
-  calculateExpenseCounts() {
+  calculateTagStats() {
     const expenses = store.getState('expenses') || [];
-    // Deep copy initial counts
-    const expenseCounts = { "Trip/Event": {}, "Category": {} };
+    const stats = { "Trip/Event": {}, "Category": {} };
     
+    const parseAmount = (val) => {
+        if (!val) return 0;
+        if (typeof val === 'number') return val;
+        // Handle "1,234.56" -> 1234.56
+        return parseFloat(val.toString().replace(/,/g, '')) || 0;
+    };
+
     expenses.forEach(item => {
       const tripEventTag = item["Trip/Event"];
       const categoryTag = item["Category"];
+      const income = parseAmount(item["Income"]);
+      const expense = parseAmount(item["Expense"]);
       
       if (tripEventTag) {
-          expenseCounts["Trip/Event"][tripEventTag] = (expenseCounts["Trip/Event"][tripEventTag] || 0) + 1;
+          if (!stats["Trip/Event"][tripEventTag]) stats["Trip/Event"][tripEventTag] = { count: 0, income: 0, expense: 0 };
+          stats["Trip/Event"][tripEventTag].count += 1;
+          stats["Trip/Event"][tripEventTag].income += income;
+          stats["Trip/Event"][tripEventTag].expense += expense;
       }
       if (categoryTag) {
-          expenseCounts["Category"][categoryTag] = (expenseCounts["Category"][categoryTag] || 0) + 1;
+          if (!stats["Category"][categoryTag]) stats["Category"][categoryTag] = { count: 0, income: 0, expense: 0 };
+          stats["Category"][categoryTag].count += 1;
+          stats["Category"][categoryTag].income += income;
+          stats["Category"][categoryTag].expense += expense;
       }
     });
 
-    // If in edit mode, replay the queue operations on the counts
     if (this.isEditMode && this.queue.length > 0) {
         this.queue.forEach(op => {
             const type = op.tagType;
-            if (!expenseCounts[type]) expenseCounts[type] = {};
+            if (!stats[type]) stats[type] = {};
 
             if (op.type === 'rename') {
-                const count = expenseCounts[type][op.oldValue] || 0;
-                // Add to new value
-                expenseCounts[type][op.newValue] = (expenseCounts[type][op.newValue] || 0) + count;
-                // Remove from old value
-                delete expenseCounts[type][op.oldValue];
-            } else if (op.type === 'delete') {
-                delete expenseCounts[type][op.value];
-            } else if (op.type === 'add') {
-                if (!expenseCounts[type][op.value]) {
-                    expenseCounts[type][op.value] = 0;
+                const oldStats = stats[type][op.oldValue] || { count: 0, income: 0, expense: 0 };
+                if (stats[type][op.newValue]) {
+                     stats[type][op.newValue].count += oldStats.count;
+                     stats[type][op.newValue].income += oldStats.income;
+                     stats[type][op.newValue].expense += oldStats.expense;
+                } else {
+                     stats[type][op.newValue] = { ...oldStats };
                 }
-            }
+                delete stats[type][op.oldValue];
+            } else if (op.type === 'delete') {
+                delete stats[type][op.value];
+            } 
         });
     }
 
-    return expenseCounts;
+    return stats;
   }
 
   attachEventListeners() {
     const editBtn = this.element.querySelector('#edit-tags-btn');
     const cancelBtn = this.element.querySelector('#cancel-tags-btn');
     const saveBtn = this.element.querySelector('#save-tags-btn');
+    const sortSelect = this.element.querySelector('#tag-sort-select');
 
     if (editBtn) editBtn.addEventListener('click', this.handleEdit);
     if (cancelBtn) cancelBtn.addEventListener('click', this.handleCancel);
     if (saveBtn) saveBtn.addEventListener('click', this.handleSave);
+    if (sortSelect) sortSelect.addEventListener('change', this.handleSort);
+
+    // Column Search Inputs
+    this.element.querySelectorAll('.column-search').forEach(input => {
+        input.addEventListener('input', this.handleSearch);
+    });
 
     if (this.isEditMode) {
         // Add Tag
@@ -293,6 +330,26 @@ class TagsComponent {
             });
         });
     }
+  }
+
+  handleSearch(e) {
+      const type = e.target.dataset.type;
+      this.searchTerms[type] = e.target.value;
+      this.render();
+      
+      // Restore focus
+      const input = this.element.querySelector(`.column-search[data-type="${type}"]`);
+      if (input) {
+          input.focus();
+          const val = input.value;
+          input.value = '';
+          input.value = val;
+      }
+  }
+
+  handleSort(e) {
+      this.sortOrder = e.target.value;
+      this.render();
   }
 
   handleEdit() {

@@ -22,6 +22,7 @@
 .tags-column {
   display: flex;
   flex-direction: column;
+  min-width: 480px;
 }
 
 .tags-column h3 {
@@ -30,6 +31,68 @@
   margin-bottom: 10px;
   text-align: center;
 }
+
+.header-controls-group {
+    display: flex;
+    align-items: center;
+    gap: 20px; /* Space between sort and edit buttons */
+}
+
+.header-sort-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between label and select */
+}
+
+.tag-controls-bar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 15px;
+    border-radius: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.tag-search-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background-color: #1a6b10;
+    color: #fff;
+    font-size: 0.9em;
+    min-width: 200px;
+}
+
+.tag-search-input:focus {
+    outline: none;
+    border-color: #f0ad4e;
+}
+
+.theme-select {
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background-color: #1a6b10;
+    color: #fff;
+    font-size: 0.9em;
+    cursor: pointer;
+}
+
+.theme-select:focus {
+     outline: none;
+     border-color: #f0ad4e;
+}
+
+.tags-table-num {
+    text-align: right;
+    /* font-family: monospace; removed */
+}
+
+.tags-table-num.positive { color: #5cb85c; }
+.tags-table-num.negative { color: #d9534f; }
 
 #edit-tags-button {
   background-color: transparent;
@@ -190,6 +253,22 @@
 .button-group #save-tags-changes:hover {
   background-color: #ec971f;
   border-color: #ec971f;
+}
+
+.add-tag-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background-color: #1a6b10;
+    color: #fff;
+    font-size: 0.9em;
+    min-width: 200px;
+}
+
+.add-tag-input:focus {
+    outline: none;
+    border-color: #f0ad4e;
 }
 
 /* Responsive design for tags edit view */
