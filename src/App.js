@@ -45,7 +45,7 @@ class App {
       <div class="main-menu-container">
         <aside class="sidebar">
             <div class="logo-section">
-                <img src="Logo.jpg" alt="UMHC Logo" class="sidebar-logo">
+                <img src="logo.jpg" alt="UMHC Logo" class="sidebar-logo">
                 <h2>UMHC Treasurer</h2>
             </div>
             <nav class="nav-menu">

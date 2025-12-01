@@ -28,7 +28,7 @@ class LoginComponent {
     
     this.element.innerHTML = `
       <div class="login-container">
-        <img src="Logo.jpg" alt="UMHC Logo" class="logo">
+        <img src="logo.jpg" alt="UMHC Logo" class="logo">
         <div class="instruction-text">${this.isEditingUrl ? 'Update' : 'Enter'} Google Apps Script URL</div>
         <div class="input-group">
           <input type="text" id="script-url-input" placeholder="Script URL" value="${currentUrl}">
@@ -67,7 +67,7 @@ class LoginComponent {
   renderLogin() {
     this.element.innerHTML = `
       <div class="login-container">
-        <img src="Logo.jpg" alt="UMHC Logo" class="logo">
+        <img src="logo.jpg" alt="UMHC Logo" class="logo">
         <div class="instruction-text">Please enter your API Key</div>
         <div class="input-group">
           <input type="password" id="api-key" placeholder="API Key">
