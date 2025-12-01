@@ -22,6 +22,7 @@ class TransactionsComponent {
     this.selectedTrips = new Set();
     this.categorySearchTerm = '';
     this.tripSearchTerm = '';
+    this.descriptionSearchTerm = '';
 
     this.render();
     store.subscribe('expenses', (data) => this.handleDataChange(data));
@@ -148,6 +149,11 @@ class TransactionsComponent {
                     <button id="bulk-cancel-btn" class="secondary-btn" style="border-color: #d9534f; color: #d9534f;">Cancel</button>
                 </div>
             </div>
+            
+            <!-- Description Search (Full Width) -->
+            <div style="margin-bottom: 15px;">
+                <input type="text" id="desc-search" class="tag-search-input" style="width: 100%; padding: 12px; box-sizing: border-box; font-size: 1em; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);" placeholder="Search transaction descriptions..." value="${this.descriptionSearchTerm}">
+            </div>
 
             <table id="transactions-table" class="section-table">
                 <thead>
@@ -204,6 +210,15 @@ class TransactionsComponent {
       const manualBtn = this.transactionsDisplay.querySelector('#add-manual-btn');
       if (manualBtn) {
           manualBtn.addEventListener('click', () => this.openManualModal());
+      }
+
+      // Description Search Listener
+      const descSearch = this.transactionsDisplay.querySelector('#desc-search');
+      if (descSearch) {
+          descSearch.addEventListener('input', (e) => {
+              this.descriptionSearchTerm = e.target.value;
+              this.applyFiltersAndSort();
+          });
       }
   }
 
@@ -347,7 +362,8 @@ class TransactionsComponent {
       // 1. Filter
       let data = TransactionsLogic.filterData(this.originalTransactionData, {
           selectedCategories: this.selectedCategories,
-          selectedTrips: this.selectedTrips
+          selectedTrips: this.selectedTrips,
+          descriptionSearch: this.descriptionSearchTerm
       });
 
       // 2. Sort

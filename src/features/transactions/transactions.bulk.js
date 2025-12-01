@@ -81,10 +81,8 @@ export default class TransactionsBulk {
 
       if (active) {
           this.bulkToolbar.style.display = 'block';
-          this.mainControls.classList.add('disabled');
       } else {
           this.bulkToolbar.style.display = 'none';
-          this.mainControls.classList.remove('disabled');
       }
     }
 

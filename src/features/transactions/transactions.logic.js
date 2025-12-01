@@ -1,7 +1,15 @@
-export const filterData = (data, { selectedCategories, selectedTrips }) => {
+export const filterData = (data, { selectedCategories, selectedTrips, descriptionSearch }) => {
     const NO_TAG = '__NO_TAG__';
 
     return data.filter(item => {
+        // Description Filter
+        if (descriptionSearch) {
+            const description = (item['Description'] || '').toLowerCase();
+            if (!description.includes(descriptionSearch.toLowerCase())) {
+                return false;
+            }
+        }
+
         // Category Filter
         let categoryMatch = true;
         if (selectedCategories.size > 0) {
