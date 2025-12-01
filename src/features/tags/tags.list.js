@@ -52,15 +52,17 @@ export default class TagsList {
                     <h2>Manage Tags</h2>
                     <div class="header-controls-group">
                         <div class="header-sort-controls">
-                            <label style="margin-right: 5px; color: #f0ad4e;">Timeframe:</label>
-                            <select id="tag-timeframe-select" class="theme-select" style="margin-right: 15px;">
-                                <option value="current_month" ${this.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
-                                <option value="past_30_days" ${this.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
-                                <option value="past_3_months" ${this.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>
-                                <option value="past_6_months" ${this.timeframe === 'past_6_months' ? 'selected' : ''}>Past 6 Months</n>
-                                <option value="past_year" ${this.timeframe === 'past_year' ? 'selected' : ''}>Past Year</option>
-                                <option value="all_time" ${this.timeframe === 'all_time' ? 'selected' : ''}>All Time</option>
-                            </select>
+                            <div class="timeframe-selector">
+                                <label for="tag-timeframe-select">Timeframe: </label>
+                                <select id="tag-timeframe-select">
+                                    <option value="current_month" ${this.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
+                                    <option value="past_30_days" ${this.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
+                                    <option value="past_3_months" ${this.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>
+                                    <option value="past_6_months" ${this.timeframe === 'past_6_months' ? 'selected' : ''}>Past 6 Months</n>
+                                    <option value="past_year" ${this.timeframe === 'past_year' ? 'selected' : ''}>Past Year</option>
+                                    <option value="all_time" ${this.timeframe === 'all_time' ? 'selected' : ''}>All Time</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="actions">
                             ${this.isEditMode 

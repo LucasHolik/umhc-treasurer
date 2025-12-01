@@ -71,57 +71,6 @@
   color: #f0ad4e;
 }
 
-/* Timeframe selector styling */
-.transactions-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.transactions-header h2 {
-  margin: 0;
-  color: #f0ad4e;
-}
-
-.timeframe-selector {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.timeframe-selector label {
-  font-size: 0.9em;
-  color: #fff;
-}
-
-.timeframe-selector select {
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  background-color: #1a6b10;
-  color: #fff;
-  font-size: 0.9em;
-  cursor: pointer;
-  min-width: 150px;
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  background-size: 16px;
-  padding-right: 30px;
-}
-
-.timeframe-selector select:focus {
-  outline: none;
-  border-color: #f0ad4e;
-}
-
-/* Add styling for the dropdown arrow on different browsers */
-.timeframe-selector select::-ms-expand {
-  display: none;
-}
-
 /* Transaction count subtitle styling */
 .transaction-count-subtitle {
   font-size: 0.8em;
@@ -159,16 +108,6 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
-  }
-
-  .timeframe-selector {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .timeframe-selector select {
-    min-width: auto;
-    flex: 1;
   }
 }
 
