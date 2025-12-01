@@ -105,6 +105,8 @@
     font-size: 0.9em;
     cursor: pointer;
     transition: border-color 0.3s ease;
+    box-sizing: border-box;
+    height: 38px;
 }
 
 .theme-select:focus {
@@ -114,6 +116,43 @@
 
 .theme-select.wide {
     min-width: 120px;
+}
+
+/* Theme Input (Matches Select) */
+.theme-input {
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.2);
+    color: #fff;
+    font-size: 0.9em;
+    width: 100%;
+    box-sizing: border-box;
+    height: 38px;
+}
+
+.theme-input:focus {
+    outline: none;
+    border-color: #f0ad4e;
+}
+
+/* Form Group Spacing */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+    color: #ddd;
+}
+
+/* Specific override for Manual Transaction Type */
+#manual-type {
+    background-color: #f0ad4e;
+    color: #000; /* Black text for better contrast on orange */
+    border-color: #f0ad4e;
 }
 
 /* Bulk Actions Toolbar */

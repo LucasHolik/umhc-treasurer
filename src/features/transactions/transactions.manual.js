@@ -37,15 +37,15 @@ export default class TransactionsManualModal {
                         <label>Document (Optional)</label>
                         <input type="text" id="manual-doc" class="theme-input" placeholder="e.g. Invoice #123" style="width: 100%;">
                     </div>
-                    <div class="form-group" style="display: flex; gap: 10px;">
-                        <div style="flex: 1;">
+                                         <div class="form-group" style="display: flex; gap: 10px;">
+                        <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
                             <label>Type</label>
                             <select id="manual-type" class="theme-select" style="width: 100%;">
                                 <option value="Expense">Expense (Money Out)</option>
                                 <option value="Income">Income (Money In)</option>
                             </select>
                         </div>
-                        <div style="flex: 1;">
+                        <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
                             <label>Amount (£)</label>
                             <input type="number" id="manual-amount" class="theme-input" step="0.01" placeholder="0.00" style="width: 100%;">
                         </div>
