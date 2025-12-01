@@ -2,9 +2,20 @@
 
 import store from '../core/state.js';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyOuvUpzAAW2E75NjK7oeOixQRgxdyIRzl6c-qsX_8pyrwxbPK_w6SgQMdmsP1P8s8/exec";
 const activeRequests = new Map();
 let loadingRequestCount = 0;
+
+const getScriptUrl = () => localStorage.getItem('script_url');
+
+const setScriptUrl = (url) => {
+  if (url) {
+    localStorage.setItem('script_url', url.trim());
+  } else {
+    localStorage.removeItem('script_url');
+  }
+};
+
+const hasScriptUrl = () => !!getScriptUrl();
 
 /**
  * Performs a JSONP request to the Google Apps Script backend.
@@ -17,6 +28,11 @@ let loadingRequestCount = 0;
  * @returns {Promise<any>} - A promise that resolves with the response data.
  */
 const request = (action, params = {}, options = {}) => {
+  const SCRIPT_URL = getScriptUrl();
+  if (!SCRIPT_URL) {
+    return Promise.reject(new Error("Script URL is not configured."));
+  }
+
   const apiKey = store.getState('apiKey');
   if (!apiKey) {
     return Promise.reject(new Error("API key is not set."));
@@ -110,6 +126,9 @@ const ApiService = {
   processTagOperations: (operations, options = {}) => request('processTagOperations', { operations: JSON.stringify(operations) }, options),
   getOpeningBalance: () => request('getOpeningBalance'),
   saveOpeningBalance: (balance, options = {}) => request('saveOpeningBalance', { balance }, options),
+  getScriptUrl,
+  setScriptUrl,
+  hasScriptUrl,
 };
 
 export default ApiService;

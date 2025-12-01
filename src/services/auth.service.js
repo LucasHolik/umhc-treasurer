@@ -55,7 +55,7 @@ const AuthService = {
    * @returns {boolean}
    */
   isLoggedIn: function() {
-    return !!store.getState('apiKey') && !!store.getState('currentUser');
+    return !!store.getState('apiKey') && !!store.getState('currentUser') && ApiService.hasScriptUrl();
   }
 };
 

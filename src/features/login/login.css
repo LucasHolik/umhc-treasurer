@@ -18,14 +18,27 @@
   border-radius: 8px;
 }
 
+.instruction-text {
+  margin-bottom: 15px;
+  color: #ddd;
+  min-height: 1.2em; /* Ensure it takes up space even if empty, though we will fill it */
+  font-size: 14px;
+}
+
 .input-group {
   display: flex;
   align-items: center;
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: 0; /* Removed bottom margin as action area handles spacing now, or we keep it consistent */
 }
 
-#api-key {
+/* We'll keep margin-bottom on input-group or add it to action-area? 
+   Let's keep input-group margin for spacing between input and actions */
+.input-group {
+  margin-bottom: 15px; 
+}
+
+#api-key, #script-url-input {
   padding: 15px;
   border: none;
   border-radius: 5px 0 0 5px;
@@ -35,11 +48,11 @@
   box-sizing: border-box;
 }
 
-#api-key:focus {
+#api-key:focus, #script-url-input:focus {
   outline: none;
 }
 
-#login-button {
+#login-button, #save-url-button {
   padding: 15px 25px;
   border: none;
   border-radius: 0 5px 5px 0;
@@ -51,8 +64,17 @@
   white-space: nowrap;
 }
 
-#login-button:hover {
+#login-button:hover, #save-url-button:hover {
   background-color: #ec971f;
+}
+
+.action-area {
+  min-height: 30px; /* Fixed height for buttons area */
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
 .status-container {
@@ -61,7 +83,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 15px;
+  margin-top: 5px;
   box-sizing: border-box;
 }
 
@@ -98,6 +120,23 @@
   color: #fff;
 }
 
+#change-url-button, #cancel-url-button {
+    background: none;
+    border: none;
+    color: #a0d4a0;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0.8;
+    transition: opacity 0.3s;
+    padding: 5px;
+}
+
+#change-url-button:hover, #cancel-url-button:hover {
+    opacity: 1;
+    color: #fff;
+}
+
 @media (max-width: 480px) {
   .login-container {
     width: 95%;
@@ -108,12 +147,12 @@
     flex-direction: column;
   }
 
-  #api-key {
+  #api-key, #script-url-input {
     border-radius: 5px;
     margin-bottom: 10px;
   }
 
-  #login-button {
+  #login-button, #save-url-button {
     border-radius: 5px;
     width: 100%;
   }

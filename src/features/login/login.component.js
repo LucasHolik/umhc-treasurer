@@ -1,5 +1,6 @@
 // src/features/login/login.component.js
 import AuthService from '../../services/auth.service.js';
+import ApiService from '../../services/api.service.js';
 import store from '../../core/state.js';
 import LoaderComponent from '../../shared/loader.component.js';
 
@@ -7,85 +8,123 @@ class LoginComponent {
   constructor(element) {
     this.element = element;
     this.loader = new LoaderComponent();
+    this.isEditingUrl = false;
     this.render();
-    this.attachEventListeners();
+    
     store.subscribe('error', this.handleError.bind(this));
     store.subscribe('isLoading', this.handleLoading.bind(this));
   }
 
   render() {
+    if (!ApiService.hasScriptUrl() || this.isEditingUrl) {
+      this.renderSetup();
+    } else {
+      this.renderLogin();
+    }
+  }
+
+  renderSetup() {
+    const currentUrl = ApiService.getScriptUrl() || '';
+    
     this.element.innerHTML = `
-      <style>
-        .login-box {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        }
-        .login-logo {
-          width: 80px;
-          margin-bottom: 20px;
-        }
-        .input-group {
-          display: flex;
-          width: 100%;
-        }
-        #api-key-input {
-          padding: 15px;
-          border: 1px solid #f0ad4e;
-          border-right: none;
-          border-radius: 5px 0 0 5px;
-          font-size: 16px;
-          width: 100%;
-          text-align: center;
-          box-sizing: border-box;
-          background-color: #1a6b10;
-          color: #fff;
-        }
-        #api-key-input:focus {
-          outline: none;
-        }
-        #login-button {
-          padding: 15px 25px;
-          border: 1px solid #f0ad4e;
-          border-radius: 0 5px 5px 0;
-          background-color: #f0ad4e;
-          color: #fff;
-          font-size: 16px;
-          cursor: pointer;
-          white-space: nowrap;
-        }
-        #login-status {
-          margin-top: 20px;
-          height: 40px;
-          width: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-      </style>
       <div class="login-container">
-        <div class="login-box">
-          <img src="Logo.jpg" alt="UMHC Logo" class="login-logo">
-          <div class="input-group">
-            <input type="password" id="api-key-input" placeholder="API Key">
-            <button id="login-button">Login</button>
-          </div>
+        <img src="Logo.jpg" alt="UMHC Logo" class="logo">
+        <div class="instruction-text">${this.isEditingUrl ? 'Update' : 'Enter'} Google Apps Script URL</div>
+        <div class="input-group">
+          <input type="text" id="script-url-input" placeholder="Script URL" value="${currentUrl}">
+          <button id="save-url-button">Save</button>
+        </div>
+        <div class="action-area">
+             ${this.isEditingUrl ? '<button id="cancel-url-button">Cancel</button>' : ''}
+        </div>
+        <div class="status-container">
+             <div id="login-status"></div>
+        </div>
+      </div>
+    `;
+
+    const urlInput = this.element.querySelector('#script-url-input');
+    const saveButton = this.element.querySelector('#save-url-button');
+    this.loginStatus = this.element.querySelector('#login-status');
+    
+    if (this.isEditingUrl) {
+        const cancelButton = this.element.querySelector('#cancel-url-button');
+        cancelButton.addEventListener('click', () => {
+            this.isEditingUrl = false;
+            store.setState('error', null);
+            this.render();
+        });
+    }
+
+    saveButton.addEventListener('click', () => this.handleSaveUrl(urlInput.value));
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        this.handleSaveUrl(urlInput.value);
+      }
+    });
+  }
+
+  renderLogin() {
+    this.element.innerHTML = `
+      <div class="login-container">
+        <img src="Logo.jpg" alt="UMHC Logo" class="logo">
+        <div class="instruction-text">Please enter your API Key</div>
+        <div class="input-group">
+          <input type="password" id="api-key" placeholder="API Key">
+          <button id="login-button">Login</button>
+        </div>
+        <div class="action-area">
+            <button id="change-url-button">Change Script URL</button>
+        </div>
+        <div class="status-container">
           <div id="login-status"></div>
         </div>
       </div>
     `;
-    this.apiKeyInput = this.element.querySelector('#api-key-input');
-    this.loginButton = this.element.querySelector('#login-button');
+    
+    this.apiKeyInput = this.element.querySelector('#api-key');
+    const loginButton = this.element.querySelector('#login-button');
+    const changeUrlButton = this.element.querySelector('#change-url-button');
     this.loginStatus = this.element.querySelector('#login-status');
-  }
 
-  attachEventListeners() {
-    this.loginButton.addEventListener('click', this.handleLogin.bind(this));
+    loginButton.addEventListener('click', this.handleLogin.bind(this));
     this.apiKeyInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         this.handleLogin();
       }
     });
+    
+    changeUrlButton.addEventListener('click', () => {
+        this.isEditingUrl = true;
+        store.setState('error', null);
+        this.render();
+    });
+  }
+
+  handleSaveUrl(url) {
+    if (!url) {
+       store.setState('error', 'Please enter a valid URL.');
+       return;
+    }
+
+    let cleanUrl = url.trim();
+    // Remove surrounding quotes if present (common copy-paste error)
+    if ((cleanUrl.startsWith('"') && cleanUrl.endsWith('"')) || 
+        (cleanUrl.startsWith("'") && cleanUrl.endsWith("'"))) {
+        cleanUrl = cleanUrl.slice(1, -1);
+    }
+
+    try {
+        new URL(cleanUrl); // Validation check
+    } catch (e) {
+        store.setState('error', 'Invalid URL format. Please check for spaces or typos.');
+        return;
+    }
+
+    ApiService.setScriptUrl(cleanUrl);
+    this.isEditingUrl = false;
+    store.setState('error', null);
+    this.render();
   }
 
   async handleLogin() {
@@ -102,7 +141,7 @@ class LoginComponent {
         if (error) {
             this.loginStatus.innerHTML = `<div class="status-message error">${error}</div>`;
         } else {
-            // Only clear if we are NOT loading to avoid wiping the loader
+            // Only clear if we are NOT loading
             if (!store.getState('isLoading')) {
                 this.loginStatus.innerHTML = '';
             }
