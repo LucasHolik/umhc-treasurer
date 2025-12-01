@@ -291,7 +291,9 @@ class TransactionsComponent {
   }
 
   handleSort(field, force = false) {
-    if (!force) {
+    if (force) {
+        this.sortState.field = field;
+    } else {
         if (this.sortState.field === field) {
             this.sortState.ascending = !this.sortState.ascending;
         } else {
