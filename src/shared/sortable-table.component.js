@@ -53,6 +53,11 @@ export default class SortableTable {
             th.style.width = '40px';
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
+            
+            // Check if all visible rows are selected
+            const allSelected = this.data.length > 0 && this.data.every(item => this.selectedRows.has(item.row));
+            checkbox.checked = allSelected;
+            
             checkbox.addEventListener('change', (e) => this.handleSelectAll(e.target.checked));
             th.appendChild(checkbox);
             headerRow.appendChild(th);
@@ -103,8 +108,13 @@ export default class SortableTable {
                     td.appendChild(checkbox);
                     row.appendChild(td);
                     
-                    // If selection enabled, clicking row (not checkbox) usually toggles selection or does nothing?
-                    // Let's stick to checkbox for selection, row click for details if onRowClick is present.
+                    row.style.cursor = 'pointer';
+                    row.addEventListener('click', (e) => {
+                        if (e.target.type === 'checkbox') return;
+                        const newState = !this.selectedRows.has(item.row);
+                        checkbox.checked = newState;
+                        this.handleRowSelect(item.row, newState);
+                    });
                 }
 
                 this.columns.forEach(col => {
@@ -150,11 +160,19 @@ export default class SortableTable {
         if (!this.sortField) return;
 
         this.data.sort((a, b) => {
-            let valA = a[this.sortField];
-            let valB = b[this.sortField];
+            const colDef = this.columns.find(c => c.key === this.sortField);
+            
+            let valA, valB;
+            
+            if (colDef && colDef.sortValue) {
+                 valA = colDef.sortValue(a);
+                 valB = colDef.sortValue(b);
+            } else {
+                 valA = a[this.sortField];
+                 valB = b[this.sortField];
+            }
             
             // Handle Dates
-            const colDef = this.columns.find(c => c.key === this.sortField);
             if (colDef && colDef.type === 'date') {
                  valA = new Date(valA || 0).getTime();
                  valB = new Date(valB || 0).getTime();
@@ -163,9 +181,13 @@ export default class SortableTable {
                  valA = this.parseNumber(valA);
                  valB = this.parseNumber(valB);
             } else {
-                // String comparison
-                valA = (valA || '').toString().toLowerCase();
-                valB = (valB || '').toString().toLowerCase();
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    // Keep as numbers
+                } else {
+                    // String comparison
+                    valA = (valA !== undefined && valA !== null ? valA : '').toString().toLowerCase();
+                    valB = (valB !== undefined && valB !== null ? valB : '').toString().toLowerCase();
+                }
             }
 
             if (valA < valB) return this.sortAsc ? -1 : 1;

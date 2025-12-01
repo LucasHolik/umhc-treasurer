@@ -184,6 +184,13 @@ class TransactionsComponent {
                 key: 'Amount', 
                 label: 'Amount', 
                 type: 'custom',
+                sortValue: (item) => {
+                    const income = item.Income ? parseFloat(String(item.Income).replace(/,/g, '')) : 0;
+                    const expense = item.Expense ? parseFloat(String(item.Expense).replace(/,/g, '')) : 0;
+                    const safeIncome = isNaN(income) ? 0 : income;
+                    const safeExpense = isNaN(expense) ? 0 : expense;
+                    return safeIncome - safeExpense;
+                },
                 render: (item) => {
                     // Parse values safely
                     const income = item.Income ? parseFloat(String(item.Income).replace(/,/g, '')) : 0;
