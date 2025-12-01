@@ -199,20 +199,20 @@ class AnalysisComponent {
                 <label>Filter Tags</label>
                 <div class="tag-filters-container">
                     
-                    <!-- Category Filter -->
-                    <div class="tag-filter-column">
-                        <div class="tag-filter-header">Categories</div>
-                        <input type="text" id="cat-search" class="tag-search-input" placeholder="Search categories..." value="${this.state.categorySearchTerm}">
-                        <div id="category-selector-container" class="tag-selector">
-                            <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
-                        </div>
-                    </div>
-
                     <!-- Trip Filter -->
                     <div class="tag-filter-column">
                         <div class="tag-filter-header">Trips / Events</div>
                         <input type="text" id="trip-search" class="tag-search-input" placeholder="Search trips..." value="${this.state.tripSearchTerm}">
                         <div id="trip-selector-container" class="tag-selector">
+                            <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
+                        </div>
+                    </div>
+
+                    <!-- Category Filter -->
+                    <div class="tag-filter-column">
+                        <div class="tag-filter-header">Categories</div>
+                        <input type="text" id="cat-search" class="tag-search-input" placeholder="Search categories..." value="${this.state.categorySearchTerm}">
+                        <div id="category-selector-container" class="tag-selector">
                             <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
                         </div>
                     </div>
