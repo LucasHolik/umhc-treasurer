@@ -29,6 +29,7 @@ class TransactionsComponent {
     store.subscribe('tags', () => this.handleTagsChange());
     store.subscribe('isTagging', () => this.renderTransactionsDisplay());
     store.subscribe('taggingProgress', () => this.updateProgressDisplay());
+    store.subscribe('transactionParams', (params) => this.handleTransactionParams(params));
 
     // Global click listener to close dropdowns
     document.addEventListener('click', (e) => this.handleGlobalClick(e));
@@ -37,6 +38,22 @@ class TransactionsComponent {
   handleGlobalClick(e) {
       if (this.selectionMode && this.bulkComponent) {
           this.bulkComponent.handleGlobalClick(e);
+      }
+  }
+
+  handleTransactionParams(params) {
+      if (!params) return;
+      
+      // Ensure we are rendered and components exist
+      if (!this.bulkComponent) return;
+
+      if (params.mode === 'bulk') {
+          this.toggleSelectionMode(true);
+          if (params.prefill) {
+              this.bulkComponent.setPrefill(params.prefill);
+          }
+          // Clear params to prevent re-processing
+          store.setState('transactionParams', null);
       }
   }
 

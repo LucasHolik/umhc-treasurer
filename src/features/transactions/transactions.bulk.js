@@ -55,6 +55,16 @@ export default class TransactionsBulk {
         }
     }
 
+    setPrefill(prefill) {
+        if (!prefill) return;
+
+        if (prefill.type === 'Trip/Event') {
+             this.handleBulkSelection('Trip/Event', prefill.value, this.bulkTripState);
+        } else if (prefill.type === 'Category') {
+             this.handleBulkSelection('Category', prefill.value, this.bulkCategoryState);
+        }
+    }
+
     toggleSelectionMode(active, selectedCount) {
       if (!active) {
           // Reset Bulk State
