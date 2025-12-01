@@ -68,8 +68,30 @@ export default class TagsDetails {
                 { key: 'Description', label: 'Description', type: 'text' },
                 { key: 'Trip/Event', label: 'Trip/Event', type: 'text' },
                 { key: 'Category', label: 'Category', type: 'text' },
-                { key: 'Income', label: 'Income', type: 'currency', class: 'positive' },
-                { key: 'Expense', label: 'Expense', type: 'currency', class: 'negative' },
+                { 
+                    key: 'Amount', 
+                    label: 'Amount', 
+                    type: 'custom',
+                    sortValue: (item) => {
+                        const income = item.Income ? parseFloat(String(item.Income).replace(/,/g, '')) : 0;
+                        const expense = item.Expense ? parseFloat(String(item.Expense).replace(/,/g, '')) : 0;
+                        const safeIncome = isNaN(income) ? 0 : income;
+                        const safeExpense = isNaN(expense) ? 0 : expense;
+                        return safeIncome - safeExpense;
+                    },
+                    render: (item) => {
+                        const income = item.Income ? parseFloat(String(item.Income).replace(/,/g, '')) : 0;
+                        const expense = item.Expense ? parseFloat(String(item.Expense).replace(/,/g, '')) : 0;
+                        
+                        const safeIncome = isNaN(income) ? 0 : income;
+                        const safeExpense = isNaN(expense) ? 0 : expense;
+                        
+                        const net = safeIncome - safeExpense;
+                        
+                        const classType = net > 0 ? 'positive' : (net < 0 ? 'negative' : '');
+                        return `<span class="${classType}">${formatCurrency(Math.abs(net))}</span>`;
+                    }
+                }
             ],
             initialSortField: 'Date',
             initialSortAsc: false
