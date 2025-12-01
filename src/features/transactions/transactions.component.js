@@ -114,7 +114,7 @@ class TransactionsComponent {
                     </div>
                 </div>
                 
-                <div class="transaction-actions" style="align-self: flex-start; margin-top: 22px; display: flex; gap: 10px;">
+                <div class="transaction-actions" style="align-self: flex-start; margin-top: 22px;">
                     <button id="tag-transactions-btn" class="secondary-btn">Bulk Tagging Mode</button>
                     <button id="add-manual-btn" class="secondary-btn">Add Manual Transaction</button>
                 </div>

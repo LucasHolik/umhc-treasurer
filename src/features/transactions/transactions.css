@@ -28,6 +28,12 @@
     gap: 10px;
 }
 
+.transaction-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 /* Tag Filters Section (Ported from Analysis) */
 .tag-filters-container {
     display: flex; /* Changed from grid to flex for toolbar layout */

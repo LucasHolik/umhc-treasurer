@@ -77,19 +77,19 @@ export default class TagsList {
                 <div class="tags-container">
                     <div id="trip-tags-column" class="tags-column">
                          <h3>Trip/Event Tags</h3>
-                         <div style="margin-bottom: 10px;">
-                            <input type="text" class="tag-search-input column-search" data-type="Trip/Event" placeholder="Search Trip/Event..." value="${this.searchTerms['Trip/Event']}">
+                         <div style="margin-bottom: 10px; display: flex; gap: 10px;">
+                            <input type="text" class="tag-search-input column-search" style="flex: 1;" data-type="Trip/Event" placeholder="Search Trip/Event..." value="${this.searchTerms['Trip/Event']}">
+                            ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Trip/Event" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Trip/Event tag">+</button>` : ''}
                          </div>
                          <div id="trip-tags-table-container"></div>
-                         ${this.renderAddForm('Trip/Event')}
                     </div>
                     <div id="category-tags-column" class="tags-column">
                          <h3>Category Tags</h3>
-                         <div style="margin-bottom: 10px;">
-                            <input type="text" class="tag-search-input column-search" data-type="Category" placeholder="Search Category..." value="${this.searchTerms['Category']}">
+                         <div style="margin-bottom: 10px; display: flex; gap: 10px;">
+                            <input type="text" class="tag-search-input column-search" style="flex: 1;" data-type="Category" placeholder="Search Category..." value="${this.searchTerms['Category']}">
+                            ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Category" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Category tag">+</button>` : ''}
                          </div>
                          <div id="category-tags-table-container"></div>
-                         ${this.renderAddForm('Category')}
                     </div>
                 </div>
             </div>
@@ -97,16 +97,6 @@ export default class TagsList {
 
         this.attachEventListeners();
         this.renderTables();
-    }
-
-    renderAddForm(type) {
-        if (!this.isEditMode) return '';
-        return `
-            <div class="tag-input-group" style="margin-top: 10px;">
-                <input type="text" class="add-tag-input" id="new-tag-${type.replace(/\W/g, '')}" placeholder="Add new ${type} tag...">
-                <button class="secondary-btn add-tag-btn" data-type="${type}">Add</button>
-            </div>
-        `;
     }
 
     renderTables() {
@@ -272,22 +262,19 @@ export default class TagsList {
             input.addEventListener('input', (e) => {
                 const type = e.target.dataset.type;
                 this.searchTerms[type] = e.target.value;
-                // Re-render tables only, not whole component to keep focus?
-                // Or just re-render component which is easier but loses focus unless managed.
-                // The previous code managed focus. Let's just re-render tables.
                 const tagStats = this.calculateTagStats();
                 this.renderSingleTable(type, tagStats);
             });
         });
 
         if (this.isEditMode) {
-            this.element.querySelectorAll('.add-tag-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const type = e.target.dataset.type;
-                    const inputId = `new-tag-${type.replace(/\W/g, '')}`;
-                    const input = this.element.querySelector(`#${inputId}`);
-                    const value = input.value.trim();
-                    if (this.callbacks.onTagAdd) this.callbacks.onTagAdd(type, value);
+            this.element.querySelectorAll('.add-tag-icon-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const type = e.currentTarget.dataset.type;
+                    const value = await this.modal.prompt(`Enter new name for ${type} tag:`, '', 'Add Tag');
+                    if (value && value.trim() !== "") {
+                         if (this.callbacks.onTagAdd) this.callbacks.onTagAdd(type, value.trim());
+                    }
                 });
             });
         }
