@@ -3,7 +3,7 @@ import store from '../../core/state.js';
 import ApiService from '../../services/api.service.js';
 import LoaderComponent from '../../shared/loader.component.js';
 import ModalComponent from '../../shared/modal.component.js';
-import { formatCurrency } from '../../core/utils.js';
+import { formatCurrency, filterTransactionsByTimeframe } from '../../core/utils.js';
 
 class TagsComponent {
   constructor(element) {
@@ -18,6 +18,7 @@ class TagsComponent {
         "Trip/Event": "",
         "Category": ""
     };
+    this.timeframe = 'all_time';
     this.sortOrder = "asc"; // 'asc' | 'desc'
     
     // Bind methods
@@ -65,7 +66,17 @@ class TagsComponent {
             <h2>Manage Tags</h2>
             <div class="header-controls-group">
                 <div class="header-sort-controls">
-                    <label style="margin-right: 10px; color: #f0ad4e;">Sort:</label>
+                    <label style="margin-right: 5px; color: #f0ad4e;">Timeframe:</label>
+                    <select id="tag-timeframe-select" class="theme-select" style="margin-right: 15px;">
+                        <option value="current_month" ${this.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
+                        <option value="past_30_days" ${this.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
+                        <option value="past_3_months" ${this.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>
+                        <option value="past_6_months" ${this.timeframe === 'past_6_months' ? 'selected' : ''}>Past 6 Months</option>
+                        <option value="past_year" ${this.timeframe === 'past_year' ? 'selected' : ''}>Past Year</option>
+                        <option value="all_time" ${this.timeframe === 'all_time' ? 'selected' : ''}>All Time</option>
+                    </select>
+
+                    <label style="margin-right: 5px; color: #f0ad4e;">Sort:</label>
                     <select id="tag-sort-select" class="theme-select">
                         <option value="asc" ${this.sortOrder === 'asc' ? 'selected' : ''}>Name (A-Z)</option>
                         <option value="desc" ${this.sortOrder === 'desc' ? 'selected' : ''}>Name (Z-A)</option>
@@ -200,7 +211,8 @@ class TagsComponent {
   }
 
   calculateTagStats() {
-    const expenses = store.getState('expenses') || [];
+    const allExpenses = store.getState('expenses') || [];
+    const expenses = filterTransactionsByTimeframe(allExpenses, this.timeframe);
     const stats = { "Trip/Event": {}, "Category": {} };
     
     const parseAmount = (val) => {
@@ -259,11 +271,16 @@ class TagsComponent {
     const cancelBtn = this.element.querySelector('#cancel-tags-btn');
     const saveBtn = this.element.querySelector('#save-tags-btn');
     const sortSelect = this.element.querySelector('#tag-sort-select');
+    const timeframeSelect = this.element.querySelector('#tag-timeframe-select');
 
     if (editBtn) editBtn.addEventListener('click', this.handleEdit);
     if (cancelBtn) cancelBtn.addEventListener('click', this.handleCancel);
     if (saveBtn) saveBtn.addEventListener('click', this.handleSave);
     if (sortSelect) sortSelect.addEventListener('change', this.handleSort);
+    if (timeframeSelect) timeframeSelect.addEventListener('change', (e) => {
+        this.timeframe = e.target.value;
+        this.render();
+    });
 
     // Column Search Inputs
     this.element.querySelectorAll('.column-search').forEach(input => {
