@@ -1,22 +1,41 @@
 // src/features/transactions/transactions.component.js
 import store from '../../core/state.js';
 import ApiService from '../../services/api.service.js';
-import { formatCurrency } from '../../core/utils.js';
+import TransactionsTable from './transactions.table.js';
+import TransactionsFilters from './transactions.filters.js';
+import TransactionsBulk from './transactions.bulk.js';
+import * as TransactionsLogic from './transactions.logic.js';
 
 class TransactionsComponent {
   constructor(element) {
     this.element = element;
     this.transactionData = [];
     this.originalTransactionData = [];
-    this.changes = {};
+    
+    // State
     this.sortState = { field: 'Date', ascending: false };
     this.selectionMode = false;
     this.selectedRows = new Set();
+    
+    this.selectedCategories = new Set();
+    this.selectedTrips = new Set();
+    this.categorySearchTerm = '';
+    this.tripSearchTerm = '';
+
     this.render();
     store.subscribe('expenses', (data) => this.handleDataChange(data));
-    store.subscribe('tags', () => this.updateFilterDropdowns());
+    store.subscribe('tags', () => this.handleTagsChange());
     store.subscribe('isTagging', () => this.renderTransactionsDisplay());
     store.subscribe('taggingProgress', () => this.updateProgressDisplay());
+
+    // Global click listener to close dropdowns
+    document.addEventListener('click', (e) => this.handleGlobalClick(e));
+  }
+
+  handleGlobalClick(e) {
+      if (this.selectionMode && this.bulkComponent) {
+          this.bulkComponent.handleGlobalClick(e);
+      }
   }
 
   render() {
@@ -51,39 +70,48 @@ class TransactionsComponent {
             <!-- Controls Toolbar -->
             <div id="main-controls" class="transaction-controls">
                 
-                <!-- Filters -->
-                <div class="control-group">
-                    <label class="control-label">FILTER BY</label>
-                    <div class="control-inputs">
-                         <select id="filter-trip-event" class="theme-select wide">
-                            <option value="">All Trips/Events</option>
-                         </select>
-                         <select id="filter-category" class="theme-select wide">
-                            <option value="">All Categories</option>
-                         </select>
+                <!-- New Tag Filters (Analysis Style) -->
+                <div class="control-group" style="flex-grow: 1;">
+                    <label class="control-label">Filter Tags</label>
+                    <div class="tag-filters-container">
+                        <!-- Trip Filter -->
+                        <div class="tag-filter-column">
+                            <div class="tag-filter-header">Trips / Events</div>
+                            <input type="text" id="trip-search" class="tag-search-input" placeholder="Search trips..." value="${this.tripSearchTerm}">
+                            <div id="trip-selector-container" class="tag-selector">
+                                <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Category Filter -->
+                        <div class="tag-filter-column">
+                            <div class="tag-filter-header">Categories</div>
+                            <input type="text" id="cat-search" class="tag-search-input" placeholder="Search categories..." value="${this.categorySearchTerm}">
+                            <div id="category-selector-container" class="tag-selector">
+                                <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Sorting -->
-                <div class="control-group">
+                <div class="control-group" style="min-width: 200px;">
                     <label class="control-label">SORT BY</label>
-                     <div class="control-inputs">
-                        <select id="sort-field" class="theme-select">
+                     <div class="control-inputs" style="flex-direction: column;">
+                        <select id="sort-field" class="theme-select" style="width: 100%;">
                             <option value="Date">Date</option>
                             <option value="Income">Income</option>
                             <option value="Expense">Expense</option>
                             <option value="Net">Money In/Out</option>
                         </select>
-                        <select id="sort-order" class="theme-select">
+                        <select id="sort-order" class="theme-select" style="width: 100%;">
                             <option value="desc">Desc (High-Low)</option>
                             <option value="asc">Asc (Low-High)</option>
                         </select>
                     </div>
                 </div>
                 
-                <div style="flex-grow: 1;"></div>
-
-                <div class="transaction-actions">
+                <div class="transaction-actions" style="align-self: flex-start; margin-top: 22px;">
                     <button id="tag-transactions-btn" class="secondary-btn">Bulk Tagging Mode</button>
                 </div>
 
@@ -93,12 +121,25 @@ class TransactionsComponent {
             <div id="bulk-actions-toolbar" class="bulk-actions-toolbar">
                 <div class="bulk-actions-content">
                     <strong class="bulk-label">BULK ACTIONS:</strong>
-                    <select id="bulk-trip-event" class="theme-select">
-                        <option value="">Set Trip/Event...</option>
-                    </select>
-                    <select id="bulk-category" class="theme-select">
-                        <option value="">Set Category...</option>
-                    </select>
+                    
+                    <!-- Custom Trip Dropdown -->
+                    <div class="custom-dropdown" id="bulk-trip-container">
+                        <div class="dropdown-trigger" id="bulk-trip-trigger">Set Trip/Event...</div>
+                        <div class="dropdown-content" id="bulk-trip-content" style="display:none;">
+                            <input type="text" class="tag-search-input" id="bulk-trip-search" placeholder="Search trips...">
+                            <div class="tag-selector" id="bulk-trip-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- Custom Category Dropdown -->
+                    <div class="custom-dropdown" id="bulk-category-container">
+                        <div class="dropdown-trigger" id="bulk-category-trigger">Set Category...</div>
+                        <div class="dropdown-content" id="bulk-category-content" style="display:none;">
+                            <input type="text" class="tag-search-input" id="bulk-category-search" placeholder="Search categories...">
+                            <div class="tag-selector" id="bulk-category-list"></div>
+                        </div>
+                    </div>
+
                     <div style="flex-grow: 1;"></div>
                     <span id="selection-count" class="selection-count">0 selected</span>
                     <button id="bulk-apply-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Apply Tags</button>
@@ -122,127 +163,222 @@ class TransactionsComponent {
             </table>
         </div>
     `;
-    this.tbody = this.element.querySelector('#transactions-tbody');
     
-    // Filters
-    this.filterTripEvent = this.element.querySelector('#filter-trip-event');
-    this.filterCategory = this.element.querySelector('#filter-category');
+    this.initializeSubComponents();
+    this.initializeSorting();
+
+    // Restore UI state if returning from loading
+    if (this.selectionMode) {
+        this.toggleSelectionMode(true);
+    } else {
+        this.applyFiltersAndSort();
+    }
     
-    // Sorting
+    this.handleTagsChange(); // Populate filters
+  }
+
+  initializeSubComponents() {
+      // Table
+      this.tableComponent = new TransactionsTable(this.transactionsDisplay, {
+          onSort: (field) => this.handleSort(field),
+          onSelectAll: (checked) => this.handleSelectAll(checked),
+          onRowSelect: (rowId, checked) => this.handleRowSelect(rowId, checked)
+      });
+
+      // Filters
+      this.filtersComponent = new TransactionsFilters(this.transactionsDisplay, {
+          onFilterChange: (type, tag, checked) => this.handleFilterChange(type, tag, checked),
+          onFilterSelectAll: (type, tags, checked) => this.handleFilterSelectAll(type, tags, checked),
+          onSearchChange: (type, term) => this.handleSearchChange(type, term)
+      });
+
+      // Bulk
+      this.bulkComponent = new TransactionsBulk(this.transactionsDisplay, {
+          onToggleMode: (active) => this.toggleSelectionMode(active),
+          onApply: (tripVal, catVal) => this.applyBulkTags(tripVal, catVal)
+      });
+  }
+
+  initializeSorting() {
     this.sortField = this.element.querySelector('#sort-field');
     this.sortOrder = this.element.querySelector('#sort-order');
     
-    // Bulk Actions
-    this.tagTransactionsBtn = this.element.querySelector('#tag-transactions-btn');
-    this.bulkToolbar = this.element.querySelector('#bulk-actions-toolbar');
-    this.mainControls = this.element.querySelector('#main-controls');
-    this.bulkTripEvent = this.element.querySelector('#bulk-trip-event');
-    this.bulkCategory = this.element.querySelector('#bulk-category');
-    this.selectAllHeader = this.element.querySelector('#select-all-header');
-    this.selectAllCheckbox = this.element.querySelector('#select-all-checkbox');
-    this.selectionCount = this.element.querySelector('#selection-count');
+    if (this.sortField && this.sortOrder) {
+        this.sortField.value = this.sortState.field;
+        this.updateSortDropdownOptions(); // Ensure correct options for Net/etc
+        this.sortOrder.value = this.sortState.ascending ? 'asc' : 'desc';
 
-    // Event Listeners
-    this.tagTransactionsBtn.addEventListener('click', () => this.toggleSelectionMode(true));
-    
-    this.element.querySelector('#bulk-cancel-btn').addEventListener('click', () => this.toggleSelectionMode(false));
-    this.element.querySelector('#bulk-apply-btn').addEventListener('click', () => this.applyBulkTags());
-    
-    this.selectAllCheckbox.addEventListener('change', (e) => {
-        const checked = e.target.checked;
-        if (checked) {
-             // Select all currently visible
-             this.transactionData.forEach(item => this.selectedRows.add(item.row));
-        } else {
-             this.selectedRows.clear();
-        }
-        this.displayTransactions(this.transactionData);
-        this.updateSelectionCount();
-    });
-
-    // Header click sorting
-    this.element.querySelectorAll('#transactions-table th.sortable').forEach(th => {
-        th.addEventListener('click', () => {
-             const field = th.dataset.sort;
-             if (['Date', 'Income', 'Expense'].includes(field)) {
-                 this.sortField.value = field;
-             }
-             this.sortTransactions(field);
-             this.sortOrder.value = this.sortState.ascending ? 'asc' : 'desc';
+        this.sortField.addEventListener('change', () => {
+            this.updateSortDropdownOptions();
+            this.handleSort(this.sortField.value, true);
         });
-    });
+        this.sortOrder.addEventListener('change', () => {
+            this.sortState.ascending = this.sortOrder.value === 'asc';
+            this.handleSort(this.sortField.value, true);
+        });
+    }
+  }
 
-    this.filterTripEvent.addEventListener('change', () => this.filterTransactions());
-    this.filterCategory.addEventListener('change', () => this.filterTransactions());
-    
-    this.sortField.addEventListener('change', () => {
-        this.updateSortDropdownOptions();
-        this.sortTransactions(this.sortField.value, true)
-    });
-    this.sortOrder.addEventListener('change', () => {
-        this.sortState.ascending = this.sortOrder.value === 'asc';
-        this.sortTransactions(this.sortField.value, true);
-    });
+  updateSortDropdownOptions() {
+      const field = this.sortField.value;
+      const currentOrder = this.sortOrder.value;
+      
+      this.sortOrder.innerHTML = '';
+      
+      if (field === 'Net') {
+          this.sortOrder.add(new Option('Money In First', 'desc'));
+          this.sortOrder.add(new Option('Money Out First', 'asc'));
+      } else {
+          this.sortOrder.add(new Option('Desc (High-Low)', 'desc'));
+          this.sortOrder.add(new Option('Asc (Low-High)', 'asc'));
+      }
+      this.sortOrder.value = currentOrder;
+  }
 
-    // Initialize dropdowns
-    this.sortField.value = this.sortState.field;
-    this.updateSortDropdownOptions();
-    this.sortOrder.value = this.sortState.ascending ? 'asc' : 'desc';
+  handleDataChange(data) {
+    this.transactionData = [...data];
+    this.originalTransactionData = [...data];
+    this.applyFiltersAndSort(); 
+  }
 
-    // If returning from tagging, these might be null initially if we just rendered the loading view
-    if (this.selectionMode) {
-         this.toggleSelectionMode(true); // Re-apply visual state
-    } else {
-         this.displayTransactions(this.transactionData);
+  handleTagsChange() {
+      if (!this.filtersComponent || !this.bulkComponent) return;
+      
+      const tagsData = store.getState('tags') || {};
+      
+      // Update Main Filters
+      this.filtersComponent.renderTagLists(
+          tagsData, 
+          this.selectedCategories, 
+          this.selectedTrips, 
+          this.categorySearchTerm, 
+          this.tripSearchTerm
+      );
+
+      // Update Bulk Dropdowns
+      this.bulkComponent.renderBulkTagLists();
+  }
+
+  // --- Filtering & Sorting ---
+
+  handleSearchChange(type, term) {
+      if (type === 'Category') this.categorySearchTerm = term.toLowerCase();
+      if (type === 'Trip/Event') this.tripSearchTerm = term.toLowerCase();
+      this.handleTagsChange(); // Re-render lists with new search term
+  }
+
+  handleFilterChange(type, tag, checked) {
+      const set = type === 'Category' ? this.selectedCategories : this.selectedTrips;
+      if (checked) set.add(tag);
+      else set.delete(tag);
+      
+      // Update "Select All" state visuals by re-rendering lists? 
+      // Or just rely on filter update. 
+      // Ideally we re-render lists to update checkboxes, but that might lose focus on inputs?
+      // The input is separate, checkboxes are separate.
+      this.handleTagsChange(); 
+      this.applyFiltersAndSort();
+  }
+
+  handleFilterSelectAll(type, tags, checked) {
+      const set = type === 'Category' ? this.selectedCategories : this.selectedTrips;
+      tags.forEach(tag => {
+          if (checked) set.add(tag);
+          else set.delete(tag);
+      });
+      this.handleTagsChange();
+      this.applyFiltersAndSort();
+  }
+
+  handleSort(field, force = false) {
+    if (!force) {
+        if (this.sortState.field === field) {
+            this.sortState.ascending = !this.sortState.ascending;
+        } else {
+            this.sortState.field = field;
+            this.sortState.ascending = true;
+        }
     }
     
-    this.updateFilterDropdowns();
+    // Sync dropdowns if triggered from table header
+    if (this.sortField && this.sortField.value !== this.sortState.field) {
+        this.sortField.value = this.sortState.field;
+        this.updateSortDropdownOptions();
+    }
+    if (this.sortOrder) {
+        this.sortOrder.value = this.sortState.ascending ? 'asc' : 'desc';
+    }
+
+    this.applyFiltersAndSort();
   }
 
-  updateProgressDisplay() {
-      const progressText = this.element.querySelector('#tagging-progress-text');
-      if (progressText) {
-          progressText.textContent = store.getState('taggingProgress');
+  applyFiltersAndSort() {
+      // 1. Filter
+      let data = TransactionsLogic.filterData(this.originalTransactionData, {
+          selectedCategories: this.selectedCategories,
+          selectedTrips: this.selectedTrips
+      });
+
+      // 2. Sort
+      this.transactionData = TransactionsLogic.sortData(data, this.sortState.field, this.sortState.ascending);
+
+      // 3. Render
+      if (this.tableComponent) {
+          this.tableComponent.render(this.transactionData, this.selectionMode, this.selectedRows);
       }
   }
+
+  // --- Bulk Actions & Selection ---
 
   toggleSelectionMode(active) {
       this.selectionMode = active;
+      
       if (!active) {
           this.selectedRows.clear();
       }
+
+      if (this.bulkComponent) {
+          this.bulkComponent.toggleSelectionMode(active, this.selectedRows.size);
+      }
       
-      // Elements might not exist if we are in "isTagging" view
-      if (!this.bulkToolbar || !this.mainControls) return;
+      if (this.tableComponent) {
+          this.tableComponent.toggleSelectionMode(active);
+          this.tableComponent.render(this.transactionData, active, this.selectedRows);
+      }
+  }
 
-      this.updateSelectionCount();
-      if (this.selectAllCheckbox) this.selectAllCheckbox.checked = false;
-
-      if (active) {
-          this.bulkToolbar.style.display = 'block';
-          this.mainControls.classList.add('disabled');
-          this.selectAllHeader.style.display = 'table-cell';
+  handleSelectAll(checked) {
+      if (checked) {
+           // Select all currently visible
+           this.transactionData.forEach(item => this.selectedRows.add(item.row));
       } else {
-          this.bulkToolbar.style.display = 'none';
-          this.mainControls.classList.remove('disabled');
-          this.selectAllHeader.style.display = 'none';
+           this.selectedRows.clear();
       }
-      this.displayTransactions(this.transactionData);
+      this.updateSelectionUI();
   }
 
-  updateSelectionCount() {
-      if (this.selectionCount) {
-          this.selectionCount.textContent = `${this.selectedRows.size} selected`;
-      }
+  handleRowSelect(rowId, checked) {
+      if (checked) this.selectedRows.add(rowId);
+      else this.selectedRows.delete(rowId);
+      this.updateSelectionUI();
   }
 
-  async applyBulkTags() {
+  updateSelectionUI() {
+      if (this.bulkComponent) {
+          this.bulkComponent.updateSelectionCount(this.selectedRows.size);
+      }
+      // Re-render table to update checkbox states (inefficient but robust)
+      // Or we could just let the checkbox state be managed by DOM, 
+      // but re-render ensures consistency with data model.
+      // Given DOM manipulation in `tableComponent` renders checked state based on set, we might not need full render if we just clicked one.
+      // But "Select All" definitely needs it. 
+      // Let's trust `tableComponent.render` is fast enough for now. 
+      // Actually, `handleRowSelect` comes from a change event, so the checkbox is ALREADY checked. 
+      // We don't need to re-render logic for single row select unless we want to update other UI.
+  }
+
+  async applyBulkTags(tripVal, catVal) {
       if (this.selectedRows.size === 0) return;
-
-      const tripVal = this.bulkTripEvent.value;
-      const catVal = this.bulkCategory.value;
-
-      if (!tripVal && !catVal) return; 
 
       const changesList = [];
       
@@ -269,7 +405,6 @@ class TransactionsComponent {
                   newCategory = original['Category'] || "";
               }
 
-              // Check if anything actually changed
               const currentTripEvent = original['Trip/Event'] || "";
               const currentCategory = original['Category'] || "";
 
@@ -290,7 +425,6 @@ class TransactionsComponent {
 
       store.setState('isTagging', true);
       
-      // Chunking Logic - 20 to avoid URL length limits
       const CHUNK_SIZE = 20; 
       const totalChunks = Math.ceil(changesList.length / CHUNK_SIZE);
 
@@ -301,20 +435,14 @@ class TransactionsComponent {
               const chunk = changesList.slice(start, end);
               
               store.setState('taggingProgress', `Uploading batch ${i + 1} of ${totalChunks}...`);
-              
-              // We use skipLoading: true because we handle the UI state manually here via isTagging
               await ApiService.updateExpenses(chunk, { skipLoading: true });
           }
 
-          this.changes = {};
           this.toggleSelectionMode(false);
           store.setState('taggingProgress', 'Completed!');
           
-          // Short delay to show completion message before triggering full refresh
           setTimeout(() => {
-               // Trigger full refresh first (which sets isLoading=true and hides this view)
                document.dispatchEvent(new CustomEvent('dataUploaded'));
-               // Then reset local state
                store.setState('isTagging', false);
           }, 1000);
 
@@ -327,224 +455,11 @@ class TransactionsComponent {
       }
   }
 
-  handleDataChange(data) {
-    this.transactionData = [...data];
-    this.originalTransactionData = [...data];
-    if (!store.getState('isTagging')) {
-        this.renderTransactionsDisplay();
-    }
-  }
-  
-  displayTransactions(data) {
-    if (!this.tbody) return;
-    this.tbody.innerHTML = '';
-    if (!data || data.length === 0) {
-        const row = document.createElement('tr');
-        const colSpan = this.selectionMode ? 7 : 6;
-        row.innerHTML = `<td colspan="${colSpan}">No transactions found.</td>`;
-        this.tbody.appendChild(row);
-        return;
-    }
-
-    data.forEach(item => {
-      const row = document.createElement('tr');
-      const isSelected = this.selectedRows.has(item.row);
-      
-      let checkboxCell = '';
-      if (this.selectionMode) {
-          checkboxCell = `<td><input type="checkbox" class="row-select" data-row="${item.row}" ${isSelected ? 'checked' : ''}></td>`;
+  updateProgressDisplay() {
+      const progressText = this.element.querySelector('#tagging-progress-text');
+      if (progressText) {
+          progressText.textContent = store.getState('taggingProgress');
       }
-
-      row.innerHTML = `
-        ${checkboxCell}
-        <td>${item.Date || ''}</td>
-        <td>${item.Description || ''}</td>
-        <td>${item['Trip/Event'] || ''}</td>
-        <td>${item.Category || ''}</td>
-        <td>${formatCurrency(item.Income)}</td>
-        <td>${formatCurrency(item.Expense)}</td>
-      `;
-      
-      if (this.selectionMode) {
-          // Add click listener for the checkbox
-          const checkbox = row.querySelector('.row-select');
-          checkbox.addEventListener('change', (e) => {
-              if (e.target.checked) {
-                  this.selectedRows.add(item.row);
-              } else {
-                  this.selectedRows.delete(item.row);
-              }
-              this.updateSelectionCount();
-          });
-          
-          // Click row to toggle
-           row.addEventListener('click', (e) => {
-               if (e.target !== checkbox) {
-                   checkbox.checked = !checkbox.checked;
-                   checkbox.dispatchEvent(new Event('change'));
-               }
-           });
-           row.style.cursor = 'pointer';
-      }
-
-      this.tbody.appendChild(row);
-    });
-  }
-
-  updateFilterDropdowns() {
-    const tags = store.getState('tags');
-    if (!tags || !this.filterTripEvent) return;
-
-    const createOptions = (select, options) => {
-        const currentValue = select.value;
-        select.innerHTML = '<option value="">All</option>';
-
-        // Add No tag option
-        const noTagOption = document.createElement('option');
-        noTagOption.value = '__NO_TAG__';
-        noTagOption.textContent = 'No tag';
-        select.appendChild(noTagOption);
-
-        (options || []).forEach(option => {
-            const opt = document.createElement('option');
-            opt.value = option;
-            opt.textContent = option;
-            select.appendChild(opt);
-        });
-        select.value = currentValue;
-    };
-    
-    createOptions(this.filterTripEvent, tags['Trip/Event']);
-    createOptions(this.filterCategory, tags['Category']);
-    
-    // Also update bulk dropdowns if they exist
-    if (this.bulkTripEvent) {
-        const populate = (select, options, defaultText) => {
-            const current = select.value;
-            select.innerHTML = `<option value="">${defaultText}</option>`;
-            
-            // Add No Tag option
-            const noTag = document.createElement('option');
-            noTag.value = '__REMOVE__';
-            noTag.textContent = 'No tag';
-            select.appendChild(noTag);
-            
-            (options || []).forEach(opt => {
-                const el = document.createElement('option');
-                el.value = opt;
-                el.textContent = opt;
-                select.appendChild(el);
-            });
-            select.value = current;
-        }
-        populate(this.bulkTripEvent, tags['Trip/Event'], 'Set Trip/Event...');
-        populate(this.bulkCategory, tags['Category'], 'Set Category...');
-    }
-  }
-
-  filterTransactions() {
-    const tripEventFilter = this.filterTripEvent.value;
-    const categoryFilter = this.filterCategory.value;
-
-    const checkMatch = (itemValue, filterValue) => {
-        if (!filterValue) return true; // All
-        if (filterValue === '__NO_TAG__') return !itemValue; // No tag (empty or null)
-        return itemValue === filterValue; // Specific tag
-    };
-
-    this.transactionData = this.originalTransactionData.filter(item => {
-        const tripEventMatch = checkMatch(item['Trip/Event'], tripEventFilter);
-        const categoryMatch = checkMatch(item['Category'], categoryFilter);
-        return tripEventMatch && categoryMatch;
-    });
-    this.displayTransactions(this.transactionData);
-  }
-
-  updateSortDropdownOptions() {
-      const field = this.sortField.value;
-      const currentOrder = this.sortOrder.value;
-      
-      this.sortOrder.innerHTML = '';
-      
-      if (field === 'Net') {
-          const opt1 = document.createElement('option');
-          opt1.value = 'desc';
-          opt1.textContent = 'Money In First';
-          this.sortOrder.appendChild(opt1);
-
-          const opt2 = document.createElement('option');
-          opt2.value = 'asc';
-          opt2.textContent = 'Money Out First';
-          this.sortOrder.appendChild(opt2);
-      } else {
-          const opt1 = document.createElement('option');
-          opt1.value = 'desc';
-          opt1.textContent = 'Desc (High-Low)';
-          this.sortOrder.appendChild(opt1);
-
-          const opt2 = document.createElement('option');
-          opt2.value = 'asc';
-          opt2.textContent = 'Asc (Low-High)';
-          this.sortOrder.appendChild(opt2);
-      }
-      this.sortOrder.value = currentOrder;
-  }
-
-  sortTransactions(field, force = false) {
-    if (!force) {
-        if (this.sortState.field === field) {
-            this.sortState.ascending = !this.sortState.ascending;
-        } else {
-            this.sortState.field = field;
-            this.sortState.ascending = true;
-        }
-    }
-
-    this.transactionData.sort((a, b) => {
-        let valA = a[field] || '';
-        let valB = b[field] || '';
-
-        if (field === 'Net') {
-             const incomeA = parseFloat(a['Income']) || 0;
-             const expenseA = parseFloat(a['Expense']) || 0;
-             valA = incomeA - expenseA;
-
-             const incomeB = parseFloat(b['Income']) || 0;
-             const expenseB = parseFloat(b['Expense']) || 0;
-             valB = incomeB - expenseB;
-        } else if (field === 'Income' || field === 'Expense') {
-             // Special handling for Income/Expense to keep non-zero values at the top
-             const numA = parseFloat(valA) || 0;
-             const numB = parseFloat(valB) || 0;
-
-             // If one is > 0 and the other is <= 0, the > 0 one comes first
-             const isPosA = numA > 0;
-             const isPosB = numB > 0;
-
-             if (isPosA && !isPosB) return -1; // A comes first
-             if (!isPosA && isPosB) return 1;  // B comes first
-             
-             // If both are positive, compare them normally
-             if (isPosA && isPosB) {
-                 valA = numA;
-                 valB = numB;
-             } else {
-                 // If both are zero/negative (the "other" group), sort by the OTHER field
-                 const otherField = field === 'Income' ? 'Expense' : 'Income';
-                 valA = parseFloat(a[otherField]) || 0;
-                 valB = parseFloat(b[otherField]) || 0;
-             }
-        } else if (field === 'Date') {
-            valA = new Date(valA);
-            valB = new Date(valB);
-        }
-
-        if (valA < valB) return this.sortState.ascending ? -1 : 1;
-        if (valA > valB) return this.sortState.ascending ? 1 : -1;
-        return 0;
-    });
-
-    this.displayTransactions(this.transactionData);
   }
 }
 

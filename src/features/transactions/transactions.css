@@ -7,7 +7,7 @@
     background: rgba(0, 0, 0, 0.2);
     padding: 15px;
     border-radius: 8px;
-    align-items: flex-end;
+    align-items: flex-start; /* Changed from flex-end to align top for taller filters */
 }
 
 .control-group {
@@ -26,6 +26,73 @@
 .control-inputs {
     display: flex;
     gap: 10px;
+}
+
+/* Tag Filters Section (Ported from Analysis) */
+.tag-filters-container {
+    display: flex; /* Changed from grid to flex for toolbar layout */
+    gap: 15px;
+}
+
+.tag-filter-column {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 200px; /* Ensure enough width */
+}
+
+.tag-filter-header {
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.tag-search-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.2);
+    color: #fff;
+    font-size: 0.85em;
+    box-sizing: border-box;
+}
+
+.tag-search-input:focus {
+    outline: none;
+    border-color: #f0ad4e;
+}
+
+.tag-selector {
+    height: 150px; 
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background-color: #1a6b10;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.tag-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.tag-checkbox-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tag-checkbox-item input[type="checkbox"] {
+    accent-color: #f0ad4e;
+    cursor: pointer;
 }
 
 /* Theme Select Dropdown */
@@ -74,6 +141,79 @@
 .selection-count {
     font-size: 0.9em;
     color: #ddd;
+}
+
+/* Custom Dropdown in Bulk Actions */
+.custom-dropdown {
+    position: relative;
+    display: inline-block;
+    min-width: 200px;
+}
+
+.dropdown-trigger {
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background-color: #1a6b10;
+    color: #fff;
+    font-size: 0.9em;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dropdown-trigger:hover {
+    border-color: #f0ad4e;
+}
+
+.dropdown-trigger::after {
+    content: '▼';
+    font-size: 0.7em;
+    margin-left: 10px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.dropdown-content {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    min-width: 250px; /* Slightly wider for search */
+    background-color: #2a4d25; /* Slightly different bg to pop out */
+    border: 1px solid #f0ad4e;
+    border-radius: 4px;
+    padding: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    margin-top: 5px;
+}
+
+.dropdown-content .tag-selector {
+    height: 200px;
+    margin-top: 8px;
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.tag-item-option {
+    display: block;
+    padding: 6px 10px;
+    cursor: pointer;
+    color: #fff;
+    border-radius: 3px;
+    margin-bottom: 2px;
+}
+
+.tag-item-option:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.tag-item-option.selected {
+    background-color: #f0ad4e;
+    color: #000;
+    font-weight: bold;
 }
 
 /* Table Selection */
