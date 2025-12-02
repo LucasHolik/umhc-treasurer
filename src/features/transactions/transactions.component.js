@@ -6,6 +6,7 @@ import TransactionsFilters from './transactions.filters.js';
 import TransactionsBulk from './transactions.bulk.js';
 import TransactionsManualModal from './transactions.manual.js';
 import * as TransactionsLogic from './transactions.logic.js';
+import TagSelector from './tag-selector.js';
 
 import { formatCurrency } from '../../core/utils.js';
 
@@ -19,6 +20,9 @@ class TransactionsComponent {
     this.selectionMode = false;
     this.selectedRows = new Set();
     
+    this.pendingChanges = new Map(); // rowId -> { 'Trip/Event': val, 'Category': val }
+    this.tagSelector = new TagSelector();
+
     this.selectedCategories = new Set();
     this.selectedTrips = new Set();
     this.categorySearchTerm = '';
@@ -33,13 +37,87 @@ class TransactionsComponent {
     store.subscribe('transactionParams', (params) => this.handleTransactionParams(params));
 
     // Global click listener to close dropdowns
-    document.addEventListener('click', (e) => this.handleGlobalClick(e));
+    document.addEventListener('click', (e) => {
+        this.handleGlobalClick(e);
+        this.handleInteractiveTagClick(e);
+    });
   }
 
   handleGlobalClick(e) {
       if (this.selectionMode && this.bulkComponent) {
           this.bulkComponent.handleGlobalClick(e);
       }
+  }
+
+  handleInteractiveTagClick(e) {
+      // Ignore if we are in bulk selection mode
+      if (this.selectionMode) return;
+
+      const target = e.target;
+      
+      // Handle "Remove Tag" (X button)
+      if (target.classList.contains('remove-btn')) {
+          e.stopPropagation();
+          const pill = target.closest('.tag-pill');
+          const rowId = pill.dataset.row;
+          const type = pill.dataset.type;
+          this.updatePendingChange(rowId, type, "");
+          return;
+      }
+
+      // Handle "Add Tag" (+)
+      if (target.classList.contains('add-tag-placeholder')) {
+          e.stopPropagation();
+          const rowId = target.dataset.row;
+          const type = target.dataset.type;
+          
+          const rect = target.getBoundingClientRect();
+          this.tagSelector.show(rect, type, "", (newVal) => {
+              this.updatePendingChange(rowId, type, newVal);
+          });
+          return;
+      }
+
+      // Handle "Change Tag" (Clicking the pill body)
+      const pill = target.closest('.tag-pill');
+      if (pill) {
+          e.stopPropagation();
+          const rowId = pill.dataset.row;
+          const type = pill.dataset.type;
+          const currentVal = pill.querySelector('.tag-text').textContent;
+          
+          const rect = pill.getBoundingClientRect();
+          this.tagSelector.show(rect, type, currentVal, (newVal) => {
+              this.updatePendingChange(rowId, type, newVal);
+          });
+      }
+  }
+
+  updatePendingChange(rowId, type, value) {
+      // rowId might be number or string, ensure consistency
+      rowId = String(rowId);
+      
+      if (!this.pendingChanges.has(rowId)) {
+          this.pendingChanges.set(rowId, {});
+      }
+      
+      const pendingRow = this.pendingChanges.get(rowId);
+      pendingRow[type] = value;
+      
+      // Check if the new value is actually the same as original, if so remove pending
+      const originalRow = this.originalTransactionData.find(r => String(r.row) === rowId);
+      if (originalRow) {
+          const originalVal = originalRow[type] || "";
+          if (value === originalVal) {
+              delete pendingRow[type];
+              if (Object.keys(pendingRow).length === 0) {
+                  this.pendingChanges.delete(rowId);
+              }
+          }
+      }
+
+      // Re-render to update UI
+      this.renderTransactionsDisplay();
   }
 
   handleTransactionParams(params) {
@@ -74,12 +152,14 @@ class TransactionsComponent {
         this.transactionsDisplay.innerHTML = `
             <div class="section" style="height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                 <div class="loader" style="width: 50px; height: 50px; margin-bottom: 20px;"></div>
-                <h3 style="color: #f0ad4e; margin-bottom: 10px;">Applying Tags...</h3>
+                <h3 style="color: #f0ad4e; margin-bottom: 10px;">Processing Tags...</h3>
                 <p id="tagging-progress-text" style="color: #fff; font-size: 1.1em;">${taggingProgress}</p>
             </div>
         `;
         return;
     }
+
+    const hasPendingChanges = this.pendingChanges.size > 0;
 
     this.transactionsDisplay.innerHTML = `
         <div class="section">
@@ -88,7 +168,7 @@ class TransactionsComponent {
             </div>
             
             <!-- Controls Toolbar -->
-            <div id="main-controls" class="transaction-controls">
+            <div id="main-controls" class="transaction-controls ${this.selectionMode ? 'disabled' : ''}">
                 
                 <!-- New Tag Filters (Analysis Style) -->
                 <div class="control-group" style="flex-grow: 1;">
@@ -115,6 +195,10 @@ class TransactionsComponent {
                 </div>
                 
                 <div class="transaction-actions" style="align-self: flex-start; margin-top: 22px;">
+                    ${hasPendingChanges ? 
+                        `<button id="save-changes-btn" class="save-changes-btn">Save Changes (${this.pendingChanges.size})</button>` : 
+                        ''
+                    }
                     <button id="tag-transactions-btn" class="secondary-btn">Bulk Tagging Mode</button>
                     <button id="add-manual-btn" class="secondary-btn">Add Manual Transaction</button>
                 </div>
@@ -170,6 +254,40 @@ class TransactionsComponent {
     }
     
     this.handleTagsChange(); // Populate filters
+
+    // Bind Save Button
+    const saveBtn = this.element.querySelector('#save-changes-btn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => this.savePendingChanges());
+    }
+  }
+
+  renderTagCell(item, type) {
+      const rowId = String(item.row);
+      let value = item[type];
+      let isPending = false;
+
+      // Check pending changes
+      if (this.pendingChanges.has(rowId)) {
+          const changes = this.pendingChanges.get(rowId);
+          if (changes.hasOwnProperty(type)) {
+              value = changes[type];
+              isPending = true;
+          }
+      }
+
+      if (value) {
+          return `
+            <span class="tag-pill ${isPending ? 'pending-change' : ''}" data-row="${rowId}" data-type="${type}">
+                <span class="tag-text">${value}</span>
+                <span class="remove-btn" title="Remove Tag">×</span>
+            </span>
+          `;
+      } else {
+          return `
+            <span class="add-tag-placeholder" data-row="${rowId}" data-type="${type}" title="Add Tag">+</span>
+          `;
+      }
   }
 
   initializeSubComponents() {
@@ -178,8 +296,18 @@ class TransactionsComponent {
           columns: [
             { key: 'Date', label: 'Date', type: 'date' },
             { key: 'Description', label: 'Description', type: 'text' },
-            { key: 'Trip/Event', label: 'Trip/Event', type: 'text' },
-            { key: 'Category', label: 'Category', type: 'text' },
+            { 
+                key: 'Trip/Event', 
+                label: 'Trip/Event', 
+                type: 'custom',
+                render: (item) => this.renderTagCell(item, 'Trip/Event')
+            },
+            { 
+                key: 'Category', 
+                label: 'Category', 
+                type: 'custom',
+                render: (item) => this.renderTagCell(item, 'Category')
+            },
             { 
                 key: 'Amount', 
                 label: 'Amount', 
@@ -192,7 +320,6 @@ class TransactionsComponent {
                     return safeIncome - safeExpense;
                 },
                 render: (item) => {
-                    // Parse values safely
                     const income = item.Income ? parseFloat(String(item.Income).replace(/,/g, '')) : 0;
                     const expense = item.Expense ? parseFloat(String(item.Expense).replace(/,/g, '')) : 0;
                     
@@ -355,6 +482,68 @@ class TransactionsComponent {
   updateSelectionUI() {
       if (this.bulkComponent) {
           this.bulkComponent.updateSelectionCount(this.selectedRows.size);
+      }
+  }
+
+  async savePendingChanges() {
+      if (this.pendingChanges.size === 0) return;
+
+      const changesList = [];
+      this.pendingChanges.forEach((changes, rowId) => {
+          const original = this.originalTransactionData.find(t => String(t.row) === String(rowId));
+          if (original) {
+              // Merge pending changes with original data to get full update object
+              // But API updateExpenses expects: { row, tripEvent, category }
+              
+              const updateObj = { row: rowId };
+              
+              if (changes.hasOwnProperty('Trip/Event')) {
+                  updateObj.tripEvent = changes['Trip/Event'];
+              } else {
+                  updateObj.tripEvent = original['Trip/Event'] || "";
+              }
+              
+              if (changes.hasOwnProperty('Category')) {
+                  updateObj.category = changes['Category'];
+              } else {
+                  updateObj.category = original['Category'] || "";
+              }
+              
+              changesList.push(updateObj);
+          }
+      });
+
+      if (changesList.length === 0) return;
+
+      store.setState('isTagging', true);
+      
+      const CHUNK_SIZE = 20; 
+      const totalChunks = Math.ceil(changesList.length / CHUNK_SIZE);
+
+      try {
+          for (let i = 0; i < totalChunks; i++) {
+              const start = i * CHUNK_SIZE;
+              const end = start + CHUNK_SIZE;
+              const chunk = changesList.slice(start, end);
+              
+              store.setState('taggingProgress', `Saving batch ${i + 1} of ${totalChunks}...`);
+              await ApiService.updateExpenses(chunk, { skipLoading: true });
+          }
+
+          store.setState('taggingProgress', 'Saved successfully!');
+          this.pendingChanges.clear();
+          
+          setTimeout(() => {
+               document.dispatchEvent(new CustomEvent('dataUploaded'));
+               store.setState('isTagging', false);
+          }, 1000);
+
+      } catch (error) {
+          console.error("Save changes failed:", error);
+          store.setState('taggingProgress', `Error: ${error.message}`);
+          setTimeout(() => {
+               store.setState('isTagging', false);
+          }, 3000);
       }
   }
 
