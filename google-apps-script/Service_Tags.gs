@@ -72,7 +72,7 @@ function _getTags() {
   };
 }
 
-function _addTag(type, value) {
+function _addTag(type, value, skipSort) {
   const tagSheet = _getTagSheet();
   const lastRow = tagSheet.getLastRow();
   let existingTags;
@@ -100,6 +100,10 @@ function _addTag(type, value) {
   let nextEmptyRow = columnValues.filter(String).length + 1;
 
   tagSheet.getRange(nextEmptyRow, column).setValue(value);
+
+  if (!skipSort) {
+    _sortTags(type);
+  }
 
   return { success: true, message: "Tag added successfully." };
 }
@@ -146,7 +150,7 @@ function _deleteTag(type, value) {
   return { success: true, message: "Tag deleted successfully." };
 }
 
-function _renameTag(type, oldValue, newValue) {
+function _renameTag(type, oldValue, newValue, skipSort) {
   const tagSheet = _getTagSheet();
   const lastRow = tagSheet.getLastRow();
   let column;
@@ -179,6 +183,10 @@ function _renameTag(type, oldValue, newValue) {
 
   Service_Sheet.updateExpensesWithTag(oldValue, newValue, type);
 
+  if (!skipSort) {
+    _sortTags(type);
+  }
+
   return { success: true, message: "Tag renamed successfully." };
 }
 
@@ -186,6 +194,8 @@ function _processTagOperations(operations) {
   if (!operations || !Array.isArray(operations)) {
     return { success: false, message: "Invalid operations array" };
   }
+
+  const modifiedTypes = new Set();
 
   for (let i = 0; i < operations.length; i++) {
     const operation = operations[i];
@@ -198,16 +208,20 @@ function _processTagOperations(operations) {
     let result;
     switch (operationType) {
       case "add":
-        result = _addTag(tagType, newValue);
+        result = _addTag(tagType, newValue, true);
+        if (result.success) modifiedTypes.add(tagType);
         break;
       case "delete":
         result = _deleteTag(tagType, oldValue);
         if (result.success) {
           Service_Sheet.removeTagFromExpenses(tagType, oldValue);
+          // Deletion doesn't require sorting per requirements, 
+          // but if we added items in the same batch, we still sort at the end.
         }
         break;
       case "rename":
-        result = _renameTag(tagType, oldValue, newValue);
+        result = _renameTag(tagType, oldValue, newValue, true);
+        if (result.success) modifiedTypes.add(tagType);
         break;
       default:
         return { success: false, message: `Unknown operation type: ${operationType}` };
@@ -222,5 +236,45 @@ function _processTagOperations(operations) {
     }
   }
 
+  // Sort modified types after batch processing
+  modifiedTypes.forEach(type => {
+      _sortTags(type);
+  });
+
   return { success: true, message: `Processed ${operations.length} operations successfully` };
+}
+
+function _sortTags(type) {
+  const tagSheet = _getTagSheet();
+  const lastRow = tagSheet.getLastRow();
+  
+  if (lastRow < 2) return;
+
+  let column;
+  if (type === "Trip/Event") {
+    column = 1;
+  } else if (type === "Category") {
+    column = 2;
+  } else {
+    return;
+  }
+
+  // Get all values in the column
+  const range = tagSheet.getRange(2, column, lastRow - 1, 1);
+  const values = range.getValues().flat();
+  
+  // Filter out empty strings to get just the tags
+  const tags = values.filter(String);
+  
+  if (tags.length === 0) return;
+
+  // Sort alphabetically
+  tags.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+  // Clear the content of the column to avoid duplicates/ghost data
+  range.clearContent();
+
+  // Write sorted tags back
+  const output = tags.map(t => [t]);
+  tagSheet.getRange(2, column, output.length, 1).setValues(output);
 }
