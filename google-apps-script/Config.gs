@@ -15,5 +15,6 @@ var CONFIG = {
     "Income",
     "Expense",
     "Type",
+    "Split Group ID"
   ],
 };

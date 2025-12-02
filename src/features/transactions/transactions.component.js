@@ -5,6 +5,8 @@ import SortableTable from '../../shared/sortable-table.component.js';
 import TransactionsFilters from './transactions.filters.js';
 import TransactionsBulk from './transactions.bulk.js';
 import TransactionsManualModal from './transactions.manual.js';
+import SplitTransactionModal from './split-transaction.modal.js';
+import TransactionsSplitHistory from './transactions.split-history.js';
 import * as TransactionsLogic from './transactions.logic.js';
 import TagSelector from './tag-selector.js';
 
@@ -33,8 +35,13 @@ class TransactionsComponent {
     store.subscribe('expenses', (data) => this.handleDataChange(data));
     store.subscribe('tags', () => this.handleTagsChange());
     store.subscribe('isTagging', () => this.renderTransactionsDisplay());
+    store.subscribe('savingSplitTransaction', () => this.renderTransactionsDisplay());
     store.subscribe('taggingProgress', () => this.updateProgressDisplay());
     store.subscribe('transactionParams', (params) => this.handleTransactionParams(params));
+    store.subscribe('splitTransactions', (splits) => this.handleSplitsChange(splits));
+
+    // Fetch splits
+    ApiService.getSplitTransactions();
 
     // Global click listener to close dropdowns
     document.addEventListener('click', (e) => {
@@ -146,6 +153,7 @@ class TransactionsComponent {
 
   renderTransactionsDisplay() {
     const isTagging = store.getState('isTagging');
+    const isSavingSplit = store.getState('savingSplitTransaction');
     const taggingProgress = store.getState('taggingProgress') || 'Initializing...';
 
     if (isTagging) {
@@ -154,6 +162,17 @@ class TransactionsComponent {
                 <div class="loader" style="width: 50px; height: 50px; margin-bottom: 20px;"></div>
                 <h3 style="color: #f0ad4e; margin-bottom: 10px;">Processing Tags...</h3>
                 <p id="tagging-progress-text" style="color: #fff; font-size: 1.1em;">${taggingProgress}</p>
+            </div>
+        `;
+        return;
+    }
+
+    if (isSavingSplit) {
+        this.transactionsDisplay.innerHTML = `
+            <div class="section" style="height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <div class="loader" style="width: 50px; height: 50px; margin-bottom: 20px;"></div>
+                <h3 style="color: #f0ad4e; margin-bottom: 10px;">Saving Split Transaction...</h3>
+                <p style="color: #aaa;">Please wait while we update the finances.</p>
             </div>
         `;
         return;
@@ -201,6 +220,7 @@ class TransactionsComponent {
                     }
                     <button id="tag-transactions-btn" class="secondary-btn">Bulk Tagging Mode</button>
                     <button id="add-manual-btn" class="secondary-btn">Add Manual Transaction</button>
+                    <button id="view-splits-btn" class="secondary-btn">View Split Transactions</button>
                 </div>
 
             </div>
@@ -255,10 +275,15 @@ class TransactionsComponent {
     
     this.handleTagsChange(); // Populate filters
 
-    // Bind Save Button
+    // Bind Buttons
     const saveBtn = this.element.querySelector('#save-changes-btn');
     if (saveBtn) {
         saveBtn.addEventListener('click', () => this.savePendingChanges());
+    }
+    
+    const viewSplitsBtn = this.element.querySelector('#view-splits-btn');
+    if (viewSplitsBtn) {
+        viewSplitsBtn.addEventListener('click', () => this.viewSplitHistory());
     }
   }
 
@@ -336,7 +361,8 @@ class TransactionsComponent {
           enableSelection: this.selectionMode,
           initialSortField: 'Date',
           initialSortAsc: false,
-          onSelectionChange: (selectedIds) => this.handleSelectionChange(selectedIds)
+          onSelectionChange: (selectedIds) => this.handleSelectionChange(selectedIds),
+          onRowClick: (item, e) => this.handleRowClick(item, e)
       });
 
       // Filters
@@ -368,6 +394,119 @@ class TransactionsComponent {
       }
   }
 
+  handleRowClick(item, e) {
+      // Check if click was on a tag interactive element
+      if (e.target.closest('.tag-pill') || 
+          e.target.closest('.add-tag-placeholder') || 
+          e.target.closest('.remove-btn')) {
+          return;
+      }
+      
+      if (item['Split Group ID']) {
+          this.openEditSplitModal(item['Split Group ID']);
+      } else {
+          this.openSplitModal(item);
+      }
+  }
+
+  async openSplitModal(transaction) {
+      if (this.selectionMode) return; // Don't split in bulk mode
+
+      const modal = new SplitTransactionModal();
+      const splits = await modal.open(transaction);
+      
+      if (splits) {
+          store.setState('savingSplitTransaction', true);
+          try {
+              // Use skipLoading: true to manage our own state/UI
+              await ApiService.splitTransaction(transaction, splits, { skipLoading: true });
+              
+              // Reload data to reflect changes (remove original, add splits)
+              document.dispatchEvent(new CustomEvent('dataUploaded')); 
+              
+          } catch (error) {
+              console.error("Split failed:", error);
+              alert("Failed to split transaction: " + error.message);
+              store.setState('savingSplitTransaction', false);
+          }
+      }
+  }
+
+  async openEditSplitModal(groupId) {
+      if (this.selectionMode) return;
+
+      let source = null;
+      let children = [];
+      let foundLocally = false;
+
+      const cachedSplits = store.getState('splitTransactions');
+      if (cachedSplits && cachedSplits.length > 0) {
+          const groupRows = cachedSplits.filter(r => r['Split Group ID'] === groupId);
+          if (groupRows.length > 0) {
+              source = groupRows.find(r => r['Split Type'] === 'SOURCE');
+              children = groupRows.filter(r => r['Split Type'] === 'CHILD');
+              
+              // Verify we have what we need
+              if (source && children.length > 0) {
+                  foundLocally = true;
+              }
+          }
+      }
+
+      if (!foundLocally) {
+          store.setState('isLoading', true);
+          try {
+              // 1. Fetch group details (Source + Children)
+              const result = await ApiService.getSplitGroup(groupId);
+              store.setState('isLoading', false);
+              
+              if (!result.success) throw new Error(result.message);
+              
+              source = result.data.source;
+              children = result.data.children;
+
+          } catch (error) {
+              store.setState('isLoading', false);
+              console.error("Edit Split failed:", error);
+              alert("Failed to load split details: " + error.message);
+              return;
+          }
+      }
+
+      try {
+          // 2. Open Modal in Edit Mode
+          const modal = new SplitTransactionModal();
+          const action = await modal.open(source, children, groupId);
+          
+          if (action) {
+               // action returned means something happened (edit saved or revert triggered)
+               document.dispatchEvent(new CustomEvent('dataUploaded')); 
+          }
+      } catch (error) {
+           console.error("Error opening modal:", error);
+      }
+  }
+
+  async viewSplitHistory() {
+      store.setState('isLoading', true);
+      try {
+          const response = await ApiService.getSplitTransactions();
+          store.setState('isLoading', false);
+          
+          const modal = new TransactionsSplitHistory();
+          const changed = await modal.open(response.data);
+          
+          // If user edited/reverted inside the history modal, refresh data
+          if (changed) {
+              document.dispatchEvent(new CustomEvent('dataUploaded'));
+          }
+      } catch (error) {
+          store.setState('isLoading', false);
+          console.error("Failed to load history:", error);
+          alert("Failed to load split history.");
+      }
+  }
+
   async openManualModal() {
       const modal = new TransactionsManualModal();
       const data = await modal.open();
@@ -389,10 +528,89 @@ class TransactionsComponent {
       }
   }
 
+  handleSplitsChange(splits) {
+      // When splits change, we don't need to do anything complex here locally 
+      // because App.js will re-process the 'expenses' state.
+      // However, if we wanted to force a refresh we could, but the subscription to 'expenses' handles it.
+  }
+
   handleDataChange(data) {
-    this.transactionData = [...data];
+    // The data received here (from 'expenses' store) is already processed/merged.
     this.originalTransactionData = [...data];
+    this.transactionData = [...this.originalTransactionData];
+    
+    // Reconcile pendingChanges with the new dataset (State is Truth)
+    if (this.pendingChanges.size > 0) {
+        const rowsToRemove = [];
+
+        this.pendingChanges.forEach((changes, rowId) => {
+            const rowIdStr = String(rowId);
+            const matchingRow = this.originalTransactionData.find(r => String(r.row) === rowIdStr);
+
+            if (!matchingRow) {
+                // Row no longer exists (e.g. was split/deleted)
+                rowsToRemove.push(rowId);
+            } else {
+                // Row exists, check if changes are still needed
+                const keys = Object.keys(changes);
+                let hasChanges = false;
+                
+                keys.forEach(key => {
+                    // If pending value matches new server value, it's not a change anymore
+                    // Use loose comparison or strict depending on data types, strict is safer if types align
+                    if (changes[key] !== matchingRow[key]) {
+                        hasChanges = true;
+                    } else {
+                        delete changes[key]; // Cleanup redundant field
+                    }
+                });
+
+                // If no actual changes remain for this row, mark for removal
+                if (!hasChanges || Object.keys(changes).length === 0) {
+                    rowsToRemove.push(rowId);
+                }
+            }
+        });
+
+        rowsToRemove.forEach(id => this.pendingChanges.delete(id));
+        
+        // Update the Save Button UI to reflect the cleanup
+        this.updateSaveButtonState();
+    }
+    
+    // If we were saving a split, turn it off now that data has reloaded
+    if (store.getState('savingSplitTransaction')) {
+        store.setState('savingSplitTransaction', false);
+    }
+
     this.applyFilters(); 
+  }
+
+  updateSaveButtonState() {
+      const container = this.element.querySelector('.transaction-actions');
+      if (!container) return;
+
+      const existingBtn = container.querySelector('#save-changes-btn');
+      const hasPendingChanges = this.pendingChanges.size > 0;
+
+      if (hasPendingChanges) {
+          const btnText = `Save Changes (${this.pendingChanges.size})`;
+          if (existingBtn) {
+              existingBtn.textContent = btnText;
+          } else {
+              // Insert button if it's missing (prepend to actions)
+              const newBtn = document.createElement('button');
+              newBtn.id = 'save-changes-btn';
+              newBtn.className = 'save-changes-btn';
+              newBtn.textContent = btnText;
+              newBtn.addEventListener('click', () => this.savePendingChanges());
+              container.prepend(newBtn);
+          }
+      } else {
+          if (existingBtn) {
+              existingBtn.remove();
+          }
+      }
   }
 
   handleTagsChange() {

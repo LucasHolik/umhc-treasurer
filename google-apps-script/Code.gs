@@ -46,6 +46,21 @@ function doGet(e) {
       case "saveOpeningBalance":
         response = Service_Sheet.saveOpeningBalance(e);
         break;
+      case "splitTransaction":
+        response = Service_Split.processSplit(e);
+        break;
+      case "revertSplit":
+        response = Service_Split.revertSplit(e);
+        break;
+      case "editSplit":
+        response = Service_Split.editSplit(e);
+        break;
+      case "getSplitGroup":
+        response = Service_Split.getSplitGroup(e);
+        break;
+      case "getSplitHistory":
+        response = Service_Split.getSplitHistory(e);
+        break;
       default:
         response = { success: false, message: "Invalid action" };
     }

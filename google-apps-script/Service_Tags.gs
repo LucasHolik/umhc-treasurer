@@ -13,6 +13,7 @@ var Service_Tags = {
     const deleteResult = _deleteTag(type, value);
     if (deleteResult.success) {
       Service_Sheet.removeTagFromExpenses(type, value);
+      Service_Split.removeTagFromSplits(type, value);
     }
     return deleteResult;
   },
@@ -182,6 +183,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
   tagSheet.getRange(updateRow, column).setValue(newValue);
 
   Service_Sheet.updateExpensesWithTag(oldValue, newValue, type);
+  Service_Split.updateTagInSplits(oldValue, newValue, type);
 
   if (!skipSort) {
     _sortTags(type);
@@ -215,6 +217,7 @@ function _processTagOperations(operations) {
         result = _deleteTag(tagType, oldValue);
         if (result.success) {
           Service_Sheet.removeTagFromExpenses(tagType, oldValue);
+          Service_Split.removeTagFromSplits(tagType, oldValue);
           // Deletion doesn't require sorting per requirements, 
           // but if we added items in the same batch, we still sort at the end.
         }

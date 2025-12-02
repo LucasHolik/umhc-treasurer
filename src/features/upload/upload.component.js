@@ -29,6 +29,11 @@ class UploadComponent {
             <button id="table-view-btn" class="active view-toggle-btn">Table View</button>
             <button id="json-view-btn" class="view-toggle-btn">JSON View</button>
           </div>
+          <div class="filter-controls" style="margin: 10px 0;">
+            <label class="checkbox-label">
+                <input type="checkbox" id="show-new-only"> Show New Transactions Only
+            </label>
+          </div>
           <div id="table-view-content"></div>
           <div id="json-view-content" style="display: none;">
             <pre><code id="file-content-json"></code></pre>
@@ -46,6 +51,7 @@ class UploadComponent {
     this.tableViewButton = this.element.querySelector('#table-view-btn');
     this.jsonViewButton = this.element.querySelector('#json-view-btn');
     this.fileContentJson = this.element.querySelector('#file-content-json');
+    this.showNewOnlyCheckbox = this.element.querySelector('#show-new-only');
 
     // Initialize SortableTable
     this.table = new SortableTable(this.tableViewContent, {
@@ -54,7 +60,13 @@ class UploadComponent {
             { key: 'description', label: 'Description', type: 'text' },
             { key: 'document', label: 'Document', type: 'text' },
             { key: 'cashIn', label: 'Cash In', type: 'currency', class: 'positive' },
-            { key: 'cashOut', label: 'Cash Out', type: 'currency', class: 'negative' }
+            { key: 'cashOut', label: 'Cash Out', type: 'currency', class: 'negative' },
+            { 
+                key: 'status', 
+                label: 'Status', 
+                type: 'custom',
+                render: (row) => row.isDuplicate ? '<span style="color: orange;">Duplicate</span>' : '<span style="color: lightgreen;">New</span>'
+            }
         ],
         initialSortField: 'date',
         initialSortAsc: false
@@ -66,6 +78,7 @@ class UploadComponent {
     this.uploadButton.addEventListener('click', this.handleUpload.bind(this));
     this.tableViewButton.addEventListener('click', this.switchToTableView.bind(this));
     this.jsonViewButton.addEventListener('click', this.switchToJsonView.bind(this));
+    this.showNewOnlyCheckbox.addEventListener('change', () => this.displayExtractedData());
   }
 
   handleUploadingState(isUploading) {
@@ -92,6 +105,11 @@ class UploadComponent {
 
     try {
       this.parsedData = await ExcelService.parseFile(file);
+      
+      // Mark duplicates immediately against RAW expenses (ignoring splits)
+      const existingData = store.getState('rawExpenses') || [];
+      this.markDuplicates(this.parsedData, existingData);
+
       this.displayExtractedData();
       this.extractedContentSection.style.display = 'block';
     } catch (error) {
@@ -101,9 +119,35 @@ class UploadComponent {
     }
   }
 
+  markDuplicates(newData, existingData) {
+    const existingKeys = new Set(existingData.map(row => {
+      const dateStr = this._normalizeDateString(row.Date);
+      const descriptionStr = this._normalizeValue(row.Description);
+      const documentStr = this._normalizeValue(row.Document);
+      const incomeStr = this._normalizeValue(this._formatNumberForComparison(row.Income));
+      const expenseStr = this._normalizeValue(this._formatNumberForComparison(row.Expense));
+      return `${dateStr}|${descriptionStr}|${documentStr}|${incomeStr}|${expenseStr}`;
+    }));
+
+    newData.forEach(row => {
+      const dateStr = this._normalizeDateString(row.date);
+      const descriptionStr = this._normalizeValue(row.description);
+      const documentStr = this._normalizeValue(row.document);
+      const incomeStr = this._normalizeValue(this._formatNumberForComparison(row.cashIn));
+      const expenseStr = this._normalizeValue(this._formatNumberForComparison(row.cashOut));
+      const key = `${dateStr}|${descriptionStr}|${documentStr}|${incomeStr}|${expenseStr}`;
+      
+      row.isDuplicate = existingKeys.has(key);
+    });
+  }
+
   displayExtractedData() {
     this.fileContentJson.textContent = JSON.stringify(this.parsedData, null, 2);
-    this.table.update(this.parsedData);
+    
+    const showNewOnly = this.showNewOnlyCheckbox.checked;
+    const dataToShow = showNewOnly ? this.parsedData.filter(r => !r.isDuplicate) : this.parsedData;
+
+    this.table.update(dataToShow);
     this.switchToTableView();
   }
 
@@ -127,21 +171,19 @@ class UploadComponent {
       return;
     }
 
-    this.displayUploadStatus('Checking for duplicates...', 'info');
+    // Filter for new records only
+    const newRecords = this.parsedData.filter(r => !r.isDuplicate);
+
+    if (newRecords.length === 0) {
+      this.displayUploadStatus('No new records to upload.', 'success');
+      return;
+    }
+
+    this.displayUploadStatus(`Uploading ${newRecords.length} new records...`, 'info');
 
     try {
       store.setState('isUploading', true);
-      const existingData = store.getState('expenses') || [];
-      const newRecords = this._findUniqueRecords(this.parsedData, existingData);
-
-      if (newRecords.length === 0) {
-        this.displayUploadStatus('No new records to upload.', 'success');
-        return;
-      }
-
-      this.displayUploadStatus(`Uploading ${newRecords.length} new records...`, 'info');
       await this._uploadInChunks(newRecords);
-
     } catch (error) {
       this.displayUploadStatus(`Error uploading data: ${error.message}`, 'error');
     } finally {
@@ -196,27 +238,6 @@ class UploadComponent {
   _formatNumberForComparison(value) {
     if (value === null || value === undefined || value === "") return "";
     return String(value).trim().replace(/,/g, "");
-  }
-
-  _findUniqueRecords(newData, existingData) {
-    const existingKeys = new Set(existingData.map(row => {
-      const dateStr = this._normalizeDateString(row.Date);
-      const descriptionStr = this._normalizeValue(row.Description);
-      const documentStr = this._normalizeValue(row.Document);
-      const incomeStr = this._normalizeValue(this._formatNumberForComparison(row.Income));
-      const expenseStr = this._normalizeValue(this._formatNumberForComparison(row.Expense));
-      return `${dateStr}|${descriptionStr}|${documentStr}|${incomeStr}|${expenseStr}`;
-    }));
-
-    return newData.filter(row => {
-      const dateStr = this._normalizeDateString(row.date);
-      const descriptionStr = this._normalizeValue(row.description);
-      const documentStr = this._normalizeValue(row.document);
-      const incomeStr = this._normalizeValue(this._formatNumberForComparison(row.cashIn));
-      const expenseStr = this._normalizeValue(this._formatNumberForComparison(row.cashOut));
-      const key = `${dateStr}|${descriptionStr}|${documentStr}|${incomeStr}|${expenseStr}`;
-      return !existingKeys.has(key);
-    });
   }
 }
 

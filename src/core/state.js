@@ -66,11 +66,14 @@ const createStore = (initialState = {}) => {
 // Initialize the store with a default structure
 const store = createStore({
   expenses: [],
+  rawExpenses: [], // Stores the unprocessed data from API
   tags: { "Trip/Event": [], Category: [] },
   isLoading: false,
   isUploading: false,
   isTagging: false,
   savingTags: false,
+  savingSplitTransaction: false,
+  splitTransactions: null,
   taggingProgress: null,
   error: null,
   currentUser: null,

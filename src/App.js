@@ -3,6 +3,7 @@ import store from './core/state.js';
 import router from './core/router.js';
 import AuthService from './services/auth.service.js';
 import ApiService from './services/api.service.js';
+import TransactionService from './services/transaction.service.js';
 import LoginComponent from './features/login/login.component.js';
 import DashboardComponent from './features/dashboard/dashboard.component.js';
 import UploadComponent from './features/upload/upload.component.js';
@@ -23,6 +24,19 @@ class App {
     store.subscribe('isTagging', () => this.handleLoadingState());
     store.subscribe('savingTags', () => this.handleLoadingState());
     store.subscribe('settingsSyncing', () => this.handleLoadingState());
+    
+    // Reactive Transaction Processing
+    const updateProcessedTransactions = () => {
+        const raw = store.getState('rawExpenses') || [];
+        const splits = store.getState('splitTransactions') || [];
+        // Only process if we have data (or empty array)
+        const processed = TransactionService.mergeSplits(raw, splits);
+        store.setState('expenses', processed);
+    };
+
+    store.subscribe('rawExpenses', updateProcessedTransactions);
+    store.subscribe('splitTransactions', updateProcessedTransactions);
+
     document.addEventListener('dataUploaded', this.loadInitialData.bind(this));
   }
 
@@ -221,6 +235,8 @@ class App {
   async loadInitialData() {
     try {
       console.log("Fetching initial data...");
+      
+      // Fetch main data
       const appData = await ApiService.getAppData();
       console.log("API Response:", appData);
 
@@ -229,13 +245,25 @@ class App {
         if (appData.data.expenses && appData.data.expenses.length > 0) {
             console.log("First expense sample:", appData.data.expenses[0]);
         }
-        store.setState('expenses', appData.data.expenses);
+        // Store raw expenses. This triggers the subscription in constructor to process and update 'expenses'
+        store.setState('rawExpenses', appData.data.expenses);
         store.setState('tags', appData.data.tags);
         store.setState('openingBalance', appData.data.openingBalance);
       } else {
           console.error("API returned success: false", appData);
           store.setState('error', appData.message || "Failed to load data");
       }
+
+      // Fetch split transactions (in background, or wait? Let's await to ensure UI is consistent)
+      // But we don't want to block if it fails.
+      try {
+          console.log("Fetching split history...");
+          await ApiService.getSplitTransactions({ forceRefresh: true });
+      } catch (splitError) {
+          console.error("Failed to load split history:", splitError);
+          // Don't fail the whole app, just log
+      }
+
     } catch (error) {
       console.error("Load initial data error:", error);
       store.setState('error', error.message);

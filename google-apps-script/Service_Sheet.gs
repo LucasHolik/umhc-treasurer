@@ -20,6 +20,7 @@ var Service_Sheet = {
         row.cashIn || "",
         row.cashOut || "",
         row.isManual ? "Manual" : "",
+        "" // Split Group ID
       ]);
 
       if (recordsToAdd.length > 0) {
@@ -32,7 +33,7 @@ var Service_Sheet = {
         );
         dateColumnRange.setNumberFormat("@");
         
-        // Set values for all columns (now 9)
+        // Set values for all columns
         financeSheet
           .getRange(startRow, 1, recordsToAdd.length, CONFIG.HEADERS.length)
           .setValues(recordsToAdd);
@@ -95,9 +96,13 @@ var Service_Sheet = {
 
       updates.forEach((update) => {
         const row = update.row;
-        if (row) {
-          financeSheet.getRange(row, 5).setValue(update.tripEvent); // Column 5 is Trip/Event
-          financeSheet.getRange(row, 6).setValue(update.category); // Column 6 is Category
+        if (typeof row === 'string' && row.startsWith('S-')) {
+            // Handle Split Transaction Row
+            Service_Split.updateSplitRowTag(row, update.tripEvent, update.category);
+        } else if (row) {
+             // Handle Standard Row (numeric)
+             financeSheet.getRange(row, 5).setValue(update.tripEvent); // Column 5 is Trip/Event
+             financeSheet.getRange(row, 6).setValue(update.category); // Column 6 is Category
         }
       });
 
@@ -279,7 +284,7 @@ function _sortSheetByDate() {
     return; // No data to sort
   }
 
-  // Sort all columns (now 9)
+  // Sort all columns
   const range = financeSheet.getRange(2, 1, lastRow - 1, CONFIG.HEADERS.length);
   const values = range.getValues();
 

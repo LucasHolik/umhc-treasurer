@@ -126,6 +126,69 @@ const ApiService = {
   processTagOperations: (operations, options = {}) => request('processTagOperations', { operations: JSON.stringify(operations) }, options),
   getOpeningBalance: () => request('getOpeningBalance'),
   saveOpeningBalance: (balance, options = {}) => request('saveOpeningBalance', { balance }, options),
+  
+  splitTransaction: async (original, splits, options = {}) => {
+      const res = await request('splitTransaction', { data: JSON.stringify({ original, splits }) }, options);
+      store.setState('splitTransactions', null); // Invalidate cache
+      return res;
+  },
+  revertSplit: async (groupId, options = {}) => {
+      const res = await request('revertSplit', { groupId }, options);
+      store.setState('splitTransactions', null); // Invalidate cache
+      return res;
+  },
+  editSplit: async (groupId, splits, original, options = {}) => {
+      const res = await request('editSplit', { data: JSON.stringify({ groupId, original, splits }) }, options);
+      store.setState('splitTransactions', null); // Invalidate cache
+      return res;
+  },
+  getSplitGroup: (groupId) => request('getSplitGroup', { groupId }),
+  getSplitTransactions: async (options = {}) => {
+      const cached = store.getState('splitTransactions');
+      if (cached && !options.forceRefresh) {
+          // Log if from cache
+          const parents = cached.filter(item => item['Split Type'] === 'SOURCE').length;
+          const children = cached.filter(item => item['Split Type'] === 'CHILD').length;
+          console.log(`Loaded ${parents} split parents and ${children} split children (from cache).`);
+          return { success: true, data: cached };
+      }
+      
+      let allData = [];
+      let page = 1;
+      let hasMore = true;
+      
+      store.setState('isLoading', true);
+      
+      try {
+          while (hasMore) {
+              store.setState('taggingProgress', `Loading split history (Page ${page})...`);
+              const res = await request('getSplitHistory', { page, pageSize: 500 });
+              
+              if (!res.success) {
+                  throw new Error(res.message);
+              }
+              
+              allData = [...allData, ...res.data];
+              hasMore = res.hasMore;
+              page++;
+          }
+          
+          const parents = allData.filter(item => item['Split Type'] === 'SOURCE').length;
+          const children = allData.filter(item => item['Split Type'] === 'CHILD').length;
+          console.log(`Loaded ${parents} split parents and ${children} split children.`);
+
+          store.setState('splitTransactions', allData);
+          store.setState('taggingProgress', null);
+          store.setState('isLoading', false);
+          return { success: true, data: allData };
+          
+      } catch (error) {
+          store.setState('taggingProgress', null);
+          store.setState('isLoading', false);
+          return { success: false, message: error.message };
+      }
+  },
+  
   getScriptUrl,
   setScriptUrl,
   hasScriptUrl,
