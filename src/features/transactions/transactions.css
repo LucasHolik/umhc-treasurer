@@ -410,3 +410,45 @@
     70% { box-shadow: 0 0 0 10px rgba(240, 173, 78, 0); }
     100% { box-shadow: 0 0 0 0 rgba(240, 173, 78, 0); }
 }
+
+/* Split History Grouping Styles */
+.split-group-header {
+    cursor: pointer;
+    background-color: rgba(255, 255, 255, 0.05);
+    transition: background-color 0.2s;
+}
+.split-group-header:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+.split-group-expanded {
+    background-color: rgba(240, 173, 78, 0.1);
+    border-left: 4px solid #f0ad4e;
+}
+.split-group-details {
+    display: none;
+    background-color: rgba(0, 0, 0, 0.2);
+}
+.split-group-details.active {
+    display: table-row;
+}
+.split-detail-table {
+    width: 98%;
+    margin: 10px auto;
+    border-collapse: collapse;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+.split-detail-row {
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.split-detail-row:last-child {
+    border-bottom: none;
+}
+.split-toggle-icon {
+    display: inline-block;
+    width: 20px;
+    text-align: center;
+    transition: transform 0.2s;
+}
+.split-group-expanded .split-toggle-icon {
+    transform: rotate(90deg);
+}

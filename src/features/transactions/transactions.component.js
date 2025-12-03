@@ -476,11 +476,28 @@ class TransactionsComponent {
       try {
           // 2. Open Modal in Edit Mode
           const modal = new SplitTransactionModal();
-          const action = await modal.open(source, children, groupId);
+          const editPayload = await modal.open(source, children, groupId);
           
-          if (action) {
-               // action returned means something happened (edit saved or revert triggered)
-               document.dispatchEvent(new CustomEvent('dataUploaded')); 
+          if (editPayload && editPayload.action === 'edit') {
+               store.setState('savingSplitTransaction', true);
+               try {
+                   await ApiService.editSplit(editPayload.groupId, editPayload.splits, editPayload.original, { skipLoading: true });
+                   document.dispatchEvent(new CustomEvent('dataUploaded')); 
+               } catch (error) {
+                   console.error("Failed to update split:", error);
+                   alert("Failed to update split: " + error.message);
+                   store.setState('savingSplitTransaction', false);
+               }
+          } else if (editPayload && editPayload.action === 'revert') {
+               store.setState('savingSplitTransaction', true);
+               try {
+                   await ApiService.revertSplit(editPayload.groupId, { skipLoading: true });
+                   document.dispatchEvent(new CustomEvent('dataUploaded')); 
+               } catch (error) {
+                   console.error("Failed to revert split:", error);
+                   alert("Failed to revert split: " + error.message);
+                   store.setState('savingSplitTransaction', false);
+               }
           }
       } catch (error) {
            console.error("Error opening modal:", error);

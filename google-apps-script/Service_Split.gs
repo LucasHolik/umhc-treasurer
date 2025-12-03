@@ -221,14 +221,46 @@ var Service_Split = {
   },
   
   editSplit: function(e) {
-     // Revert + Process
-     // Note: This generates a NEW Group ID.
-     // If we want to keep the same ID, we'd need to pass it to processSplit or handle it manually.
-     // Creating a new ID is cleaner for history/audit, but the original row will just get the new ID.
+     const groupId = e.parameter.groupId;
      
+     // 1. Resolve Finance Sheet Row Index
+     const ss = SpreadsheetApp.getActiveSpreadsheet();
+     const financeSheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+     const idIndex = CONFIG.HEADERS.indexOf("Split Group ID");
+     
+     if (idIndex === -1) {
+         return { success: false, message: "Configuration Error: 'Split Group ID' column missing." };
+     }
+     
+     const financeData = financeSheet.getDataRange().getValues();
+     let financeRowIndex = -1;
+     
+     // Skip header (index 0), row 1 is index 0 in array but Row 1 in sheet
+     for (let i = 1; i < financeData.length; i++) {
+          if (financeData[i][idIndex] === groupId) {
+              financeRowIndex = i + 1; // 1-based index
+              break;
+          }
+     }
+     
+     if (financeRowIndex === -1) {
+         return { success: false, message: "Original transaction not found in Finance Sheet for ID: " + groupId };
+     }
+
+     // 2. Inject Row Index into Data Payload
+     try {
+        const data = JSON.parse(e.parameter.data);
+        data.original.row = financeRowIndex;
+        e.parameter.data = JSON.stringify(data);
+     } catch (err) {
+        return { success: false, message: "Invalid JSON data." };
+     }
+     
+     // 3. Perform Revert (Clean up old split artifacts)
      const revertRes = this.revertSplit(e);
      if (!revertRes.success) return revertRes;
      
+     // 4. Perform Process (New Split)
      return this.processSplit(e);
   },
   

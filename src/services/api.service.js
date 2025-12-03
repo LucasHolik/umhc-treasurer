@@ -138,7 +138,7 @@ const ApiService = {
       return res;
   },
   editSplit: async (groupId, splits, original, options = {}) => {
-      const res = await request('editSplit', { data: JSON.stringify({ groupId, original, splits }) }, options);
+      const res = await request('editSplit', { groupId, data: JSON.stringify({ groupId, original, splits }) }, options);
       store.setState('splitTransactions', null); // Invalidate cache
       return res;
   },

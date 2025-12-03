@@ -15,73 +15,132 @@ export default class TransactionsSplitHistory {
         });
     }
 
+    groupData(data) {
+        const groups = {};
+        // Sort by date desc first
+        const sorted = [...data].sort((a, b) => {
+             // Try parse date
+             const dateA = new Date(a.Date);
+             const dateB = new Date(b.Date);
+             return dateB - dateA;
+        });
+
+        sorted.forEach(row => {
+            const id = row['Split Group ID'];
+            if (!id) return; // Should not happen
+            if (!groups[id]) groups[id] = [];
+            groups[id].push(row);
+        });
+        return groups;
+    }
+
     render() {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         
+        const groupedData = this.groupData(this.data);
+        const groupIds = Object.keys(groupedData);
+
         let rowsHtml = '';
-        if (this.data.length === 0) {
+        if (groupIds.length === 0) {
             rowsHtml = '<tr><td colspan="6" style="text-align:center; padding: 20px; color: #aaa;">No split history found.</td></tr>';
         } else {
-            this.data.forEach(row => {
-                const date = row.Date || '';
-                const desc = row.Description || '';
-                const type = row['Split Type'] || '';
-                const group = row['Split Group ID'] || '';
-                const splitDate = row['Split Date'] ? new Date(row['Split Date']).toLocaleString() : '';
-                const isReverted = row['Split Type'] === 'REVERTED' || (row['Trip/Event'] === 'REVERTED'); // Check how we mark it. Service_Sheet marked type+1 value 'REVERTED'
-                // Actually, in Service_Split.gs:
-                // splitSheet.getRange(sourceRowIndex, typeIndex + 1).setValue('REVERTED');
-                // So 'Split Type' will be 'REVERTED'.
+            groupIds.forEach(groupId => {
+                const rows = groupedData[groupId];
+                const source = rows.find(r => r['Split Type'] === 'SOURCE') || rows[0];
                 
+                const date = source.Date || '';
+                const desc = source.Description || '';
+                const isReverted = rows.some(r => r['Split Type'] === 'REVERTED');
+                
+                // Calculate total from source
                 let amount = 0;
-                if (row.Income) amount = parseFloat(String(row.Income).replace(/,/g, ''));
-                else if (row.Expense) amount = -parseFloat(String(row.Expense).replace(/,/g, ''));
+                if (source.Income) amount = parseFloat(String(source.Income).replace(/,/g, ''));
+                else if (source.Expense) amount = -parseFloat(String(source.Expense).replace(/,/g, ''));
                 
                 const amountClass = amount >= 0 ? 'positive' : 'negative';
-                
-                // Row style
-                let bg = 'transparent';
-                if (type === 'SOURCE') bg = 'rgba(255, 0, 0, 0.1)';
-                if (type === 'CHILD') bg = 'rgba(0, 255, 0, 0.05)';
-                if (type === 'REVERTED') bg = 'rgba(100, 100, 100, 0.2)';
+                const statusLabel = isReverted ? '<span style="color:#aaa; font-size:0.8em;">(REVERTED)</span>' : '';
 
-                // Click handler data
-                const isClickable = type !== 'REVERTED'; // Only active splits can be edited?
-                // Actually, if it's Source, we can view it. If it's Child, we can view it.
-                // If it's REVERTED, it's done.
-                
+                // Build Detail Rows
+                let detailRowsHtml = '';
+                rows.forEach(row => {
+                    const rType = row['Split Type'];
+                    const rDesc = row.Description || '';
+                    const rDate = row.Date || '';
+                    const rTrip = row['Trip/Event'] || '';
+                    const rCat = row['Category'] || '';
+                    
+                    let rAmount = 0;
+                    if (row.Income) rAmount = parseFloat(String(row.Income).replace(/,/g, ''));
+                    else if (row.Expense) rAmount = -parseFloat(String(row.Expense).replace(/,/g, ''));
+                    const rAmountClass = rAmount >= 0 ? 'positive' : 'negative';
+
+                    // Styling based on type
+                    let rBg = 'transparent';
+                    if (rType === 'SOURCE') rBg = 'rgba(255, 0, 0, 0.1)';
+                    if (rType === 'CHILD') rBg = 'rgba(0, 255, 0, 0.05)';
+                    
+                    const clickableClass = !isReverted ? 'split-detail-clickable' : '';
+                    const cursorStyle = !isReverted ? 'cursor: pointer;' : '';
+
+                    detailRowsHtml += `
+                        <tr class="split-detail-row ${clickableClass}" style="background: ${rBg}; ${cursorStyle}" data-group="${groupId}">
+                            <td style="padding: 8px;">${rType}</td>
+                            <td>${rDate}</td>
+                            <td>${rDesc}</td>
+                            <td>${rTrip} / ${rCat}</td>
+                            <td><span class="${rAmountClass}">${formatCurrency(Math.abs(rAmount))}</span></td>
+                        </tr>
+                    `;
+                });
+
+                // Summary Row
                 rowsHtml += `
-                    <tr style="background: ${bg}; ${isClickable ? 'cursor: pointer;' : ''}" 
-                        class="${isClickable ? 'history-row' : ''}" 
-                        data-group="${group}"
-                        data-type="${type}">
+                    <tr class="split-group-header" data-group="${groupId}">
+                        <td style="width: 40px; text-align: center;"><span class="split-toggle-icon">▶</span></td>
                         <td>${date}</td>
-                        <td>${desc}</td>
+                        <td>${desc} ${statusLabel}</td>
                         <td><span class="${amountClass}">${formatCurrency(Math.abs(amount))}</span></td>
-                        <td>${type}</td>
-                        <td style="font-size: 0.8em; color: #aaa;">${splitDate}</td>
-                        <td style="font-size: 0.8em; font-family: monospace; color: #888;">${group.substring(0, 8)}...</td>
+                        <td style="font-family: monospace; color: #888;">${groupId.substring(0, 8)}...</td>
+                    </tr>
+                    <tr class="split-group-details" id="details-${groupId}">
+                        <td colspan="5" style="padding: 0;">
+                            <div style="padding: 10px; background: rgba(0,0,0,0.2);">
+                                <table class="split-detail-table">
+                                    <thead>
+                                        <tr style="color: #aaa; font-size: 0.85em; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                            <th style="text-align: left; padding: 5px;">Type</th>
+                                            <th style="text-align: left; padding: 5px;">Date</th>
+                                            <th style="text-align: left; padding: 5px;">Description</th>
+                                            <th style="text-align: left; padding: 5px;">Tags</th>
+                                            <th style="text-align: left; padding: 5px;">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${detailRowsHtml}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
                     </tr>
                 `;
             });
         }
 
         overlay.innerHTML = `
-            <div class="modal-content" style="max-width: 900px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-content" style="width: 95%; max-width: 1200px; max-height: 90vh; display: flex; flex-direction: column;">
                 <div class="modal-header">
                     <h3>Split Transaction History</h3>
                     <button class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body" style="overflow-y: auto; padding: 0;">
-                    <table class="section-table" style="width: 100%;">
+                    <table class="section-table" style="width: 100%; border-collapse: separate; border-spacing: 0;">
                         <thead>
                             <tr>
+                                <th></th>
                                 <th>Date</th>
                                 <th>Description</th>
-                                <th>Amount</th>
-                                <th>Type</th>
-                                <th>Split On</th>
+                                <th>Total Amount</th>
                                 <th>Group ID</th>
                             </tr>
                         </thead>
@@ -99,15 +158,28 @@ export default class TransactionsSplitHistory {
         document.body.appendChild(overlay);
         this.overlay = overlay;
 
-        // Bind click events
-        overlay.querySelectorAll('.history-row').forEach(row => {
-            row.addEventListener('click', () => {
-                const groupId = row.dataset.group;
-                const type = row.dataset.type;
-                // Prevent editing 'REVERTED' (handled by css class logic but double check)
-                if (type !== 'REVERTED') {
-                    this.handleRowClick(groupId);
+        // Bind Group Toggle events
+        overlay.querySelectorAll('.split-group-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const groupId = header.dataset.group;
+                const details = overlay.querySelector(`#details-${groupId}`);
+                
+                if (header.classList.contains('split-group-expanded')) {
+                    header.classList.remove('split-group-expanded');
+                    details.classList.remove('active');
+                } else {
+                    header.classList.add('split-group-expanded');
+                    details.classList.add('active');
                 }
+            });
+        });
+
+        // Bind Detail Row click events (Edit)
+        overlay.querySelectorAll('.split-detail-clickable').forEach(row => {
+            row.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent toggling the group
+                const groupId = row.dataset.group;
+                this.handleRowClick(groupId);
             });
         });
 
@@ -121,34 +193,62 @@ export default class TransactionsSplitHistory {
     }
 
     async handleRowClick(groupId) {
-        // We reuse the logic from TransactionsComponent to open edit modal
-        // But we are inside the history modal. We should probably close history modal?
-        // Or open on top?
-        // Let's try opening on top.
+        // 1. Find data locally from this.data
+        const groupRows = this.data.filter(r => r['Split Group ID'] === groupId);
         
-        store.setState('isLoading', true);
+        if (groupRows.length === 0) {
+            alert("Error: Transaction details not found in local history.");
+            return;
+        }
+
+        const source = groupRows.find(r => r['Split Type'] === 'SOURCE');
+        const children = groupRows.filter(r => r['Split Type'] === 'CHILD');
+        
+        if (!source) {
+             // Should not happen if data integrity is good
+             alert("Error: Source transaction missing.");
+             return;
+        }
+
+        // 2. Open Modal using local data
         try {
-            const result = await ApiService.getSplitGroup(groupId);
-            store.setState('isLoading', false);
-            
-            if (!result.success) throw new Error(result.message);
-            
-            const { source, children } = result.data;
-            
-            // Open Split Modal in Edit Mode
             const modal = new SplitTransactionModal();
             const action = await modal.open(source, children, groupId);
             
-            if (action) {
-                // If action happened (edit or revert), we should close history and refresh data
+            if (action && action.action === 'edit') {
                 this.overlay.remove();
-                this.resolvePromise(true); // Signal that data changed
-                document.dispatchEvent(new CustomEvent('dataUploaded'));
+                
+                store.setState('savingSplitTransaction', true); 
+                try {
+                    await ApiService.editSplit(action.groupId, action.splits, action.original, { skipLoading: true });
+                    document.dispatchEvent(new CustomEvent('dataUploaded'));
+                } catch (error) {
+                    console.error("Failed to update split:", error);
+                    alert("Failed to update split: " + error.message);
+                    store.setState('savingSplitTransaction', false);
+                }
+                this.resolvePromise(true); 
+            } else if (action && action.action === 'revert') {
+                 this.overlay.remove();
+                 
+                 store.setState('savingSplitTransaction', true); 
+                 try {
+                    await ApiService.revertSplit(action.groupId, { skipLoading: true });
+                    document.dispatchEvent(new CustomEvent('dataUploaded'));
+                 } catch (error) {
+                     console.error("Failed to revert split:", error);
+                     alert("Failed to revert split: " + error.message);
+                     store.setState('savingSplitTransaction', false);
+                 }
+
+                 this.resolvePromise(true);
+            } else if (action) { // This handles if a split was created, which won't happen here
+                this.overlay.remove();
+                this.resolvePromise(true);
             }
         } catch (error) {
-            store.setState('isLoading', false);
-            console.error("Failed to load split group:", error);
-            alert("Failed to load split details: " + error.message);
+            console.error("Failed to open split modal:", error);
+            alert("An error occurred: " + error.message);
         }
     }
 }

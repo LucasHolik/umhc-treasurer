@@ -37,12 +37,12 @@ export default class SplitTransactionModal {
         } else {
             this.mode = 'create';
             this.splits = [
-                { 
-                    description: transaction.Description + ' (Part 1)', 
+                {
+                    description: transaction.Description + ' (Part 1)',
                     amount: 0
                 },
-                { 
-                    description: transaction.Description + ' (Part 2)', 
+                {
+                    description: transaction.Description + ' (Part 2)',
                     amount: 0
                 }
             ];
@@ -213,18 +213,9 @@ export default class SplitTransactionModal {
         if (confirmed) {
             // Visually hide the current modal immediately so it feels like "closing"
             if (this.overlay) this.overlay.style.display = 'none';
-
-            store.setState('savingSplitTransaction', true);
-            try {
-                await ApiService.revertSplit(this.groupId, { skipLoading: true });
-                this.close({ action: 'revert' });
-            } catch (error) {
-                // If it fails, restore the modal so user can try again or see context
-                if (this.overlay) this.overlay.style.display = 'flex';
-
-                await modal.alert("Failed to revert: " + error.message);
-                store.setState('savingSplitTransaction', false);
-            }
+            
+            // Return action to caller to handle API
+            this.close({ action: 'revert', groupId: this.groupId });
         }
     }
 
@@ -248,15 +239,13 @@ export default class SplitTransactionModal {
         }));
 
         if (this.mode === 'edit') {
-             // Handle Edit
-             store.setState('savingSplitTransaction', true);
-             try {
-                 await ApiService.editSplit(this.groupId, splitsPayload, this.transaction, { skipLoading: true });
-                 this.close({ action: 'edit' });
-             } catch (error) {
-                 alert("Failed to update split: " + error.message);
-                 store.setState('savingSplitTransaction', false);
-             }
+             // Return data to caller to handle API
+            this.close({ 
+                action: 'edit',
+                groupId: this.groupId,
+                original: this.transaction,
+                splits: splitsPayload
+            });
         } else {
             // Handle Create (Return data to caller to handle API)
             this.close(splitsPayload);
