@@ -172,7 +172,7 @@ class UploadComponent {
     }
 
     // Filter for new records only
-    const newRecords = this.parsedData.filter(r => !r.isDuplicate);
+    const newRecords = this.parsedData.filter(r => !r.isDuplicate).map(r => ({ ...r, isUploaded: true }));
 
     if (newRecords.length === 0) {
       this.displayUploadStatus('No new records to upload.', 'success');

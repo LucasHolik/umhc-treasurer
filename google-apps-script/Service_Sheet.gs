@@ -19,7 +19,7 @@ var Service_Sheet = {
         "",
         row.cashIn || "",
         row.cashOut || "",
-        row.isManual ? "Manual" : "",
+        row.isManual ? "Manual" : (row.isUploaded ? "Uploaded" : ""),
         "" // Split Group ID
       ]);
 
