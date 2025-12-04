@@ -311,12 +311,6 @@ export default class TagsList {
                     }
                 } else if (op.type === 'delete') {
                     if (stats[op.tagType]) delete stats[op.tagType][op.value];
-                } else if (op.type === 'updateTripType') {
-                    // If we changed a trip type, we need to re-calculate stats effectively...
-                    // But since this is just visualization in edit mode, maybe we can just update the mapping logic used above.
-                    // The logic above uses `tripTypeMap` which comes from `this.localTags`.
-                    // So if `this.localTags.TripTypeMap` is updated, the calc above is correct.
-                    // We just need to make sure `renderTables` re-calls `calculateTagStats`.
                 }
             });
         }

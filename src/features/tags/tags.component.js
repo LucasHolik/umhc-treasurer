@@ -244,11 +244,6 @@ class TagsComponent {
         
         // Refresh data to ensure everything is synced
         document.dispatchEvent(new CustomEvent('dataUploaded')); 
-        // Note: dataUploaded event usually triggers App.js to reload data.
-        
-        // Wait a bit or assume reload happens?
-        // Ideally we should wait for reload to complete before showing UI again.
-        // App.js usually sets isLoading=true on dataUploaded.
         
         this.isEditMode = false;
         this.localTags = null;

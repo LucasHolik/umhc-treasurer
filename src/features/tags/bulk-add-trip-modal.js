@@ -235,11 +235,9 @@ export default class BulkAddTripModal {
             });
 
             // Header Select All Logic
-            // SortableTable renders HTML string for label. We need to attach listener after render.
-            // But SortableTable re-renders on sort.
-            // We might need to inject the listener every update or use delegation.
-            // SortableTable implementation replaces innerHTML.
-            // Let's hack it slightly: attach listener to container and check target.
+            // Since SortableTable replaces innerHTML on re-renders (e.g., sorting), 
+            // we attach a delegated event listener to the stable container element 
+            // to handle clicks on the header checkbox.
             container.addEventListener('change', (e) => {
                 if (e.target.id === 'trip-select-all-header') {
                     const allVisible = data.map(d => d.trip);

@@ -37,7 +37,10 @@ class App {
     store.subscribe('rawExpenses', updateProcessedTransactions);
     store.subscribe('splitTransactions', updateProcessedTransactions);
 
-    document.addEventListener('dataUploaded', this.loadInitialData.bind(this));
+    document.addEventListener('dataUploaded', () => {
+        store.setState('isLoading', true);
+        this.loadInitialData();
+    });
   }
 
   render() {
