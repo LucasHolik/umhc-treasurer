@@ -14,3 +14,39 @@ html {
 
 /* When loaded inside the main app, the flex centering might need to be overridden 
    if the body structure changes */
+
+/* Global Custom Scrollbar */
+* {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #8b4513 transparent;
+}
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 10px;  /* Vertical width */
+  height: 10px; /* Horizontal height */
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #8b4513; /* Brown to match borders */
+  border-radius: 20px;       /* Rounded ends */
+  border: 2px solid transparent; /* Simulates padding/floating effect */
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #f0ad4e; /* Gold on hover */
+}
+
+::-webkit-scrollbar-button {
+  display: none; /* Hides top/bottom arrows */
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
