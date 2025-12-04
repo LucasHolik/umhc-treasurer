@@ -180,7 +180,7 @@ class App {
                                   (isUploading && activeTab !== 'upload') ||
                                   (isTagging && activeTab !== 'transactions') ||
                                   (savingTags && activeTab !== 'tags') ||
-                                  (settingsSyncing && activeTab !== 'settings');
+                                                                    (settingsSyncing && activeTab !== 'settings');
 
     if (loaderContainer && contentWrapper) {
         if (shouldShowGlobalLoader) {
@@ -236,7 +236,6 @@ class App {
     try {
       console.log("Fetching initial data...");
       
-      // Fetch main data
       const appData = await ApiService.getAppData();
       console.log("API Response:", appData);
 
@@ -249,19 +248,12 @@ class App {
         store.setState('rawExpenses', appData.data.expenses);
         store.setState('tags', appData.data.tags);
         store.setState('openingBalance', appData.data.openingBalance);
+        // Set split transactions from the single API call
+        store.setState('splitTransactions', appData.data.splitTransactions || []);
+
       } else {
           console.error("API returned success: false", appData);
           store.setState('error', appData.message || "Failed to load data");
-      }
-
-      // Fetch split transactions (in background, or wait? Let's await to ensure UI is consistent)
-      // But we don't want to block if it fails.
-      try {
-          console.log("Fetching split history...");
-          await ApiService.getSplitTransactions({ forceRefresh: true });
-      } catch (splitError) {
-          console.error("Failed to load split history:", splitError);
-          // Don't fail the whole app, just log
       }
 
     } catch (error) {

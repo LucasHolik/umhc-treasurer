@@ -40,9 +40,6 @@ class TransactionsComponent {
     store.subscribe('transactionParams', (params) => this.handleTransactionParams(params));
     store.subscribe('splitTransactions', (splits) => this.handleSplitsChange(splits));
 
-    // Fetch splits
-    ApiService.getSplitTransactions();
-
     // Global click listener to close dropdowns
     document.addEventListener('click', (e) => {
         this.handleGlobalClick(e);

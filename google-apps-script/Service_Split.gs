@@ -376,6 +376,52 @@ var Service_Split = {
     const hasMore = (startRowIndex + numRows - 1) < lastRow;
     
     return { success: true, data: data, hasMore: hasMore, total: totalRows, page: page };
+  },
+
+  getAllSplitHistory: function() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const splitSheet = _getSplitSheet();
+    
+    const lastRow = splitSheet.getLastRow();
+    if (lastRow <= 1) { 
+        return { success: true, data: [] };
+    }
+    
+    const headers = splitSheet.getRange(1, 1, 1, splitSheet.getLastColumn()).getValues()[0];
+    const values = splitSheet.getRange(2, 1, lastRow - 1, splitSheet.getLastColumn()).getValues();
+    const data = [];
+    
+    const typeIndex = headers.indexOf("Split Type");
+    const dateIndex = headers.indexOf("Split Date");
+    
+    for (let i = 0; i < values.length; i++) {
+        const row = values[i];
+        const obj = {};
+        const currentRowIndex = i + 2; // Data starts at row 2, so add 2
+        
+        obj.row = 'S-' + currentRowIndex; // Add unique Split Row ID
+
+        // Map standard headers
+        for (let h = 0; h < CONFIG.HEADERS.length; h++) {
+            const headerName = CONFIG.HEADERS[h];
+            const colIndex = headers.indexOf(headerName);
+            if (colIndex !== -1) {
+                obj[headerName] = row[colIndex];
+            }
+        }
+        
+        // Map split headers
+        if (typeIndex !== -1) obj['Split Type'] = row[typeIndex];
+        if (dateIndex !== -1) obj['Split Date'] = row[dateIndex];
+        
+        if (obj["Date"] instanceof Date) {
+          obj["Date"] = Utilities.formatDate(obj["Date"], "UTC", "yyyy-MM-dd");
+        }
+        
+        data.push(obj);
+    }
+    
+    return { success: true, data: data };
   }
 };
 

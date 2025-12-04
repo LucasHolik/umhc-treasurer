@@ -84,12 +84,26 @@ function getAppData() {
     const tags = Service_Tags.getTags();
     const openingBalance = Service_Sheet.getOpeningBalance();
     
+    let splitTransactions = { success: true, data: [] };
+    try {
+        splitTransactions = Service_Split.getAllSplitHistory();
+        if (!splitTransactions.success) {
+            console.error("Failed to fetch split transactions:", splitTransactions.message);
+            // Don't throw, just log and return empty array for splits
+            splitTransactions.data = []; 
+        }
+    } catch (splitError) {
+        console.error("Error fetching split transactions:", splitError.toString());
+        splitTransactions.data = [];
+    }
+
     return { 
       success: true, 
       data: { 
         expenses: expenses.data, 
         tags: tags,
-        openingBalance: openingBalance.success ? openingBalance.balance : 0
+        openingBalance: openingBalance.success ? openingBalance.balance : 0,
+        splitTransactions: splitTransactions.data
       } 
     };
   } catch (error) {

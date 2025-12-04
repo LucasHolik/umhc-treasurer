@@ -1,6 +1,4 @@
 import { formatCurrency } from '../../core/utils.js';
-import ApiService from '../../services/api.service.js';
-import store from '../../core/state.js';
 import ModalComponent from '../../shared/modal.component.js';
 
 export default class SplitTransactionModal {
