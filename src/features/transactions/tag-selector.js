@@ -36,8 +36,8 @@ export default class TagSelector {
         this.element.addEventListener('click', (e) => e.stopPropagation());
     }
 
-    show(rect, type, currentVal, onSelect) {
-        this.currentConfig = { type, onSelect, currentVal };
+    show(rect, type, currentVal, onSelect, customOptions = null) {
+        this.currentConfig = { type, onSelect, currentVal, customOptions };
         this.searchTerm = '';
         this.searchInput.value = '';
         
@@ -74,11 +74,17 @@ export default class TagSelector {
     renderList() {
         if (!this.currentConfig) return;
         
-        const { type, onSelect } = this.currentConfig;
-        const tagsData = store.getState('tags') || {};
-        // Map 'Trip/Event' column key to 'Trip/Event' tag key (which matches)
-        // Map 'Category' column key to 'Category' tag key
-        const tags = tagsData[type] || [];
+        const { type, onSelect, customOptions } = this.currentConfig;
+        let tags = [];
+        
+        if (customOptions) {
+            tags = customOptions;
+        } else {
+            const tagsData = store.getState('tags') || {};
+            // Map 'Trip/Event' column key to 'Trip/Event' tag key (which matches)
+            // Map 'Category' column key to 'Category' tag key
+            tags = tagsData[type] || [];
+        }
         
         const filteredTags = tags.filter(tag => 
             tag.toLowerCase().includes(this.searchTerm)

@@ -5,7 +5,7 @@ import SortableTable from '../../shared/sortable-table.component.js';
 export default class TagsDetails {
     constructor(element, callbacks) {
         this.element = element;
-        this.callbacks = callbacks || {}; // { onBack, onAddTransactions }
+        this.callbacks = callbacks || {}; // { onBack, onAddTransactions, onAddTagsToType }
         
         this.tagType = null;
         this.tagName = null;
@@ -16,14 +16,32 @@ export default class TagsDetails {
         this.tagType = tagType;
         this.tagName = tagName;
         
-        // Filter transactions
         const allExpenses = store.getState('expenses') || [];
-        this.transactionsData = allExpenses.filter(item => item[tagType] === tagName);
+        
+        // Filter transactions based on tag type
+        if (tagType === 'Type') {
+            // For "Type" tags, we need to find all expenses that have a Trip/Event which is of this Type.
+            const tripTypeMap = store.getState('tags').TripTypeMap || {};
+            this.transactionsData = allExpenses.filter(item => {
+                const trip = item['Trip/Event'];
+                return trip && tripTypeMap[trip] === tagName;
+            });
+        } else {
+            this.transactionsData = allExpenses.filter(item => item[tagType] === tagName);
+        }
         
         // Calculate stats
         const stats = this.calculateStats(this.transactionsData);
         const netStr = formatCurrency(Math.abs(stats.income - stats.expense));
         const netClass = (stats.income - stats.expense) > 0 ? 'positive' : ((stats.income - stats.expense) < 0 ? 'negative' : '');
+
+        // Contextual Action Button
+        let actionButton = '';
+        if (tagType === 'Type') {
+             actionButton = `<button id="add-tags-to-type-btn" class="secondary-btn" style="background-color: #5bc0de; color: white;">Add Trip/Events</button>`;
+        } else {
+             actionButton = `<button id="add-transactions-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Add Transactions</button>`;
+        }
 
         this.element.innerHTML = `
             <div class="section">
@@ -32,7 +50,7 @@ export default class TagsDetails {
                         <button id="back-tags-btn" class="secondary-btn" style="padding: 5px 10px;">← Back</button>
                         <h2 style="margin: 0;">${tagName} <span style="font-size: 0.6em; color: #aaa; font-weight: normal;">(${tagType})</span></h2>
                     </div>
-                    <button id="add-transactions-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Add Transactions</button>
+                    ${actionButton}
                 </div>
 
                 <div class="stats-summary" style="display: flex; gap: 30px; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
@@ -121,14 +139,19 @@ export default class TagsDetails {
 
     attachEventListeners() {
         const backBtn = this.element.querySelector('#back-tags-btn');
-        const addBtn = this.element.querySelector('#add-transactions-btn');
+        const addTransBtn = this.element.querySelector('#add-transactions-btn');
+        const addTypeBtn = this.element.querySelector('#add-tags-to-type-btn');
         
         if (backBtn) backBtn.addEventListener('click', () => {
             if (this.callbacks.onBack) this.callbacks.onBack();
         });
 
-        if (addBtn) addBtn.addEventListener('click', () => {
+        if (addTransBtn) addTransBtn.addEventListener('click', () => {
             if (this.callbacks.onAddTransactions) this.callbacks.onAddTransactions(this.tagType, this.tagName);
+        });
+
+        if (addTypeBtn) addTypeBtn.addEventListener('click', () => {
+            if (this.callbacks.onAddTagsToType) this.callbacks.onAddTagsToType(this.tagName);
         });
     }
 }

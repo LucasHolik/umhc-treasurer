@@ -2,23 +2,25 @@ import store from '../../core/state.js';
 import { formatCurrency, filterTransactionsByTimeframe } from '../../core/utils.js';
 import ModalComponent from '../../shared/modal.component.js';
 import SortableTable from '../../shared/sortable-table.component.js';
+import TagSelector from '../transactions/tag-selector.js';
 
 export default class TagsList {
     constructor(element, callbacks) {
         this.element = element;
-        this.callbacks = callbacks || {}; // { onEditModeToggle, onSave, onTagClick }
+        this.callbacks = callbacks || {}; // { onEditModeToggle, onSave, onTagClick, onTagAdd, onTagDelete, onTagRename, onUpdateTripType }
         
         // Local state for filtering/sorting within the list view
         this.searchTerms = {
             "Trip/Event": "",
-            "Category": ""
+            "Category": "",
+            "Type": ""
         };
         this.timeframe = 'all_time';
         this.modal = new ModalComponent();
+        this.tagSelector = new TagSelector();
         
         // Table instances
-        this.tripTable = null;
-        this.categoryTable = null;
+        this.tables = {};
     }
 
     render(isEditMode, localTags, queue) {
@@ -57,22 +59,35 @@ export default class TagsList {
                     </div>
                 </div>
                 
-                <div class="tags-container">
-                    <div id="trip-tags-column" class="tags-column">
-                         <h3>Trip/Event Tags</h3>
+                <div class="tags-container" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <!-- Trip Types Section (Full Width or Separate) -->
+                    <div id="type-tags-column" class="tags-column" style="flex-basis: 100%; margin-bottom: 20px;">
+                         <h3>Trip Types</h3>
                          <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                            <input type="text" class="tag-search-input column-search" style="flex: 1;" data-type="Trip/Event" placeholder="Search Trip/Event..." value="${this.searchTerms['Trip/Event']}">
-                            ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Trip/Event" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Trip/Event tag">+</button>` : ''}
+                            <input type="text" class="tag-search-input column-search" style="flex: 1;" data-type="Type" placeholder="Search Trip Types..." value="${this.searchTerms['Type']}">
+                            ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Type" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Type">+</button>` : ''}
                          </div>
-                         <div id="trip-tags-table-container"></div>
+                         <div id="type-tags-table-container"></div>
                     </div>
-                    <div id="category-tags-column" class="tags-column">
-                         <h3>Category Tags</h3>
-                         <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                            <input type="text" class="tag-search-input column-search" style="flex: 1;" data-type="Category" placeholder="Search Category..." value="${this.searchTerms['Category']}">
-                            ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Category" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Category tag">+</button>` : ''}
-                         </div>
-                         <div id="category-tags-table-container"></div>
+
+                    <!-- Split Columns -->
+                    <div style="display: flex; gap: 20px; flex: 1; min-width: 0; flex-wrap: wrap;">
+                        <div id="trip-tags-column" class="tags-column" style="flex: 1; min-width: 300px;">
+                             <h3>Trip/Event Tags</h3>
+                             <div style="margin-bottom: 10px; display: flex; gap: 10px;">
+                                <input type="text" class="tag-search-input column-search" style="flex: 1;" data-type="Trip/Event" placeholder="Search Trip/Event..." value="${this.searchTerms['Trip/Event']}">
+                                ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Trip/Event" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Trip/Event tag">+</button>` : ''}
+                             </div>
+                             <div id="trip-tags-table-container"></div>
+                        </div>
+                        <div id="category-tags-column" class="tags-column" style="flex: 1; min-width: 300px;">
+                             <h3>Category Tags</h3>
+                             <div style="margin-bottom: 10px; display: flex; gap: 10px;">
+                                <input type="text" class="tag-search-input column-search" style="flex: 1;" data-type="Category" placeholder="Search Category..." value="${this.searchTerms['Category']}">
+                                ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Category" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Category tag">+</button>` : ''}
+                             </div>
+                             <div id="category-tags-table-container"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -84,12 +99,13 @@ export default class TagsList {
 
     renderTables() {
         const tagStats = this.calculateTagStats();
+        this.renderSingleTable('Type', tagStats);
         this.renderSingleTable('Trip/Event', tagStats);
         this.renderSingleTable('Category', tagStats);
     }
 
     renderSingleTable(type, tagStats) {
-        const containerId = type === 'Trip/Event' ? 'trip-tags-table-container' : 'category-tags-table-container';
+        const containerId = type === 'Trip/Event' ? 'trip-tags-table-container' : (type === 'Category' ? 'category-tags-table-container' : 'type-tags-table-container');
         const container = this.element.querySelector(`#${containerId}`);
         if (!container) return;
 
@@ -101,10 +117,13 @@ export default class TagsList {
             tag.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
+        const tripTypeMap = this.isEditMode ? this.localTags.TripTypeMap : (store.getState('tags').TripTypeMap || {});
+
         const data = visibleTags.map(tag => {
             const stats = tagStats[type][tag] || { count: 0, income: 0, expense: 0 };
             const net = stats.income - stats.expense;
-            return {
+            
+            let row = {
                 tag: tag,
                 type: type, // for actions
                 income: stats.income,
@@ -112,17 +131,40 @@ export default class TagsList {
                 net: net,
                 count: stats.count
             };
+
+            if (type === 'Trip/Event') {
+                row.tripType = tripTypeMap[tag] || "";
+            }
+
+            return row;
         });
 
         const columns = [
-            { key: 'tag', label: 'Tag Name', type: 'text' },
+            { key: 'tag', label: 'Name', type: 'text' }
+        ];
+
+        if (type === 'Trip/Event') {
+            columns.push({
+                key: 'tripType',
+                label: 'Type',
+                type: 'custom',
+                render: (item) => {
+                    if (this.isEditMode) {
+                         return `<div class="editable-type-cell" data-tag="${item.tag}">${item.tripType || '<span style="color:#ccc;">+</span>'}</div>`;
+                    }
+                    return item.tripType || '';
+                }
+            });
+        }
+
+        columns.push(
             { key: 'income', label: 'Income', type: 'currency', class: 'positive tags-table-num text-right' },
             { key: 'expense', label: 'Expense', type: 'currency', class: 'negative tags-table-num text-right' },
             { key: 'net', label: 'Net', type: 'currency', class: 'tags-table-num text-right', 
               render: (item) => `<span class="${item.net > 0 ? 'positive' : (item.net < 0 ? 'negative' : '')}">${formatCurrency(Math.abs(item.net))}</span>` 
             },
             { key: 'count', label: 'Uses', type: 'number', class: 'text-center' }
-        ];
+        );
 
         if (this.isEditMode) {
             columns.push({
@@ -130,7 +172,7 @@ export default class TagsList {
                 label: 'Actions',
                 type: 'custom',
                 sortable: false,
-                class: 'text-right tags-actions-cell', // Added specific class for targeting
+                class: 'text-right tags-actions-cell',
                 render: (item) => `
                     <button class="icon-btn rename-btn" data-tag="${item.tag}" data-type="${item.type}" title="Rename">✏️</button>
                     <button class="icon-btn delete-btn" data-tag="${item.tag}" data-type="${item.type}" title="Delete">🗑️</button>
@@ -149,12 +191,15 @@ export default class TagsList {
             }
         });
         table.update(data);
+        
+        // Store reference for potential future updates
+        this.tables[type] = table;
 
         // Bind action buttons if in edit mode
         if (this.isEditMode) {
             container.querySelectorAll('.rename-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent row click
+                    e.stopPropagation();
                     const tag = e.currentTarget.dataset.tag;
                     const t = e.currentTarget.dataset.type;
                     if (this.callbacks.onTagRename) this.callbacks.onTagRename(t, tag);
@@ -162,26 +207,52 @@ export default class TagsList {
             });
             container.querySelectorAll('.delete-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent row click
+                    e.stopPropagation();
                     const tag = e.currentTarget.dataset.tag;
                     const t = e.currentTarget.dataset.type;
                     if (this.callbacks.onTagDelete) this.callbacks.onTagDelete(t, tag);
                 });
             });
+            
+            // Bind type editor for Trip/Event
+            if (type === 'Trip/Event') {
+                container.querySelectorAll('.editable-type-cell').forEach(cell => {
+                    cell.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const tag = e.currentTarget.dataset.tag;
+                        const currentType = cell.textContent === '+' ? '' : cell.textContent;
+                        
+                        const typeOptions = this.isEditMode && this.localTags ? (this.localTags['Type'] || []) : null;
+
+                        this.tagSelector.show(
+                            cell.getBoundingClientRect(),
+                            'Type', // We want to select from 'Type' list
+                            currentType,
+                            (newType) => {
+                                if (this.callbacks.onUpdateTripType) {
+                                    this.callbacks.onUpdateTripType(tag, newType);
+                                }
+                            },
+                            typeOptions
+                        );
+                    });
+                });
+            }
         }
     }
 
     calculateTagStats() {
         const allExpenses = store.getState('expenses') || [];
         const expenses = filterTransactionsByTimeframe(allExpenses, this.timeframe);
-        const stats = { "Trip/Event": {}, "Category": {} };
+        const stats = { "Trip/Event": {}, "Category": {}, "Type": {} };
         
         const parseAmount = (val) => {
             if (!val) return 0;
             if (typeof val === 'number') return val;
             return parseFloat(val.toString().replace(/,/g, '')) || 0;
         };
-
+        
+        // 1. Calculate Trip/Event and Category stats directly from expenses
         expenses.forEach(item => {
           const tripEventTag = item["Trip/Event"];
           const categoryTag = item["Category"];
@@ -202,24 +273,51 @@ export default class TagsList {
           }
         });
 
+        // 2. Calculate Type stats by aggregating Trip/Event stats based on TripTypeMap
+        const tripTypeMap = this.isEditMode ? this.localTags.TripTypeMap : (store.getState('tags').TripTypeMap || {});
+        
+        // Iterate over all Trip/Event stats we just calculated
+        Object.entries(stats["Trip/Event"]).forEach(([tripName, tripStats]) => {
+            const type = tripTypeMap[tripName];
+            if (type) {
+                if (!stats["Type"][type]) stats["Type"][type] = { count: 0, income: 0, expense: 0 };
+                stats["Type"][type].count += tripStats.count;
+                stats["Type"][type].income += tripStats.income;
+                stats["Type"][type].expense += tripStats.expense;
+            }
+        });
+        
+        // Ensure all "Types" exist in stats even if count is 0
+        const types = this.isEditMode ? (this.localTags["Type"] || []) : (store.getState('tags')["Type"] || []);
+        types.forEach(t => {
+            if (!stats["Type"][t]) stats["Type"][t] = { count: 0, income: 0, expense: 0 };
+        });
+
+        // Handle Queue (Virtual Updates)
         if (this.isEditMode && this.queue && this.queue.length > 0) {
             this.queue.forEach(op => {
-                const type = op.tagType;
-                if (!stats[type]) stats[type] = {};
-
                 if (op.type === 'rename') {
-                    const oldStats = stats[type][op.oldValue] || { count: 0, income: 0, expense: 0 };
-                    if (stats[type][op.newValue]) {
-                         stats[type][op.newValue].count += oldStats.count;
-                         stats[type][op.newValue].income += oldStats.income;
-                         stats[type][op.newValue].expense += oldStats.expense;
-                    } else {
-                         stats[type][op.newValue] = { ...oldStats };
+                    const type = op.tagType; // "Trip/Event", "Category", "Type"
+                    if (stats[type]) {
+                        const oldStats = stats[type][op.oldValue] || { count: 0, income: 0, expense: 0 };
+                        if (stats[type][op.newValue]) {
+                             stats[type][op.newValue].count += oldStats.count;
+                             stats[type][op.newValue].income += oldStats.income;
+                             stats[type][op.newValue].expense += oldStats.expense;
+                        } else {
+                             stats[type][op.newValue] = { ...oldStats };
+                        }
+                        delete stats[type][op.oldValue];
                     }
-                    delete stats[type][op.oldValue];
                 } else if (op.type === 'delete') {
-                    delete stats[type][op.value];
-                } 
+                    if (stats[op.tagType]) delete stats[op.tagType][op.value];
+                } else if (op.type === 'updateTripType') {
+                    // If we changed a trip type, we need to re-calculate stats effectively...
+                    // But since this is just visualization in edit mode, maybe we can just update the mapping logic used above.
+                    // The logic above uses `tripTypeMap` which comes from `this.localTags`.
+                    // So if `this.localTags.TripTypeMap` is updated, the calc above is correct.
+                    // We just need to make sure `renderTables` re-calls `calculateTagStats`.
+                }
             });
         }
 

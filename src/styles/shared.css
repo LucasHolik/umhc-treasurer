@@ -51,6 +51,7 @@
 /* Shared Table Styling (Explicit class) */
 .section-table {
   width: 100%;
+  table-layout: fixed; /* Added to ensure table respects 100% width and prevents overflow */
   border-collapse: collapse;
   margin-top: 15px;
 }

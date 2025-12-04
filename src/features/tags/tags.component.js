@@ -4,6 +4,7 @@ import ModalComponent from '../../shared/modal.component.js';
 import router from '../../core/router.js';
 import TagsList from './tags.list.js';
 import TagsDetails from './tags.details.js';
+import BulkAddTripModal from './bulk-add-trip-modal.js';
 
 class TagsComponent {
   constructor(element) {
@@ -24,20 +25,20 @@ class TagsComponent {
     this.render = this.render.bind(this);
     
     // Initialize Sub-Components
-    // We will instantiate them on render or keep them persistent?
-    // Persistent allows them to keep their internal state (search, sort).
     this.tagsList = new TagsList(element, {
         onEditModeToggle: (isEdit) => this.handleEditModeToggle(isEdit),
         onSave: () => this.handleSave(),
         onTagClick: (type, name) => this.handleTagClick(type, name),
         onTagAdd: (type, value) => this.handleTagAdd(type, value),
         onTagDelete: (type, value) => this.handleTagDelete(type, value),
-        onTagRename: (type, oldValue) => this.handleTagRename(type, oldValue)
+        onTagRename: (type, oldValue) => this.handleTagRename(type, oldValue),
+        onUpdateTripType: (tripName, typeName) => this.handleUpdateTripType(tripName, typeName)
     });
 
     this.tagsDetails = new TagsDetails(element, {
         onBack: () => this.handleBack(),
-        onAddTransactions: (type, name) => this.handleAddTransactions(type, name)
+        onAddTransactions: (type, name) => this.handleAddTransactions(type, name),
+        onAddTagsToType: (typeName) => this.handleAddTagsToType(typeName)
     });
 
     this.render();
@@ -48,21 +49,18 @@ class TagsComponent {
     });
     store.subscribe('expenses', this.render);
     store.subscribe('savingTags', this.render);
+    store.subscribe('isTagging', this.render);
   }
 
   render() {
     const savingTags = store.getState('savingTags');
+    const isTagging = store.getState('isTagging');
     
-    if (savingTags) {
+    if (savingTags || isTagging) {
         this.renderSavingState();
         return;
     }
 
-    // Clear container before sub-component render if needed, 
-    // but sub-components usually overwrite innerHTML.
-    // However, TagsList and TagsDetails expect `this.element` to be their container.
-    // Since they share the same container, one overwrites the other.
-    
     if (this.viewMode === 'list') {
         this.tagsList.render(this.isEditMode, this.localTags, this.queue);
     } else if (this.viewMode === 'details' && this.selectedTag) {
@@ -74,8 +72,8 @@ class TagsComponent {
       this.element.innerHTML = `
         <div class="section" style="height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
             <div class="loader" style="width: 50px; height: 50px; margin-bottom: 20px;"></div>
-            <h3 style="color: #f0ad4e; margin-bottom: 10px;">Saving Tags...</h3>
-            <p style="color: #fff; font-size: 1.1em;">Processing tag updates securely.</p>
+            <h3 style="color: #f0ad4e; margin-bottom: 10px;">Processing...</h3>
+            <p style="color: #fff; font-size: 1.1em;">Syncing changes with the database.</p>
         </div>
       `;
   }
@@ -106,6 +104,40 @@ class TagsComponent {
       
       // Navigate
       router.navigate('transactions');
+  }
+  
+  async handleAddTagsToType(typeName) {
+      const tagsData = store.getState('tags');
+      const tripTags = tagsData["Trip/Event"] || [];
+      const tripTypeMap = tagsData.TripTypeMap || {};
+      const allTypes = tagsData["Type"] || [];
+      
+      const candidateTrips = tripTags.sort();
+      
+      const modal = new BulkAddTripModal(
+          typeName, 
+          candidateTrips, 
+          tripTypeMap,
+          allTypes, 
+          async (selectedTrips) => {
+              store.setState('isTagging', true);
+              const operations = selectedTrips.map(trip => [trip, typeName, 'updateTripType', 'Trip/Event']);
+              try {
+                 const result = await ApiService.processTagOperations(operations);
+                 if (result.success) {
+                      document.dispatchEvent(new CustomEvent('dataUploaded'));
+                 } else {
+                      await this.modal.alert(result.message || "Failed to update tags.");
+                 }
+              } catch (err) {
+                  console.error(err);
+                  await this.modal.alert("Error: " + err.message);
+              } finally {
+                  store.setState('isTagging', false);
+              }
+          }
+      );
+      modal.show();
   }
 
   // --- Edit Mode Handlers ---
@@ -168,6 +200,18 @@ class TagsComponent {
           }
       }
   }
+  
+  handleUpdateTripType(tripName, newType) {
+      // Update local state
+      this.localTags.TripTypeMap[tripName] = newType;
+      
+      // Queue operation
+      // If we have multiple updates for the same trip in the queue, we should optimize?
+      // For now, just append. The backend processes sequentially.
+      this.queue.push({ type: 'updateTripType', tagType: 'Trip/Event', oldValue: tripName, newValue: newType });
+      
+      this.render();
+  }
 
   async handleSave() {
     if (this.queue.length === 0) {
@@ -176,7 +220,7 @@ class TagsComponent {
         return;
     }
 
-    store.setState('savingTags', true);
+    store.setState('savingTags', true); // This triggers the loading view in render()
     
     const chunkSize = 10;
     const chunks = [];
@@ -185,6 +229,7 @@ class TagsComponent {
         if (op.type === 'add') return [null, op.value, 'add', op.tagType];
         if (op.type === 'delete') return [op.value, null, 'delete', op.tagType];
         if (op.type === 'rename') return [op.oldValue, op.newValue, 'rename', op.tagType];
+        if (op.type === 'updateTripType') return [op.oldValue, op.newValue, 'updateTripType', op.tagType];
         return null;
     }).filter(op => op !== null);
 
@@ -199,6 +244,11 @@ class TagsComponent {
         
         // Refresh data to ensure everything is synced
         document.dispatchEvent(new CustomEvent('dataUploaded')); 
+        // Note: dataUploaded event usually triggers App.js to reload data.
+        
+        // Wait a bit or assume reload happens?
+        // Ideally we should wait for reload to complete before showing UI again.
+        // App.js usually sets isLoading=true on dataUploaded.
         
         this.isEditMode = false;
         this.localTags = null;
