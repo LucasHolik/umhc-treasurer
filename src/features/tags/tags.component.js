@@ -62,7 +62,26 @@ class TagsComponent {
     }
 
     if (this.viewMode === 'list') {
-        this.tagsList.render(this.isEditMode, this.localTags, this.queue);
+        // Calculate Virtual TripTypeMap (Store + Queue)
+        let virtualTripTypeMap = { ...(store.getState('tags').TripTypeMap || {}) };
+        
+        // If in edit mode, start from localTags (which might have structural changes)
+        if (this.isEditMode && this.localTags && this.localTags.TripTypeMap) {
+             virtualTripTypeMap = { ...this.localTags.TripTypeMap };
+        }
+
+        // Apply queue updates
+        this.queue.forEach(op => {
+            if (op.type === 'updateTripType') {
+                if (op.newValue === "") {
+                    delete virtualTripTypeMap[op.oldValue];
+                } else {
+                    virtualTripTypeMap[op.oldValue] = op.newValue;
+                }
+            }
+        });
+
+        this.tagsList.render(this.isEditMode, this.localTags, this.queue, virtualTripTypeMap);
     } else if (this.viewMode === 'details' && this.selectedTag) {
         this.tagsDetails.render(this.selectedTag.type, this.selectedTag.name);
     }
@@ -144,6 +163,10 @@ class TagsComponent {
 
   async handleEditModeToggle(isEdit) {
       if (isEdit) {
+          if (this.queue.length > 0) {
+              const confirmed = await this.modal.confirm('You have unsaved changes to Trip/Event types. Discard them to enter Edit Mode?', 'Unsaved Changes');
+              if (!confirmed) return;
+          }
           // Enter Edit Mode
           this.localTags = JSON.parse(JSON.stringify(store.getState('tags')));
           this.queue = [];
@@ -202,12 +225,15 @@ class TagsComponent {
   }
   
   handleUpdateTripType(tripName, newType) {
-      // Update local state
-      this.localTags.TripTypeMap[tripName] = newType;
+      // Update local state if in edit mode
+      if (this.isEditMode && this.localTags) {
+          this.localTags.TripTypeMap[tripName] = newType;
+      }
       
       // Queue operation
-      // If we have multiple updates for the same trip in the queue, we should optimize?
-      // For now, just append. The backend processes sequentially.
+      // Remove any previous pending update for this specific trip to avoid redundant ops
+      this.queue = this.queue.filter(op => !(op.type === 'updateTripType' && op.oldValue === tripName));
+
       this.queue.push({ type: 'updateTripType', tagType: 'Trip/Event', oldValue: tripName, newValue: newType });
       
       this.render();

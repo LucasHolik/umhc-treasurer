@@ -26,14 +26,35 @@ export default class TagsList {
         this.element.addEventListener('click', (e) => this.handleInteractiveClick(e));
     }
 
-    render(isEditMode, localTags, queue) {
+    render(isEditMode, localTags, queue, virtualTripTypeMap) {
         this.isEditMode = isEditMode;
         this.localTags = localTags; // Passed from parent if in edit mode
         this.queue = queue;         // Passed from parent
+        this.virtualTripTypeMap = virtualTripTypeMap;
+
+        let actionButtons = '';
+        if (this.isEditMode) {
+            actionButtons = `
+                <button id="cancel-tags-btn" class="secondary-btn" style="border-color: #d9534f; color: #d9534f; margin-right: 10px;">Cancel</button>
+                <button id="save-tags-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Save Changes</button>
+            `;
+        } else if (this.queue && this.queue.length > 0) {
+             actionButtons = `
+                <button id="save-tags-btn" class="secondary-btn" style="background-color: #f0ad4e; color: #2a4d25; font-weight: bold; animation: pulse 2s infinite;">Save Changes (${this.queue.length})</button>
+             `;
+        } else {
+            actionButtons = `<button id="edit-tags-btn" class="secondary-btn">Edit Tags</button>`;
+        }
 
         this.element.innerHTML = `
             <div class="section">
-
+                <style>
+                    @keyframes pulse {
+                        0% { box-shadow: 0 0 0 0 rgba(240, 173, 78, 0.7); }
+                        70% { box-shadow: 0 0 0 10px rgba(240, 173, 78, 0); }
+                        100% { box-shadow: 0 0 0 0 rgba(240, 173, 78, 0); }
+                    }
+                </style>
                 <div class="tags-header-actions" style="display: flex; justify-content: space-between; align-items: center;">
                     <h2>Manage Tags</h2>
                     <div class="header-controls-group">
@@ -51,13 +72,7 @@ export default class TagsList {
                             </div>
                         </div>
                         <div class="actions">
-                            ${this.isEditMode 
-                                ? `
-                                    <button id="cancel-tags-btn" class="secondary-btn" style="border-color: #d9534f; color: #d9534f; margin-right: 10px;">Cancel</button>
-                                    <button id="save-tags-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Save Changes</button>
-                                  `
-                                : `<button id="edit-tags-btn" class="secondary-btn">Edit Tags</button>`
-                            }
+                            ${actionButtons}
                         </div>
                     </div>
                 </div>
@@ -93,8 +108,7 @@ export default class TagsList {
                         </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
 
         this.attachEventListeners();
         this.renderTables();
@@ -120,7 +134,8 @@ export default class TagsList {
             tag.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
-        const tripTypeMap = this.isEditMode ? this.localTags.TripTypeMap : (store.getState('tags').TripTypeMap || {});
+        // Use virtualTripTypeMap for rendering "Type" columns
+        const tripTypeMap = this.virtualTripTypeMap || (this.isEditMode ? this.localTags.TripTypeMap : (store.getState('tags').TripTypeMap || {}));
 
         const data = visibleTags.map(tag => {
             const stats = tagStats[type][tag] || { count: 0, income: 0, expense: 0 };
@@ -152,7 +167,8 @@ export default class TagsList {
                 label: 'Type',
                 type: 'custom',
                 render: (item) => {
-                    if (this.isEditMode) {
+                    // In edit mode: text only. Not in edit mode: interactive.
+                    if (!this.isEditMode) {
                         if (item.tripType) {
                              return `
                                 <span class="tag-pill" data-tag="${item.tag}" data-type="Type">
@@ -196,8 +212,14 @@ export default class TagsList {
             columns: columns,
             initialSortField: 'tag',
             initialSortAsc: true,
-            onRowClick: (item) => {
-                if (!this.isEditMode && this.callbacks.onTagClick) {
+            onRowClick: (item, event) => {
+                // Check if the click originated from an interactive element within the row
+                const target = event.target;
+                const isInteractiveElement = target.classList.contains('add-tag-placeholder') ||
+                                             target.closest('.tag-pill') || 
+                                             target.classList.contains('remove-btn');
+                
+                if (!isInteractiveElement && !this.isEditMode && this.callbacks.onTagClick) {
                     this.callbacks.onTagClick(type, item.tag);
                 }
             }
@@ -229,7 +251,9 @@ export default class TagsList {
     }
 
     handleInteractiveClick(e) {
-        if (!this.isEditMode) return;
+        // We ONLY want this interactive when NOT in global edit mode
+        if (this.isEditMode) return;
+        
         const target = e.target;
 
         // Remove Tag
@@ -248,7 +272,7 @@ export default class TagsList {
             e.stopPropagation();
             const tag = target.dataset.tag;
             // Show selector
-             const typeOptions = this.localTags ? (this.localTags['Type'] || []) : null;
+             const typeOptions = (store.getState('tags')["Type"] || []);
              this.tagSelector.show(
                 target.getBoundingClientRect(),
                 'Type', 
@@ -267,7 +291,7 @@ export default class TagsList {
             e.stopPropagation();
             const tag = pill.dataset.tag;
             const currentVal = pill.querySelector('.tag-text').textContent;
-             const typeOptions = this.localTags ? (this.localTags['Type'] || []) : null;
+             const typeOptions = (store.getState('tags')["Type"] || []);
              this.tagSelector.show(
                 pill.getBoundingClientRect(),
                 'Type', 
@@ -313,7 +337,8 @@ export default class TagsList {
         });
 
         // 2. Calculate Type stats by aggregating Trip/Event stats based on TripTypeMap
-        const tripTypeMap = this.isEditMode ? this.localTags.TripTypeMap : (store.getState('tags').TripTypeMap || {});
+        // Use virtualTripTypeMap if available to reflect pending changes in stats too!
+        const tripTypeMap = this.virtualTripTypeMap || (this.isEditMode ? this.localTags.TripTypeMap : (store.getState('tags').TripTypeMap || {}));
         
         // Iterate over all Trip/Event stats we just calculated
         Object.entries(stats["Trip/Event"]).forEach(([tripName, tripStats]) => {
@@ -332,7 +357,7 @@ export default class TagsList {
             if (!stats["Type"][t]) stats["Type"][t] = { count: 0, income: 0, expense: 0 };
         });
 
-        // Handle Queue (Virtual Updates)
+        // Handle Queue (Virtual Updates) - mostly for renames/deletes in edit mode
         if (this.isEditMode && this.queue && this.queue.length > 0) {
             this.queue.forEach(op => {
                 if (op.type === 'rename') {
@@ -369,7 +394,7 @@ export default class TagsList {
         
         if (timeframeSelect) timeframeSelect.addEventListener('change', (e) => {
             this.timeframe = e.target.value;
-            this.render(this.isEditMode, this.localTags, this.queue);
+            this.render(this.isEditMode, this.localTags, this.queue, this.virtualTripTypeMap);
         });
 
         this.element.querySelectorAll('.column-search').forEach(input => {
