@@ -119,7 +119,7 @@ export default class TagsList {
             { key: 'income', label: 'Income', type: 'currency', class: 'positive tags-table-num text-right' },
             { key: 'expense', label: 'Expense', type: 'currency', class: 'negative tags-table-num text-right' },
             { key: 'net', label: 'Net', type: 'currency', class: 'tags-table-num text-right', 
-              render: (item) => `<span class="${item.net > 0 ? 'positive' : (item.net < 0 ? 'negative' : '')}">${formatCurrency(item.net)}</span>` 
+              render: (item) => `<span class="${item.net > 0 ? 'positive' : (item.net < 0 ? 'negative' : '')}">${formatCurrency(Math.abs(item.net))}</span>` 
             },
             { key: 'count', label: 'Uses', type: 'number', class: 'text-center' }
         ];
