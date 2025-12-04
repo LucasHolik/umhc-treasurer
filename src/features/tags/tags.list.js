@@ -2,7 +2,7 @@ import store from '../../core/state.js';
 import { formatCurrency, filterTransactionsByTimeframe } from '../../core/utils.js';
 import ModalComponent from '../../shared/modal.component.js';
 import SortableTable from '../../shared/sortable-table.component.js';
-import TagSelector from '../transactions/tag-selector.js';
+import TagSelector from '../../shared/tag-selector.component.js';
 
 export default class TagsList {
     constructor(element, callbacks) {
@@ -21,6 +21,9 @@ export default class TagsList {
         
         // Table instances
         this.tables = {};
+
+        // Global delegation for interactive clicks inside this component
+        this.element.addEventListener('click', (e) => this.handleInteractiveClick(e));
     }
 
     render(isEditMode, localTags, queue) {
@@ -150,7 +153,16 @@ export default class TagsList {
                 type: 'custom',
                 render: (item) => {
                     if (this.isEditMode) {
-                         return `<div class="editable-type-cell" data-tag="${item.tag}">${item.tripType || '<span style="color:#ccc;">+</span>'}</div>`;
+                        if (item.tripType) {
+                             return `
+                                <span class="tag-pill" data-tag="${item.tag}" data-type="Type">
+                                    <span class="tag-text">${item.tripType}</span>
+                                    <span class="remove-btn" title="Remove Type">×</span>
+                                </span>
+                             `;
+                        } else {
+                             return `<span class="add-tag-placeholder" data-tag="${item.tag}" data-type="Type" title="Add Type">+</span>`;
+                        }
                     }
                     return item.tripType || '';
                 }
@@ -213,31 +225,58 @@ export default class TagsList {
                     if (this.callbacks.onTagDelete) this.callbacks.onTagDelete(t, tag);
                 });
             });
-            
-            // Bind type editor for Trip/Event
-            if (type === 'Trip/Event') {
-                container.querySelectorAll('.editable-type-cell').forEach(cell => {
-                    cell.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const tag = e.currentTarget.dataset.tag;
-                        const currentType = cell.textContent === '+' ? '' : cell.textContent;
-                        
-                        const typeOptions = this.isEditMode && this.localTags ? (this.localTags['Type'] || []) : null;
+        }
+    }
 
-                        this.tagSelector.show(
-                            cell.getBoundingClientRect(),
-                            'Type', // We want to select from 'Type' list
-                            currentType,
-                            (newType) => {
-                                if (this.callbacks.onUpdateTripType) {
-                                    this.callbacks.onUpdateTripType(tag, newType);
-                                }
-                            },
-                            typeOptions
-                        );
-                    });
-                });
+    handleInteractiveClick(e) {
+        if (!this.isEditMode) return;
+        const target = e.target;
+
+        // Remove Tag
+        if (target.classList.contains('remove-btn')) {
+            e.stopPropagation();
+            const pill = target.closest('.tag-pill');
+            const tag = pill.dataset.tag;
+            if (this.callbacks.onUpdateTripType) {
+                this.callbacks.onUpdateTripType(tag, ""); // Clear type
             }
+            return;
+        }
+
+        // Add Tag (+)
+        if (target.classList.contains('add-tag-placeholder')) {
+            e.stopPropagation();
+            const tag = target.dataset.tag;
+            // Show selector
+             const typeOptions = this.localTags ? (this.localTags['Type'] || []) : null;
+             this.tagSelector.show(
+                target.getBoundingClientRect(),
+                'Type', 
+                "", 
+                (newType) => {
+                    if (this.callbacks.onUpdateTripType) this.callbacks.onUpdateTripType(tag, newType);
+                },
+                typeOptions
+             );
+             return;
+        }
+
+        // Edit Tag (Click pill body)
+        const pill = target.closest('.tag-pill');
+        if (pill) {
+            e.stopPropagation();
+            const tag = pill.dataset.tag;
+            const currentVal = pill.querySelector('.tag-text').textContent;
+             const typeOptions = this.localTags ? (this.localTags['Type'] || []) : null;
+             this.tagSelector.show(
+                pill.getBoundingClientRect(),
+                'Type', 
+                currentVal, 
+                (newType) => {
+                    if (this.callbacks.onUpdateTripType) this.callbacks.onUpdateTripType(tag, newType);
+                },
+                typeOptions
+             );
         }
     }
 

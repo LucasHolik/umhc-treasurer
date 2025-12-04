@@ -8,7 +8,7 @@ import TransactionsManualModal from './transactions.manual.js';
 import SplitTransactionModal from './split-transaction.modal.js';
 import TransactionsSplitHistory from './transactions.split-history.js';
 import * as TransactionsLogic from './transactions.logic.js';
-import TagSelector from './tag-selector.js';
+import TagSelector from '../../shared/tag-selector.component.js';
 
 import { formatCurrency } from '../../core/utils.js';
 

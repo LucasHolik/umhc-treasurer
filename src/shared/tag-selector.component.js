@@ -1,4 +1,4 @@
-import store from '../../core/state.js';
+import store from '../core/state.js';
 
 export default class TagSelector {
     constructor() {
@@ -13,7 +13,7 @@ export default class TagSelector {
         
         // Global click to close
         document.addEventListener('click', (e) => {
-            if (this.isOpen && !this.element.contains(e.target) && !e.target.closest('.tag-interactive-area')) {
+            if (this.isOpen && !this.element.contains(e.target) && !e.target.closest('.tag-interactive-area') && !e.target.closest('.tag-pill') && !e.target.closest('.add-tag-placeholder')) {
                 this.close();
             }
         });
