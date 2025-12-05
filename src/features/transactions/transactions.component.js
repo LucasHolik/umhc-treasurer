@@ -212,7 +212,7 @@ class TransactionsComponent {
                 
                 <div class="transaction-actions" style="align-self: flex-start; margin-top: 22px;">
                     ${hasPendingChanges ? 
-                        `<button id="save-changes-btn" class="save-changes-btn">Save Changes (${this.pendingChanges.size})</button>` : 
+                        `<button id="save-changes-btn" class="action-btn">Save Changes (${this.pendingChanges.size})</button>` : 
                         ''
                     }
                     <button id="tag-transactions-btn" class="secondary-btn">Bulk Tagging Mode</button>
@@ -247,7 +247,7 @@ class TransactionsComponent {
 
                     <div style="flex-grow: 1;"></div>
                     <span id="selection-count" class="selection-count">0 selected</span>
-                    <button id="bulk-apply-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Apply Tags</button>
+                    <button id="bulk-apply-btn" class="action-btn">Apply Tags</button>
                     <button id="bulk-cancel-btn" class="secondary-btn" style="border-color: #d9534f; color: #d9534f;">Cancel</button>
                 </div>
             </div>
@@ -615,7 +615,7 @@ class TransactionsComponent {
               // Insert button if it's missing (prepend to actions)
               const newBtn = document.createElement('button');
               newBtn.id = 'save-changes-btn';
-              newBtn.className = 'save-changes-btn';
+              newBtn.className = 'action-btn';
               newBtn.textContent = btnText;
               newBtn.addEventListener('click', () => this.savePendingChanges());
               container.prepend(newBtn);

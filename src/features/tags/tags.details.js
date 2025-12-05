@@ -39,9 +39,9 @@ export default class TagsDetails {
         let actionButton = '';
         if (tagType === 'Type') {
              // Use save-changes-btn for orange background
-             actionButton = `<button id="add-tags-to-type-btn" class="save-changes-btn">Add Trip/Events</button>`;
+             actionButton = `<button id="add-tags-to-type-btn" class="action-btn">Add Trip/Events</button>`;
         } else {
-             actionButton = `<button id="add-transactions-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Add Transactions</button>`;
+             actionButton = `<button id="add-transactions-btn" class="action-btn">Add Transactions</button>`;
         }
 
         this.element.innerHTML = `

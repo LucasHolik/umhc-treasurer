@@ -36,11 +36,11 @@ export default class TagsList {
         if (this.isEditMode) {
             actionButtons = `
                 <button id="cancel-tags-btn" class="secondary-btn" style="border-color: #d9534f; color: #d9534f; margin-right: 10px;">Cancel</button>
-                <button id="save-tags-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Save Changes</button>
+                <button id="save-tags-btn" class="action-btn">Save Changes</button>
             `;
         } else if (this.queue && this.queue.length > 0) {
              actionButtons = `
-                <button id="save-tags-btn" class="secondary-btn" style="background-color: #f0ad4e; color: #2a4d25; font-weight: bold; animation: pulse 2s infinite;">Save Changes (${this.queue.length})</button>
+                <button id="save-tags-btn" class="action-btn">Save Changes (${this.queue.length})</button>
              `;
         } else {
             actionButtons = `<button id="edit-tags-btn" class="secondary-btn">Edit Tags</button>`;
@@ -48,13 +48,6 @@ export default class TagsList {
 
         this.element.innerHTML = `
             <div class="section">
-                <style>
-                    @keyframes pulse {
-                        0% { box-shadow: 0 0 0 0 rgba(240, 173, 78, 0.7); }
-                        70% { box-shadow: 0 0 0 10px rgba(240, 173, 78, 0); }
-                        100% { box-shadow: 0 0 0 0 rgba(240, 173, 78, 0); }
-                    }
-                </style>
                 <div class="tags-header-actions" style="display: flex; justify-content: space-between; align-items: center;">
                     <h2>Manage Tags</h2>
                     <div class="header-controls-group">

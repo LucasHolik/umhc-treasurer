@@ -73,7 +73,7 @@ export default class TagsAddTrip {
 
                     <!-- Actions -->
                     <div class="transaction-actions" style="align-self: flex-start; margin-top: 22px;">
-                        <button id="add-trip-save-btn" class="save-changes-btn" disabled>Add Selected (<span id="selection-count">0</span>)</button>
+                        <button id="add-trip-save-btn" class="action-btn" disabled>Add Selected (<span id="selection-count">0</span>)</button>
                     </div>
                 </div>
                 
