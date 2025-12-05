@@ -210,29 +210,34 @@ class App {
         });
     }
     
-    const navItems = this.element.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-        item.addEventListener('click', (e) => {
-            navItems.forEach(i => i.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            const tabName = e.currentTarget.getAttribute('data-tab');
-            this.element.querySelector('#page-title').textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
-            
-            // hide all tab content
-            this.element.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            // show current tab content
-            this.element.querySelector(`#${tabName}-content`).classList.add('active');
-
-            this.handleLoadingState();
-        });
+    // Handle navigation via hash change (Unidirectional Flow)
+    window.addEventListener('hashchange', () => {
+        const hash = window.location.hash.slice(1) || 'dashboard';
+        this.updateActiveTab(hash);
     });
 
-    // Set initial active tab
+    // Initial check
     const initialTab = window.location.hash.slice(1) || 'dashboard';
-    const activeNavItem = this.element.querySelector(`.nav-item[data-tab="${initialTab}"]`);
-    if (activeNavItem) {
-        activeNavItem.click();
-    }
+    this.updateActiveTab(initialTab);
+  }
+
+  updateActiveTab(tabName) {
+      // 1. Update Sidebar Selection
+      const navItems = this.element.querySelectorAll('.nav-item');
+      navItems.forEach(i => {
+          if (i.getAttribute('data-tab') === tabName) {
+              i.classList.add('active');
+          } else {
+              i.classList.remove('active');
+          }
+      });
+
+      // 2. Update Page Title
+      const title = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+      this.element.querySelector('#page-title').textContent = title;
+
+      // 3. Handle Loading State specific to new tab
+      this.handleLoadingState();
   }
 
   async loadInitialData() {

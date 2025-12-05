@@ -13,13 +13,21 @@ const createRouter = () => {
   };
 
   const navigate = (hash) => {
-    if (currentRoute) {
-      routes[currentRoute].style.display = 'none';
+    // If we are already on this hash (and it's not a forced re-nav), we might want to just ensure classes are set
+    // But for simplicity, we'll just update the classes.
+    
+    if (currentRoute && routes[currentRoute]) {
+      routes[currentRoute].classList.remove('active');
     }
+    
     if (routes[hash]) {
-      routes[hash].style.display = 'block';
+      routes[hash].classList.add('active');
       currentRoute = hash;
-      window.location.hash = hash;
+      
+      // Only push hash if it's different (avoids redundant history entries/events)
+      if (window.location.hash.slice(1) !== hash) {
+          window.location.hash = hash;
+      }
     }
   };
 
