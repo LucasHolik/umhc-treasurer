@@ -58,7 +58,7 @@ class SettingsComponent {
              <!-- Base Opening Balance -->
              <div style="display: flex; align-items: center; gap: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 15px;">
                 <div style="flex: 1;">
-                    <label style="display: block; color: #f0ad4e; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Base Opening Balance</label>
+                    <div style="display: block; color: #f0ad4e; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Base Opening Balance</div>
                     <div style="font-size: 1.5em;">£${formatCurrency(currentBalance)}</div>
                     <div style="color: #aaa; font-size: 0.9em;">Set manually.</div>
                 </div>
@@ -68,7 +68,7 @@ class SettingsComponent {
              <!-- Manual Offset -->
              <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
                 <div style="flex: 1;">
-                    <label style="display: block; color: #f0ad4e; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Manual Transactions Offset</label>
+                    <div style="display: block; color: #f0ad4e; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Manual Transactions Offset</div>
                     <div style="font-size: 1.2em; color: ${manualOffset >= 0 ? '#5cb85c' : '#d9534f'}">${manualOffset >= 0 ? '+' : ''}£${formatCurrency(Math.abs(manualOffset))}</div>
                     <div style="color: #aaa; font-size: 0.9em;">Calculated from manually added old transactions.</div>
                 </div>
@@ -77,7 +77,7 @@ class SettingsComponent {
              <!-- Effective Start -->
              <div style="display: flex; align-items: center; gap: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
                 <div style="flex: 1;">
-                    <label style="display: block; color: #fff; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Effective Start Balance</label>
+                    <div style="display: block; color: #fff; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Effective Start Balance</div>
                     <div style="font-size: 1.5em;">£${formatCurrency(effectiveBalance)}</div>
                     <div style="color: #aaa; font-size: 0.9em;">Actual starting point for calculations.</div>
                 </div>

@@ -64,7 +64,7 @@ class ModalComponent {
       overlay.className = 'modal-overlay';
       
       const inputHtml = options.type === 'prompt' 
-        ? `<input type="text" id="modal-input" value="${options.defaultValue}" />` 
+        ? `<input type="text" id="modal-input" aria-label="Value" value="${options.defaultValue}" />` 
         : '';
 
       const cancelBtnHtml = options.type !== 'alert' 

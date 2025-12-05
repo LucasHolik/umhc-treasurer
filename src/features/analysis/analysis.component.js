@@ -152,7 +152,7 @@ class AnalysisComponent {
 
             <!-- Metric & Chart Type -->
             <div class="control-group">
-                <label>Visualization</label>
+                <label for="analysis-metric-select">Visualization</label>
                 <select id="analysis-metric-select" aria-label="Metric" class="control-input">
                     <option value="balance" ${this.state.metric === 'balance' ? 'selected' : ''}>Cumulative Balance</option>
                     <option value="income" ${this.state.metric === 'income' ? 'selected' : ''}>Income Only</option>
@@ -169,15 +169,15 @@ class AnalysisComponent {
 
             <!-- Grouping -->
             <div class="control-group">
-                <label>Grouping</label>
+                <label for="analysis-primary-group-select">Grouping</label>
                 <div style="display:flex; flex-direction:column; gap:5px;">
-                    <select id="analysis-primary-group-select" class="control-input" title="Primary Grouping (X-Axis)">
+                    <select id="analysis-primary-group-select" class="control-input" aria-label="Primary Grouping" title="Primary Grouping (X-Axis)">
                         <option value="date" ${this.state.primaryGroup === 'date' ? 'selected' : ''}>By Date</option>
                         <option value="category" ${this.state.primaryGroup === 'category' ? 'selected' : ''}>By Category</option>
                         <option value="trip" ${this.state.primaryGroup === 'trip' ? 'selected' : ''}>By Trip/Event</option>
                     </select>
                     
-                    <select id="analysis-secondary-group-select" class="control-input" title="Secondary Grouping (Segments/Stacks)">
+                    <select id="analysis-secondary-group-select" class="control-input" aria-label="Secondary Grouping" title="Secondary Grouping (Segments/Stacks)">
                         <option value="none" ${this.state.secondaryGroup === 'none' ? 'selected' : ''}>No Sub-grouping</option>
                         <option value="category" ${this.state.secondaryGroup === 'category' ? 'selected' : ''}>Split by Category</option>
                         <option value="trip" ${this.state.secondaryGroup === 'trip' ? 'selected' : ''}>Split by Trip/Event</option>
@@ -196,7 +196,7 @@ class AnalysisComponent {
         <!-- Tag Filters (Full Width) -->
         <div class="analysis-controls" style="margin-top:-10px;">
              <div class="control-group" style="grid-column: 1 / -1;">
-                <label>Filter Tags</label>
+                <h3 style="font-size: 1em; color: #f0ad4e; margin: 0 0 10px 0;">Filter Tags</h3>
                 <div class="tag-filters-container">
                     
                     <!-- Trip Filter -->
@@ -470,7 +470,7 @@ class AnalysisComponent {
     if (visibleTags.length > 0) {
         const selectAllDiv = document.createElement('div');
         selectAllDiv.className = 'tag-checkbox-item';
-        selectAllDiv.innerHTML = `<input type="checkbox" id="all-${type.replace('/','-')}" /> <label for="all-${type.replace('/','-')}"><em>Select All</em></label>`;
+        selectAllDiv.innerHTML = `<input type="checkbox" id="analysis-all-${type.replace('/','-')}" /> <label for="analysis-all-${type.replace('/','-')}"><em>Select All</em></label>`;
         
         // Check state of select all box: true if all visible tags are in set
         const allVisibleSelected = visibleTags.every(t => selectionSet.has(t));
@@ -497,7 +497,7 @@ class AnalysisComponent {
         div.className = 'tag-checkbox-item';
         const isChecked = selectionSet.has(tag);
         // Unique ID for label
-        const uid = `${type.replace('/','-')}-${tag.replace(/\s+/g,'-')}`; 
+        const uid = `analysis-${type.replace('/','-')}-${tag.replace(/\s+/g,'-')}`; 
         div.innerHTML = `
             <input type="checkbox" id="${uid}" value="${tag}" class="tag-item-input" ${isChecked ? 'checked' : ''}>
             <label for="${uid}">${tag}</label>

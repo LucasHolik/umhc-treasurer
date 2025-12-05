@@ -188,7 +188,7 @@ class TransactionsComponent {
                 
                 <!-- New Tag Filters (Analysis Style) -->
                 <div class="control-group" style="flex-grow: 1;">
-                    <label class="control-label">Filter Tags</label>
+                    <div class="control-label" style="font-weight: bold; margin-bottom: 5px;">Filter Tags</div>
                     <div class="tag-filters-container">
                         <!-- Trip Filter -->
                         <div class="tag-filter-column">

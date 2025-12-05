@@ -57,7 +57,7 @@ export default class TransactionsFilters {
         noTagDiv.style.marginBottom = '5px';
         noTagDiv.style.paddingBottom = '5px';
         
-        const noTagUid = `notag-${type.replace('/','-')}`;
+        const noTagUid = `tx-notag-${type.replace('/','-')}`;
         noTagDiv.innerHTML = `<input type="checkbox" id="${noTagUid}" /> <label for="${noTagUid}"><em>(No Tag)</em></label>`;
         
         const noTagCheckbox = noTagDiv.querySelector('input');
@@ -82,7 +82,7 @@ export default class TransactionsFilters {
         if (visibleTags.length > 0) {
             const selectAllDiv = document.createElement('div');
             selectAllDiv.className = 'tag-checkbox-item';
-            const selectAllUid = `all-${type.replace('/','-')}`;
+            const selectAllUid = `tx-all-${type.replace('/','-')}`;
             selectAllDiv.innerHTML = `<input type="checkbox" id="${selectAllUid}" /> <label for="${selectAllUid}"><em>Select All Visible</em></label>`;
             
             const allVisibleSelected = visibleTags.every(t => selectionSet.has(t));

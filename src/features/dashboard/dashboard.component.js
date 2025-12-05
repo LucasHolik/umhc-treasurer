@@ -22,7 +22,7 @@ class DashboardComponent {
         <div class="dashboard-header" style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
           <div class="timeframe-selector">
             <label for="dashboard-timeframe-select">Timeframe: </label>
-            <select id="dashboard-timeframe-select">
+            <select id="dashboard-timeframe-select" aria-label="Timeframe">
               <option value="current_month">Current Month</option>
               <option value="past_30_days" selected>Past 30 Days</option>
               <option value="past_3_months">Past 3 Months</option>

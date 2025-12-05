@@ -31,7 +31,7 @@ class LoginComponent {
         <img src="logo.jpg" alt="UMHC Logo" class="logo">
         <div class="instruction-text">${this.isEditingUrl ? 'Update' : 'Enter'} Google Apps Script URL</div>
         <div class="input-group">
-          <input type="text" id="script-url-input" placeholder="Script URL" value="${currentUrl}">
+          <input type="text" id="script-url-input" aria-label="Script URL" placeholder="Script URL" value="${currentUrl}">
           <button id="save-url-button">Save</button>
         </div>
         <div class="action-area">
@@ -70,7 +70,7 @@ class LoginComponent {
         <img src="logo.jpg" alt="UMHC Logo" class="logo">
         <div class="instruction-text">Please enter your API Key</div>
         <div class="input-group">
-          <input type="password" id="api-key" placeholder="API Key">
+          <input type="password" id="api-key" aria-label="API Key" placeholder="API Key">
           <button id="login-button">Login</button>
         </div>
         <div class="action-area">

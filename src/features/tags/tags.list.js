@@ -54,7 +54,7 @@ export default class TagsList {
                         <div class="header-sort-controls">
                             <div class="timeframe-selector">
                                 <label for="tag-timeframe-select">Timeframe: </label>
-                                <select id="tag-timeframe-select">
+                                <select id="tag-timeframe-select" aria-label="Timeframe">
                                     <option value="current_month" ${this.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
                                     <option value="past_30_days" ${this.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
                                     <option value="past_3_months" ${this.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>

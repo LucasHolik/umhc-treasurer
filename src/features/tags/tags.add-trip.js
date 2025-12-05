@@ -58,12 +58,12 @@ export default class TagsAddTrip {
                     
                     <!-- Filter Group -->
                     <div class="control-group" style="flex-grow: 1;">
-                        <label class="control-label">Filter by Current Type</label>
+                        <div class="control-label" style="font-weight: bold; margin-bottom: 5px;">Filter by Current Type</div>
                         <div class="tag-filters-container">
                             <!-- Type Filter Column -->
                             <div class="tag-filter-column">
                                 <div class="tag-filter-header">Types</div>
-                                <input type="text" id="filter-type-search" class="tag-search-input" placeholder="Search types..." value="${this.typeSearchTerm}">
+                                <input type="text" id="filter-type-search" class="tag-search-input" aria-label="Search types" placeholder="Search types..." value="${this.typeSearchTerm}">
                                 <div id="type-filter-list" class="tag-selector">
                                     <!-- Populated via JS -->
                                 </div>
@@ -79,7 +79,7 @@ export default class TagsAddTrip {
                 
                 <!-- Table Search -->
                 <div style="margin-bottom: 15px;">
-                    <input type="text" id="trip-table-search" class="tag-search-input" style="width: 100%; padding: 12px; box-sizing: border-box; font-size: 1em; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);" placeholder="Search Trip/Events..." value="${this.tripSearchTerm}">
+                    <input type="text" id="trip-table-search" class="tag-search-input" aria-label="Search Trip/Events" style="width: 100%; padding: 12px; box-sizing: border-box; font-size: 1em; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);" placeholder="Search Trip/Events..." value="${this.tripSearchTerm}">
                 </div>
 
                 <!-- Table -->
@@ -130,7 +130,7 @@ export default class TagsAddTrip {
         noTypeDiv.style.marginBottom = '5px';
         noTypeDiv.style.paddingBottom = '5px';
         
-        const noTypeUid = `filter-type-none`;
+        const noTypeUid = `add-trip-type-none`;
         noTypeDiv.innerHTML = `<input type="checkbox" id="${noTypeUid}" /> <label for="${noTypeUid}"><em>(No Type)</em></label>`;
         
         const noTypeCb = noTypeDiv.querySelector('input');
@@ -152,7 +152,7 @@ export default class TagsAddTrip {
         if (visibleTypes.length > 0) {
              const selectAllDiv = document.createElement('div');
              selectAllDiv.className = 'tag-checkbox-item';
-             selectAllDiv.innerHTML = `<input type="checkbox" id="filter-type-all-visible" /> <label for="filter-type-all-visible"><em>Select All Visible</em></label>`;
+             selectAllDiv.innerHTML = `<input type="checkbox" id="add-trip-type-all-visible" /> <label for="add-trip-type-all-visible"><em>Select All Visible</em></label>`;
              
              const allVisibleSelected = visibleTypes.every(t => this.typeFilterSet.has(t));
              const selectAllCb = selectAllDiv.querySelector('input');
