@@ -20,7 +20,7 @@ export default class TagSelector {
 
         // Render structure once
         this.element.innerHTML = `
-            <input type="text" class="tag-selector-search" placeholder="Search..." />
+            <input type="text" id="tag-selector-search-input" name="tag-selector-search" aria-label="Search Tags" class="tag-selector-search" placeholder="Search..." />
             <div class="tag-selector-list"></div>
         `;
         

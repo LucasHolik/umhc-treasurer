@@ -134,8 +134,8 @@ export default class SplitTransactionModal {
             row.style.alignItems = 'center';
 
             row.innerHTML = `
-                <input type="text" class="theme-input split-desc" data-index="${index}" value="${split.description}" placeholder="Description" style="flex: 2;">
-                <input type="number" class="theme-input split-amount" data-index="${index}" value="${split.amount || ''}" placeholder="0.00" step="0.01" style="flex: 1;">
+                <input type="text" id="split-desc-${index}" name="split-desc-${index}" aria-label="Description for split ${index + 1}" class="theme-input split-desc" data-index="${index}" value="${split.description}" placeholder="Description" style="flex: 2;">
+                <input type="number" id="split-amount-${index}" name="split-amount-${index}" aria-label="Amount for split ${index + 1}" class="theme-input split-amount" data-index="${index}" value="${split.amount || ''}" placeholder="0.00" step="0.01" style="flex: 1;">
                 <button class="remove-split-btn" data-index="${index}" style="background: none; border: none; color: #d9534f; cursor: pointer; font-size: 1.2em;">&times;</button>
             `;
 

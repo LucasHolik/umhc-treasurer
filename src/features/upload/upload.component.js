@@ -20,6 +20,7 @@ class UploadComponent {
       <div class="upload-container section">
         <h2>Upload Excel File</h2>
         <p>Select an Excel file with transaction data to upload to the sheet.</p>
+        <label for="file-upload" class="visually-hidden" style="position: absolute; width: 1px; height: 1px; overflow: hidden;">Choose Excel File</label>
         <input type="file" id="file-upload" accept=".xlsx, .xls">
         <button id="upload-to-sheet-btn">Upload to Sheet</button>
         <div id="upload-status"></div>
@@ -30,7 +31,7 @@ class UploadComponent {
             <button id="json-view-btn" class="view-toggle-btn">JSON View</button>
           </div>
           <div class="filter-controls" style="margin: 10px 0;">
-            <label class="checkbox-label">
+            <label class="checkbox-label" for="show-new-only">
                 <input type="checkbox" id="show-new-only"> Show New Transactions Only
             </label>
           </div>

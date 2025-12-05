@@ -21,8 +21,8 @@ class DashboardComponent {
       <div id="dashboard-content-wrapper">
         <div class="dashboard-header" style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
           <div class="timeframe-selector">
-            <label for="timeframe-select">Timeframe: </label>
-            <select id="timeframe-select">
+            <label for="dashboard-timeframe-select">Timeframe: </label>
+            <select id="dashboard-timeframe-select">
               <option value="current_month">Current Month</option>
               <option value="past_30_days" selected>Past 30 Days</option>
               <option value="past_3_months">Past 3 Months</option>
@@ -62,7 +62,7 @@ class DashboardComponent {
         </div>
       </div>
     `;
-    this.timeframeSelect = this.element.querySelector('#timeframe-select');
+    this.timeframeSelect = this.element.querySelector('#dashboard-timeframe-select');
     this.currentBalanceEl = this.element.querySelector('#current-balance');
     this.totalIncomeEl = this.element.querySelector('#total-income');
     this.totalExpensesEl = this.element.querySelector('#total-expenses');

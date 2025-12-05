@@ -134,8 +134,8 @@ class AnalysisComponent {
         <div class="analysis-controls">
             <!-- Date Range -->
             <div class="control-group">
-                <label>Date Range</label>
-                <select id="timeframe-select" class="control-input" style="margin-bottom: 10px;">
+                <label for="analysis-timeframe-select">Date Range</label>
+                <select id="analysis-timeframe-select" class="control-input" style="margin-bottom: 10px;">
                     <option value="current_month" ${this.state.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
                     <option value="past_30_days" ${this.state.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
                     <option value="past_3_months" ${this.state.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>
@@ -145,21 +145,21 @@ class AnalysisComponent {
                     <option value="custom" ${this.state.timeframe === 'custom' ? 'selected' : ''}>Custom</option>
                 </select>
                 <div style="display: flex; gap: 10px;">
-                    <input type="date" id="start-date" class="control-input" value="${this.state.startDate}">
-                    <input type="date" id="end-date" class="control-input" value="${this.state.endDate}">
+                    <input type="date" id="analysis-start-date" aria-label="Start Date" class="control-input" value="${this.state.startDate}">
+                    <input type="date" id="analysis-end-date" aria-label="End Date" class="control-input" value="${this.state.endDate}">
                 </div>
             </div>
 
             <!-- Metric & Chart Type -->
             <div class="control-group">
                 <label>Visualization</label>
-                <select id="metric-select" class="control-input">
+                <select id="analysis-metric-select" aria-label="Metric" class="control-input">
                     <option value="balance" ${this.state.metric === 'balance' ? 'selected' : ''}>Cumulative Balance</option>
                     <option value="income" ${this.state.metric === 'income' ? 'selected' : ''}>Income Only</option>
                     <option value="expense" ${this.state.metric === 'expense' ? 'selected' : ''}>Expenses Only</option>
                     <option value="net" ${this.state.metric === 'net' ? 'selected' : ''}>Net Income (Income - Expense)</option>
                 </select>
-                <select id="chart-type-select" class="control-input" style="margin-top: 5px;">
+                <select id="analysis-chart-type-select" aria-label="Chart Type" class="control-input" style="margin-top: 5px;">
                     <option value="bar" ${this.state.chartType === 'bar' ? 'selected' : ''}>Bar Chart (Stacked)</option>
                     <option value="line" ${this.state.chartType === 'line' ? 'selected' : ''}>Line Chart</option>
                     <option value="pie" ${this.state.chartType === 'pie' ? 'selected' : ''}>Pie Chart</option>
@@ -171,19 +171,19 @@ class AnalysisComponent {
             <div class="control-group">
                 <label>Grouping</label>
                 <div style="display:flex; flex-direction:column; gap:5px;">
-                    <select id="primary-group-select" class="control-input" title="Primary Grouping (X-Axis)">
+                    <select id="analysis-primary-group-select" class="control-input" title="Primary Grouping (X-Axis)">
                         <option value="date" ${this.state.primaryGroup === 'date' ? 'selected' : ''}>By Date</option>
                         <option value="category" ${this.state.primaryGroup === 'category' ? 'selected' : ''}>By Category</option>
                         <option value="trip" ${this.state.primaryGroup === 'trip' ? 'selected' : ''}>By Trip/Event</option>
                     </select>
                     
-                    <select id="secondary-group-select" class="control-input" title="Secondary Grouping (Segments/Stacks)">
+                    <select id="analysis-secondary-group-select" class="control-input" title="Secondary Grouping (Segments/Stacks)">
                         <option value="none" ${this.state.secondaryGroup === 'none' ? 'selected' : ''}>No Sub-grouping</option>
                         <option value="category" ${this.state.secondaryGroup === 'category' ? 'selected' : ''}>Split by Category</option>
                         <option value="trip" ${this.state.secondaryGroup === 'trip' ? 'selected' : ''}>Split by Trip/Event</option>
                     </select>
 
-                    <select id="time-unit-select" class="control-input" style="display: ${this.state.primaryGroup === 'date' ? 'block' : 'none'};">
+                    <select id="analysis-time-unit-select" aria-label="Time Unit" class="control-input" style="display: ${this.state.primaryGroup === 'date' ? 'block' : 'none'};">
                         <option value="day" ${this.state.timeUnit === 'day' ? 'selected' : ''}>Daily</option>
                         <option value="week" ${this.state.timeUnit === 'week' ? 'selected' : ''}>Weekly</option>
                         <option value="month" ${this.state.timeUnit === 'month' ? 'selected' : ''}>Monthly</option>
@@ -202,7 +202,7 @@ class AnalysisComponent {
                     <!-- Trip Filter -->
                     <div class="tag-filter-column">
                         <div class="tag-filter-header">Trips / Events</div>
-                        <input type="text" id="trip-search" class="tag-search-input" placeholder="Search trips..." value="${this.state.tripSearchTerm}">
+                        <input type="text" id="analysis-trip-search" aria-label="Search Trips" class="tag-search-input" placeholder="Search trips..." value="${this.state.tripSearchTerm}">
                         <div id="trip-selector-container" class="tag-selector">
                             <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
                         </div>
@@ -211,7 +211,7 @@ class AnalysisComponent {
                     <!-- Category Filter -->
                     <div class="tag-filter-column">
                         <div class="tag-filter-header">Categories</div>
-                        <input type="text" id="cat-search" class="tag-search-input" placeholder="Search categories..." value="${this.state.categorySearchTerm}">
+                        <input type="text" id="analysis-cat-search" aria-label="Search Categories" class="tag-search-input" placeholder="Search categories..." value="${this.state.categorySearchTerm}">
                         <div id="category-selector-container" class="tag-selector">
                             <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
                         </div>
@@ -242,37 +242,37 @@ class AnalysisComponent {
 
   attachEventListeners() {
     // Timeframe & Date
-    this.element.querySelector('#timeframe-select').addEventListener('change', (e) => {
+    this.element.querySelector('#analysis-timeframe-select').addEventListener('change', (e) => {
         this.handleTimeframeChange(e.target.value);
         this.generateChart();
     });
-    this.element.querySelector('#start-date').addEventListener('change', (e) => {
+    this.element.querySelector('#analysis-start-date').addEventListener('change', (e) => {
         this.state.startDate = e.target.value;
         this.state.timeframe = 'custom';
-        this.element.querySelector('#timeframe-select').value = 'custom';
+        this.element.querySelector('#analysis-timeframe-select').value = 'custom';
         this.generateChart();
     });
-    this.element.querySelector('#end-date').addEventListener('change', (e) => {
+    this.element.querySelector('#analysis-end-date').addEventListener('change', (e) => {
         this.state.endDate = e.target.value;
         this.state.timeframe = 'custom';
-        this.element.querySelector('#timeframe-select').value = 'custom';
+        this.element.querySelector('#analysis-timeframe-select').value = 'custom';
         this.generateChart();
     });
 
     // Metrics
-    this.element.querySelector('#metric-select').addEventListener('change', (e) => {
+    this.element.querySelector('#analysis-metric-select').addEventListener('change', (e) => {
         this.state.metric = e.target.value;
         this.generateChart();
     });
-    this.element.querySelector('#chart-type-select').addEventListener('change', (e) => {
+    this.element.querySelector('#analysis-chart-type-select').addEventListener('change', (e) => {
         this.state.chartType = e.target.value;
         this.generateChart();
     });
     
     // Grouping
-    const primarySelect = this.element.querySelector('#primary-group-select');
-    const secondarySelect = this.element.querySelector('#secondary-group-select');
-    const timeUnitSelect = this.element.querySelector('#time-unit-select');
+    const primarySelect = this.element.querySelector('#analysis-primary-group-select');
+    const secondarySelect = this.element.querySelector('#analysis-secondary-group-select');
+    const timeUnitSelect = this.element.querySelector('#analysis-time-unit-select');
 
     primarySelect.addEventListener('change', (e) => {
         this.state.primaryGroup = e.target.value;
@@ -301,13 +301,13 @@ class AnalysisComponent {
     });
     
     // Tag Search Inputs
-    const catSearch = this.element.querySelector('#cat-search');
+    const catSearch = this.element.querySelector('#analysis-cat-search');
     catSearch.addEventListener('input', (e) => {
         this.state.categorySearchTerm = e.target.value.toLowerCase();
         this.updateTagSelectors(); // Re-render list with filter
     });
 
-    const tripSearch = this.element.querySelector('#trip-search');
+    const tripSearch = this.element.querySelector('#analysis-trip-search');
     tripSearch.addEventListener('input', (e) => {
         this.state.tripSearchTerm = e.target.value.toLowerCase();
         this.updateTagSelectors(); // Re-render list with filter
@@ -386,30 +386,30 @@ class AnalysisComponent {
 
   updateControls() {
     // Update Timeframe & Dates
-    const timeframeSelect = this.element.querySelector('#timeframe-select');
+    const timeframeSelect = this.element.querySelector('#analysis-timeframe-select');
     if (timeframeSelect) timeframeSelect.value = this.state.timeframe;
     
-    const startDateInput = this.element.querySelector('#start-date');
+    const startDateInput = this.element.querySelector('#analysis-start-date');
     if (startDateInput) startDateInput.value = this.state.startDate;
     
-    const endDateInput = this.element.querySelector('#end-date');
+    const endDateInput = this.element.querySelector('#analysis-end-date');
     if (endDateInput) endDateInput.value = this.state.endDate;
 
     // Update Metrics
-    const metricSelect = this.element.querySelector('#metric-select');
+    const metricSelect = this.element.querySelector('#analysis-metric-select');
     if (metricSelect) metricSelect.value = this.state.metric;
 
-    const chartTypeSelect = this.element.querySelector('#chart-type-select');
+    const chartTypeSelect = this.element.querySelector('#analysis-chart-type-select');
     if (chartTypeSelect) chartTypeSelect.value = this.state.chartType;
 
     // Update Grouping
-    const primarySelect = this.element.querySelector('#primary-group-select');
+    const primarySelect = this.element.querySelector('#analysis-primary-group-select');
     if (primarySelect) primarySelect.value = this.state.primaryGroup;
 
-    const secondarySelect = this.element.querySelector('#secondary-group-select');
+    const secondarySelect = this.element.querySelector('#analysis-secondary-group-select');
     if (secondarySelect) secondarySelect.value = this.state.secondaryGroup;
 
-    const timeUnitSelect = this.element.querySelector('#time-unit-select');
+    const timeUnitSelect = this.element.querySelector('#analysis-time-unit-select');
     if (timeUnitSelect) {
         timeUnitSelect.value = this.state.timeUnit;
         timeUnitSelect.style.display = (this.state.primaryGroup === 'date') ? 'block' : 'none';
@@ -422,10 +422,10 @@ class AnalysisComponent {
     }
 
     // Clear Search Inputs
-    const catSearch = this.element.querySelector('#cat-search');
+    const catSearch = this.element.querySelector('#analysis-cat-search');
     if (catSearch) catSearch.value = this.state.categorySearchTerm;
 
-    const tripSearch = this.element.querySelector('#trip-search');
+    const tripSearch = this.element.querySelector('#analysis-trip-search');
     if (tripSearch) tripSearch.value = this.state.tripSearchTerm;
   }
 
@@ -438,7 +438,7 @@ class AnalysisComponent {
         this.state.selectedCategories, 
         this.state.categorySearchTerm,
         '#category-selector-container',
-        '#cat-search'
+        '#analysis-cat-search'
     );
 
     this.populateTagList(
@@ -447,7 +447,7 @@ class AnalysisComponent {
         this.state.selectedTrips, 
         this.state.tripSearchTerm,
         '#trip-selector-container',
-        '#trip-search'
+        '#analysis-trip-search'
     );
   }
 

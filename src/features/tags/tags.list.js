@@ -82,7 +82,7 @@ export default class TagsList {
                     <div id="type-tags-column" class="tags-column" style="flex-basis: 100%; margin-bottom: 20px;">
                          <h3>Trip Types</h3>
                          <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                            <input type="text" class="tag-search-input column-search" style="flex: 1;" data-type="Type" placeholder="Search Trip Types..." value="${this.searchTerms['Type']}">
+                            <input type="text" id="search-type" name="search-type" aria-label="Search Trip Types" class="tag-search-input column-search" style="flex: 1;" data-type="Type" placeholder="Search Trip Types..." value="${this.searchTerms['Type']}">
                             ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Type" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Type">+</button>` : ''}
                          </div>
                          <div id="type-tags-table-container"></div>
@@ -93,7 +93,7 @@ export default class TagsList {
                         <div id="trip-tags-column" class="tags-column" style="flex: 1; min-width: 300px;">
                              <h3>Trip/Event Tags</h3>
                              <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                                <input type="text" class="tag-search-input column-search" style="flex: 1;" data-type="Trip/Event" placeholder="Search Trip/Event..." value="${this.searchTerms['Trip/Event']}">
+                                <input type="text" id="search-trip-event" name="search-trip-event" aria-label="Search Trip/Event" class="tag-search-input column-search" style="flex: 1;" data-type="Trip/Event" placeholder="Search Trip/Event..." value="${this.searchTerms['Trip/Event']}">
                                 ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Trip/Event" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Trip/Event tag">+</button>` : ''}
                              </div>
                              <div id="trip-tags-table-container"></div>
@@ -101,7 +101,7 @@ export default class TagsList {
                         <div id="category-tags-column" class="tags-column" style="flex: 1; min-width: 300px;">
                              <h3>Category Tags</h3>
                              <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                                <input type="text" class="tag-search-input column-search" style="flex: 1;" data-type="Category" placeholder="Search Category..." value="${this.searchTerms['Category']}">
+                                <input type="text" id="search-category" name="search-category" aria-label="Search Category" class="tag-search-input column-search" style="flex: 1;" data-type="Category" placeholder="Search Category..." value="${this.searchTerms['Category']}">
                                 ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Category" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Category tag">+</button>` : ''}
                              </div>
                              <div id="category-tags-table-container"></div>

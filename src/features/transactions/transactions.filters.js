@@ -6,7 +6,7 @@ export default class TransactionsFilters {
     }
 
     bindEvents() {
-        const catSearch = this.element.querySelector('#cat-search');
+        const catSearch = this.element.querySelector('#transactions-cat-search');
         if (catSearch) {
             catSearch.addEventListener('input', (e) => {
                 if (this.callbacks.onSearchChange) {
@@ -15,7 +15,7 @@ export default class TransactionsFilters {
             });
         }
 
-        const tripSearch = this.element.querySelector('#trip-search');
+        const tripSearch = this.element.querySelector('#transactions-trip-search');
         if (tripSearch) {
             tripSearch.addEventListener('input', (e) => {
                  if (this.callbacks.onSearchChange) {

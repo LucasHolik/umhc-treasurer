@@ -193,7 +193,7 @@ class TransactionsComponent {
                         <!-- Trip Filter -->
                         <div class="tag-filter-column">
                             <div class="tag-filter-header">Trips / Events</div>
-                            <input type="text" id="trip-search" class="tag-search-input" placeholder="Search trips..." value="${this.tripSearchTerm}">
+                            <input type="text" id="transactions-trip-search" name="transactions-trip-search" aria-label="Search Trips" class="tag-search-input" placeholder="Search trips..." value="${this.tripSearchTerm}">
                             <div id="trip-selector-container" class="tag-selector">
                                 <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
                             </div>
@@ -202,7 +202,7 @@ class TransactionsComponent {
                         <!-- Category Filter -->
                         <div class="tag-filter-column">
                             <div class="tag-filter-header">Categories</div>
-                            <input type="text" id="cat-search" class="tag-search-input" placeholder="Search categories..." value="${this.categorySearchTerm}">
+                            <input type="text" id="transactions-cat-search" name="transactions-cat-search" aria-label="Search Categories" class="tag-search-input" placeholder="Search categories..." value="${this.categorySearchTerm}">
                             <div id="category-selector-container" class="tag-selector">
                                 <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
                             </div>
@@ -231,7 +231,7 @@ class TransactionsComponent {
                     <div class="custom-dropdown" id="bulk-trip-container">
                         <div class="dropdown-trigger" id="bulk-trip-trigger">Set Trip/Event...</div>
                         <div class="dropdown-content" id="bulk-trip-content" style="display:none;">
-                            <input type="text" class="tag-search-input" id="bulk-trip-search" placeholder="Search trips...">
+                            <input type="text" class="tag-search-input" id="bulk-trip-search" aria-label="Search trips for bulk action" placeholder="Search trips...">
                             <div class="tag-selector" id="bulk-trip-list"></div>
                         </div>
                     </div>
@@ -240,7 +240,7 @@ class TransactionsComponent {
                     <div class="custom-dropdown" id="bulk-category-container">
                         <div class="dropdown-trigger" id="bulk-category-trigger">Set Category...</div>
                         <div class="dropdown-content" id="bulk-category-content" style="display:none;">
-                            <input type="text" class="tag-search-input" id="bulk-category-search" placeholder="Search categories...">
+                            <input type="text" class="tag-search-input" id="bulk-category-search" aria-label="Search categories for bulk action" placeholder="Search categories...">
                             <div class="tag-selector" id="bulk-category-list"></div>
                         </div>
                     </div>
@@ -254,7 +254,7 @@ class TransactionsComponent {
             
             <!-- Description Search (Full Width) -->
             <div style="margin-bottom: 15px;">
-                <input type="text" id="desc-search" class="tag-search-input" style="width: 100%; padding: 12px; box-sizing: border-box; font-size: 1em; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);" placeholder="Search transaction descriptions..." value="${this.descriptionSearchTerm}">
+                <input type="text" id="transactions-desc-search" name="transactions-desc-search" aria-label="Search transaction descriptions" class="tag-search-input" style="width: 100%; padding: 12px; box-sizing: border-box; font-size: 1em; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);" placeholder="Search transaction descriptions..." value="${this.descriptionSearchTerm}">
             </div>
 
             <div id="transactions-table-container"></div>
@@ -382,7 +382,7 @@ class TransactionsComponent {
       }
 
       // Description Search Listener
-      const descSearch = this.transactionsDisplay.querySelector('#desc-search');
+      const descSearch = this.transactionsDisplay.querySelector('#transactions-desc-search');
       if (descSearch) {
           descSearch.addEventListener('input', (e) => {
               this.descriptionSearchTerm = e.target.value;
