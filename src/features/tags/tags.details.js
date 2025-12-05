@@ -38,7 +38,8 @@ export default class TagsDetails {
         // Contextual Action Button
         let actionButton = '';
         if (tagType === 'Type') {
-             actionButton = `<button id="add-tags-to-type-btn" class="secondary-btn" style="background-color: #5bc0de; color: white;">Add Trip/Events</button>`;
+             // Use save-changes-btn for orange background
+             actionButton = `<button id="add-tags-to-type-btn" class="save-changes-btn">Add Trip/Events</button>`;
         } else {
              actionButton = `<button id="add-transactions-btn" class="secondary-btn" style="background-color: #f0ad4e; color: white;">Add Transactions</button>`;
         }

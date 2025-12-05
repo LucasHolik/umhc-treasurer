@@ -88,6 +88,12 @@
   color: #fff;
 }
 
+/* Disabled button style */
+.disabled-btn {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+}
+
 /* View toggle buttons */
 .view-toggle {
   margin: 15px 0;

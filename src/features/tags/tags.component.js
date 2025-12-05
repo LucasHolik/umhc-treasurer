@@ -4,7 +4,7 @@ import ModalComponent from '../../shared/modal.component.js';
 import router from '../../core/router.js';
 import TagsList from './tags.list.js';
 import TagsDetails from './tags.details.js';
-import BulkAddTripModal from './bulk-add-trip-modal.js';
+import TagsAddTrip from './tags.add-trip.js';
 
 class TagsComponent {
   constructor(element) {
@@ -16,8 +16,9 @@ class TagsComponent {
     this.isEditMode = false;
     
     // View State
-    this.viewMode = 'list'; // 'list' | 'details'
+    this.viewMode = 'list'; // 'list' | 'details' | 'add-trip'
     this.selectedTag = null; // { type, name }
+    this.targetTypeName = null; // For add-trip view
 
     this.modal = new ModalComponent();
     
@@ -39,6 +40,11 @@ class TagsComponent {
         onBack: () => this.handleBack(),
         onAddTransactions: (type, name) => this.handleAddTransactions(type, name),
         onAddTagsToType: (typeName) => this.handleAddTagsToType(typeName)
+    });
+
+    this.tagsAddTrip = new TagsAddTrip(element, {
+        onBack: () => this.handleAddTripBack(),
+        onSave: (selectedTrips, typeName) => this.handleAddTripSave(selectedTrips, typeName)
     });
 
     this.render();
@@ -84,6 +90,8 @@ class TagsComponent {
         this.tagsList.render(this.isEditMode, this.localTags, this.queue, virtualTripTypeMap);
     } else if (this.viewMode === 'details' && this.selectedTag) {
         this.tagsDetails.render(this.selectedTag.type, this.selectedTag.name);
+    } else if (this.viewMode === 'add-trip') {
+        this.tagsAddTrip.init(this.targetTypeName);
     }
   }
   
@@ -125,38 +133,41 @@ class TagsComponent {
       router.navigate('transactions');
   }
   
-  async handleAddTagsToType(typeName) {
-      const tagsData = store.getState('tags');
-      const tripTags = tagsData["Trip/Event"] || [];
-      const tripTypeMap = tagsData.TripTypeMap || {};
-      const allTypes = tagsData["Type"] || [];
-      
-      const candidateTrips = tripTags.sort();
-      
-      const modal = new BulkAddTripModal(
-          typeName, 
-          candidateTrips, 
-          tripTypeMap,
-          allTypes, 
-          async (selectedTrips) => {
-              store.setState('isTagging', true);
-              const operations = selectedTrips.map(trip => [trip, typeName, 'updateTripType', 'Trip/Event']);
-              try {
-                 const result = await ApiService.processTagOperations(operations);
-                 if (result.success) {
-                      document.dispatchEvent(new CustomEvent('dataUploaded'));
-                 } else {
-                      await this.modal.alert(result.message || "Failed to update tags.");
-                 }
-              } catch (err) {
-                  console.error(err);
-                  await this.modal.alert("Error: " + err.message);
-              } finally {
-                  store.setState('isTagging', false);
-              }
-          }
-      );
-      modal.show();
+  handleAddTagsToType(typeName) {
+      this.targetTypeName = typeName;
+      this.viewMode = 'add-trip';
+      this.render();
+  }
+
+  handleAddTripBack() {
+      this.targetTypeName = null;
+      this.viewMode = 'details';
+      // Ensure we are still looking at the correct tag details
+      if (!this.selectedTag) {
+          // Fallback if state got weird, though it shouldn't
+          this.viewMode = 'list';
+      }
+      this.render();
+  }
+
+  async handleAddTripSave(selectedTrips, typeName) {
+      store.setState('isTagging', true);
+      const operations = selectedTrips.map(trip => [trip, typeName, 'updateTripType', 'Trip/Event']);
+      try {
+         const result = await ApiService.processTagOperations(operations);
+         if (result.success) {
+              document.dispatchEvent(new CustomEvent('dataUploaded'));
+              // Navigate back to details on success
+              this.handleAddTripBack();
+         } else {
+              await this.modal.alert(result.message || "Failed to update tags.");
+              store.setState('isTagging', false);
+         }
+      } catch (err) {
+          console.error(err);
+          await this.modal.alert("Error: " + err.message);
+          store.setState('isTagging', false);
+      }
   }
 
   // --- Edit Mode Handlers ---
