@@ -71,6 +71,7 @@ const store = createStore({
   isLoading: false,
   isUploading: false,
   isTagging: false,
+  taggingSource: null,
   savingTags: false,
   savingSplitTransaction: false,
   splitTransactions: null,

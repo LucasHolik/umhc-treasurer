@@ -2,6 +2,7 @@
 import store from '../../core/state.js';
 import ApiService from '../../services/api.service.js';
 import SortableTable from '../../shared/sortable-table.component.js';
+import LoaderComponent from '../../shared/loader.component.js';
 import TransactionsFilters from './transactions.filters.js';
 import TransactionsBulk from './transactions.bulk.js';
 import TransactionsManualModal from './transactions.manual.js';
@@ -150,17 +151,26 @@ class TransactionsComponent {
 
   renderTransactionsDisplay() {
     const isTagging = store.getState('isTagging');
+    const taggingSource = store.getState('taggingSource');
     const isSavingSplit = store.getState('savingSplitTransaction');
     const taggingProgress = store.getState('taggingProgress') || 'Initializing...';
 
     if (isTagging) {
-        this.transactionsDisplay.innerHTML = `
-            <div class="section" style="height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <div class="loader" style="width: 50px; height: 50px; margin-bottom: 20px;"></div>
-                <h3 style="color: #f0ad4e; margin-bottom: 10px;">Processing Tags...</h3>
-                <p id="tagging-progress-text" style="color: #fff; font-size: 1.1em;">${taggingProgress}</p>
-            </div>
-        `;
+        if (taggingSource === 'transactions') {
+            this.transactionsDisplay.innerHTML = `
+                <div class="section" style="height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                    <div class="loader" style="width: 50px; height: 50px; margin-bottom: 20px;"></div>
+                    <h3 style="color: #f0ad4e; margin-bottom: 10px;">Processing Tags...</h3>
+                    <p id="tagging-progress-text" style="color: #fff; font-size: 1.1em;">${taggingProgress}</p>
+                </div>
+            `;
+        } else {
+            this.transactionsDisplay.innerHTML = `
+                <div class="section" style="height: 400px; display: flex; justify-content: center; align-items: center;">
+                    ${new LoaderComponent().render()}
+                </div>
+            `;
+        }
         return;
     }
 
@@ -747,6 +757,7 @@ class TransactionsComponent {
 
       if (changesList.length === 0) return;
 
+      store.setState('taggingSource', 'transactions');
       store.setState('isTagging', true);
       
       const CHUNK_SIZE = 20; 
@@ -768,6 +779,7 @@ class TransactionsComponent {
           setTimeout(() => {
                document.dispatchEvent(new CustomEvent('dataUploaded'));
                store.setState('isTagging', false);
+               store.setState('taggingSource', null);
           }, 1000);
 
       } catch (error) {
@@ -775,6 +787,7 @@ class TransactionsComponent {
           store.setState('taggingProgress', `Error: ${error.message}`);
           setTimeout(() => {
                store.setState('isTagging', false);
+               store.setState('taggingSource', null);
           }, 3000);
       }
   }
@@ -825,6 +838,7 @@ class TransactionsComponent {
           return;
       }
 
+      store.setState('taggingSource', 'transactions');
       store.setState('isTagging', true);
       
       const CHUNK_SIZE = 20; 
@@ -846,6 +860,7 @@ class TransactionsComponent {
           setTimeout(() => {
                document.dispatchEvent(new CustomEvent('dataUploaded'));
                store.setState('isTagging', false);
+               store.setState('taggingSource', null);
           }, 1000);
 
       } catch (error) {
@@ -853,6 +868,7 @@ class TransactionsComponent {
           store.setState('taggingProgress', `Error: ${error.message}`);
           setTimeout(() => {
                store.setState('isTagging', false);
+               store.setState('taggingSource', null);
           }, 3000);
       }
   }

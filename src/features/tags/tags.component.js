@@ -151,22 +151,27 @@ class TagsComponent {
   }
 
   async handleAddTripSave(selectedTrips, typeName) {
+      store.setState('taggingSource', 'tags');
       store.setState('isTagging', true);
       const operations = selectedTrips.map(trip => [trip, typeName, 'updateTripType', 'Trip/Event']);
       try {
-         const result = await ApiService.processTagOperations(operations);
+         const result = await ApiService.processTagOperations(operations, { skipLoading: true });
          if (result.success) {
               document.dispatchEvent(new CustomEvent('dataUploaded'));
+              store.setState('isTagging', false);
+              store.setState('taggingSource', null);
               // Navigate back to details on success
               this.handleAddTripBack();
          } else {
               await this.modal.alert(result.message || "Failed to update tags.");
               store.setState('isTagging', false);
+              store.setState('taggingSource', null);
          }
       } catch (err) {
           console.error(err);
           await this.modal.alert("Error: " + err.message);
           store.setState('isTagging', false);
+          store.setState('taggingSource', null);
       }
   }
 
@@ -211,6 +216,16 @@ class TagsComponent {
       const confirmed = await this.modal.confirm(`Delete tag "${tag}"?`);
       if (confirmed) {
           this.localTags[type] = this.localTags[type].filter(t => t !== tag);
+          
+          // If deleting a 'Type', clear it from any Trip/Events locally
+          if (type === 'Type' && this.localTags.TripTypeMap) {
+              Object.keys(this.localTags.TripTypeMap).forEach(trip => {
+                  if (this.localTags.TripTypeMap[trip] === tag) {
+                      this.localTags.TripTypeMap[trip] = ""; 
+                  }
+              });
+          }
+
           this.queue.push({ type: 'delete', tagType: type, value: tag });
           this.render();
       }
@@ -229,6 +244,16 @@ class TagsComponent {
           const index = this.localTags[type].indexOf(tag);
           if (index !== -1) {
               this.localTags[type][index] = trimmedName;
+              
+              // If renaming a 'Type', update it in TripTypeMap locally
+              if (type === 'Type' && this.localTags.TripTypeMap) {
+                  Object.keys(this.localTags.TripTypeMap).forEach(trip => {
+                      if (this.localTags.TripTypeMap[trip] === tag) {
+                          this.localTags.TripTypeMap[trip] = trimmedName; 
+                      }
+                  });
+              }
+
               this.queue.push({ type: 'rename', tagType: type, oldValue: tag, newValue: trimmedName });
               this.render();
           }

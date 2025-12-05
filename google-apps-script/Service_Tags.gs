@@ -181,6 +181,23 @@ function _deleteTag(type, value) {
 
   const deleteRow = tagIndex + 2;
 
+  // If deleting a "Type" (master list), we should clear this type from all Trip/Events (Col B)
+  if (type === "Type") {
+       const tripTypesRange = tagSheet.getRange(2, 2, lastRow - 1, 1);
+       const tripTypes = tripTypesRange.getValues();
+       let updated = false;
+       const newTripTypes = tripTypes.map(r => {
+           if (r[0] === value) {
+               updated = true;
+               return [""]; // Clear the type
+           }
+           return r;
+       });
+       if (updated) {
+           tripTypesRange.setValues(newTripTypes);
+       }
+  }
+
   if (type === "Trip/Event") {
       // If deleting Trip/Event, we should also clear the Type in Col B for that row
       // Or rather, since we are moving cells up, we must move Col A AND Col B together.

@@ -179,12 +179,11 @@ class App {
     // OR if tagging and NOT on transactions tab
     // OR if savingTags and NOT on tags tab
     // OR if settingsSyncing and NOT on settings tab
-    const shouldShowGlobalLoader = isLoading || 
-                                  (isUploading && activeTab !== 'upload') ||
-                                  (isTagging && activeTab !== 'transactions') ||
-                                  (savingTags && activeTab !== 'tags') ||
-                                                                    (settingsSyncing && activeTab !== 'settings');
-
+        const shouldShowGlobalLoader = isLoading || 
+                                      (isUploading && activeTab !== 'upload') ||
+                                      (isTagging && activeTab !== 'transactions' && activeTab !== 'tags') ||
+                                      (savingTags && activeTab !== 'tags') ||
+                                      (settingsSyncing && activeTab !== 'settings');
     if (loaderContainer && contentWrapper) {
         if (shouldShowGlobalLoader) {
             loaderContainer.style.display = 'flex';
