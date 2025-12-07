@@ -1,6 +1,7 @@
 import store from '../../core/state.js';
 import { formatCurrency } from '../../core/utils.js';
 import SortableTable from '../../shared/sortable-table.component.js';
+import { calculateDetailStats } from './tags.logic.js';
 
 export default class TagsDetails {
     constructor(element, callbacks) {
@@ -31,7 +32,7 @@ export default class TagsDetails {
         }
         
         // Calculate stats
-        const stats = this.calculateStats(this.transactionsData);
+        const stats = calculateDetailStats(this.transactionsData);
         const netStr = formatCurrency(Math.abs(stats.income - stats.expense));
         const netClass = (stats.income - stats.expense) > 0 ? 'positive' : ((stats.income - stats.expense) < 0 ? 'negative' : '');
 
@@ -116,26 +117,6 @@ export default class TagsDetails {
             initialSortAsc: false
         });
         table.update(this.transactionsData);
-    }
-
-    calculateStats(data) {
-        let count = 0;
-        let income = 0;
-        let expense = 0;
-
-        const parseAmount = (val) => {
-            if (!val) return 0;
-            if (typeof val === 'number') return val;
-            return parseFloat(val.toString().replace(/,/g, '')) || 0;
-        };
-
-        data.forEach(item => {
-            count++;
-            income += parseAmount(item["Income"]);
-            expense += parseAmount(item["Expense"]);
-        });
-
-        return { count, income, expense };
     }
 
     attachEventListeners() {

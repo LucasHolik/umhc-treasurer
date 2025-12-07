@@ -5,6 +5,7 @@ import router from '../../core/router.js';
 import TagsList from './tags.list.js';
 import TagsDetails from './tags.details.js';
 import TagsAddTrip from './tags.add-trip.js';
+import { calculateTagStats, formatOperationsForApi } from './tags.logic.js';
 
 class TagsComponent {
   constructor(element) {
@@ -19,6 +20,7 @@ class TagsComponent {
     this.viewMode = 'list'; // 'list' | 'details' | 'add-trip'
     this.selectedTag = null; // { type, name }
     this.targetTypeName = null; // For add-trip view
+    this.timeframe = 'all_time';
 
     this.modal = new ModalComponent();
     
@@ -33,7 +35,11 @@ class TagsComponent {
         onTagAdd: (type, value) => this.handleTagAdd(type, value),
         onTagDelete: (type, value) => this.handleTagDelete(type, value),
         onTagRename: (type, oldValue) => this.handleTagRename(type, oldValue),
-        onUpdateTripType: (tripName, typeName) => this.handleUpdateTripType(tripName, typeName)
+        onUpdateTripType: (tripName, typeName) => this.handleUpdateTripType(tripName, typeName),
+        onTimeframeChange: (newTimeframe) => {
+            this.timeframe = newTimeframe;
+            this.render();
+        }
     });
 
     this.tagsDetails = new TagsDetails(element, {
@@ -68,26 +74,30 @@ class TagsComponent {
     }
 
     if (this.viewMode === 'list') {
-        // Calculate Virtual TripTypeMap (Store + Queue)
-        let virtualTripTypeMap = { ...(store.getState('tags').TripTypeMap || {}) };
+        const expenses = store.getState('expenses') || [];
+        const tagsData = store.getState('tags') || {};
         
-        // If in edit mode, start from localTags (which might have structural changes)
-        if (this.isEditMode && this.localTags && this.localTags.TripTypeMap) {
-             virtualTripTypeMap = { ...this.localTags.TripTypeMap };
-        }
+        // Determine which tags data source to use for calculation
+        const tagsSource = this.isEditMode && this.localTags ? this.localTags : tagsData;
 
-        // Apply queue updates
-        this.queue.forEach(op => {
-            if (op.type === 'updateTripType') {
-                if (op.newValue === "") {
-                    delete virtualTripTypeMap[op.oldValue];
-                } else {
-                    virtualTripTypeMap[op.oldValue] = op.newValue;
-                }
-            }
-        });
+        // Calculate Stats & Virtual Trip Map using Logic Layer
+        const { stats, tripTypeMap } = calculateTagStats(
+            expenses, 
+            tagsSource, 
+            this.timeframe, 
+            this.queue, 
+            this.isEditMode
+        );
 
-        this.tagsList.render(this.isEditMode, this.localTags, this.queue, virtualTripTypeMap);
+        this.tagsList.render(
+            this.isEditMode, 
+            this.localTags, 
+            this.queue, 
+            stats, 
+            tripTypeMap, 
+            this.timeframe,
+            tagsData // Pass original tags data for dropdowns (even in edit mode, options come from global or current set)
+        );
     } else if (this.viewMode === 'details' && this.selectedTag) {
         this.tagsDetails.render(this.selectedTag.type, this.selectedTag.name);
     } else if (this.viewMode === 'add-trip') {
@@ -287,13 +297,8 @@ class TagsComponent {
     const chunkSize = 10;
     const chunks = [];
     
-    const formattedOperations = this.queue.map(op => {
-        if (op.type === 'add') return [null, op.value, 'add', op.tagType];
-        if (op.type === 'delete') return [op.value, null, 'delete', op.tagType];
-        if (op.type === 'rename') return [op.oldValue, op.newValue, 'rename', op.tagType];
-        if (op.type === 'updateTripType') return [op.oldValue, op.newValue, 'updateTripType', op.tagType];
-        return null;
-    }).filter(op => op !== null);
+    // Use logic helper to format operations
+    const formattedOperations = formatOperationsForApi(this.queue);
 
     for (let i = 0; i < formattedOperations.length; i += chunkSize) {
         chunks.push(formattedOperations.slice(i, i + chunkSize));

@@ -1,5 +1,4 @@
-import store from '../../core/state.js';
-import { formatCurrency, filterTransactionsByTimeframe } from '../../core/utils.js';
+import { formatCurrency } from '../../core/utils.js';
 import ModalComponent from '../../shared/modal.component.js';
 import SortableTable from '../../shared/sortable-table.component.js';
 import TagSelector from '../../shared/tag-selector.component.js';
@@ -7,15 +6,15 @@ import TagSelector from '../../shared/tag-selector.component.js';
 export default class TagsList {
     constructor(element, callbacks) {
         this.element = element;
-        this.callbacks = callbacks || {}; // { onEditModeToggle, onSave, onTagClick, onTagAdd, onTagDelete, onTagRename, onUpdateTripType }
+        this.callbacks = callbacks || {}; 
+        // callbacks: { onEditModeToggle, onSave, onTagClick, onTagAdd, onTagDelete, onTagRename, onUpdateTripType, onTimeframeChange }
         
-        // Local state for filtering/sorting within the list view
+        // Local state for filtering within the list view
         this.searchTerms = {
             "Trip/Event": "",
             "Category": "",
             "Type": ""
         };
-        this.timeframe = 'all_time';
         this.modal = new ModalComponent();
         this.tagSelector = new TagSelector();
         
@@ -26,11 +25,14 @@ export default class TagsList {
         this.element.addEventListener('click', (e) => this.handleInteractiveClick(e));
     }
 
-    render(isEditMode, localTags, queue, virtualTripTypeMap) {
+    render(isEditMode, localTags, queue, stats, tripTypeMap, timeframe, tagsData) {
         this.isEditMode = isEditMode;
-        this.localTags = localTags; // Passed from parent if in edit mode
-        this.queue = queue;         // Passed from parent
-        this.virtualTripTypeMap = virtualTripTypeMap;
+        this.localTags = localTags; 
+        this.queue = queue;         
+        this.stats = stats;
+        this.tripTypeMap = tripTypeMap;
+        this.timeframe = timeframe;
+        this.tagsData = tagsData; // Used for type selector options
 
         let actionButtons = '';
         if (this.isEditMode) {
@@ -58,7 +60,7 @@ export default class TagsList {
                                     <option value="current_month" ${this.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
                                     <option value="past_30_days" ${this.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
                                     <option value="past_3_months" ${this.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>
-                                    <option value="past_6_months" ${this.timeframe === 'past_6_months' ? 'selected' : ''}>Past 6 Months</n>
+                                    <option value="past_6_months" ${this.timeframe === 'past_6_months' ? 'selected' : ''}>Past 6 Months</option>
                                     <option value="past_year" ${this.timeframe === 'past_year' ? 'selected' : ''}>Past Year</option>
                                     <option value="all_time" ${this.timeframe === 'all_time' ? 'selected' : ''}>All Time</option>
                                 </select>
@@ -108,18 +110,18 @@ export default class TagsList {
     }
 
     renderTables() {
-        const tagStats = this.calculateTagStats();
-        this.renderSingleTable('Type', tagStats);
-        this.renderSingleTable('Trip/Event', tagStats);
-        this.renderSingleTable('Category', tagStats);
+        this.renderSingleTable('Type');
+        this.renderSingleTable('Trip/Event');
+        this.renderSingleTable('Category');
     }
 
-    renderSingleTable(type, tagStats) {
+    renderSingleTable(type) {
         const containerId = type === 'Trip/Event' ? 'trip-tags-table-container' : (type === 'Category' ? 'category-tags-table-container' : 'type-tags-table-container');
         const container = this.element.querySelector(`#${containerId}`);
         if (!container) return;
 
-        const tagsSource = this.isEditMode ? this.localTags : store.getState('tags');
+        // Determine source of tag list (edit mode vs normal)
+        const tagsSource = this.isEditMode ? this.localTags : this.tagsData;
         const tagsList = (tagsSource && tagsSource[type]) ? tagsSource[type] : [];
         const searchTerm = this.searchTerms[type] || "";
         
@@ -127,24 +129,21 @@ export default class TagsList {
             tag.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
-        // Use virtualTripTypeMap for rendering "Type" columns
-        const tripTypeMap = this.virtualTripTypeMap || (this.isEditMode ? this.localTags.TripTypeMap : (store.getState('tags').TripTypeMap || {}));
-
         const data = visibleTags.map(tag => {
-            const stats = tagStats[type][tag] || { count: 0, income: 0, expense: 0 };
-            const net = stats.income - stats.expense;
+            const tagStats = this.stats[type][tag] || { count: 0, income: 0, expense: 0 };
+            const net = tagStats.income - tagStats.expense;
             
             let row = {
                 tag: tag,
                 type: type, // for actions
-                income: stats.income,
-                expense: stats.expense,
+                income: tagStats.income,
+                expense: tagStats.expense,
                 net: net,
-                count: stats.count
+                count: tagStats.count
             };
 
             if (type === 'Trip/Event') {
-                row.tripType = tripTypeMap[tag] || "";
+                row.tripType = this.tripTypeMap[tag] || "";
             }
 
             return row;
@@ -265,7 +264,7 @@ export default class TagsList {
             e.stopPropagation();
             const tag = target.dataset.tag;
             // Show selector
-             const typeOptions = (store.getState('tags')["Type"] || []);
+             const typeOptions = (this.tagsData["Type"] || []);
              this.tagSelector.show(
                 target.getBoundingClientRect(),
                 'Type', 
@@ -284,7 +283,7 @@ export default class TagsList {
             e.stopPropagation();
             const tag = pill.dataset.tag;
             const currentVal = pill.querySelector('.tag-text').textContent;
-             const typeOptions = (store.getState('tags')["Type"] || []);
+             const typeOptions = (this.tagsData["Type"] || []);
              this.tagSelector.show(
                 pill.getBoundingClientRect(),
                 'Type', 
@@ -295,84 +294,6 @@ export default class TagsList {
                 typeOptions
              );
         }
-    }
-
-    calculateTagStats() {
-        const allExpenses = store.getState('expenses') || [];
-        const expenses = filterTransactionsByTimeframe(allExpenses, this.timeframe);
-        const stats = { "Trip/Event": {}, "Category": {}, "Type": {} };
-        
-        const parseAmount = (val) => {
-            if (!val) return 0;
-            if (typeof val === 'number') return val;
-            return parseFloat(val.toString().replace(/,/g, '')) || 0;
-        };
-        
-        // 1. Calculate Trip/Event and Category stats directly from expenses
-        expenses.forEach(item => {
-          const tripEventTag = item["Trip/Event"];
-          const categoryTag = item["Category"];
-          const income = parseAmount(item["Income"]);
-          const expense = parseAmount(item["Expense"]);
-          
-          if (tripEventTag) {
-              if (!stats["Trip/Event"][tripEventTag]) stats["Trip/Event"][tripEventTag] = { count: 0, income: 0, expense: 0 };
-              stats["Trip/Event"][tripEventTag].count += 1;
-              stats["Trip/Event"][tripEventTag].income += income;
-              stats["Trip/Event"][tripEventTag].expense += expense;
-          }
-          if (categoryTag) {
-              if (!stats["Category"][categoryTag]) stats["Category"][categoryTag] = { count: 0, income: 0, expense: 0 };
-              stats["Category"][categoryTag].count += 1;
-              stats["Category"][categoryTag].income += income;
-              stats["Category"][categoryTag].expense += expense;
-          }
-        });
-
-        // 2. Calculate Type stats by aggregating Trip/Event stats based on TripTypeMap
-        // Use virtualTripTypeMap if available to reflect pending changes in stats too!
-        const tripTypeMap = this.virtualTripTypeMap || (this.isEditMode ? this.localTags.TripTypeMap : (store.getState('tags').TripTypeMap || {}));
-        
-        // Iterate over all Trip/Event stats we just calculated
-        Object.entries(stats["Trip/Event"]).forEach(([tripName, tripStats]) => {
-            const type = tripTypeMap[tripName];
-            if (type) {
-                if (!stats["Type"][type]) stats["Type"][type] = { count: 0, income: 0, expense: 0 };
-                stats["Type"][type].count += tripStats.count;
-                stats["Type"][type].income += tripStats.income;
-                stats["Type"][type].expense += tripStats.expense;
-            }
-        });
-        
-        // Ensure all "Types" exist in stats even if count is 0
-        const types = this.isEditMode ? (this.localTags["Type"] || []) : (store.getState('tags')["Type"] || []);
-        types.forEach(t => {
-            if (!stats["Type"][t]) stats["Type"][t] = { count: 0, income: 0, expense: 0 };
-        });
-
-        // Handle Queue (Virtual Updates) - mostly for renames/deletes in edit mode
-        if (this.isEditMode && this.queue && this.queue.length > 0) {
-            this.queue.forEach(op => {
-                if (op.type === 'rename') {
-                    const type = op.tagType; // "Trip/Event", "Category", "Type"
-                    if (stats[type]) {
-                        const oldStats = stats[type][op.oldValue] || { count: 0, income: 0, expense: 0 };
-                        if (stats[type][op.newValue]) {
-                             stats[type][op.newValue].count += oldStats.count;
-                             stats[type][op.newValue].income += oldStats.income;
-                             stats[type][op.newValue].expense += oldStats.expense;
-                        } else {
-                             stats[type][op.newValue] = { ...oldStats };
-                        }
-                        delete stats[type][op.oldValue];
-                    }
-                } else if (op.type === 'delete') {
-                    if (stats[op.tagType]) delete stats[op.tagType][op.value];
-                }
-            });
-        }
-
-        return stats;
     }
 
     attachEventListeners() {
@@ -386,16 +307,16 @@ export default class TagsList {
         if (saveBtn) saveBtn.addEventListener('click', () => this.callbacks.onSave());
         
         if (timeframeSelect) timeframeSelect.addEventListener('change', (e) => {
-            this.timeframe = e.target.value;
-            this.render(this.isEditMode, this.localTags, this.queue, this.virtualTripTypeMap);
+            if (this.callbacks.onTimeframeChange) {
+                this.callbacks.onTimeframeChange(e.target.value);
+            }
         });
 
         this.element.querySelectorAll('.column-search').forEach(input => {
             input.addEventListener('input', (e) => {
                 const type = e.target.dataset.type;
                 this.searchTerms[type] = e.target.value;
-                const tagStats = this.calculateTagStats();
-                this.renderSingleTable(type, tagStats);
+                this.renderSingleTable(type); // Only re-render the specific table
             });
         });
 
