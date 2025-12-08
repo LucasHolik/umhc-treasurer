@@ -7,7 +7,7 @@ export default class TagsList {
     constructor(element, callbacks) {
         this.element = element;
         this.callbacks = callbacks || {}; 
-        // callbacks: { onEditModeToggle, onSave, onTagClick, onTagAdd, onTagDelete, onTagRename, onUpdateTripType, onTimeframeChange }
+        // callbacks: { onEditModeToggle, onSave, onTagClick, onTagAdd, onTagDelete, onTagRename, onUpdateTripType, onToggleTripCompletion, onTimeframeChange }
         
         // Local state for filtering within the list view
         this.searchTerms = {
@@ -15,6 +15,7 @@ export default class TagsList {
             "Category": "",
             "Type": ""
         };
+        this.activeTab = "Type"; // Default tab
         this.modal = new ModalComponent();
         this.tagSelector = new TagSelector();
         
@@ -32,7 +33,7 @@ export default class TagsList {
         this.stats = stats;
         this.tripTypeMap = tripTypeMap;
         this.timeframe = timeframe;
-        this.tagsData = tagsData; // Used for type selector options
+        this.tagsData = tagsData; // Used for type selector options and initial completed list
 
         let actionButtons = '';
         if (this.isEditMode) {
@@ -48,9 +49,22 @@ export default class TagsList {
             actionButtons = `<button id="edit-tags-btn" class="secondary-btn">Edit Tags</button>`;
         }
 
+        // Define Tabs
+        const tabs = [
+            { id: 'Type', label: 'Trip Types' },
+            { id: 'Trip/Event', label: 'Trip/Event Tags' },
+            { id: 'Category', label: 'Category Tags' }
+        ];
+
+        const tabsHtml = tabs.map(tab => `
+            <button class="tab-btn ${this.activeTab === tab.id ? 'active' : ''}" data-tab="${tab.id}">
+                ${tab.label}
+            </button>
+        `).join('');
+
         this.element.innerHTML = `
             <div class="section">
-                <div class="tags-header-actions" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="tags-header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h2>Manage Tags</h2>
                     <div class="header-controls-group">
                         <div class="header-sort-controls">
@@ -71,58 +85,37 @@ export default class TagsList {
                         </div>
                     </div>
                 </div>
-                
-                <div class="tags-container" style="display: flex; gap: 20px; flex-wrap: wrap;">
-                    <!-- Trip Types Section (Full Width or Separate) -->
-                    <div id="type-tags-column" class="tags-column" style="flex-basis: 100%; margin-bottom: 20px;">
-                         <h3>Trip Types</h3>
-                         <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                            <input type="text" id="search-type" name="search-type" aria-label="Search Trip Types" class="tag-search-input column-search" style="flex: 1;" data-type="Type" placeholder="Search Trip Types..." value="${this.searchTerms['Type']}">
-                            ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Type" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Type">+</button>` : ''}
-                         </div>
-                         <div id="type-tags-table-container"></div>
-                    </div>
 
-                    <!-- Split Columns -->
-                    <div style="display: flex; gap: 20px; flex: 1; min-width: 0; flex-wrap: wrap;">
-                        <div id="trip-tags-column" class="tags-column" style="flex: 1; min-width: 300px;">
-                             <h3>Trip/Event Tags</h3>
-                             <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                                <input type="text" id="search-trip-event" name="search-trip-event" aria-label="Search Trip/Event" class="tag-search-input column-search" style="flex: 1;" data-type="Trip/Event" placeholder="Search Trip/Event..." value="${this.searchTerms['Trip/Event']}">
-                                ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Trip/Event" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Trip/Event tag">+</button>` : ''}
-                             </div>
-                             <div id="trip-tags-table-container"></div>
-                        </div>
-                        <div id="category-tags-column" class="tags-column" style="flex: 1; min-width: 300px;">
-                             <h3>Category Tags</h3>
-                             <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                                <input type="text" id="search-category" name="search-category" aria-label="Search Category" class="tag-search-input column-search" style="flex: 1;" data-type="Category" placeholder="Search Category..." value="${this.searchTerms['Category']}">
-                                ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="Category" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new Category tag">+</button>` : ''}
-                             </div>
-                             <div id="category-tags-table-container"></div>
-                        </div>
+                <div class="tags-tabs-container" style="display: flex; gap: 10px; border-bottom: 1px solid #444; margin-bottom: 20px;">
+                    ${tabsHtml}
+                </div>
+                
+                <div class="tags-container">
+                    <div id="active-tab-content">
+                         <div style="margin-bottom: 10px; display: flex; gap: 10px;">
+                            <input type="text" id="search-tag" name="search-tag" aria-label="Search Tags" class="tag-search-input column-search" style="flex: 1;" data-type="${this.activeTab}" placeholder="Search ${this.activeTab}..." value="${this.searchTerms[this.activeTab] || ''}">
+                            ${this.isEditMode ? `<button class="secondary-btn add-tag-icon-btn" data-type="${this.activeTab}" style="width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2em;" title="Add new ${this.activeTab}">+</button>` : ''}
+                         </div>
+                         <div id="tags-table-container"></div>
                     </div>
                 </div>
-            `;
+            </div>
+        `;
 
         this.attachEventListeners();
-        this.renderTables();
+        this.renderActiveTable();
     }
 
-    renderTables() {
-        this.renderSingleTable('Type');
-        this.renderSingleTable('Trip/Event');
-        this.renderSingleTable('Category');
-    }
-
-    renderSingleTable(type) {
-        const containerId = type === 'Trip/Event' ? 'trip-tags-table-container' : (type === 'Category' ? 'category-tags-table-container' : 'type-tags-table-container');
-        const container = this.element.querySelector(`#${containerId}`);
+    renderActiveTable() {
+        const type = this.activeTab;
+        const container = this.element.querySelector(`#tags-table-container`);
         if (!container) return;
 
         // Determine source of tag list (edit mode vs normal)
         const tagsSource = this.isEditMode ? this.localTags : this.tagsData;
         const tagsList = (tagsSource && tagsSource[type]) ? tagsSource[type] : [];
+        const completedTrips = tagsSource ? (tagsSource.CompletedTrips || []) : [];
+        
         const searchTerm = this.searchTerms[type] || "";
         
         let visibleTags = tagsList.filter(tag => 
@@ -144,6 +137,7 @@ export default class TagsList {
 
             if (type === 'Trip/Event') {
                 row.tripType = this.tripTypeMap[tag] || "";
+                row.isCompleted = completedTrips.includes(tag);
             }
 
             return row;
@@ -154,6 +148,27 @@ export default class TagsList {
         ];
 
         if (type === 'Trip/Event') {
+            // Status Column
+             columns.push({
+                key: 'isCompleted',
+                label: 'Status',
+                type: 'custom',
+                class: 'text-center',
+                render: (item) => {
+                     const icon = item.isCompleted ? '✓' : '✗';
+                     const color = item.isCompleted ? '#5cb85c' : '#d9534f'; // Green or Red
+                     // If in edit mode, make it interactive (or if we decide to allow completion toggle anytime, remove edit mode check)
+                     // Requirement: "I reckon we can implement this in the tag sheet... I think we need to rethink that section..."
+                     // Usually structural changes are edit mode, but status toggling might be frequent. 
+                     // Let's allow toggling in Edit Mode as requested implicitly by "tag sheet". 
+                     
+                     if (this.isEditMode) {
+                         return `<span class="status-toggle-btn" data-tag="${item.tag}" data-completed="${item.isCompleted}" style="cursor: pointer; color: ${color}; font-weight: bold; font-size: 1.2em;">${icon}</span>`;
+                     }
+                     return `<span style="color: ${color}; font-weight: bold; font-size: 1.2em;">${icon}</span>`;
+                }
+            });
+
             columns.push({
                 key: 'tripType',
                 label: 'Type',
@@ -209,7 +224,8 @@ export default class TagsList {
                 const target = event.target;
                 const isInteractiveElement = target.classList.contains('add-tag-placeholder') ||
                                              target.closest('.tag-pill') || 
-                                             target.classList.contains('remove-btn');
+                                             target.classList.contains('remove-btn') ||
+                                             target.classList.contains('status-toggle-btn');
                 
                 if (!isInteractiveElement && !this.isEditMode && this.callbacks.onTagClick) {
                     this.callbacks.onTagClick(type, item.tag);
@@ -243,11 +259,29 @@ export default class TagsList {
     }
 
     handleInteractiveClick(e) {
-        // We ONLY want this interactive when NOT in global edit mode
-        if (this.isEditMode) return;
-        
         const target = e.target;
 
+        // Tab Switching
+        if (target.classList.contains('tab-btn')) {
+            this.activeTab = target.dataset.tab;
+            this.render(this.isEditMode, this.localTags, this.queue, this.stats, this.tripTypeMap, this.timeframe, this.tagsData);
+            return;
+        }
+
+        // Toggle Status (Edit Mode Only for now based on implementation logic)
+        if (this.isEditMode && target.classList.contains('status-toggle-btn')) {
+            e.stopPropagation();
+            const tag = target.dataset.tag;
+            const currentStatus = target.dataset.completed === 'true';
+            if (this.callbacks.onToggleTripCompletion) {
+                this.callbacks.onToggleTripCompletion(tag, !currentStatus);
+            }
+            return;
+        }
+
+        // We ONLY want the following interactive when NOT in global edit mode
+        if (this.isEditMode) return;
+        
         // Remove Tag
         if (target.classList.contains('remove-btn')) {
             e.stopPropagation();
@@ -316,7 +350,7 @@ export default class TagsList {
             input.addEventListener('input', (e) => {
                 const type = e.target.dataset.type;
                 this.searchTerms[type] = e.target.value;
-                this.renderSingleTable(type); // Only re-render the specific table
+                this.renderActiveTable(); // Only re-render the table content
             });
         });
 

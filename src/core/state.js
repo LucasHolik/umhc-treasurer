@@ -67,7 +67,7 @@ const createStore = (initialState = {}) => {
 const store = createStore({
   expenses: [],
   rawExpenses: [], // Stores the unprocessed data from API
-  tags: { "Trip/Event": [], Category: [], "Type": [], "TripTypeMap": {} },
+  tags: { "Trip/Event": [], Category: [], "Type": [], "TripTypeMap": {}, "CompletedTrips": [] },
   isLoading: false,
   isUploading: false,
   isTagging: false,

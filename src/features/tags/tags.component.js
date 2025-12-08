@@ -36,6 +36,7 @@ class TagsComponent {
         onTagDelete: (type, value) => this.handleTagDelete(type, value),
         onTagRename: (type, oldValue) => this.handleTagRename(type, oldValue),
         onUpdateTripType: (tripName, typeName) => this.handleUpdateTripType(tripName, typeName),
+        onToggleTripCompletion: (tripName, isComplete) => this.handleToggleTripCompletion(tripName, isComplete),
         onTimeframeChange: (newTimeframe) => {
             this.timeframe = newTimeframe;
             this.render();
@@ -282,6 +283,34 @@ class TagsComponent {
 
       this.queue.push({ type: 'updateTripType', tagType: 'Trip/Event', oldValue: tripName, newValue: newType });
       
+      this.render();
+  }
+
+  handleToggleTripCompletion(tripName, isComplete) {
+      // 1. Update local state immediately for responsiveness (optimistic update logic)
+      if (this.isEditMode && this.localTags) {
+           const completedList = this.localTags.CompletedTrips || [];
+           if (isComplete) {
+               if (!completedList.includes(tripName)) {
+                   this.localTags.CompletedTrips = [...completedList, tripName];
+               }
+           } else {
+               this.localTags.CompletedTrips = completedList.filter(t => t !== tripName);
+           }
+      }
+      
+      // 2. Queue operation
+      // Filter out opposing previous ops if any (toggle true then toggle false = no op)
+      const existingOpIndex = this.queue.findIndex(op => op.type === 'toggleTripCompletion' && op.value === tripName);
+      
+      if (existingOpIndex !== -1) {
+          // If we are toggling back to original state, remove the op
+          // But it's simpler to just overwrite or append. Let's append and let the backend/logic handle or simple replace.
+          // Better: Remove previous op for this trip and add new one.
+          this.queue.splice(existingOpIndex, 1);
+      }
+      
+      this.queue.push({ type: 'toggleTripCompletion', tagType: 'Trip/Event', value: tripName, isComplete: isComplete });
       this.render();
   }
 

@@ -144,6 +144,7 @@ export const formatOperationsForApi = (queue) => {
         if (op.type === 'delete') return [op.value, null, 'delete', op.tagType];
         if (op.type === 'rename') return [op.oldValue, op.newValue, 'rename', op.tagType];
         if (op.type === 'updateTripType') return [op.oldValue, op.newValue, 'updateTripType', op.tagType];
+        if (op.type === 'toggleTripCompletion') return [op.value, String(op.isComplete), 'toggleTripCompletion', 'Trip/Event'];
         return null;
     }).filter(op => op !== null);
 };

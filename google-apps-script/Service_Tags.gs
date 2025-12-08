@@ -46,8 +46,13 @@ function _getTagSheet() {
   
   if (!tagSheet) {
     tagSheet = spreadsheet.insertSheet("Tags");
-    tagSheet.appendRow(["Trip/Event", "Type", "Category", "Type List"]);
+    tagSheet.appendRow(["Trip/Event", "Type", "Category", "Type List", "Completed Trip/Event tags"]);
     return tagSheet;
+  }
+  
+  // Ensure header exists if sheet exists but col E is empty/missing
+  if (tagSheet.getLastColumn() < 5) {
+      tagSheet.getRange(1, 5).setValue("Completed Trip/Event tags");
   }
 
   return tagSheet;
@@ -58,16 +63,18 @@ function _getTags() {
   const lastRow = tagSheet.getLastRow();
   
   if (lastRow < 2) {
-    return { "Trip/Event": [], "Category": [], "Type": [], "TripTypeMap": {} };
+    return { "Trip/Event": [], "Category": [], "Type": [], "TripTypeMap": {}, "CompletedTrips": [] };
   }
   
-  // Get all data at once for efficiency
-  const data = tagSheet.getRange(2, 1, lastRow - 1, 4).getValues();
+  // Get all data at once for efficiency (Cols A to E)
+  // Determine max rows to fetch.
+  const data = tagSheet.getRange(2, 1, lastRow - 1, 5).getValues();
   
   const tripEventTags = [];
   const tripTypeMap = {};
   const categoryTags = [];
   const typeTags = [];
+  const completedTrips = [];
   
   data.forEach(row => {
       // Col A: Trip/Event
@@ -88,13 +95,19 @@ function _getTags() {
       if (row[3]) {
           typeTags.push(String(row[3]));
       }
+
+      // Col E: Completed Trip/Event tags
+      if (row[4]) {
+          completedTrips.push(String(row[4]));
+      }
   });
 
   return {
     "Trip/Event": tripEventTags,
     "Category": categoryTags,
     "Type": typeTags,
-    "TripTypeMap": tripTypeMap
+    "TripTypeMap": tripTypeMap,
+    "CompletedTrips": completedTrips
   };
 }
 
@@ -200,8 +213,9 @@ function _deleteTag(type, value) {
 
   if (type === "Trip/Event") {
       // If deleting Trip/Event, we should also clear the Type in Col B for that row
-      // Or rather, since we are moving cells up, we must move Col A AND Col B together.
+      // AND remove it from the Completed List (Col E) if present
       
+      // 1. Remove from Col A/B
       if (deleteRow < lastRow) {
           const rangeToMove = tagSheet.getRange(deleteRow + 1, 1, lastRow - deleteRow, 2); // A and B
           rangeToMove.copyTo(tagSheet.getRange(deleteRow, 1));
@@ -210,6 +224,10 @@ function _deleteTag(type, value) {
       } else {
           tagSheet.getRange(deleteRow, 1, 1, 2).clearContent();
       }
+      
+      // 2. Remove from Col E (Completed List)
+      _toggleTripCompletion(value, false);
+
   } else {
       // For Category (C) and Type (D), we just move that column
       if (deleteRow < lastRow) {
@@ -277,6 +295,16 @@ function _renameTag(type, oldValue, newValue, skipSort) {
            tripTypesRange.setValues(newTripTypes);
        }
   }
+  
+  // If renaming a "Trip/Event", we need to check if it's in the Completed List (Col E) and rename it there too
+  if (type === "Trip/Event") {
+      const completedRange = tagSheet.getRange(2, 5, lastRow - 1, 1);
+      const completedList = completedRange.getValues().flat().map(String);
+      const completedIndex = completedList.indexOf(oldValue);
+      if (completedIndex !== -1) {
+          tagSheet.getRange(completedIndex + 2, 5).setValue(newValue);
+      }
+  }
 
   Service_Sheet.updateExpensesWithTag(oldValue, newValue, type);
   Service_Split.updateTagInSplits(oldValue, newValue, type);
@@ -306,12 +334,66 @@ function _updateTripType(tripName, typeName) {
     return { success: true, message: "Trip type updated." };
 }
 
+function _toggleTripCompletion(tripName, isComplete) {
+    const tagSheet = _getTagSheet();
+    const lastRow = tagSheet.getLastRow();
+    
+    // Get current completed list from Col E
+    let completedRange;
+    if (lastRow > 1) {
+        completedRange = tagSheet.getRange(2, 5, lastRow - 1, 1);
+    }
+    
+    // If empty sheet or no completed tags yet
+    if (!completedRange) {
+        if (isComplete) {
+            tagSheet.getRange(2, 5).setValue(tripName);
+            _sortTags("CompletedTrips");
+            return { success: true, message: "Trip marked as complete." };
+        }
+        return { success: true, message: "Trip was not complete." };
+    }
+
+    const completedList = completedRange.getValues().flat().map(String);
+    const index = completedList.indexOf(tripName);
+    
+    if (isComplete) {
+        // Add if not exists
+        if (index === -1) {
+             // Find next empty row in Col E
+             const columnValues = tagSheet.getRange(1, 5, Math.max(lastRow, 1), 1).getValues();
+             let nextEmptyRow = columnValues.length + 1;
+             for (let i = 1; i <= columnValues.length; i++) {
+                if (!columnValues[i-1][0]) {
+                    nextEmptyRow = i;
+                    break;
+                }
+             }
+             tagSheet.getRange(nextEmptyRow, 5).setValue(tripName);
+             _sortTags("CompletedTrips");
+        }
+    } else {
+        // Remove if exists
+        if (index !== -1) {
+            const deleteRow = index + 2;
+            if (deleteRow < lastRow) {
+                const rangeToMove = tagSheet.getRange(deleteRow + 1, 5, lastRow - deleteRow, 1);
+                rangeToMove.moveTo(tagSheet.getRange(deleteRow, 5));
+            } else {
+                tagSheet.getRange(deleteRow, 5).clearContent();
+            }
+        }
+    }
+    return { success: true, message: "Trip completion updated." };
+}
+
 function _processTagOperations(operations) {
   if (!operations || !Array.isArray(operations)) {
     return { success: false, message: "Invalid operations array" };
   }
 
   const modifiedTypes = new Set();
+  let completedTripsModified = false;
 
   for (let i = 0; i < operations.length; i++) {
     const operation = operations[i];
@@ -348,6 +430,12 @@ function _processTagOperations(operations) {
         // oldValue = tripName, newValue = typeName
         result = _updateTripType(oldValue, newValue);
         break;
+      case "toggleTripCompletion":
+          // oldValue = tripName, newValue = "true"/"false" (as string)
+          const isComplete = (newValue === "true");
+          result = _toggleTripCompletion(oldValue, isComplete);
+          if (result.success) completedTripsModified = true;
+          break;
       default:
         return { success: false, message: `Unknown operation type: ${operationType}` };
     }
@@ -365,6 +453,10 @@ function _processTagOperations(operations) {
   modifiedTypes.forEach(type => {
       _sortTags(type);
   });
+  
+  if (completedTripsModified) {
+      _sortTags("CompletedTrips");
+  }
 
   return { success: true, message: `Processed ${operations.length} operations successfully` };
 }
@@ -382,6 +474,8 @@ function _sortTags(type) {
     column = 3;
   } else if (type === "Type") {
     column = 4;
+  } else if (type === "CompletedTrips") {
+    column = 5;
   } else {
     return;
   }
