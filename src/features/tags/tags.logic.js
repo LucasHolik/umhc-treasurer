@@ -21,6 +21,50 @@ export const getVirtualTripTypeMap = (originalMap, queue) => {
                 virtualMap[op.oldValue] = op.newValue;
             }
         }
+        // Handle renames/deletes for Type Map
+        if (op.type === 'rename' && op.tagType === 'Trip/Event') {
+            if (virtualMap[op.oldValue]) {
+                virtualMap[op.newValue] = virtualMap[op.oldValue];
+                delete virtualMap[op.oldValue];
+            }
+        }
+        if (op.type === 'delete' && op.tagType === 'Trip/Event') {
+             delete virtualMap[op.value];
+        }
+    });
+
+    return virtualMap;
+};
+
+/**
+ * Calculates a "virtual" TripStatusMap by applying pending queue operations.
+ * 
+ * @param {Object} originalMap - The original TripStatusMap from store
+ * @param {Array} queue - Array of pending operations
+ * @returns {Object} A new TripStatusMap with operations applied
+ */
+export const getVirtualTripStatusMap = (originalMap, queue) => {
+    let virtualMap = { ...(originalMap || {}) };
+
+    if (!queue || queue.length === 0) return virtualMap;
+
+    queue.forEach(op => {
+        if (op.type === 'updateTripStatus') {
+            virtualMap[op.oldValue] = op.newValue;
+        }
+        // Handle renames/deletes for Status Map
+        if (op.type === 'rename' && op.tagType === 'Trip/Event') {
+            const status = virtualMap[op.oldValue] || "Active";
+            delete virtualMap[op.oldValue];
+            virtualMap[op.newValue] = status;
+        }
+        if (op.type === 'delete' && op.tagType === 'Trip/Event') {
+            delete virtualMap[op.value];
+        }
+        // New trips default to Active
+        if (op.type === 'add' && op.tagType === 'Trip/Event') {
+            virtualMap[op.value] = "Active";
+        }
     });
 
     return virtualMap;
@@ -90,6 +134,9 @@ export const calculateTagStats = (allExpenses, tagsData, timeframe, queue = [], 
     // 2. Calculate Type stats by aggregating Trip/Event stats based on TripTypeMap
     // Use virtualTripTypeMap to reflect pending changes
     const tripTypeMap = getVirtualTripTypeMap(tagsData.TripTypeMap, queue);
+    
+    // Also get virtual status map for return (component might use it)
+    const tripStatusMap = getVirtualTripStatusMap(tagsData.TripStatusMap, queue);
 
     Object.entries(stats["Trip/Event"]).forEach(([tripName, tripStats]) => {
         const type = tripTypeMap[tripName];
@@ -129,7 +176,7 @@ export const calculateTagStats = (allExpenses, tagsData, timeframe, queue = [], 
         });
     }
 
-    return { stats, tripTypeMap };
+    return { stats, tripTypeMap, tripStatusMap };
 };
 
 /**
@@ -144,7 +191,7 @@ export const formatOperationsForApi = (queue) => {
         if (op.type === 'delete') return [op.value, null, 'delete', op.tagType];
         if (op.type === 'rename') return [op.oldValue, op.newValue, 'rename', op.tagType];
         if (op.type === 'updateTripType') return [op.oldValue, op.newValue, 'updateTripType', op.tagType];
-        if (op.type === 'toggleTripCompletion') return [op.value, String(op.isComplete), 'toggleTripCompletion', 'Trip/Event'];
+        if (op.type === 'updateTripStatus') return [op.oldValue, op.newValue, 'updateTripStatus', 'Trip/Event'];
         return null;
     }).filter(op => op !== null);
 };

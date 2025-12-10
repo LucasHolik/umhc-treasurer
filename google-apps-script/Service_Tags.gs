@@ -46,13 +46,50 @@ function _getTagSheet() {
   
   if (!tagSheet) {
     tagSheet = spreadsheet.insertSheet("Tags");
-    tagSheet.appendRow(["Trip/Event", "Type", "Category", "Type List", "Completed Trip/Event tags"]);
+    // New Header Structure: Trip/Event, Type, Status, Category, Type List
+    tagSheet.appendRow(["Trip/Event", "Type", "Status", "Category", "Type List"]);
     return tagSheet;
   }
   
-  // Ensure header exists if sheet exists but col E is empty/missing
-  if (tagSheet.getLastColumn() < 5) {
-      tagSheet.getRange(1, 5).setValue("Completed Trip/Event tags");
+  // MIGRATION CHECK: Check if Col 3 is "Category" (Old Structure)
+  // Headers check to be safe
+  const headerRange = tagSheet.getRange(1, 1, 1, Math.max(tagSheet.getLastColumn(), 5));
+  const headers = headerRange.getValues()[0];
+  
+  // Old headers: ["Trip/Event", "Type", "Category", "Type List", "Completed Trip/Event tags"]
+  if (headers.length >= 3 && headers[2] === "Category") {
+      // 1. Insert new Status column at index 3
+      tagSheet.insertColumnAfter(2); // After Type
+      tagSheet.getRange(1, 3).setValue("Status");
+      
+      // 2. Get Completed List (Old Col 5, now Col 6 because of insertion)
+      const lastRow = tagSheet.getLastRow();
+      let completedTrips = [];
+      if (lastRow > 1 && tagSheet.getLastColumn() >= 6) {
+             const completedData = tagSheet.getRange(2, 6, lastRow - 1, 1).getValues();
+             completedTrips = completedData.flat().map(String).filter(s => s !== "");
+      }
+      
+      // 3. Migrate Status for existing trips (Col 1)
+      if (lastRow > 1) {
+          const tripRange = tagSheet.getRange(2, 1, lastRow - 1, 1);
+          const trips = tripRange.getValues().flat();
+          const statuses = trips.map(t => {
+              if (!t) return [""];
+              return completedTrips.includes(String(t)) ? ["Completed"] : ["Active"];
+          });
+          tagSheet.getRange(2, 3, statuses.length, 1).setValues(statuses);
+      }
+      
+      // 4. Delete old "Completed Trip/Event tags" column (Col 6)
+      if (tagSheet.getLastColumn() >= 6) {
+          tagSheet.deleteColumn(6);
+      }
+  }
+  // Ensure "Status" header is present if for some reason migration didn't run but sheet exists improperly
+  else if (tagSheet.getLastColumn() >= 3 && headers[2] !== "Status") {
+      // Fallback/Safety: just set header if it seems to be in the right place or if empty
+      // But purely relying on the above migration logic should be enough.
   }
 
   return tagSheet;
@@ -63,42 +100,43 @@ function _getTags() {
   const lastRow = tagSheet.getLastRow();
   
   if (lastRow < 2) {
-    return { "Trip/Event": [], "Category": [], "Type": [], "TripTypeMap": {}, "CompletedTrips": [] };
+    return { "Trip/Event": [], "Category": [], "Type": [], "TripTypeMap": {}, "TripStatusMap": {} };
   }
   
-  // Get all data at once for efficiency (Cols A to E)
-  // Determine max rows to fetch.
+  // Get all data at once (Cols A to E) -> 5 columns now
   const data = tagSheet.getRange(2, 1, lastRow - 1, 5).getValues();
   
   const tripEventTags = [];
   const tripTypeMap = {};
+  const tripStatusMap = {};
   const categoryTags = [];
   const typeTags = [];
-  const completedTrips = [];
   
   data.forEach(row => {
       // Col A: Trip/Event
       if (row[0]) {
-          tripEventTags.push(String(row[0]));
-          // Col B: Type (associated with Trip/Event)
+          const tripName = String(row[0]);
+          tripEventTags.push(tripName);
+          // Col B: Type
           if (row[1]) {
-              tripTypeMap[String(row[0])] = String(row[1]);
+              tripTypeMap[tripName] = String(row[1]);
+          }
+          // Col C: Status
+          if (row[2]) {
+              tripStatusMap[tripName] = String(row[2]);
+          } else {
+              tripStatusMap[tripName] = "Active"; // Default
           }
       }
       
-      // Col C: Category
-      if (row[2]) {
-          categoryTags.push(String(row[2]));
+      // Col D: Category (was C)
+      if (row[3]) {
+          categoryTags.push(String(row[3]));
       }
       
-      // Col D: Type List
-      if (row[3]) {
-          typeTags.push(String(row[3]));
-      }
-
-      // Col E: Completed Trip/Event tags
+      // Col E: Type List (was D)
       if (row[4]) {
-          completedTrips.push(String(row[4]));
+          typeTags.push(String(row[4]));
       }
   });
 
@@ -107,7 +145,7 @@ function _getTags() {
     "Category": categoryTags,
     "Type": typeTags,
     "TripTypeMap": tripTypeMap,
-    "CompletedTrips": completedTrips
+    "TripStatusMap": tripStatusMap
   };
 }
 
@@ -119,9 +157,9 @@ function _addTag(type, value, skipSort, extraData) {
   if (type === "Trip/Event") {
     column = 1;
   } else if (type === "Category") {
-    column = 3; // Changed from 2
+    column = 4; // Moved from 3
   } else if (type === "Type") {
-    column = 4;
+    column = 5; // Moved from 4
   } else {
     return { success: false, message: "Invalid tag type." };
   }
@@ -152,10 +190,11 @@ function _addTag(type, value, skipSort, extraData) {
 
   tagSheet.getRange(nextEmptyRow, column).setValue(value);
 
-  // If adding a Trip/Event, we must set its Type (or clear it) to maintain 1:1 alignment
+  // If adding a Trip/Event, we must set its Type (Col 2) and Status (Col 3)
   if (type === "Trip/Event") {
       const typeValue = extraData || "";
       tagSheet.getRange(nextEmptyRow, 2).setValue(typeValue);
+      tagSheet.getRange(nextEmptyRow, 3).setValue("Active"); // Default status
   }
 
   if (!skipSort) {
@@ -173,9 +212,9 @@ function _deleteTag(type, value) {
   if (type === "Trip/Event") {
     column = 1;
   } else if (type === "Category") {
-    column = 3;
-  } else if (type === "Type") {
     column = 4;
+  } else if (type === "Type") {
+    column = 5;
   } else {
     return { success: false, message: "Invalid tag type." };
   }
@@ -212,24 +251,19 @@ function _deleteTag(type, value) {
   }
 
   if (type === "Trip/Event") {
-      // If deleting Trip/Event, we should also clear the Type in Col B for that row
-      // AND remove it from the Completed List (Col E) if present
-      
-      // 1. Remove from Col A/B
+      // If deleting Trip/Event, delete Cols A, B, C for that row
       if (deleteRow < lastRow) {
-          const rangeToMove = tagSheet.getRange(deleteRow + 1, 1, lastRow - deleteRow, 2); // A and B
+          // Move A, B, C (3 cols) up
+          const rangeToMove = tagSheet.getRange(deleteRow + 1, 1, lastRow - deleteRow, 3);
           rangeToMove.copyTo(tagSheet.getRange(deleteRow, 1));
-          // Clear last row of A and B
-          tagSheet.getRange(lastRow, 1, 1, 2).clearContent();
+          // Clear last row of A, B, C
+          tagSheet.getRange(lastRow, 1, 1, 3).clearContent();
       } else {
-          tagSheet.getRange(deleteRow, 1, 1, 2).clearContent();
+          tagSheet.getRange(deleteRow, 1, 1, 3).clearContent();
       }
       
-      // 2. Remove from Col E (Completed List)
-      _toggleTripCompletion(value, false);
-
   } else {
-      // For Category (C) and Type (D), we just move that column
+      // For Category (D) and Type List (E), we just move that column
       if (deleteRow < lastRow) {
         const rangeToMove = tagSheet.getRange(
           deleteRow + 1,
@@ -254,9 +288,9 @@ function _renameTag(type, oldValue, newValue, skipSort) {
   if (type === "Trip/Event") {
     column = 1;
   } else if (type === "Category") {
-    column = 3;
-  } else if (type === "Type") {
     column = 4;
+  } else if (type === "Type") {
+    column = 5;
   } else {
     return { success: false, message: "Invalid tag type." };
   }
@@ -279,7 +313,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
   const updateRow = tagIndex + 2;
   tagSheet.getRange(updateRow, column).setValue(newValue);
   
-  // If renaming a "Type" (master list), we should update all Trip/Events (Col B) that use this type
+  // If renaming a "Type" (master list), update all Trip/Events (Col B) that use this type
   if (type === "Type") {
        const tripTypesRange = tagSheet.getRange(2, 2, lastRow - 1, 1);
        const tripTypes = tripTypesRange.getValues();
@@ -295,16 +329,8 @@ function _renameTag(type, oldValue, newValue, skipSort) {
            tripTypesRange.setValues(newTripTypes);
        }
   }
-  
-  // If renaming a "Trip/Event", we need to check if it's in the Completed List (Col E) and rename it there too
-  if (type === "Trip/Event") {
-      const completedRange = tagSheet.getRange(2, 5, lastRow - 1, 1);
-      const completedList = completedRange.getValues().flat().map(String);
-      const completedIndex = completedList.indexOf(oldValue);
-      if (completedIndex !== -1) {
-          tagSheet.getRange(completedIndex + 2, 5).setValue(newValue);
-      }
-  }
+
+  // Renaming Trip/Event doesn't need to check "CompletedList" anymore since it's on the same row
 
   Service_Sheet.updateExpensesWithTag(oldValue, newValue, type);
   Service_Split.updateTagInSplits(oldValue, newValue, type);
@@ -334,57 +360,21 @@ function _updateTripType(tripName, typeName) {
     return { success: true, message: "Trip type updated." };
 }
 
-function _toggleTripCompletion(tripName, isComplete) {
+function _updateTripStatus(tripName, status) {
     const tagSheet = _getTagSheet();
     const lastRow = tagSheet.getLastRow();
     
-    // Get current completed list from Col E
-    let completedRange;
-    if (lastRow > 1) {
-        completedRange = tagSheet.getRange(2, 5, lastRow - 1, 1);
+    const tripRange = tagSheet.getRange(2, 1, lastRow - 1, 1);
+    const trips = tripRange.getValues().flat().map(String);
+    const index = trips.indexOf(tripName);
+    
+    if (index === -1) {
+        return { success: false, message: "Trip/Event not found." };
     }
     
-    // If empty sheet or no completed tags yet
-    if (!completedRange) {
-        if (isComplete) {
-            tagSheet.getRange(2, 5).setValue(tripName);
-            _sortTags("CompletedTrips");
-            return { success: true, message: "Trip marked as complete." };
-        }
-        return { success: true, message: "Trip was not complete." };
-    }
-
-    const completedList = completedRange.getValues().flat().map(String);
-    const index = completedList.indexOf(tripName);
-    
-    if (isComplete) {
-        // Add if not exists
-        if (index === -1) {
-             // Find next empty row in Col E
-             const columnValues = tagSheet.getRange(1, 5, Math.max(lastRow, 1), 1).getValues();
-             let nextEmptyRow = columnValues.length + 1;
-             for (let i = 1; i <= columnValues.length; i++) {
-                if (!columnValues[i-1][0]) {
-                    nextEmptyRow = i;
-                    break;
-                }
-             }
-             tagSheet.getRange(nextEmptyRow, 5).setValue(tripName);
-             _sortTags("CompletedTrips");
-        }
-    } else {
-        // Remove if exists
-        if (index !== -1) {
-            const deleteRow = index + 2;
-            if (deleteRow < lastRow) {
-                const rangeToMove = tagSheet.getRange(deleteRow + 1, 5, lastRow - deleteRow, 1);
-                rangeToMove.moveTo(tagSheet.getRange(deleteRow, 5));
-            } else {
-                tagSheet.getRange(deleteRow, 5).clearContent();
-            }
-        }
-    }
-    return { success: true, message: "Trip completion updated." };
+    // Update Col C at row index+2
+    tagSheet.getRange(index + 2, 3).setValue(status);
+    return { success: true, message: "Trip status updated." };
 }
 
 function _processTagOperations(operations) {
@@ -393,8 +383,7 @@ function _processTagOperations(operations) {
   }
 
   const modifiedTypes = new Set();
-  let completedTripsModified = false;
-
+  
   for (let i = 0; i < operations.length; i++) {
     const operation = operations[i];
     // [oldValue, newValue, operationType, tagType]
@@ -405,7 +394,6 @@ function _processTagOperations(operations) {
 
     const [rawOldValue, rawNewValue, operationType, tagType] = operation;
     
-    // Ensure values are strings to match sheet data (which is forced to string)
     const oldValue = rawOldValue !== null ? String(rawOldValue) : null;
     const newValue = rawNewValue !== null ? String(rawNewValue) : null;
 
@@ -427,14 +415,11 @@ function _processTagOperations(operations) {
         if (result.success) modifiedTypes.add(tagType);
         break;
       case "updateTripType":
-        // oldValue = tripName, newValue = typeName
         result = _updateTripType(oldValue, newValue);
         break;
-      case "toggleTripCompletion":
-          // oldValue = tripName, newValue = "true"/"false" (as string)
-          const isComplete = (newValue === "true");
-          result = _toggleTripCompletion(oldValue, isComplete);
-          if (result.success) completedTripsModified = true;
+      case "updateTripStatus":
+          // oldValue = tripName, newValue = status ("Active", "Completed", "Investment")
+          result = _updateTripStatus(oldValue, newValue);
           break;
       default:
         return { success: false, message: `Unknown operation type: ${operationType}` };
@@ -453,10 +438,6 @@ function _processTagOperations(operations) {
   modifiedTypes.forEach(type => {
       _sortTags(type);
   });
-  
-  if (completedTripsModified) {
-      _sortTags("CompletedTrips");
-  }
 
   return { success: true, message: `Processed ${operations.length} operations successfully` };
 }
@@ -471,18 +452,16 @@ function _sortTags(type) {
   if (type === "Trip/Event") {
     column = 1;
   } else if (type === "Category") {
-    column = 3;
-  } else if (type === "Type") {
     column = 4;
-  } else if (type === "CompletedTrips") {
+  } else if (type === "Type") {
     column = 5;
   } else {
     return;
   }
 
   if (type === "Trip/Event") {
-      // Sort A and B together based on A
-      const range = tagSheet.getRange(2, 1, lastRow - 1, 2);
+      // Sort A, B, C together based on A
+      const range = tagSheet.getRange(2, 1, lastRow - 1, 3);
       range.sort({ column: 1, ascending: true });
   } else {
       // Sort independent column

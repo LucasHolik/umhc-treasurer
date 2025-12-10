@@ -114,7 +114,7 @@ export default class TagsList {
         // Determine source of tag list (edit mode vs normal)
         const tagsSource = this.isEditMode ? this.localTags : this.tagsData;
         const tagsList = (tagsSource && tagsSource[type]) ? tagsSource[type] : [];
-        const completedTrips = tagsSource ? (tagsSource.CompletedTrips || []) : [];
+        const tripStatusMap = tagsSource ? (tagsSource.TripStatusMap || {}) : {};
         
         const searchTerm = this.searchTerms[type] || "";
         
@@ -137,7 +137,7 @@ export default class TagsList {
 
             if (type === 'Trip/Event') {
                 row.tripType = this.tripTypeMap[tag] || "";
-                row.isCompleted = completedTrips.includes(tag);
+                row.status = tripStatusMap[tag] || "Active";
             }
 
             return row;
@@ -150,22 +150,23 @@ export default class TagsList {
         if (type === 'Trip/Event') {
             // Status Column
              columns.push({
-                key: 'isCompleted',
+                key: 'status',
                 label: 'Status',
                 type: 'custom',
                 class: 'text-center',
                 render: (item) => {
-                     const icon = item.isCompleted ? '✓' : '✗';
-                     const color = item.isCompleted ? '#5cb85c' : '#d9534f'; // Green or Red
-                     // If in edit mode, make it interactive (or if we decide to allow completion toggle anytime, remove edit mode check)
-                     // Requirement: "I reckon we can implement this in the tag sheet... I think we need to rethink that section..."
-                     // Usually structural changes are edit mode, but status toggling might be frequent. 
-                     // Let's allow toggling in Edit Mode as requested implicitly by "tag sheet". 
+                     const status = item.status || "Active";
+                     const styles = {
+                         "Active": { icon: "◯", color: "#888", title: "Active" },
+                         "Completed": { icon: "✅", color: "#5cb85c", title: "Completed" },
+                         "Investment": { icon: "🚀", color: "#5bc0de", title: "Investment" }
+                     };
+                     const s = styles[status] || styles["Active"];
                      
                      if (this.isEditMode) {
-                         return `<span class="status-toggle-btn" data-tag="${item.tag}" data-completed="${item.isCompleted}" style="cursor: pointer; color: ${color}; font-weight: bold; font-size: 1.2em;">${icon}</span>`;
+                         return `<span class="status-toggle-btn" data-tag="${item.tag}" data-status="${status}" title="${s.title} - Click to cycle" style="cursor: pointer; color: ${s.color}; font-weight: bold; font-size: 1.2em;">${s.icon}</span>`;
                      }
-                     return `<span style="color: ${color}; font-weight: bold; font-size: 1.2em;">${icon}</span>`;
+                     return `<span title="${s.title}" style="color: ${s.color}; font-weight: bold; font-size: 1.2em;">${s.icon}</span>`;
                 }
             });
 
@@ -272,9 +273,15 @@ export default class TagsList {
         if (this.isEditMode && target.classList.contains('status-toggle-btn')) {
             e.stopPropagation();
             const tag = target.dataset.tag;
-            const currentStatus = target.dataset.completed === 'true';
-            if (this.callbacks.onToggleTripCompletion) {
-                this.callbacks.onToggleTripCompletion(tag, !currentStatus);
+            const currentStatus = target.dataset.status;
+             const nextStatus = {
+                "Active": "Completed",
+                "Completed": "Investment",
+                "Investment": "Active"
+            }[currentStatus] || "Active";
+
+            if (this.callbacks.onUpdateTripStatus) {
+                this.callbacks.onUpdateTripStatus(tag, nextStatus);
             }
             return;
         }
