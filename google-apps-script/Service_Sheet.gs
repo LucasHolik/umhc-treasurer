@@ -125,17 +125,18 @@ var Service_Sheet = {
         configSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(
           CONFIG.CONFIG_SHEET
         );
-        configSheet.getRange(CONFIG.API_KEY_CELL).setValue("API Key");
-        configSheet.getRange(CONFIG.OPENING_BALANCE_CELL).setValue(0);
-        return { success: true, balance: 0 };
       }
 
+      // Ensure titles are correct
+      configSheet.getRange(CONFIG.API_KEY_TITLE_CELL).setValue(CONFIG.API_KEY_TITLE);
+      configSheet.getRange(CONFIG.OPENING_BALANCE_TITLE_CELL).setValue(CONFIG.OPENING_BALANCE_TITLE);
+
       const balanceCell = configSheet.getRange(CONFIG.OPENING_BALANCE_CELL);
-      const balance = balanceCell.getValue();
+      let balance = balanceCell.getValue();
 
       if (balance === "" || balance === null || balance === undefined) {
         balanceCell.setValue(0);
-        return { success: true, balance: 0 };
+        balance = 0;
       }
 
       return { success: true, balance: parseFloat(balance) || 0 };
@@ -162,11 +163,12 @@ var Service_Sheet = {
         configSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(
           CONFIG.CONFIG_SHEET
         );
-        configSheet.getRange(CONFIG.API_KEY_CELL).setValue("API Key");
-        configSheet.getRange(CONFIG.OPENING_BALANCE_CELL).setValue("");
       }
 
+      // Ensure titles are correct
+      configSheet.getRange(CONFIG.API_KEY_TITLE_CELL).setValue(CONFIG.API_KEY_TITLE);
       configSheet.getRange(CONFIG.OPENING_BALANCE_CELL).setValue(balance);
+      configSheet.getRange(CONFIG.OPENING_BALANCE_TITLE_CELL).setValue(CONFIG.OPENING_BALANCE_TITLE);
 
       return { success: true, message: "Opening balance saved successfully" };
     } catch (error) {
