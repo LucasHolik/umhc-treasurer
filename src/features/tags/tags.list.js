@@ -34,6 +34,7 @@ export default class TagsList {
     queue,
     stats,
     tripTypeMap,
+    tripStatusMap,
     timeframe,
     tagsData
   ) {
@@ -42,6 +43,7 @@ export default class TagsList {
     this.queue = queue;
     this.stats = stats;
     this.tripTypeMap = tripTypeMap;
+    this.tripStatusMap = tripStatusMap;
     this.timeframe = timeframe;
     this.tagsData = tagsData; // Used for type selector options and initial completed list
 
@@ -162,7 +164,9 @@ export default class TagsList {
     // Determine source of tag list (edit mode vs normal)
     const tagsSource = this.isEditMode ? this.localTags : this.tagsData;
     const tagsList = tagsSource && tagsSource[type] ? tagsSource[type] : [];
-    const tripStatusMap = tagsSource ? tagsSource.TripStatusMap || {} : {};
+
+    // Use virtual tripStatusMap which includes queued changes
+    const tripStatusMap = this.tripStatusMap || {};
 
     const searchTerm = this.searchTerms[type] || "";
 
@@ -214,10 +218,12 @@ export default class TagsList {
           };
           const s = styles[status] || styles["Active"];
 
-          if (this.isEditMode) {
+          if (!this.isEditMode) {
+            // Interactive in View Mode
             return `<span class="status-toggle-btn" data-tag="${item.tag}" data-status="${status}" title="${s.title} - Click to cycle" style="cursor: pointer; color: ${s.color}; font-weight: bold; font-size: 1.2em;">${s.icon}</span>`;
           }
-          return `<span title="${s.title}" style="color: ${s.color}; font-weight: bold; font-size: 1.2em;">${s.icon}</span>`;
+          // Non-interactive in Edit Mode
+          return `<span title="${s.title} (Exit edit mode to change)" style="color: ${s.color}; opacity: 0.7; font-weight: bold; font-size: 1.2em;">${s.icon}</span>`;
         },
       });
 
@@ -362,14 +368,15 @@ export default class TagsList {
         this.queue,
         this.stats,
         this.tripTypeMap,
+        this.tripStatusMap,
         this.timeframe,
         this.tagsData
       );
       return;
     }
 
-    // Toggle Status (Edit Mode Only for now based on implementation logic)
-    if (this.isEditMode && target.classList.contains("status-toggle-btn")) {
+    // Toggle Status (Interactive only when NOT in Edit Mode)
+    if (!this.isEditMode && target.classList.contains("status-toggle-btn")) {
       e.stopPropagation();
       const tag = target.dataset.tag;
       const currentStatus = target.dataset.status;
