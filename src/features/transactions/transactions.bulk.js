@@ -1,4 +1,5 @@
 import store from '../../core/state.js';
+import ModalComponent from '../../shared/modal.component.js';
 
 export default class TransactionsBulk {
     constructor(element, callbacks) {
@@ -8,6 +9,7 @@ export default class TransactionsBulk {
         // State
         this.bulkTripState = { value: null, search: '', isOpen: false };
         this.bulkCategoryState = { value: null, search: '', isOpen: false };
+        this.isActive = false;
 
         this.bindEvents();
     }
@@ -20,7 +22,7 @@ export default class TransactionsBulk {
 
         if (this.tagTransactionsBtn) {
             this.tagTransactionsBtn.addEventListener('click', () => {
-                 if (this.callbacks.onToggleMode) this.callbacks.onToggleMode(true);
+                 if (this.callbacks.onToggleMode) this.callbacks.onToggleMode(!this.isActive);
             });
         }
         
@@ -41,12 +43,12 @@ export default class TransactionsBulk {
         this.setupBulkDropdown('category', '#bulk-category-container', '#bulk-category-trigger', '#bulk-category-content', '#bulk-category-search', 'Category');
     }
 
-    handleApply() {
+    async handleApply() {
         const tripVal = this.bulkTripState.value;
         const catVal = this.bulkCategoryState.value;
         
         if (!tripVal && !catVal) {
-            alert("Please select a Trip/Event or Category to apply.");
+            await new ModalComponent().alert("Please select a Trip/Event or Category to apply.");
             return; 
         }
         
@@ -66,6 +68,7 @@ export default class TransactionsBulk {
     }
 
     toggleSelectionMode(active, selectedCount) {
+      this.isActive = active;
       if (!active) {
           // Reset Bulk State
           this.bulkTripState = { value: null, search: '', isOpen: false };

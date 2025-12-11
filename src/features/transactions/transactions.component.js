@@ -3,6 +3,7 @@ import store from '../../core/state.js';
 import ApiService from '../../services/api.service.js';
 import SortableTable from '../../shared/sortable-table.component.js';
 import LoaderComponent from '../../shared/loader.component.js';
+import ModalComponent from '../../shared/modal.component.js';
 import TransactionsFilters from './transactions.filters.js';
 import TransactionsBulk from './transactions.bulk.js';
 import TransactionsManualModal from './transactions.manual.js';
@@ -834,7 +835,7 @@ class TransactionsComponent {
       });
 
       if (changesList.length === 0) {
-          alert("No changes detected.");
+          await new ModalComponent().alert("No changes detected.");
           return;
       }
 
