@@ -4,6 +4,7 @@ import ModalComponent from "../../shared/modal.component.js";
 import router from "../../core/router.js";
 import TagsList from "./tags.list.js";
 import TagsDetails from "./tags.details.js";
+import TagsSubList from "./tags.sublist.js";
 import TagsAddTrip from "./tags.add-trip.js";
 import { calculateTagStats, formatOperationsForApi } from "./tags.logic.js";
 
@@ -17,7 +18,7 @@ class TagsComponent {
     this.isEditMode = false;
 
     // View State
-    this.viewMode = "list"; // 'list' | 'details' | 'add-trip'
+    this.viewMode = "list"; // 'list' | 'details' | 'sublist' | 'add-trip'
     this.selectedTag = null; // { type, name }
     this.targetTypeName = null; // For add-trip view
     this.timeframe = "all_time";
@@ -45,8 +46,13 @@ class TagsComponent {
       },
     });
 
-    this.tagsDetails = new TagsDetails(element, {
+    this.tagsSubList = new TagsSubList(element, {
       onBack: () => this.handleBack(),
+      onTagClick: (type, name) => this.handleTagClick(type, name),
+    });
+
+    this.tagsDetails = new TagsDetails(element, {
+      onBack: () => this.handleDetailsBack(),
       onAddTransactions: (type, name) => this.handleAddTransactions(type, name),
       onAddTagsToType: (typeName) => this.handleAddTagsToType(typeName),
     });
@@ -104,6 +110,20 @@ class TagsComponent {
         this.timeframe,
         tagsData // Pass original tags data for dropdowns (even in edit mode, options come from global or current set)
       );
+    } else if (this.viewMode === "sublist" && this.selectedTag) {
+      const expenses = store.getState("expenses") || [];
+      const tagsData = store.getState("tags") || {};
+      const { stats, tripTypeMap, tripStatusMap } = calculateTagStats(
+        expenses,
+        tagsData,
+        this.timeframe
+      );
+      this.tagsSubList.render(
+        this.selectedTag.name,
+        stats,
+        tripTypeMap,
+        tripStatusMap
+      );
     } else if (this.viewMode === "details" && this.selectedTag) {
       this.tagsDetails.render(this.selectedTag.type, this.selectedTag.name);
     } else if (this.viewMode === "add-trip") {
@@ -125,7 +145,11 @@ class TagsComponent {
 
   handleTagClick(type, name) {
     this.selectedTag = { type, name };
-    this.viewMode = "details";
+    if (type === "Type") {
+      this.viewMode = "sublist";
+    } else {
+      this.viewMode = "details";
+    }
     this.render();
   }
 
@@ -133,6 +157,27 @@ class TagsComponent {
     this.selectedTag = null;
     this.viewMode = "list";
     this.render();
+  }
+
+  handleDetailsBack() {
+    // If we came from a Type sublist (Trip/Event), go back to sublist
+    if (this.selectedTag && this.selectedTag.type === "Trip/Event") {
+      // We need to know which Type "owns" this trip to go back to the correct sublist.
+      // However, we don't store the "parent" type in selectedTag.
+      // We can look it up.
+      const tagsData = store.getState("tags") || {};
+      const tripTypeMap = tagsData.TripTypeMap || {};
+      const parentType = tripTypeMap[this.selectedTag.name];
+
+      if (parentType) {
+        this.selectedTag = { type: "Type", name: parentType };
+        this.viewMode = "sublist";
+        this.render();
+        return;
+      }
+    }
+    // Default fallback
+    this.handleBack();
   }
 
   handleAddTransactions(type, name) {
