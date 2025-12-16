@@ -173,9 +173,9 @@ export default class SplitTransactionModal {
         this.updateCalculations();
     }
 
-    removeSplit(index) {
+    async removeSplit(index) {
         if (this.splits.length <= 2) {
-            alert("You must have at least 2 splits.");
+            await new ModalComponent().alert("You must have at least 2 splits.");
             return;
         }
         this.splits.splice(index, 1);
@@ -221,12 +221,12 @@ export default class SplitTransactionModal {
         // Final validation
         const total = this.splits.reduce((sum, s) => sum + (s.amount || 0), 0);
         if (Math.abs(this.originalAmount - total) >= 0.01) {
-            alert("Total split amount must equal original amount.");
+            await new ModalComponent().alert("Total split amount must equal original amount.");
             return;
         }
 
         if (this.splits.some(s => !s.description.trim())) {
-            alert("All splits must have a description.");
+            await new ModalComponent().alert("All splits must have a description.");
             return;
         }
 
