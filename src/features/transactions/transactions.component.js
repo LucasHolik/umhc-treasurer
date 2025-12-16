@@ -582,8 +582,10 @@ class TransactionsComponent {
                 
                 keys.forEach(key => {
                     // If pending value matches new server value, it's not a change anymore
-                    // Use loose comparison or strict depending on data types, strict is safer if types align
-                    if (changes[key] !== matchingRow[key]) {
+                    const serverVal = matchingRow[key] || "";
+                    const pendingVal = changes[key] || "";
+
+                    if (pendingVal !== serverVal) {
                         hasChanges = true;
                     } else {
                         delete changes[key]; // Cleanup redundant field
