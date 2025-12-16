@@ -28,10 +28,21 @@ export default class SplitTransactionModal {
         if (existingSplits) {
             this.mode = 'edit';
             this.groupId = groupId;
-            this.splits = existingSplits.map(s => ({
-                description: s.Description || s.description, // handle both cases
-                amount: parseFloat(s.Amount || s.amount || 0)
-            }));
+            this.splits = existingSplits.map(s => {
+                let amt = 0;
+                if (s.Amount !== undefined) amt = s.Amount;
+                else if (s.amount !== undefined) amt = s.amount;
+                else {
+                    const inc = s.Income ? parseFloat(String(s.Income).replace(/,/g, '')) : 0;
+                    const exp = s.Expense ? parseFloat(String(s.Expense).replace(/,/g, '')) : 0;
+                    amt = inc !== 0 ? inc : exp;
+                }
+
+                return {
+                    description: s.Description || s.description, // handle both cases
+                    amount: parseFloat(amt || 0)
+                };
+            });
         } else {
             this.mode = 'create';
             this.splits = [
