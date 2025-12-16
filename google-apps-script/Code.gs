@@ -112,7 +112,19 @@ function getAppData() {
 }
 
 function createJsonResponse(data, callback) {
-  const jsonp = (callback || "callback") + "(" + JSON.stringify(data) + ")";
+  // Validate callback to prevent XSS - only allow safe JavaScript identifiers
+  const safeCallback = callback || "callback";
+  const callbackRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/;
+  
+  if (!callbackRegex.test(safeCallback)) {
+    // Log the attempt and use default callback
+    Logger.log("Invalid callback parameter detected: " + safeCallback);
+    callback = "callback";
+  } else {
+    callback = safeCallback;
+  }
+
+  const jsonp = callback + "(" + JSON.stringify(data) + ")";
   return ContentService.createTextOutput(jsonp).setMimeType(
     ContentService.MimeType.JAVASCRIPT
   );
