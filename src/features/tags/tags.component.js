@@ -355,12 +355,22 @@ class TagsComponent {
       (op) => !(op.type === "updateTripType" && op.oldValue === tripName)
     );
 
-    this.queue.push({
-      type: "updateTripType",
-      tagType: "Trip/Event",
-      oldValue: tripName,
-      newValue: newType,
-    });
+    // Check if newType matches original state
+    const originalTags = store.getState("tags");
+    const originalType =
+      originalTags.TripTypeMap && originalTags.TripTypeMap[tripName]
+        ? originalTags.TripTypeMap[tripName]
+        : "";
+
+    // Only queue if different from original
+    if (newType !== originalType) {
+      this.queue.push({
+        type: "updateTripType",
+        tagType: "Trip/Event",
+        oldValue: tripName,
+        newValue: newType,
+      });
+    }
 
     this.render();
   }
@@ -380,12 +390,23 @@ class TagsComponent {
       (op) => !(op.type === "updateTripStatus" && op.oldValue === tripName)
     );
 
-    this.queue.push({
-      type: "updateTripStatus",
-      tagType: "Trip/Event",
-      oldValue: tripName,
-      newValue: newStatus,
-    });
+    // Check if newStatus matches original state
+    const originalTags = store.getState("tags");
+    const originalStatus =
+      originalTags.TripStatusMap && originalTags.TripStatusMap[tripName]
+        ? originalTags.TripStatusMap[tripName]
+        : "Active";
+
+    // Only queue if different from original
+    if (newStatus !== originalStatus) {
+      this.queue.push({
+        type: "updateTripStatus",
+        tagType: "Trip/Event",
+        oldValue: tripName,
+        newValue: newStatus,
+      });
+    }
+
     this.render();
   }
 
