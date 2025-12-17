@@ -43,14 +43,50 @@ class AnalysisLogic {
     return getDateRange(timeframe);
   }
 
+
   /**
-   * Filters the raw expenses data based on date range and selected tags.
+   * Checks if a transaction belongs to a trip with the specified status.
+   * @param {Object} item - The transaction item.
+   * @param {Object} tripStatusMap - Map of trip names to their status ('Active', 'Completed').
+   * @param {string} tripStatusFilter - The desired trip status to filter by ('Active', 'Completed', 'All').
+   * @returns {boolean} True if the transaction matches the trip status filter, false otherwise.
+   */
+  isTransactionInTripStatus(item, tripStatusMap, tripStatusFilter) {
+    const tripName = item['Trip/Event'];
+
+    // If the filter is 'All' or empty, all transactions pass this filter
+    if (tripStatusFilter === 'All' || tripStatusFilter === '') {
+        return true;
+    }
+
+    // If there's no trip name, and a specific filter is applied (not 'All' or empty),
+    // then this transaction should not pass the filter.
+    if (!tripName) {
+        return false;
+    }
+
+    const actualStatus = tripStatusMap[tripName];
+
+    // If the trip doesn't have a status in the map, and a specific filter is applied,
+    // then this transaction should not pass the filter.
+    if (!actualStatus) {
+        return false;
+    }
+
+    // Now, a specific filter is applied, tripName exists, and actualStatus exists.
+    // Check if the actual status matches the filter.
+    return actualStatus === tripStatusFilter;
+  }
+
+  /**
+   * Filters the raw expenses data based on date range, selected tags, and trip status.
    * @param {Array<Object>} expenses - The raw list of expense objects.
-   * @param {Object} filterState - An object containing startDate, endDate, selectedCategories, selectedTrips.
+   * @param {Object} filterState - An object containing startDate, endDate, selectedCategories, selectedTrips, tripStatusFilter.
+   * @param {Object} tripStatusMap - Map of trip names to their status ('Active', 'Completed').
    * @returns {Array<Object>} The filtered list of expense objects.
    */
-  getFilteredData(expenses, filterState) {
-    const { startDate, endDate, selectedCategories, selectedTrips } = filterState;
+  getFilteredData(expenses, filterState, tripStatusMap) {
+    const { startDate, endDate, selectedCategories, selectedTrips, tripStatusFilter } = filterState;
     const start = new Date(startDate);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999); // Include the whole end day
@@ -74,6 +110,11 @@ class AnalysisLogic {
             if (!selectedTrips.has(itemTrip)) {
                 return false;
             }
+        }
+
+        // Trip Status Filter
+        if (!this.isTransactionInTripStatus(item, tripStatusMap, tripStatusFilter)) {
+            return false;
         }
 
         return true;

@@ -17,6 +17,7 @@ class AnalysisComponent {
       timeframe: 'past_30_days',
       startDate: '',
       endDate: '',
+      tripStatusFilter: 'All', // 'All', 'Active', 'Completed'
       
       // Split Tag Filters
       selectedCategories: new Set(),
@@ -134,14 +135,14 @@ class AnalysisComponent {
             <button class="quick-report-btn" data-preset="monthly_trend">📅 Monthly Trend</button>
             <button class="quick-report-btn" data-preset="spending_habits">🍕 Spending Habits</button>
             <button class="quick-report-btn" data-preset="trip_analysis">✈️ Trip Analysis</button>
-            <button class="quick-report-btn" data-preset="balance_history">📈 Balance History</button>
+            <button class="quick-report-btn" data-preset="completed_trips">🏁 Completed Trips</button>
         </div>
 
         <div class="analysis-controls">
-            <!-- Date Range -->
+            <!-- Date Range & Scope -->
             <div class="control-group">
-                <label for="analysis-timeframe-select">Date Range</label>
-                <select id="analysis-timeframe-select" class="control-input" style="margin-bottom: 10px;">
+                <label for="analysis-timeframe-select">Scope (Date & Status)</label>
+                <select id="analysis-timeframe-select" class="control-input" style="margin-bottom: 5px;">
                     <option value="current_month" ${this.state.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
                     <option value="past_30_days" ${this.state.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
                     <option value="past_3_months" ${this.state.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>
@@ -150,6 +151,13 @@ class AnalysisComponent {
                     <option value="all_time" ${this.state.timeframe === 'all_time' ? 'selected' : ''}>All Time</option>
                     <option value="custom" ${this.state.timeframe === 'custom' ? 'selected' : ''}>Custom</option>
                 </select>
+
+                <select id="analysis-trip-status-select" class="control-input" style="margin-bottom: 10px;" aria-label="Trip Status">
+                    <option value="All" ${this.state.tripStatusFilter === 'All' ? 'selected' : ''}>All Trip Statuses</option>
+                    <option value="Active" ${this.state.tripStatusFilter === 'Active' ? 'selected' : ''}>Active Trips Only</option>
+                    <option value="Completed" ${this.state.tripStatusFilter === 'Completed' ? 'selected' : ''}>Completed Trips Only</option>
+                </select>
+
                 <div style="display: flex; gap: 10px;">
                     <input type="date" id="analysis-start-date" aria-label="Start Date" class="control-input" value="${this.state.startDate}">
                     <input type="date" id="analysis-end-date" aria-label="End Date" class="control-input" value="${this.state.endDate}">
@@ -252,6 +260,10 @@ class AnalysisComponent {
         this.handleTimeframeChange(e.target.value);
         this.generateChart();
     });
+    this.element.querySelector('#analysis-trip-status-select').addEventListener('change', (e) => {
+        this.state.tripStatusFilter = e.target.value;
+        this.generateChart();
+    });
     this.element.querySelector('#analysis-start-date').addEventListener('change', (e) => {
         this.state.startDate = e.target.value;
         this.state.timeframe = 'custom';
@@ -340,6 +352,9 @@ class AnalysisComponent {
     this.state.selectedTrips.clear();
     this.state.categorySearchTerm = '';
     this.state.tripSearchTerm = '';
+    
+    // Default to 'All' unless specified
+    this.state.tripStatusFilter = 'All';
 
     switch (presetName) {
         case 'monthly_trend':
@@ -365,6 +380,16 @@ class AnalysisComponent {
             this.state.primaryGroup = 'trip';
             this.state.secondaryGroup = 'none';
             this.state.timeUnit = 'month'; // Not relevant for trip grouping
+            this.state.tripStatusFilter = 'All';
+            break;
+        case 'completed_trips':
+            this.state.timeframe = 'all_time';
+            this.state.metric = 'net'; // Usually interested in net cost of the trip
+            this.state.chartType = 'bar';
+            this.state.primaryGroup = 'trip';
+            this.state.secondaryGroup = 'none';
+            this.state.timeUnit = 'month';
+            this.state.tripStatusFilter = 'Completed';
             break;
         case 'balance_history':
             this.state.timeframe = 'all_time';
@@ -394,6 +419,9 @@ class AnalysisComponent {
     // Update Timeframe & Dates
     const timeframeSelect = this.element.querySelector('#analysis-timeframe-select');
     if (timeframeSelect) timeframeSelect.value = this.state.timeframe;
+    
+    const tripStatusSelect = this.element.querySelector('#analysis-trip-status-select');
+    if (tripStatusSelect) tripStatusSelect.value = this.state.tripStatusFilter;
     
     const startDateInput = this.element.querySelector('#analysis-start-date');
     if (startDateInput) startDateInput.value = this.state.startDate;
@@ -593,12 +621,16 @@ class AnalysisComponent {
     }
 
     const expenses = store.getState('expenses') || [];
+    const tags = store.getState('tags') || {};
+    const tripStatusMap = tags.TripStatusMap || {};
+
     const filteredData = this.analysisLogic.getFilteredData(expenses, {
         startDate: this.state.startDate,
         endDate: this.state.endDate,
         selectedCategories: this.state.selectedCategories,
         selectedTrips: this.state.selectedTrips,
-    });
+        tripStatusFilter: this.state.tripStatusFilter,
+    }, tripStatusMap);
     
     // Update summary stats
     this.state.summaryStats = this.analysisLogic.calculateSummaryStats(filteredData);
@@ -611,7 +643,6 @@ class AnalysisComponent {
     const { currentBalance } = calculateFinancials(openingBalance, allExpenses);
 
     // 2. Get Tags and Calculate
-    const tags = store.getState('tags') || {};
     this.state.summaryStats.effectiveBalance = this.analysisLogic.calculateEffectiveBalance(currentBalance, allExpenses, tags);
 
     this.updateStatsDOM();

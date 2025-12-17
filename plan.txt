@@ -14,6 +14,7 @@
 *   *Outcome:* Logic verified. `adjustedOpeningBalance` is used correctly. Manual transactions are effectively neutral to the running balance start point (offset + transaction cancellation) but appear correctly in the timeline.
 
 ### Step 2: Trip Status Integration
+*   *Status:* **Completed**.
 *   **Objective:** Enable filtering expenses based on whether their associated Trip/Event is "Active" or "Completed".
 *   **Action:**
     *   Update `analysis.logic.js` to ingest `tags` state (specifically the `Trip/Event` status map).
