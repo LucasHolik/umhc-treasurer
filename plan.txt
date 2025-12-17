@@ -42,6 +42,7 @@
     *   Group By: `Trip/Event`.
 
 ### Step 5: Hierarchical Tag Grouping
+*   *Status:* **Completed**.
 *   **Objective:** See spend grouped by an overarching tag and then a subtag.
 *   **UI Change:** Refactor Grouping Dropdowns.
     *   Rename "Primary Grouping" to **"Main Category (X-Axis)"**.

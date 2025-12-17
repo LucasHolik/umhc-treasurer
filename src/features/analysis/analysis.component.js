@@ -183,7 +183,7 @@ class AnalysisComponent {
 
             <!-- Grouping -->
             <div class="control-group">
-                <label for="analysis-primary-group-select">Grouping</label>
+                <label for="analysis-primary-group-select">Main Category (X-Axis)</label>
                 <div style="display:flex; flex-direction:column; gap:5px;">
                     <select id="analysis-primary-group-select" class="control-input" aria-label="Primary Grouping" title="Primary Grouping (X-Axis)">
                         <option value="date" ${this.state.primaryGroup === 'date' ? 'selected' : ''}>By Date</option>
@@ -191,7 +191,7 @@ class AnalysisComponent {
                         <option value="trip" ${this.state.primaryGroup === 'trip' ? 'selected' : ''}>By Trip/Event</option>
                     </select>
                     
-                    <select id="analysis-secondary-group-select" class="control-input" aria-label="Secondary Grouping" title="Secondary Grouping (Segments/Stacks)">
+                    <select id="analysis-secondary-group-select" class="control-input" aria-label="Sub-Category (Stacks)" title="Secondary Grouping (Segments/Stacks)">
                         <option value="none" ${this.state.secondaryGroup === 'none' ? 'selected' : ''}>No Sub-grouping</option>
                         <option value="category" ${this.state.secondaryGroup === 'category' ? 'selected' : ''}>Split by Category</option>
                         <option value="trip" ${this.state.secondaryGroup === 'trip' ? 'selected' : ''}>Split by Trip/Event</option>
