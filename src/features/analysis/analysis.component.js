@@ -132,10 +132,10 @@ class AnalysisComponent {
 
         <!-- Quick Reports / Presets -->
         <div class="quick-reports-container">
+            <button class="quick-report-btn" data-preset="trip_cost_completed">🏁 Trip Cost (Completed)</button>
+            <button class="quick-report-btn" data-preset="category_breakdown">📊 Category Breakdown</button>
             <button class="quick-report-btn" data-preset="monthly_trend">📅 Monthly Trend</button>
-            <button class="quick-report-btn" data-preset="spending_habits">🍕 Spending Habits</button>
-            <button class="quick-report-btn" data-preset="trip_analysis">✈️ Trip Analysis</button>
-            <button class="quick-report-btn" data-preset="completed_trips">🏁 Completed Trips</button>
+            <button class="quick-report-btn" data-preset="active_trip_status">✈️ Active Trip Status</button>
         </div>
 
         <div class="analysis-controls">
@@ -357,6 +357,23 @@ class AnalysisComponent {
     this.state.tripStatusFilter = 'All';
 
     switch (presetName) {
+        case 'trip_cost_completed':
+            this.state.timeframe = 'all_time';
+            this.state.metric = 'net';
+            this.state.chartType = 'bar';
+            this.state.primaryGroup = 'trip';
+            this.state.secondaryGroup = 'none';
+            this.state.timeUnit = 'month'; // Not used
+            this.state.tripStatusFilter = 'Completed';
+            break;
+        case 'category_breakdown':
+            this.state.timeframe = 'past_year';
+            this.state.metric = 'expense';
+            this.state.chartType = 'bar';
+            this.state.primaryGroup = 'category';
+            this.state.secondaryGroup = 'trip';
+            this.state.timeUnit = 'month'; // Not used
+            break;
         case 'monthly_trend':
             this.state.timeframe = 'past_year';
             this.state.metric = 'net';
@@ -365,39 +382,14 @@ class AnalysisComponent {
             this.state.secondaryGroup = 'none';
             this.state.timeUnit = 'month';
             break;
-        case 'spending_habits':
-            this.state.timeframe = 'past_6_months';
-            this.state.metric = 'expense';
-            this.state.chartType = 'doughnut';
-            this.state.primaryGroup = 'category';
-            this.state.secondaryGroup = 'none';
-            this.state.timeUnit = 'month'; // Not relevant for category grouping, but keep default
-            break;
-        case 'trip_analysis':
-            this.state.timeframe = 'past_year';
-            this.state.metric = 'expense';
+        case 'active_trip_status':
+            this.state.timeframe = 'all_time';
+            this.state.metric = 'net';
             this.state.chartType = 'bar';
             this.state.primaryGroup = 'trip';
             this.state.secondaryGroup = 'none';
-            this.state.timeUnit = 'month'; // Not relevant for trip grouping
-            this.state.tripStatusFilter = 'All';
-            break;
-        case 'completed_trips':
-            this.state.timeframe = 'all_time';
-            this.state.metric = 'net'; // Usually interested in net cost of the trip
-            this.state.chartType = 'bar';
-            this.state.primaryGroup = 'trip';
-            this.state.secondaryGroup = 'none';
-            this.state.timeUnit = 'month';
-            this.state.tripStatusFilter = 'Completed';
-            break;
-        case 'balance_history':
-            this.state.timeframe = 'all_time';
-            this.state.metric = 'balance';
-            this.state.chartType = 'line';
-            this.state.primaryGroup = 'date';
-            this.state.secondaryGroup = 'none';
-            this.state.timeUnit = 'week';
+            this.state.timeUnit = 'month'; // Not used
+            this.state.tripStatusFilter = 'Active';
             break;
     }
     
