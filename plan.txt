@@ -22,10 +22,12 @@
     *   Add `tripStatus` ('Active', 'Completed', 'All') as a filter parameter in `getFilteredData`.
 
 ### Step 3: Advanced Grouping Logic
+*   *Status:* **Completed**.
 *   **Objective:** Support the "Overarching Tag + Subtag" requirement (e.g., Spending by Category, subdivided by Trip).
 *   **Action:**
     *   Refine `aggregateData` in `analysis.logic.js` to handle any combination of two grouping dimensions (e.g., Primary: Category, Secondary: Trip).
     *   Ensure "Net Spend" (Income - Expense) is calculated correctly for these groups.
+    *   *Outcome:* Verified with test script. Logic handles arbitrary primary/secondary grouping and net calculations correctly.
 
 ## Phase 2: Feature Implementation (The "Big 3")
 
