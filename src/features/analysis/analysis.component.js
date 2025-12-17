@@ -130,114 +130,138 @@ class AnalysisComponent {
             </div>
         </div>
 
-        <!-- Quick Reports / Presets -->
-        <div class="quick-reports-container">
-            <button class="quick-report-btn" data-preset="trip_cost_completed">🏁 Trip Cost (Completed)</button>
-            <button class="quick-report-btn" data-preset="category_breakdown">📊 Category Breakdown</button>
-            <button class="quick-report-btn" data-preset="monthly_trend">📅 Monthly Trend</button>
-            <button class="quick-report-btn" data-preset="active_trip_status">✈️ Active Trip Status</button>
-        </div>
-
-        <div class="analysis-controls">
-            <!-- Date Range & Scope -->
-            <div class="control-group">
-                <label for="analysis-timeframe-select">Scope (Date & Status)</label>
-                <select id="analysis-timeframe-select" class="control-input" style="margin-bottom: 5px;">
-                    <option value="current_month" ${this.state.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
-                    <option value="past_30_days" ${this.state.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
-                    <option value="past_3_months" ${this.state.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>
-                    <option value="past_6_months" ${this.state.timeframe === 'past_6_months' ? 'selected' : ''}>Past 6 Months</option>
-                    <option value="past_year" ${this.state.timeframe === 'past_year' ? 'selected' : ''}>Past Year</option>
-                    <option value="all_time" ${this.state.timeframe === 'all_time' ? 'selected' : ''}>All Time</option>
-                    <option value="custom" ${this.state.timeframe === 'custom' ? 'selected' : ''}>Custom</option>
-                </select>
-
-                <select id="analysis-trip-status-select" class="control-input" style="margin-bottom: 10px;" aria-label="Trip Status">
-                    <option value="All" ${this.state.tripStatusFilter === 'All' ? 'selected' : ''}>All Trip Statuses</option>
-                    <option value="Active" ${this.state.tripStatusFilter === 'Active' ? 'selected' : ''}>Active Trips Only</option>
-                    <option value="Completed" ${this.state.tripStatusFilter === 'Completed' ? 'selected' : ''}>Completed Trips Only</option>
-                </select>
-
-                <div style="display: flex; gap: 10px;">
-                    <input type="date" id="analysis-start-date" aria-label="Start Date" class="control-input" value="${this.state.startDate}">
-                    <input type="date" id="analysis-end-date" aria-label="End Date" class="control-input" value="${this.state.endDate}">
+        <!-- Main Control Panel -->
+        <div class="main-control-panel">
+            
+            <!-- Section 1: Scope (Time & Status) -->
+            <div class="control-section scope-section">
+                <div class="section-header">1. Scope</div>
+                <div class="control-row">
+                    <div class="control-group">
+                        <label for="analysis-timeframe-select">Timeframe</label>
+                        <select id="analysis-timeframe-select" class="control-input">
+                            <option value="current_month" ${this.state.timeframe === 'current_month' ? 'selected' : ''}>Current Month</option>
+                            <option value="past_30_days" ${this.state.timeframe === 'past_30_days' ? 'selected' : ''}>Past 30 Days</option>
+                            <option value="past_3_months" ${this.state.timeframe === 'past_3_months' ? 'selected' : ''}>Past 3 Months</option>
+                            <option value="past_6_months" ${this.state.timeframe === 'past_6_months' ? 'selected' : ''}>Past 6 Months</option>
+                            <option value="past_year" ${this.state.timeframe === 'past_year' ? 'selected' : ''}>Past Year</option>
+                            <option value="all_time" ${this.state.timeframe === 'all_time' ? 'selected' : ''}>All Time</option>
+                            <option value="custom" ${this.state.timeframe === 'custom' ? 'selected' : ''}>Custom</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="analysis-trip-status-select">Trip Status</label>
+                        <select id="analysis-trip-status-select" class="control-input">
+                            <option value="All" ${this.state.tripStatusFilter === 'All' ? 'selected' : ''}>All</option>
+                            <option value="Active" ${this.state.tripStatusFilter === 'Active' ? 'selected' : ''}>Active Only</option>
+                            <option value="Completed" ${this.state.tripStatusFilter === 'Completed' ? 'selected' : ''}>Completed Only</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="control-row dates-row" style="margin-top: 10px;">
+                     <input type="date" id="analysis-start-date" aria-label="Start Date" class="control-input" value="${this.state.startDate}">
+                     <span style="color: #ccc; align-self: center;">to</span>
+                     <input type="date" id="analysis-end-date" aria-label="End Date" class="control-input" value="${this.state.endDate}">
                 </div>
             </div>
 
-            <!-- Metric & Chart Type -->
-            <div class="control-group">
-                <label for="analysis-metric-select">Visualization</label>
-                <select id="analysis-metric-select" aria-label="Metric" class="control-input">
-                    <option value="balance" ${this.state.metric === 'balance' ? 'selected' : ''}>Cumulative Balance</option>
-                    <option value="income" ${this.state.metric === 'income' ? 'selected' : ''}>Income Only</option>
-                    <option value="expense" ${this.state.metric === 'expense' ? 'selected' : ''}>Expenses Only</option>
-                    <option value="net" ${this.state.metric === 'net' ? 'selected' : ''}>Net Income (Income - Expense)</option>
-                </select>
-                <select id="analysis-chart-type-select" aria-label="Chart Type" class="control-input" style="margin-top: 5px;">
-                    <option value="bar" ${this.state.chartType === 'bar' ? 'selected' : ''}>Bar Chart (Stacked)</option>
-                    <option value="line" ${this.state.chartType === 'line' ? 'selected' : ''}>Line Chart</option>
-                    <option value="pie" ${this.state.chartType === 'pie' ? 'selected' : ''}>Pie Chart</option>
-                    <option value="doughnut" ${this.state.chartType === 'doughnut' ? 'selected' : ''}>Doughnut Chart</option>
-                </select>
+            <!-- Section 2: View (Presets) -->
+            <div class="control-section presets-section">
+                <div class="section-header">2. Quick Views</div>
+                <div class="quick-reports-grid">
+                    <button class="quick-report-btn" data-preset="trip_cost_completed">🏁 Trip Cost (Completed)</button>
+                    <button class="quick-report-btn" data-preset="category_breakdown">📊 Category Breakdown</button>
+                    <button class="quick-report-btn" data-preset="monthly_trend">📅 Monthly Trend</button>
+                    <button class="quick-report-btn" data-preset="active_trip_status">✈️ Active Trip Status</button>
+                </div>
             </div>
 
-            <!-- Grouping -->
-            <div class="control-group">
-                <label for="analysis-primary-group-select">Main Category (X-Axis)</label>
-                <div style="display:flex; flex-direction:column; gap:5px;">
-                    <select id="analysis-primary-group-select" class="control-input" aria-label="Primary Grouping" title="Primary Grouping (X-Axis)">
-                        <option value="date" ${this.state.primaryGroup === 'date' ? 'selected' : ''}>By Date</option>
-                        <option value="category" ${this.state.primaryGroup === 'category' ? 'selected' : ''}>By Category</option>
-                        <option value="trip" ${this.state.primaryGroup === 'trip' ? 'selected' : ''}>By Trip/Event</option>
-                    </select>
+            <!-- Section 3: Customization -->
+            <div class="control-section customization-section">
+                <div class="section-header">3. Customization</div>
+                <div class="control-grid">
                     
-                    <select id="analysis-secondary-group-select" class="control-input" aria-label="Sub-Category (Stacks)" title="Secondary Grouping (Segments/Stacks)">
-                        <option value="none" ${this.state.secondaryGroup === 'none' ? 'selected' : ''}>No Sub-grouping</option>
-                        <option value="category" ${this.state.secondaryGroup === 'category' ? 'selected' : ''}>Split by Category</option>
-                        <option value="trip" ${this.state.secondaryGroup === 'trip' ? 'selected' : ''}>Split by Trip/Event</option>
-                    </select>
+                    <!-- Visualization -->
+                    <div class="control-group">
+                        <label for="analysis-metric-select">Metric</label>
+                        <select id="analysis-metric-select" class="control-input">
+                            <option value="balance" ${this.state.metric === 'balance' ? 'selected' : ''}>Cumulative Balance</option>
+                            <option value="income" ${this.state.metric === 'income' ? 'selected' : ''}>Income</option>
+                            <option value="expense" ${this.state.metric === 'expense' ? 'selected' : ''}>Expenses</option>
+                            <option value="net" ${this.state.metric === 'net' ? 'selected' : ''}>Net Income</option>
+                        </select>
+                    </div>
 
-                    <select id="analysis-time-unit-select" aria-label="Time Unit" class="control-input" style="display: ${this.state.primaryGroup === 'date' ? 'block' : 'none'};">
-                        <option value="day" ${this.state.timeUnit === 'day' ? 'selected' : ''}>Daily</option>
-                        <option value="week" ${this.state.timeUnit === 'week' ? 'selected' : ''}>Weekly</option>
-                        <option value="month" ${this.state.timeUnit === 'month' ? 'selected' : ''}>Monthly</option>
-                        <option value="year" ${this.state.timeUnit === 'year' ? 'selected' : ''}>Yearly</option>
-                    </select>
+                     <div class="control-group">
+                        <label for="analysis-chart-type-select">Chart Type</label>
+                        <select id="analysis-chart-type-select" class="control-input">
+                            <option value="bar" ${this.state.chartType === 'bar' ? 'selected' : ''}>Bar</option>
+                            <option value="line" ${this.state.chartType === 'line' ? 'selected' : ''}>Line</option>
+                            <option value="pie" ${this.state.chartType === 'pie' ? 'selected' : ''}>Pie</option>
+                            <option value="doughnut" ${this.state.chartType === 'doughnut' ? 'selected' : ''}>Doughnut</option>
+                        </select>
+                    </div>
+
+                    <!-- Grouping -->
+                    <div class="control-group">
+                        <label for="analysis-primary-group-select">X-Axis Group</label>
+                        <select id="analysis-primary-group-select" class="control-input">
+                            <option value="date" ${this.state.primaryGroup === 'date' ? 'selected' : ''}>Date</option>
+                            <option value="category" ${this.state.primaryGroup === 'category' ? 'selected' : ''}>Category</option>
+                            <option value="trip" ${this.state.primaryGroup === 'trip' ? 'selected' : ''}>Trip/Event</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="analysis-secondary-group-select">Sub-Group (Stack)</label>
+                        <select id="analysis-secondary-group-select" class="control-input">
+                            <option value="none" ${this.state.secondaryGroup === 'none' ? 'selected' : ''}>None</option>
+                            <option value="category" ${this.state.secondaryGroup === 'category' ? 'selected' : ''}>Category</option>
+                            <option value="trip" ${this.state.secondaryGroup === 'trip' ? 'selected' : ''}>Trip/Event</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group" style="display: ${this.state.primaryGroup === 'date' ? 'block' : 'none'};">
+                        <label for="analysis-time-unit-select">Time Unit</label>
+                        <select id="analysis-time-unit-select" class="control-input">
+                            <option value="day" ${this.state.timeUnit === 'day' ? 'selected' : ''}>Daily</option>
+                            <option value="week" ${this.state.timeUnit === 'week' ? 'selected' : ''}>Weekly</option>
+                            <option value="month" ${this.state.timeUnit === 'month' ? 'selected' : ''}>Monthly</option>
+                            <option value="year" ${this.state.timeUnit === 'year' ? 'selected' : ''}>Yearly</option>
+                        </select>
+                    </div>
+
                 </div>
             </div>
         </div>
         
-        <!-- Tag Filters (Full Width) -->
-        <div class="analysis-controls" style="margin-top:-10px;">
-             <div class="control-group" style="grid-column: 1 / -1;">
-                <h3 style="font-size: 1em; color: #f0ad4e; margin: 0 0 10px 0;">Filter Tags</h3>
-                <div class="tag-filters-container">
-                    
-                    <!-- Trip Filter -->
-                    <div class="tag-filter-column">
-                        <div class="tag-filter-header">Trips / Events</div>
-                        <input type="text" id="analysis-trip-search" aria-label="Search Trips" class="tag-search-input" placeholder="Search trips..." value="${this.state.tripSearchTerm}">
-                        <div id="trip-selector-container" class="tag-selector">
-                            <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
-                        </div>
+        <!-- Tag Filters (Collapsible/Full Width) -->
+        <div class="control-section tag-filters-section">
+             <div class="section-header">Filter Specific Tags</div>
+             <div class="tag-filters-container">
+                <!-- Trip Filter -->
+                <div class="tag-filter-column">
+                    <div class="tag-filter-header">Trips / Events</div>
+                    <input type="text" id="analysis-trip-search" aria-label="Search Trips" class="tag-search-input" placeholder="Search trips..." value="${this.state.tripSearchTerm}">
+                    <div id="trip-selector-container" class="tag-selector">
+                        <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
                     </div>
+                </div>
 
-                    <!-- Category Filter -->
-                    <div class="tag-filter-column">
-                        <div class="tag-filter-header">Categories</div>
-                        <input type="text" id="analysis-cat-search" aria-label="Search Categories" class="tag-search-input" placeholder="Search categories..." value="${this.state.categorySearchTerm}">
-                        <div id="category-selector-container" class="tag-selector">
-                            <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
-                        </div>
+                <!-- Category Filter -->
+                <div class="tag-filter-column">
+                    <div class="tag-filter-header">Categories</div>
+                    <input type="text" id="analysis-cat-search" aria-label="Search Categories" class="tag-search-input" placeholder="Search categories..." value="${this.state.categorySearchTerm}">
+                    <div id="category-selector-container" class="tag-selector">
+                        <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
                     </div>
-
                 </div>
             </div>
         </div>
 
         <div class="analysis-actions">
-            <button id="btn-download" class="btn-download">Download Image</button>
             <button id="btn-toggle-data-table" class="btn-download">${this.state.showDataTable ? 'Hide Data Table' : 'Show Data Table'}</button>
+            <button id="btn-download" class="btn-download">Download Image</button>
         </div>
 
         <div class="chart-container">
