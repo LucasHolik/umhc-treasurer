@@ -32,6 +32,7 @@
 ## Phase 2: Feature Implementation (The "Big 3")
 
 ### Step 4: "Completed Trips" Analysis
+*   *Status:* **Completed**.
 *   **Objective:** Easily see the net spend on trips that have finished.
 *   **UI Change:** Add a "Trip Status" dropdown to the controls (default to 'Active' or 'All' depending on context, but allow 'Completed').
 *   **Visualization:** Standardize on a **Bar Chart** for this view.
