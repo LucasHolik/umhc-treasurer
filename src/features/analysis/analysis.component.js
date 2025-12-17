@@ -709,7 +709,30 @@ class AnalysisComponent {
                 },
                 tooltip: {
                     mode: 'index',
-                    intersect: false
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += formatCurrency(context.parsed.y);
+                            }
+                            return label;
+                        },
+                        footer: function(tooltipItems) {
+                            let sum = 0;
+                            tooltipItems.forEach(function(tooltipItem) {
+                                sum += tooltipItem.parsed.y;
+                            });
+                            // Only show total if there's more than one item
+                            if (tooltipItems.length > 1) {
+                                return 'Total: ' + formatCurrency(sum);
+                            }
+                            return '';
+                        }
+                    }
                 }
             },
             scales: (type === 'pie' || type === 'doughnut') ? {} : {

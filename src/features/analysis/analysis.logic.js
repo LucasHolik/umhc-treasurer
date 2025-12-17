@@ -229,13 +229,36 @@ class AnalysisLogic {
     const datasets = [];
     
     // Helper for consistent color generation
+    const CHART_COLORS = [
+        '#f0ad4e', // Theme Orange
+        '#5cb85c', // Bootstrap Green
+        '#5bc0de', // Bootstrap Info
+        '#d9534f', // Bootstrap Red
+        '#f7f7f7', // White-ish
+        '#9b59b6', // Purple
+        '#e67e22', // Carrot
+        '#3498db', // Blue
+        '#1abc9c', // Turquoise
+        '#34495e', // Dark Blue/Grey
+        '#e74c3c', // Alizarin
+        '#2ecc71', // Emerald
+        '#f1c40f', // Sun Flower
+        '#95a5a6', // Concrete
+        '#16a085', // Green Sea
+        '#27ae60', // Nephritis
+        '#2980b9', // Belize Hole
+        '#8e44ad', // Wisteria
+        '#2c3e50', // Midnight Blue
+        '#c0392b', // Pomegranate
+    ];
+
     const getColor = (str, index) => {
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             hash = str.charCodeAt(i) + ((hash << 5) - hash);
         }
-        const hue = Math.abs(hash % 360);
-        return `hsl(${hue}, 70%, 50%)`;
+        const colorIndex = Math.abs(hash % CHART_COLORS.length);
+        return CHART_COLORS[colorIndex];
     };
 
     if (secondaryGroup === 'none') {
