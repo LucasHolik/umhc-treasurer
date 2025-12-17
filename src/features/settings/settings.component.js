@@ -3,6 +3,7 @@ import store from '../../core/state.js';
 import ApiService from '../../services/api.service.js';
 import ModalComponent from '../../shared/modal.component.js';
 import { formatCurrency } from '../../core/utils.js';
+import { calculateFinancials } from '../../core/financial.logic.js';
 
 class SettingsComponent {
   constructor(element) {
@@ -27,25 +28,7 @@ class SettingsComponent {
     const expenses = store.getState('expenses') || [];
     
     // Calculate offset from manual transactions
-    let manualIncome = 0;
-    let manualExpense = 0;
-    expenses.forEach(item => {
-        if (item.Type === 'Manual') {
-             if (item.Income && !isNaN(parseFloat(item.Income))) manualIncome += parseFloat(item.Income);
-             if (item.Expense && !isNaN(parseFloat(item.Expense))) manualExpense += parseFloat(item.Expense);
-        }
-    });
-    
-    // If we manually added income, we subtract it from the running total calculation in dashboard
-    // to keep the balance "conserved" relative to the user's opening balance.
-    // Wait, the offset logic in dashboard is: 
-    // Balance = Opening + ManualOffset + TotalIncome - TotalExpense.
-    // TotalIncome includes ManualIncome.
-    // If ManualOffset = -ManualIncome, then they cancel out.
-    // So Offset = ManualExpense - ManualIncome.
-    
-    const manualOffset = manualExpense - manualIncome;
-    const effectiveBalance = currentBalance + manualOffset;
+    const { manualOffset, adjustedOpeningBalance } = calculateFinancials(currentBalance, expenses);
 
     this.element.innerHTML = `
       <div class="section">
@@ -78,7 +61,7 @@ class SettingsComponent {
              <div style="display: flex; align-items: center; gap: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
                 <div style="flex: 1;">
                     <div style="display: block; color: #fff; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Effective Start Balance</div>
-                    <div style="font-size: 1.5em;">£${formatCurrency(effectiveBalance)}</div>
+                    <div style="font-size: 1.5em;">£${formatCurrency(adjustedOpeningBalance)}</div>
                     <div style="color: #aaa; font-size: 0.9em;">Actual starting point for calculations.</div>
                 </div>
              </div>

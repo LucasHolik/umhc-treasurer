@@ -3,6 +3,7 @@ import store from '../../core/state.js';
 import LoaderComponent from '../../shared/loader.component.js';
 import SortableTable from '../../shared/sortable-table.component.js';
 import { formatCurrency, filterTransactionsByTimeframe } from '../../core/utils.js';
+import { calculateFinancials } from '../../core/financial.logic.js';
 
 class DashboardComponent {
   constructor(element) {
@@ -143,19 +144,7 @@ class DashboardComponent {
     const openingBalance = store.getState('openingBalance') || 0;
     const filteredData = filterTransactionsByTimeframe(data, this.timeframe);
 
-    // Calculate Manual Offset
-    let manualIncome = 0;
-    let manualExpense = 0;
-    
-    data.forEach(item => {
-        if (item.Type === 'Manual') {
-             if (item.Income && !isNaN(parseFloat(item.Income))) manualIncome += parseFloat(item.Income);
-             if (item.Expense && !isNaN(parseFloat(item.Expense))) manualExpense += parseFloat(item.Expense);
-        }
-    });
-    
-    // Offset negates manual transactions from the running total
-    const manualOffset = manualExpense - manualIncome;
+    const { currentBalance } = calculateFinancials(openingBalance, data);
 
     let totalIncome = 0;
     let totalExpenses = 0;
@@ -169,19 +158,6 @@ class DashboardComponent {
       }
     });
 
-    let allTimeTotalIncome = 0;
-    let allTimeTotalExpenses = 0;
-
-    data.forEach((item) => {
-      if (item.Income && !isNaN(parseFloat(item.Income))) {
-        allTimeTotalIncome += parseFloat(item.Income);
-      }
-      if (item.Expense && !isNaN(parseFloat(item.Expense))) {
-        allTimeTotalExpenses += parseFloat(item.Expense);
-      }
-    });
-
-    const currentBalance = openingBalance + manualOffset + allTimeTotalIncome - allTimeTotalExpenses;
     const netChange = totalIncome - totalExpenses;
 
     this.currentBalanceEl.textContent = `£${formatCurrency(currentBalance)}`;

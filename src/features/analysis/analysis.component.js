@@ -2,6 +2,7 @@ import store from '../../core/state.js';
 import { formatCurrency } from '../../core/utils.js';
 import ModalComponent from '../../shared/modal.component.js';
 import AnalysisLogic from './analysis.logic.js';
+import { calculateFinancials } from '../../core/financial.logic.js';
 
 class AnalysisComponent {
   constructor(element) {
@@ -36,6 +37,7 @@ class AnalysisComponent {
         totalExpense: 0,
         netChange: 0,
         transactionCount: 0,
+        effectiveBalance: 0, // Added effectiveBalance
       },
       showDataTable: false, // New state for data table visibility
     };
@@ -116,6 +118,10 @@ class AnalysisComponent {
             <div class="summary-card">
                 <h3>Net Change</h3>
                 <p>${formatCurrency(this.state.summaryStats.netChange)}</p>
+            </div>
+            <div class="summary-card">
+                <h3>Effective Balance</h3>
+                <p>${formatCurrency(this.state.summaryStats.effectiveBalance)}</p>
             </div>
             <div class="summary-card">
                 <h3>Transactions</h3>
@@ -519,11 +525,12 @@ class AnalysisComponent {
   updateStatsDOM() {
       const stats = this.state.summaryStats;
       const cards = this.element.querySelectorAll('.summary-card p');
-      if (cards.length >= 4) {
+      if (cards.length >= 5) {
           cards[0].textContent = formatCurrency(stats.totalIncome);
           cards[1].textContent = formatCurrency(stats.totalExpense);
           cards[2].textContent = formatCurrency(stats.netChange);
-          cards[3].textContent = stats.transactionCount;
+          cards[3].textContent = formatCurrency(stats.effectiveBalance);
+          cards[4].textContent = stats.transactionCount;
       }
   }
 
@@ -595,6 +602,18 @@ class AnalysisComponent {
     
     // Update summary stats
     this.state.summaryStats = this.analysisLogic.calculateSummaryStats(filteredData);
+    
+    // Calculate Effective Balance
+    // 1. Calculate Current Global Balance
+    const allExpenses = store.getState('expenses') || [];
+    const openingBalance = store.getState('openingBalance') || 0;
+    
+    const { currentBalance } = calculateFinancials(openingBalance, allExpenses);
+
+    // 2. Get Tags and Calculate
+    const tags = store.getState('tags') || {};
+    this.state.summaryStats.effectiveBalance = this.analysisLogic.calculateEffectiveBalance(currentBalance, allExpenses, tags);
+
     this.updateStatsDOM();
     
     const { labels, datasets } = this.analysisLogic.aggregateData(filteredData, {

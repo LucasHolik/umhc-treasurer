@@ -2,6 +2,7 @@
 
 import store from '../../core/state.js';
 import { getDateRange } from '../../core/utils.js';
+import { calculateFinancials } from '../../core/financial.logic.js';
 
 class AnalysisLogic {
   constructor() {
@@ -146,9 +147,25 @@ class AnalysisLogic {
         const values = [];
         
         const calculationStart = new Date(startDate);
-        let balance = store.getState('openingBalance') || 0;
+        const openingBalance = store.getState('openingBalance') || 0;
+        
+        // Use adjustedOpeningBalance as the true starting point (accounts for manual offset)
+        const { adjustedOpeningBalance } = calculateFinancials(openingBalance, allExpenses);
+        let balance = adjustedOpeningBalance;
         
         // Pre-calculate balance for transactions *before* the current analysis window
+        // Note: calculateFinancials already accounts for Manual transactions in adjustedOpeningBalance.
+        // So we iterate ALL transactions (including Manual ones) and add their net value.
+        // Wait, if AdjustedOpeningBalance = Config + ManualOffset, and ManualOffset = ManualExp - ManualInc.
+        // And we iterate ALL transactions.
+        // If we encounter a Manual transaction, we add (Inc - Exp).
+        // If Manual transaction is BEFORE start date, we add it here.
+        // Effectively: Balance = Config + (ManualExp - ManualInc) + Sum(AllTransactionsBeforeStart).
+        // If Manual transaction is in AllTransactionsBeforeStart, we add (Inc - Exp).
+        // Result: Config + ManualExp - ManualInc + ManualInc - ManualExp + OtherTransactions...
+        // The Manual parts cancel out. So Balance = Config + OtherTransactions.
+        // This is CORRECT as per my previous derivation: Manual transactions are adjustments that don't affect the running balance if Config is "true" for today.
+        
         allExpenses.forEach(item => {
             const itemDate = new Date(item.Date);
             if (!isNaN(itemDate.getTime()) && itemDate < calculationStart) {
@@ -246,6 +263,38 @@ class AnalysisLogic {
       netChange,
       transactionCount,
     };
+  }
+
+  /**
+   * Calculates the "Effective Balance" (Safe-to-Spend).
+   * Effective Balance = Current Balance - Net Contribution of Active Trips.
+   * This removes money that is currently tied up in ongoing trips/events.
+   * @param {number} currentBalance - The total current balance of the treasury.
+   * @param {Array<Object>} expenses - The full list of expense objects.
+   * @param {Object} tags - The tags object from the store containing TripStatusMap.
+   * @returns {number} The effective balance.
+   */
+  calculateEffectiveBalance(currentBalance, expenses, tags) {
+    const tripStatusMap = tags.TripStatusMap || {};
+    
+    // Filter expenses for active trips
+    // We want transactions where Trip/Event matches a key in TripStatusMap with value 'Active'
+    const activeTripExpenses = expenses.filter(item => {
+        const tripName = item['Trip/Event'];
+        return tripName && tripStatusMap[tripName] === 'Active';
+    });
+
+    // Calculate Net sum of active transactions
+    let netActiveContribution = 0;
+    activeTripExpenses.forEach(item => {
+        const inc = item.Income ? parseFloat(String(item.Income).replace(/,/g, '')) : 0;
+        const exp = item.Expense ? parseFloat(String(item.Expense).replace(/,/g, '')) : 0;
+        const safeInc = isNaN(inc) ? 0 : inc;
+        const safeExp = isNaN(exp) ? 0 : exp;
+        netActiveContribution += (safeInc - safeExp);
+    });
+
+    return currentBalance - netActiveContribution;
   }
 }
 
