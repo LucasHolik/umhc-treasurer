@@ -1,81 +1,74 @@
 # Analysis Section Implementation Plan
 
-## Phase 1: Core Logic Implementation
+## Phase 1: Core Logic & Data Structure
+**Goal:** Ensure the backend logic supports robust filtering (especially by Trip Status) and flexible multi-level grouping.
 
-### Step 1: Implement Effective Balance Logic
-*   **Action:** Update `AnalysisLogic` in `analysis.logic.js` to add `calculateEffectiveBalance(currentBalance, expenses, tags)`.
-*   **Method:**
-    1.  Get `TripStatusMap` from the `tags` state.
-    2.  Filter `expenses` for transactions where `Trip/Event` exists AND `TripStatusMap[Trip/Event] === 'Active'`.
-    3.  Calculate the `Net` sum (Income - Expense) of these active transactions.
-    4.  Return `currentBalance - netActiveContribution`.
-*   **Goal:** Establish the "Safe-to-Spend" metric foundation.
+### Step 1: Logic & Skeleton (Completed)
+*   *Status:* **Done**.
+*   *Details:* Basic component structure and `analysis.logic.js` foundation are in place.
 
-### Step 2: Implement Comparison Data Logic
-*   **Action:** Add `getComparisonData(currentRange, comparisonOffset)` to `AnalysisLogic`.
-*   **Method:**
-    1.  Accept a date range and an offset (e.g., -1 month, -1 year).
-    2.  Fetch and aggregate data for both the current and previous periods.
-    3.  Normalize data to a relative index (Day 1-30 or Month 1-12) for side-by-side plotting.
-*   **Goal:** Enable period-over-period performance tracking.
+### Step 1.5: Financial Logic Alignment
+*   *Status:* **Completed**.
+*   *Objective:* Ensure consistency with core financial calculations.
+*   *Action:* Verify that all "Balance" and "Net" calculations in `analysis.logic.js` strictly adhere to the patterns in `src/core/financial.logic.js`.
+*   *Outcome:* Logic verified. `adjustedOpeningBalance` is used correctly. Manual transactions are effectively neutral to the running balance start point (offset + transaction cancellation) but appear correctly in the timeline.
 
-### Step 3: Implement Runway Forecasting
-*   **Action:** Add `calculateRunway(currentBalance, expenses)` to `AnalysisLogic`.
-*   **Method:**
-    1.  Calculate average net change over the last 3 months.
-    2.  If burn is positive (gaining money), return "Infinite".
-    3.  If burn is negative, return `Math.abs(currentBalance / monthlyBurn)`.
-*   **Goal:** Provide financial health alerts.
+### Step 2: Trip Status Integration
+*   **Objective:** Enable filtering expenses based on whether their associated Trip/Event is "Active" or "Completed".
+*   **Action:**
+    *   Update `analysis.logic.js` to ingest `tags` state (specifically the `Trip/Event` status map).
+    *   Add a helper to determine if a transaction belongs to a "Completed" or "Active" trip.
+    *   Add `tripStatus` ('Active', 'Completed', 'All') as a filter parameter in `getFilteredData`.
 
-### Step 4: Enhance Aggregation for Drill-Down
-*   **Action:** Update `aggregateData` in `AnalysisLogic` to support `drillPath`.
-*   **Method:**
-    1.  Refactor `aggregateData` to accept a hierarchy array (e.g., `['Type', 'Trip/Event', 'Category']`).
-    2.  Dynamically group data based on the current depth of the `drillPath`.
-*   **Goal:** Backend support for infinite drill-down UI.
+### Step 3: Advanced Grouping Logic
+*   **Objective:** Support the "Overarching Tag + Subtag" requirement (e.g., Spending by Category, subdivided by Trip).
+*   **Action:**
+    *   Refine `aggregateData` in `analysis.logic.js` to handle any combination of two grouping dimensions (e.g., Primary: Category, Secondary: Trip).
+    *   Ensure "Net Spend" (Income - Expense) is calculated correctly for these groups.
 
-## Phase 2: UI Component Enhancements
+## Phase 2: Feature Implementation (The "Big 3")
 
-### Step 5: Implement Drill-Down Manager & Breadcrumbs
-*   **Action:** Create `BreadcrumbComponent` and manage drill-down state in `AnalysisComponent`.
-*   **Method:**
-    1.  Add state `drillPath` (array of strings) to `AnalysisComponent`.
-    2.  Create a visual breadcrumb bar (e.g., `All > Active Trips > Ski Trip`).
-    3.  Handle chart clicks to push to `drillPath`, and breadcrumb clicks to slice `drillPath`.
+### Step 4: "Completed Trips" Analysis
+*   **Objective:** Easily see the net spend on trips that have finished.
+*   **UI Change:** Add a "Trip Status" dropdown to the controls (default to 'Active' or 'All' depending on context, but allow 'Completed').
+*   **Visualization:** Standardize on a **Bar Chart** for this view.
+*   **Logic:**
+    *   Filter: `tripStatus = 'Completed'`.
+    *   Metric: `Net` (or `Expense` if preferred).
+    *   Group By: `Trip/Event`.
 
-### Step 6: Multi-Line Balance Chart
-*   **Action:** Upgrade the main chart in `AnalysisComponent`.
-*   **Method:**
-    1.  Use `calculateEffectiveBalance` to generate a second dataset.
-    2.  Plot "Actual Balance" (Solid) vs "Effective Balance" (Dashed).
-    3.  Add a linear regression trend line (Dotted).
+### Step 5: Hierarchical Tag Grouping
+*   **Objective:** See spend grouped by an overarching tag and then a subtag.
+*   **UI Change:** Refactor Grouping Dropdowns.
+    *   Rename "Primary Grouping" to **"Main Category (X-Axis)"**.
+    *   Rename "Secondary Grouping" to **"Sub-Category (Stacks)"**.
+    *   Ensure options allow all combinations: Date, Category, Trip/Event.
+*   **Action:** Verify that "Category" (Main) x "Trip" (Sub) and "Trip" (Main) x "Category" (Sub) render correctly.
 
-### Step 7: Investment Breakeven Dashboard
-*   **Action:** Create a sub-component or section for Active Investments.
-*   **Method:**
-    1.  Filter specifically for `Type === 'Investment'` & `Status === 'Active'`.
-    2.  Render a card for each investment showing:
-        *   Exposure (Total Spent - Total Returned).
-        *   Recovery % Gauge.
-        *   Status Color (Red/Yellow/Green).
+### Step 6: Presets System
+*   **Objective:** "Click and easy see" implementation.
+*   **Action:**
+    *   Refine the "Quick Reports" buttons to map to specific, useful configurations.
+    *   **Proposed Presets:**
+        1.  **"Trip Cost (Completed)"**: Shows Net Spend of all completed trips (Bar Chart).
+        2.  **"Category Breakdown"**: Shows Expenses grouped by Category, stacked by Trip (Bar Chart).
+        3.  **"Monthly Trend"**: Shows Net Income over time (Line/Bar).
+        4.  **"Active Trip Status"**: Current spend on ongoing trips.
 
-### Step 8: Seasonality & Heatmaps
-*   **Action:** Add a secondary analysis tab or section.
-*   **Method:**
-    1.  **Seasonality:** Bar chart of aggregated Net Change by Month (Jan-Dec) across all available years.
-    2.  **Heatmap:** (Optional) Day-of-Week transaction volume.
+## Phase 3: UI Polish & Refinement
 
-## Phase 3: Advanced Features
+### Step 7: Dropdown & Control Cleanup
+*   **Objective:** "Most of the drop down options should change."
+*   **Action:**
+    *   Streamline the control panel.
+    *   Group controls logically:
+        1.  **Scope:** Timeframe + Trip Status (Active/Completed).
+        2.  **View:** Preset Buttons (Prominent).
+        3.  **Customization:** The Grouping/Metric dropdowns (maybe less prominent or organized below).
+    *   Remove redundant or confusing options.
 
-### Step 9: Save Custom Presets
-*   **Action:** Add "Save View" functionality.
-*   **Method:**
-    1.  Create a modal to name the current view.
-    2.  Save the `filterState` and `aggregationState` to `localStorage` under a user-provided name.
-    3.  List saved presets for quick loading.
-
-### Step 10: CSV Export
-*   **Action:** Add data export capability.
-*   **Method:**
-    1.  Convert the currently filtered `expenses` array to CSV format.
-    2.  Trigger a browser download of the file.
+### Step 8: Visualization Enhancements
+*   **Objective:** Make the graphs beautiful and readable.
+*   **Action:**
+    *   Improve tooltips to show the "Sub-Category" details clearly.
+    *   Ensure consistent color palette for Categories/Trips.

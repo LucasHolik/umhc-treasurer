@@ -149,23 +149,14 @@ class AnalysisLogic {
         const calculationStart = new Date(startDate);
         const openingBalance = store.getState('openingBalance') || 0;
         
-        // Use adjustedOpeningBalance as the true starting point (accounts for manual offset)
+        // Use adjustedOpeningBalance as the true starting point.
+        // This accounts for Manual transactions (which adjust the start)
+        // while the loop below accounts for their timeline effect.
+        // Result: Correct running balance at any point in time.
         const { adjustedOpeningBalance } = calculateFinancials(openingBalance, allExpenses);
         let balance = adjustedOpeningBalance;
         
         // Pre-calculate balance for transactions *before* the current analysis window
-        // Note: calculateFinancials already accounts for Manual transactions in adjustedOpeningBalance.
-        // So we iterate ALL transactions (including Manual ones) and add their net value.
-        // Wait, if AdjustedOpeningBalance = Config + ManualOffset, and ManualOffset = ManualExp - ManualInc.
-        // And we iterate ALL transactions.
-        // If we encounter a Manual transaction, we add (Inc - Exp).
-        // If Manual transaction is BEFORE start date, we add it here.
-        // Effectively: Balance = Config + (ManualExp - ManualInc) + Sum(AllTransactionsBeforeStart).
-        // If Manual transaction is in AllTransactionsBeforeStart, we add (Inc - Exp).
-        // Result: Config + ManualExp - ManualInc + ManualInc - ManualExp + OtherTransactions...
-        // The Manual parts cancel out. So Balance = Config + OtherTransactions.
-        // This is CORRECT as per my previous derivation: Manual transactions are adjustments that don't affect the running balance if Config is "true" for today.
-        
         allExpenses.forEach(item => {
             const itemDate = new Date(item.Date);
             if (!isNaN(itemDate.getTime()) && itemDate < calculationStart) {
