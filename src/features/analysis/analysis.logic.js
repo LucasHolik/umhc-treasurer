@@ -204,7 +204,6 @@ class AnalysisLogic {
       const values = [];
 
       const calculationStart = new Date(startDate);
-      const openingBalance = store.getState("openingBalance") || 0;
 
       // Use adjustedOpeningBalance as the true starting point.
       // This accounts for Manual transactions (which adjust the start)
@@ -374,6 +373,145 @@ class AnalysisLogic {
     });
 
     return currentBalance - netActiveContribution;
+  }
+
+  /**
+   * Helper to filter trips based on status.
+   * @param {string[]} allTrips - List of all trips.
+   * @param {Object} tripStatusMap - Map of trip names to their status.
+   * @param {string} tripStatusFilter - The status to filter by.
+   * @returns {string[]} List of visible trips.
+   */
+  getVisibleTrips(allTrips, tripStatusMap, tripStatusFilter) {
+    return allTrips.filter((trip) => {
+      if (tripStatusFilter === "All") return true;
+      const status = tripStatusMap[trip];
+      return status === tripStatusFilter;
+    });
+  }
+
+  /**
+   * Calculates the state of tag filters (visible trips, types, and their checked status).
+   * @param {Object} tagsData - The raw tags data from the store.
+   * @param {string} tripStatusFilter - Current trip status filter ('All', 'Active', etc.).
+   * @param {Set} selectedTrips - Set of currently selected trips.
+   * @returns {Object} { visibleTrips, visibleTypes, typeStatusMap, filteredTagsData }
+   */
+  calculateTagFilterState(tagsData, tripStatusFilter, selectedTrips) {
+    const tripStatusMap = tagsData.TripStatusMap || {};
+    const tripTypeMap = tagsData.TripTypeMap || {};
+    const allTrips = tagsData["Trip/Event"] || [];
+
+    // Filter Trips based on Scope
+    const visibleTrips = this.getVisibleTrips(
+      allTrips,
+      tripStatusMap,
+      tripStatusFilter
+    );
+
+    // Determine Visible Types based on Visible Trips
+    const visibleTypesSet = new Set();
+    visibleTrips.forEach((trip) => {
+      const type = tripTypeMap[trip];
+      if (type) visibleTypesSet.add(type);
+    });
+    const visibleTypes = Array.from(visibleTypesSet);
+
+    // Calculate Type Status Map based on visible Trips
+    const typeStatusMap = {};
+
+    visibleTypes.forEach((type) => {
+      // Only consider visible trips for this type calculation
+      const tripsForType = visibleTrips.filter((t) => tripTypeMap[t] === type);
+
+      if (tripsForType.length === 0) {
+        typeStatusMap[type] = "unchecked";
+        return;
+      }
+
+      const selectedCount = tripsForType.filter((t) =>
+        selectedTrips.has(t)
+      ).length;
+
+      if (selectedCount === 0) {
+        typeStatusMap[type] = "unchecked";
+      } else if (selectedCount === tripsForType.length) {
+        typeStatusMap[type] = "checked";
+      } else {
+        typeStatusMap[type] = "indeterminate";
+      }
+    });
+
+    const filteredTagsData = {
+      ...tagsData,
+      "Trip/Event": visibleTrips,
+      Type: visibleTypes,
+    };
+
+    return {
+      visibleTrips,
+      visibleTypes,
+      typeStatusMap,
+      filteredTagsData,
+    };
+  }
+
+  /**
+   * Returns the configuration state for a given preset.
+   * @param {string} presetName - The name of the preset.
+   * @returns {Object} Partial state object to be merged.
+   */
+  getPresetState(presetName) {
+    const defaultState = {
+      selectedCategories: new Set(),
+      selectedTrips: new Set(),
+      categorySearchTerm: "",
+      tripSearchTerm: "",
+      typeSearchTerm: "",
+      tripStatusFilter: "All",
+      secondaryGroup: "none",
+    };
+
+    switch (presetName) {
+      case "trip_cost_completed":
+        return {
+          ...defaultState,
+          timeframe: "all_time",
+          metric: "net",
+          chartType: "bar",
+          primaryGroup: "trip",
+          tripStatusFilter: "Completed",
+        };
+      case "category_breakdown":
+        return {
+          ...defaultState,
+          timeframe: "past_year",
+          metric: "expense",
+          chartType: "bar",
+          primaryGroup: "category",
+          secondaryGroup: "trip",
+        };
+      case "monthly_trend":
+        return {
+          ...defaultState,
+          timeframe: "past_year",
+          metric: "net",
+          chartType: "bar",
+          primaryGroup: "date",
+          timeUnit: "month",
+        };
+      case "active_trip_status":
+        return {
+          ...defaultState,
+          timeframe: "all_time",
+          metric: "net",
+          chartType: "bar",
+          primaryGroup: "trip",
+          tripStatusFilter: "Active",
+        };
+      default:
+        return defaultState;
+    }
   }
 }
 

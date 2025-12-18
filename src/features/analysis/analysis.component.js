@@ -202,11 +202,11 @@ class AnalysisComponent {
     const allTrips = tags["Trip/Event"] || [];
 
     // Filter Trips based on Scope (same logic as updateTagSelectors)
-    const visibleTrips = allTrips.filter(trip => {
-      if (this.state.tripStatusFilter === "All") return true;
-      const status = tripStatusMap[trip];
-      return status === this.state.tripStatusFilter;
-    });
+    const visibleTrips = this.analysisLogic.getVisibleTrips(
+      allTrips,
+      tripStatusMap,
+      this.state.tripStatusFilter
+    );
 
     const tripsToUpdate = visibleTrips.filter(
       (trip) => tripTypeMap[trip] === typeTag
@@ -266,46 +266,8 @@ class AnalysisComponent {
   }
 
   applyPreset(presetName) {
-    this.state.selectedCategories.clear();
-    this.state.selectedTrips.clear();
-    this.state.categorySearchTerm = "";
-    this.state.tripSearchTerm = "";
-    this.state.typeSearchTerm = ""; // Clear Type search
-    this.state.tripStatusFilter = "All";
-
-    switch (presetName) {
-      case "trip_cost_completed":
-        this.state.timeframe = "all_time";
-        this.state.metric = "net";
-        this.state.chartType = "bar";
-        this.state.primaryGroup = "trip";
-        this.state.secondaryGroup = "none";
-        this.state.tripStatusFilter = "Completed";
-        break;
-      case "category_breakdown":
-        this.state.timeframe = "past_year";
-        this.state.metric = "expense";
-        this.state.chartType = "bar";
-        this.state.primaryGroup = "category";
-        this.state.secondaryGroup = "trip";
-        break;
-      case "monthly_trend":
-        this.state.timeframe = "past_year";
-        this.state.metric = "net";
-        this.state.chartType = "bar";
-        this.state.primaryGroup = "date";
-        this.state.secondaryGroup = "none";
-        this.state.timeUnit = "month";
-        break;
-      case "active_trip_status":
-        this.state.timeframe = "all_time";
-        this.state.metric = "net";
-        this.state.chartType = "bar";
-        this.state.primaryGroup = "trip";
-        this.state.secondaryGroup = "none";
-        this.state.tripStatusFilter = "Active";
-        break;
-    }
+    const presetState = this.analysisLogic.getPresetState(presetName);
+    Object.assign(this.state, presetState);
 
     // Recalculate date range
     const expenses = store.getState("expenses") || [];
@@ -327,57 +289,14 @@ class AnalysisComponent {
     if (!this.filtersComponent) return;
 
     const tagsData = store.getState("tags") || {};
-    const tripStatusMap = tagsData.TripStatusMap || {};
-    const tripTypeMap = tagsData.TripTypeMap || {};
 
-    const allTrips = tagsData["Trip/Event"] || [];
-    
-    // Filter Trips based on Scope
-    const visibleTrips = allTrips.filter(trip => {
-      if (this.state.tripStatusFilter === "All") return true;
-      const status = tripStatusMap[trip];
-      return status === this.state.tripStatusFilter;
-    });
-
-    // Determine Visible Types based on Visible Trips
-    const visibleTypesSet = new Set();
-    visibleTrips.forEach(trip => {
-        const type = tripTypeMap[trip];
-        if (type) visibleTypesSet.add(type);
-    });
-    const visibleTypes = Array.from(visibleTypesSet);
-
-    // Calculate Type Status Map based on visible Trips
-    const typeStatusMap = {};
-    
-    visibleTypes.forEach((type) => {
-      // Only consider visible trips for this type calculation
-      const tripsForType = visibleTrips.filter((t) => tripTypeMap[t] === type);
-
-      if (tripsForType.length === 0) {
-        typeStatusMap[type] = "unchecked";
-        return;
-      }
-
-      const selectedCount = tripsForType.filter((t) =>
-        this.state.selectedTrips.has(t)
-      ).length;
-
-      if (selectedCount === 0) {
-        typeStatusMap[type] = "unchecked";
-      } else if (selectedCount === tripsForType.length) {
-        typeStatusMap[type] = "checked";
-      } else {
-        typeStatusMap[type] = "indeterminate";
-      }
-    });
-
-    // Create a filtered data object for the view
-    const filteredTagsData = {
-        ...tagsData,
-        "Trip/Event": visibleTrips,
-        "Type": visibleTypes
-    };
+    // Delegate logic to AnalysisLogic
+    const { visibleTrips, visibleTypes, typeStatusMap, filteredTagsData } =
+      this.analysisLogic.calculateTagFilterState(
+        tagsData,
+        this.state.tripStatusFilter,
+        this.state.selectedTrips
+      );
 
     this.filtersComponent.renderTagLists(
       filteredTagsData,
