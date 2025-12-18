@@ -20,7 +20,7 @@ class AnalysisComponent {
       timeframe: "past_30_days",
       startDate: "",
       endDate: "",
-      tripStatusFilter: "All", // 'All', 'Active', 'Completed'
+      tripStatusFilter: "All", // 'All', 'Active', 'Completed', 'Investment'
 
       // Split Tag Filters
       selectedCategories: new Set(),
@@ -115,6 +115,7 @@ class AnalysisComponent {
         onTimeframeChange: (val) => this.handleTimeframeChange(val),
         onStatusChange: (val) => {
           this.state.tripStatusFilter = val;
+          this.updateTagSelectors();
           this.generateChart();
         },
         onDateChange: (type, val) => {
@@ -197,9 +198,17 @@ class AnalysisComponent {
     // Find associated Trips and update Trip Selection
     const tags = store.getState("tags") || {};
     const tripTypeMap = tags.TripTypeMap || {};
+    const tripStatusMap = tags.TripStatusMap || {};
     const allTrips = tags["Trip/Event"] || [];
 
-    const tripsToUpdate = allTrips.filter(
+    // Filter Trips based on Scope (same logic as updateTagSelectors)
+    const visibleTrips = allTrips.filter(trip => {
+      if (this.state.tripStatusFilter === "All") return true;
+      const status = tripStatusMap[trip];
+      return status === this.state.tripStatusFilter;
+    });
+
+    const tripsToUpdate = visibleTrips.filter(
       (trip) => tripTypeMap[trip] === typeTag
     );
 
@@ -318,15 +327,32 @@ class AnalysisComponent {
     if (!this.filtersComponent) return;
 
     const tagsData = store.getState("tags") || {};
-
-    // Calculate Type Status Map based on selected Trips
-    const typeStatusMap = {};
+    const tripStatusMap = tagsData.TripStatusMap || {};
     const tripTypeMap = tagsData.TripTypeMap || {};
-    const allTrips = tagsData["Trip/Event"] || [];
-    const allTypes = tagsData["Type"] || [];
 
-    allTypes.forEach((type) => {
-      const tripsForType = allTrips.filter((t) => tripTypeMap[t] === type);
+    const allTrips = tagsData["Trip/Event"] || [];
+    
+    // Filter Trips based on Scope
+    const visibleTrips = allTrips.filter(trip => {
+      if (this.state.tripStatusFilter === "All") return true;
+      const status = tripStatusMap[trip];
+      return status === this.state.tripStatusFilter;
+    });
+
+    // Determine Visible Types based on Visible Trips
+    const visibleTypesSet = new Set();
+    visibleTrips.forEach(trip => {
+        const type = tripTypeMap[trip];
+        if (type) visibleTypesSet.add(type);
+    });
+    const visibleTypes = Array.from(visibleTypesSet);
+
+    // Calculate Type Status Map based on visible Trips
+    const typeStatusMap = {};
+    
+    visibleTypes.forEach((type) => {
+      // Only consider visible trips for this type calculation
+      const tripsForType = visibleTrips.filter((t) => tripTypeMap[t] === type);
 
       if (tripsForType.length === 0) {
         typeStatusMap[type] = "unchecked";
@@ -346,8 +372,15 @@ class AnalysisComponent {
       }
     });
 
+    // Create a filtered data object for the view
+    const filteredTagsData = {
+        ...tagsData,
+        "Trip/Event": visibleTrips,
+        "Type": visibleTypes
+    };
+
     this.filtersComponent.renderTagLists(
-      tagsData,
+      filteredTagsData,
       this.state.selectedCategories,
       this.state.selectedTrips,
       typeStatusMap, // Pass calculated map instead of set

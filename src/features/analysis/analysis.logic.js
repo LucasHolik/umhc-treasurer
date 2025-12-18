@@ -46,8 +46,8 @@ class AnalysisLogic {
   /**
    * Checks if a transaction belongs to a trip with the specified status.
    * @param {Object} item - The transaction item.
-   * @param {Object} tripStatusMap - Map of trip names to their status ('Active', 'Completed').
-   * @param {string} tripStatusFilter - The desired trip status to filter by ('Active', 'Completed', 'All').
+   * @param {Object} tripStatusMap - Map of trip names to their status ('Active', 'Completed', 'Investment').
+   * @param {string} tripStatusFilter - The desired trip status to filter by ('Active', 'Completed', 'Investment', 'All').
    * @returns {boolean} True if the transaction matches the trip status filter, false otherwise.
    */
   isTransactionInTripStatus(item, tripStatusMap, tripStatusFilter) {
@@ -81,7 +81,7 @@ class AnalysisLogic {
    * Filters the raw expenses data based on date range, selected tags, and trip status.
    * @param {Array<Object>} expenses - The raw list of expense objects.
    * @param {Object} filterState - An object containing startDate, endDate, selectedCategories, selectedTrips, tripStatusFilter.
-   * @param {Object} tripStatusMap - Map of trip names to their status ('Active', 'Completed').
+   * @param {Object} tripStatusMap - Map of trip names to their status ('Active', 'Completed', 'Investment').
    * @returns {Array<Object>} The filtered list of expense objects.
    */
   getFilteredData(expenses, filterState, tripStatusMap) {
@@ -348,7 +348,7 @@ class AnalysisLogic {
    * This removes money that is currently tied up in ongoing trips/events.
    * @param {number} currentBalance - The total current balance of the treasury.
    * @param {Array<Object>} expenses - The full list of expense objects.
-   * @param {Object} tripStatusMap - Map of trip names to their status ('Active', 'Completed').
+   * @param {Object} tripStatusMap - Map of trip names to their status ('Active', 'Completed', 'Investment').
    * @returns {number} The effective balance.
    */
   calculateEffectiveBalance(currentBalance, expenses, tripStatusMap = {}) {

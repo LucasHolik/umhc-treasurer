@@ -31,6 +31,7 @@ export default class AnalysisControls {
                             <option value="All">All</option>
                             <option value="Active">Active Only</option>
                             <option value="Completed">Completed Only</option>
+                            <option value="Investment">Investment Only</option>
                         </select>
                     </div>
                 </div>
