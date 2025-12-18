@@ -288,7 +288,7 @@ class AnalysisLogic {
       const colors = labels.map((k, i) => {
         // Apply conditional coloring (green for positive, red for negative) only for non-balance, date-grouped charts
         if (primaryGroup === "date" && metric !== "balance") {
-          return dataPoints[i] >= 0 ? "#1a6b10" : "#d9534f";
+          return dataPoints[i] >= 0 ? "#2ecc71" : "#d9534f";
         }
         return getColor(k, i);
       });
