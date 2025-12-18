@@ -15,36 +15,45 @@ const createRouter = () => {
   const navigate = (hash) => {
     // If we are already on this hash (and it's not a forced re-nav), we might want to just ensure classes are set
     // But for simplicity, we'll just update the classes.
-    
+
     if (currentRoute && routes[currentRoute]) {
-      routes[currentRoute].classList.remove('active');
+      routes[currentRoute].classList.remove("active");
     }
-    
+
     if (routes[hash]) {
-      routes[hash].classList.add('active');
+      routes[hash].classList.add("active");
       currentRoute = hash;
-      
+
       // Only push hash if it's different (avoids redundant history entries/events)
       if (window.location.hash.slice(1) !== hash) {
-          window.location.hash = hash;
+        window.location.hash = hash;
       }
     }
   };
 
   const handleHashChange = () => {
-    const hash = window.location.hash.slice(1) || 'dashboard'; // Default route
+    const hash = window.location.hash.slice(1) || "dashboard"; // Default route
     navigate(hash);
   };
 
   const start = () => {
-    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener("hashchange", handleHashChange);
     handleHashChange(); // Initial route
+  };
+
+  const reset = () => {
+    window.removeEventListener("hashchange", handleHashChange);
+    for (const key in routes) {
+      delete routes[key];
+    }
+    currentRoute = null;
   };
 
   return {
     register,
     navigate,
     start,
+    reset,
   };
 };
 

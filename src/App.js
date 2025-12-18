@@ -16,14 +16,21 @@ import LoaderComponent from './shared/loader.component.js';
 class App {
   constructor(element) {
     this.element = element;
-    AuthService.init();
+    this.subscriptions = [];
+    try {
+      AuthService.init();
+    } catch (error) {
+      console.error('Failed to initialize authentication:', error);
+      store.setState('error', 'Authentication initialization failed. Please refresh or contact support.');
+    }
     this.render();
-    store.subscribe('currentUser', this.render.bind(this));
-    store.subscribe('isLoading', () => this.handleLoadingState());
-    store.subscribe('isUploading', () => this.handleLoadingState());
-    store.subscribe('isTagging', () => this.handleLoadingState());
-    store.subscribe('savingTags', () => this.handleLoadingState());
-    store.subscribe('settingsSyncing', () => this.handleLoadingState());
+    
+    this.subscriptions.push(store.subscribe('currentUser', this.render.bind(this)));
+    this.subscriptions.push(store.subscribe('isLoading', () => this.handleLoadingState()));
+    this.subscriptions.push(store.subscribe('isUploading', () => this.handleLoadingState()));
+    this.subscriptions.push(store.subscribe('isTagging', () => this.handleLoadingState()));
+    this.subscriptions.push(store.subscribe('savingTags', () => this.handleLoadingState()));
+    this.subscriptions.push(store.subscribe('settingsSyncing', () => this.handleLoadingState()));
     
     // Reactive Transaction Processing
     const updateProcessedTransactions = () => {
@@ -34,13 +41,19 @@ class App {
         store.setState('expenses', processed);
     };
 
-    store.subscribe('rawExpenses', updateProcessedTransactions);
-    store.subscribe('splitTransactions', updateProcessedTransactions);
+    this.subscriptions.push(store.subscribe('rawExpenses', updateProcessedTransactions));
+    this.subscriptions.push(store.subscribe('splitTransactions', updateProcessedTransactions));
 
-    document.addEventListener('dataUploaded', () => {
+    this.dataUploadedHandler = () => {
         store.setState('isLoading', true);
         this.loadInitialData();
-    });
+    };
+    document.addEventListener('dataUploaded', this.dataUploadedHandler);
+    
+    this.hashChangeHandler = () => {
+        const hash = window.location.hash.slice(1) || 'dashboard';
+        this.updateActiveTab(hash);
+    };
   }
 
   render() {
@@ -51,9 +64,16 @@ class App {
     }
   }
 
+  cleanupComponents() {
+    if (this.loginComponent?.destroy) {
+      this.loginComponent.destroy();
+    }
+  }
+
   renderLogin() {
+    this.cleanupComponents();
     this.element.innerHTML = '<div id="login-root"></div>';
-    new LoginComponent(this.element.querySelector('#login-root'));
+    this.loginComponent = new LoginComponent(this.element.querySelector('#login-root'));
   }
 
   renderMainApp() {
@@ -136,7 +156,24 @@ class App {
     this.loadInitialData();
   }
 
+  cleanupMainApp() {
+    // Cleanup components if they have destroy methods
+    if (this.components) {
+      Object.values(this.components).forEach(component => {
+        if (component?.destroy) component.destroy();
+      });
+    }
+    // Reset router
+    if (router.reset) router.reset();
+    
+    // Remove hashchange listener specifically added in attachEventListeners
+    window.removeEventListener('hashchange', this.hashChangeHandler);
+  }
+
   initComponents() {
+    this.cleanupMainApp();
+    this.components = {};
+    
     const dashboardEl = this.element.querySelector('#dashboard-content');
     const transactionsEl = this.element.querySelector('#transactions-content');
     const uploadEl = this.element.querySelector('#upload-content');
@@ -144,12 +181,12 @@ class App {
     const analysisEl = this.element.querySelector('#analysis-content');
     const settingsEl = this.element.querySelector('#settings-content');
 
-    new DashboardComponent(dashboardEl);
-    new TransactionsComponent(transactionsEl);
-    new UploadComponent(uploadEl);
-    new TagsComponent(tagsEl);
-    new AnalysisComponent(analysisEl);
-    new SettingsComponent(settingsEl);
+    this.components.dashboard = new DashboardComponent(dashboardEl);
+    this.components.transactions = new TransactionsComponent(transactionsEl);
+    this.components.upload = new UploadComponent(uploadEl);
+    this.components.tags = new TagsComponent(tagsEl);
+    this.components.analysis = new AnalysisComponent(analysisEl);
+    this.components.settings = new SettingsComponent(settingsEl);
 
     router.register('dashboard', dashboardEl);
     router.register('transactions', transactionsEl);
@@ -198,9 +235,12 @@ class App {
   }
 
   attachEventListeners() {
-    this.element.querySelector('#logout-button').addEventListener('click', () => {
-      AuthService.logout();
-    });
+    const logoutBtn = this.element.querySelector('#logout-button');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        AuthService.logout();
+      });
+    }
     
     const refreshBtn = this.element.querySelector('.refresh-btn');
     if (refreshBtn) {
@@ -210,10 +250,7 @@ class App {
     }
     
     // Handle navigation via hash change (Unidirectional Flow)
-    window.addEventListener('hashchange', () => {
-        const hash = window.location.hash.slice(1) || 'dashboard';
-        this.updateActiveTab(hash);
-    });
+    window.addEventListener('hashchange', this.hashChangeHandler);
 
     // Initial check
     const initialTab = window.location.hash.slice(1) || 'dashboard';
@@ -233,7 +270,10 @@ class App {
 
       // 2. Update Page Title
       const title = tabName.charAt(0).toUpperCase() + tabName.slice(1);
-      this.element.querySelector('#page-title').textContent = title;
+      const pageTitle = this.element.querySelector('#page-title');
+      if (pageTitle) {
+        pageTitle.textContent = title;
+      }
 
       // 3. Handle Loading State specific to new tab
       this.handleLoadingState();
@@ -266,7 +306,21 @@ class App {
     } catch (error) {
       console.error("Load initial data error:", error);
       store.setState('error', error.message);
+    } finally {
+      store.setState('isLoading', false);
     }
+  }
+
+  destroy() {
+    this.cleanupMainApp();
+    this.cleanupComponents();
+    
+    if (this.dataUploadedHandler) {
+      document.removeEventListener('dataUploaded', this.dataUploadedHandler);
+    }
+    
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions = [];
   }
 }
 
