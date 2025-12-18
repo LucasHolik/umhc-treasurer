@@ -25,9 +25,11 @@ class AnalysisComponent {
       // Split Tag Filters
       selectedCategories: new Set(),
       selectedTrips: new Set(),
+      // selectedTypes is derived from selectedTrips
 
       categorySearchTerm: "",
       tripSearchTerm: "",
+      typeSearchTerm: "",
 
       metric: "balance", // income, expense, net, balance
       chartType: "bar",
@@ -160,12 +162,22 @@ class AnalysisComponent {
     this.filtersComponent = new AnalysisFilters(
       this.element.querySelector("#analysis-filters-container"),
       {
-        onFilterChange: () => this.generateChart(),
-        onSearchChange: (type, term) => {
-          if (type === "Category")
-            this.state.categorySearchTerm = term.toLowerCase();
-          else this.state.tripSearchTerm = term.toLowerCase();
+        onFilterChange: () => {
+          this.generateChart();
           this.updateTagSelectors();
+        },
+        onSearchChange: (type, term) => {
+          if (type === "Category") {
+            this.state.categorySearchTerm = term.toLowerCase();
+          } else if (type === "Type") {
+            this.state.typeSearchTerm = term.toLowerCase();
+          } else {
+            this.state.tripSearchTerm = term.toLowerCase();
+          }
+          this.updateTagSelectors();
+        },
+        onTypeChange: (typeTag, isChecked) => {
+          this.handleTypeChange(typeTag, isChecked);
         },
       }
     );
@@ -179,6 +191,27 @@ class AnalysisComponent {
     this.tableComponent = new AnalysisTable(
       this.element.querySelector("#analysis-data-table-container")
     );
+  }
+
+  handleTypeChange(typeTag, isChecked) {
+    // Find associated Trips and update Trip Selection
+    const tags = store.getState("tags") || {};
+    const tripTypeMap = tags.TripTypeMap || {};
+    const allTrips = tags["Trip/Event"] || [];
+
+    const tripsToUpdate = allTrips.filter(
+      (trip) => tripTypeMap[trip] === typeTag
+    );
+
+    tripsToUpdate.forEach((trip) => {
+      if (isChecked) {
+        this.state.selectedTrips.add(trip);
+      } else {
+        this.state.selectedTrips.delete(trip);
+      }
+    });
+
+    // Update UI is handled by onFilterChange callback
   }
 
   handleTimeframeChange(newTimeframe) {
@@ -228,6 +261,7 @@ class AnalysisComponent {
     this.state.selectedTrips.clear();
     this.state.categorySearchTerm = "";
     this.state.tripSearchTerm = "";
+    this.state.typeSearchTerm = ""; // Clear Type search
     this.state.tripStatusFilter = "All";
 
     switch (presetName) {
@@ -285,16 +319,46 @@ class AnalysisComponent {
 
     const tagsData = store.getState("tags") || {};
 
+    // Calculate Type Status Map based on selected Trips
+    const typeStatusMap = {};
+    const tripTypeMap = tagsData.TripTypeMap || {};
+    const allTrips = tagsData["Trip/Event"] || [];
+    const allTypes = tagsData["Type"] || [];
+
+    allTypes.forEach((type) => {
+      const tripsForType = allTrips.filter((t) => tripTypeMap[t] === type);
+
+      if (tripsForType.length === 0) {
+        typeStatusMap[type] = "unchecked";
+        return;
+      }
+
+      const selectedCount = tripsForType.filter((t) =>
+        this.state.selectedTrips.has(t)
+      ).length;
+
+      if (selectedCount === 0) {
+        typeStatusMap[type] = "unchecked";
+      } else if (selectedCount === tripsForType.length) {
+        typeStatusMap[type] = "checked";
+      } else {
+        typeStatusMap[type] = "indeterminate";
+      }
+    });
+
     this.filtersComponent.renderTagLists(
       tagsData,
       this.state.selectedCategories,
       this.state.selectedTrips,
+      typeStatusMap, // Pass calculated map instead of set
       this.state.categorySearchTerm,
-      this.state.tripSearchTerm
+      this.state.tripSearchTerm,
+      this.state.typeSearchTerm
     );
     this.filtersComponent.updateInputs(
       this.state.categorySearchTerm,
-      this.state.tripSearchTerm
+      this.state.tripSearchTerm,
+      this.state.typeSearchTerm
     );
   }
 
