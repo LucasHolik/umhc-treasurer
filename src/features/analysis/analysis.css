@@ -212,15 +212,16 @@
   height: 16px;
 }
 
-/* Actions */
-.analysis-actions {
+/* Actions Bar */
+.analysis-actions-bar {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  margin-top: 10px;
+  margin-bottom: 10px; /* Space between bar and chart */
+  padding: 10px 0;
 }
 
-.btn-download {
+.btn-action {
   background-color: rgba(255, 255, 255, 0.2);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -228,10 +229,12 @@
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
+  font-size: 0.9em;
 }
 
-.btn-download:hover {
+.btn-action:hover {
   background-color: rgba(255, 255, 255, 0.3);
+  border-color: #f0ad4e;
 }
 
 /* Chart */

@@ -110,11 +110,6 @@ export default class AnalysisControls {
 
                 </div>
             </div>
-            
-            <div class="analysis-actions">
-                <button id="btn-toggle-data-table" class="btn-download">Show Data Table</button>
-                <button id="btn-download" class="btn-download">Download Image</button>
-            </div>
         `;
   }
 
@@ -192,18 +187,6 @@ export default class AnalysisControls {
           this.callbacks.onPresetClick(e.target.dataset.preset);
       });
     });
-
-    this.element
-      .querySelector("#btn-toggle-data-table")
-      .addEventListener("click", () => {
-        if (this.callbacks.onToggleTable) this.callbacks.onToggleTable();
-      });
-
-    this.element
-      .querySelector("#btn-download")
-      .addEventListener("click", () => {
-        if (this.callbacks.onDownload) this.callbacks.onDownload();
-      });
   }
 
   update(state) {
@@ -228,13 +211,6 @@ export default class AnalysisControls {
     if (timeUnitContainer) {
       timeUnitContainer.style.display =
         state.primaryGroup === "date" ? "flex" : "none";
-    }
-
-    const toggleBtn = this.element.querySelector("#btn-toggle-data-table");
-    if (toggleBtn) {
-      toggleBtn.textContent = state.showDataTable
-        ? "Hide Data Table"
-        : "Show Data Table";
     }
   }
 }

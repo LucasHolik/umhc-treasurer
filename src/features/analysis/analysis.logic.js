@@ -457,6 +457,57 @@ class AnalysisLogic {
   }
 
   /**
+   * Generates a CSV string from the aggregated data.
+   * @param {Array<string>} labels - The row labels (X-axis).
+   * @param {Array<Object>} datasets - The datasets containing values.
+   * @param {Object} options - formatting options (primaryGroup, secondaryGroup, metric, timeUnit).
+   * @returns {string} The CSV content.
+   */
+  generateCSV(labels, datasets, options) {
+    const { primaryGroup, secondaryGroup, metric, timeUnit } = options;
+
+    // Header Row
+    let header =
+      primaryGroup === "date"
+        ? `Date (${timeUnit})`
+        : primaryGroup.charAt(0).toUpperCase() + primaryGroup.slice(1);
+
+    if (secondaryGroup !== "none") {
+      const secondaryKeys = datasets.map((d) => d.label);
+      header += "," + secondaryKeys.join(",") + ",Total";
+    } else {
+      header += "," + (metric.charAt(0).toUpperCase() + metric.slice(1));
+    }
+    header += "\n";
+
+    // Data Rows
+    const rows = labels
+      .map((label) => {
+        // Escape label if it contains commas
+        let rowStr = label.includes(",") ? `"${label}"` : label;
+
+        if (secondaryGroup !== "none") {
+          let rowTotal = 0;
+          datasets.forEach((dataset) => {
+            const dataIndex = labels.indexOf(label);
+            const value = dataset.data[dataIndex] || 0;
+            rowStr += `,${value}`;
+            rowTotal += value;
+          });
+          rowStr += `,${rowTotal}`;
+        } else {
+          const dataIndex = labels.indexOf(label);
+          const value = datasets[0].data[dataIndex] || 0;
+          rowStr += `,${value}`;
+        }
+        return rowStr;
+      })
+      .join("\n");
+
+    return header + rows;
+  }
+
+  /**
    * Returns the configuration state for a given preset.
    * @param {string} presetName - The name of the preset.
    * @returns {Object} Partial state object to be merged.

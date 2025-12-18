@@ -90,16 +90,24 @@ class AnalysisComponent {
         <!-- Tag Filters -->
         <div class="control-section tag-filters-section" id="analysis-filters-container"></div>
 
-        <div class="chart-container">
+        <!-- Action Bar -->
+        <div class="analysis-actions-bar" id="analysis-actions-bar">
+            <button id="btn-toggle-view" class="btn-action">Show Data Table</button>
+            <button id="btn-download-image" class="btn-action">Download Image</button>
+            <button id="btn-download-data" class="btn-action" style="display: none;">Download Data (CSV)</button>
+        </div>
+
+        <div class="chart-container" id="analysis-chart-container">
             <canvas id="analysis-chart"></canvas>
         </div>
 
-        <div id="analysis-data-table-container"></div>
+        <div id="analysis-data-table-container" style="display: none;"></div>
       </div>
     `;
 
     // Initialize Sub-components
     this.initializeSubComponents();
+    this.initializeActionButtons();
 
     // Initial Updates
     this.updateStatsDOM();
@@ -135,26 +143,6 @@ class AnalysisComponent {
         },
         onGroupChange: (type, val) => this.handleGroupChange(type, val),
         onPresetClick: (preset) => this.applyPreset(preset),
-        onToggleTable: () => {
-          this.state.showDataTable = !this.state.showDataTable;
-          this.controlsComponent.update(this.state);
-          this.generateChart(); // Re-gen to show/hide table
-        },
-        onDownload: () => {
-          if (this.chartComponent) {
-            const base64 = this.chartComponent.toBase64Image();
-            if (base64) {
-              const link = document.createElement("a");
-              link.download = `analysis-chart-${
-                new Date().toISOString().split("T")[0]
-              }.png`;
-              link.href = base64;
-              link.click();
-            } else {
-              alert("Chart not ready.");
-            }
-          }
-        },
       }
     );
     this.controlsComponent.update(this.state);
@@ -192,6 +180,66 @@ class AnalysisComponent {
     this.tableComponent = new AnalysisTable(
       this.element.querySelector("#analysis-data-table-container")
     );
+  }
+
+  initializeActionButtons() {
+    this.element
+      .querySelector("#btn-toggle-view")
+      .addEventListener("click", () => {
+        this.state.showDataTable = !this.state.showDataTable;
+        this.updateViewVisibility();
+      });
+
+    this.element
+      .querySelector("#btn-download-image")
+      .addEventListener("click", () => {
+        if (this.chartComponent) {
+          const base64 = this.chartComponent.toBase64Image();
+          if (base64) {
+            const link = document.createElement("a");
+            link.download = `analysis-chart-${
+              new Date().toISOString().split("T")[0]
+            }.png`;
+            link.href = base64;
+            link.click();
+          } else {
+            alert("Chart not ready.");
+          }
+        }
+      });
+
+    this.element
+      .querySelector("#btn-download-data")
+      .addEventListener("click", () => {
+        if (this.chartData) {
+          const csvContent = this.analysisLogic.generateCSV(
+            this.chartData.labels,
+            this.chartData.datasets,
+            {
+              primaryGroup: this.state.primaryGroup,
+              secondaryGroup: this.state.secondaryGroup,
+              metric: this.state.metric,
+              timeUnit: this.state.timeUnit,
+            }
+          );
+          const blob = new Blob([csvContent], {
+            type: "text/csv;charset=utf-8;",
+          });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.setAttribute("href", url);
+          link.setAttribute(
+            "download",
+            `analysis-data-${new Date().toISOString().split("T")[0]}.csv`
+          );
+          link.style.visibility = "hidden";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          alert("No data available to download.");
+        }
+      });
   }
 
   handleTypeChange(typeTag, isChecked) {
@@ -343,6 +391,48 @@ class AnalysisComponent {
       `;
   }
 
+  updateViewVisibility() {
+    const isTable = this.state.showDataTable;
+    const chartContainer = this.element.querySelector(
+      "#analysis-chart-container"
+    );
+    const tableContainer = this.element.querySelector(
+      "#analysis-data-table-container"
+    );
+    const toggleBtn = this.element.querySelector("#btn-toggle-view");
+    const downloadImgBtn = this.element.querySelector("#btn-download-image");
+    const downloadDataBtn = this.element.querySelector("#btn-download-data");
+
+    if (isTable) {
+      chartContainer.style.display = "none";
+      tableContainer.style.display = "block";
+      toggleBtn.textContent = "Show Graph";
+      downloadImgBtn.style.display = "none";
+      downloadDataBtn.style.display = "inline-block";
+    } else {
+      chartContainer.style.display = "block";
+      tableContainer.style.display = "none";
+      toggleBtn.textContent = "Show Data Table";
+      downloadImgBtn.style.display = "inline-block";
+      downloadDataBtn.style.display = "none";
+    }
+
+    // Force table render if switching to table view and we have data
+    if (isTable && this.chartData && this.tableComponent) {
+      this.tableComponent.render(
+        this.chartData.labels,
+        this.chartData.datasets,
+        {
+          primaryGroup: this.state.primaryGroup,
+          secondaryGroup: this.state.secondaryGroup,
+          metric: this.state.metric,
+          timeUnit: this.state.timeUnit,
+          show: true,
+        }
+      );
+    }
+  }
+
   generateChart() {
     const expenses = store.getState("expenses") || [];
     const tags = store.getState("tags") || {};
@@ -376,7 +466,7 @@ class AnalysisComponent {
 
     this.updateStatsDOM();
 
-    const chartData = this.analysisLogic.aggregateData(
+    this.chartData = this.analysisLogic.aggregateData(
       filteredData,
       {
         primaryGroup: this.state.primaryGroup,
@@ -391,7 +481,7 @@ class AnalysisComponent {
 
     // Render Chart
     if (this.chartComponent) {
-      this.chartComponent.render(chartData, {
+      this.chartComponent.render(this.chartData, {
         type: this.state.chartType,
         metric: this.state.metric,
         primaryGroup: this.state.primaryGroup,
@@ -399,16 +489,7 @@ class AnalysisComponent {
       });
     }
 
-    // Render Table
-    if (this.tableComponent) {
-      this.tableComponent.render(chartData.labels, chartData.datasets, {
-        primaryGroup: this.state.primaryGroup,
-        secondaryGroup: this.state.secondaryGroup,
-        metric: this.state.metric,
-        timeUnit: this.state.timeUnit,
-        show: this.state.showDataTable,
-      });
-    }
+    this.updateViewVisibility();
   }
 }
 
