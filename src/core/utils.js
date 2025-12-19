@@ -9,16 +9,16 @@
  * @returns {string}
  */
 export function formatCurrency(amount) {
-  if (amount === null || amount === undefined || amount === '') {
-    return '';
+  if (amount === null || amount === undefined || amount === "") {
+    return "";
   }
-  
+
   let num;
-  if (typeof amount === 'string') {
-      // Remove commas to handle formatted strings like "1,234.56"
-      num = parseFloat(amount.replace(/,/g, ''));
+  if (typeof amount === "string") {
+    // Remove commas to handle formatted strings like "1,234.56"
+    num = parseFloat(amount.replace(/,/g, ""));
   } else {
-      num = parseFloat(amount);
+    num = parseFloat(amount);
   }
 
   if (isNaN(num)) {
@@ -28,70 +28,82 @@ export function formatCurrency(amount) {
 }
 
 export function parseDate(dateString) {
-    if (!dateString) return null;
-    let date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      const formattedDate = dateString.replace(/[-./]/g, "/");
-      date = new Date(formattedDate);
-    }
-    if (isNaN(date.getTime())) return null;
-    return date;
+  if (!dateString) return null;
+  let date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    const formattedDate = dateString.replace(/[-./]/g, "/");
+    date = new Date(formattedDate);
+  }
+  if (isNaN(date.getTime())) return null;
+  return date;
 }
 
 export function getCurrentMonthRange() {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return { start, end };
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { start, end };
 }
-  
+
 export function getPastDaysRange(days) {
-    const now = new Date();
-    const start = new Date();
-    start.setDate(now.getDate() - days);
-    return { start, end: now };
+  const now = new Date();
+  const start = new Date();
+  start.setDate(now.getDate() - days);
+  return { start, end: now };
 }
-  
+
 export function getPastMonthsRange(months) {
-    const now = new Date();
-    const start = new Date();
-    start.setMonth(now.getMonth() - months);
-    return { start, end: now };
+  const now = new Date();
+  const start = new Date();
+  start.setMonth(now.getMonth() - months);
+  return { start, end: now };
 }
-  
+
 export function getPastYearRange() {
-    const now = new Date();
-    const start = new Date();
-    start.setFullYear(now.getFullYear() - 1);
-    return { start, end: now };
+  const now = new Date();
+  const start = new Date();
+  start.setFullYear(now.getFullYear() - 1);
+  return { start, end: now };
 }
 
 export function getDateRange(timeframe) {
-    switch (timeframe) {
-      case "current_month":
-        return getCurrentMonthRange();
-      case "past_30_days":
-        return getPastDaysRange(30);
-      case "past_3_months":
-        return getPastMonthsRange(3);
-      case "past_6_months":
-        return getPastMonthsRange(6);
-      case "past_year":
-        return getPastYearRange();
-      default:
-        return getPastDaysRange(30);
-    }
+  switch (timeframe) {
+    case "current_month":
+      return getCurrentMonthRange();
+    case "past_30_days":
+      return getPastDaysRange(30);
+    case "past_3_months":
+      return getPastMonthsRange(3);
+    case "past_6_months":
+      return getPastMonthsRange(6);
+    case "past_year":
+      return getPastYearRange();
+    default:
+      return getPastDaysRange(30);
+  }
 }
 
 export function filterTransactionsByTimeframe(transactions, timeframe) {
-    if (!transactions || transactions.length === 0) return [];
-    if (timeframe === "all_time") return transactions;
+  if (!transactions || transactions.length === 0) return [];
+  if (timeframe === "all_time") return transactions;
 
-    const { start, end } = getDateRange(timeframe);
+  const { start, end } = getDateRange(timeframe);
 
-    return transactions.filter((transaction) => {
-      const date = parseDate(transaction.Date);
-      if (!date) return false;
-      return date >= start && date <= end;
-    });
+  return transactions.filter((transaction) => {
+    const date = parseDate(transaction.Date);
+    if (!date) return false;
+    return date >= start && date <= end;
+  });
+}
+
+/**
+ * Escapes HTML special characters in a string to prevent XSS.
+ * @param {string} str
+ * @returns {string}
+ */
+export function escapeHtml(str) {
+  if (typeof str !== "string") return str;
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
 }
