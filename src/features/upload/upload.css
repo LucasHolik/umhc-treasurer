@@ -64,3 +64,13 @@
   background-color: rgba(240, 173, 78, 0.2);
   color: #fff;
 }
+
+.status-duplicate {
+  color: #f6993f; /* Accessible orange */
+  font-weight: bold;
+}
+
+.status-new {
+  color: #38c172; /* Accessible green */
+  font-weight: bold;
+}

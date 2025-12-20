@@ -57,7 +57,14 @@ export default class TagsSubList {
             Investment: { icon: "🚀", color: "#5bc0de", title: "Investment" },
           };
           const s = styles[item.status] || styles["Active"];
-          return `<span title="${s.title}" style="color: ${s.color}; font-weight: bold; font-size: 1.2em;">${s.icon}</span>`;
+          
+          const span = document.createElement("span");
+          span.title = s.title;
+          span.style.color = s.color;
+          span.style.fontWeight = "bold";
+          span.style.fontSize = "1.2em";
+          span.textContent = s.icon;
+          return span;
         },
       },
       {
@@ -77,10 +84,13 @@ export default class TagsSubList {
         label: "Net",
         type: "currency",
         class: "text-right",
-        render: (item) =>
-          `<span class="${
-            item.net > 0 ? "positive" : item.net < 0 ? "negative" : ""
-          }">${formatCurrency(Math.abs(item.net))}</span>`,
+        render: (item) => {
+          const span = document.createElement("span");
+          if (item.net > 0) span.className = "positive";
+          else if (item.net < 0) span.className = "negative";
+          span.textContent = formatCurrency(Math.abs(item.net));
+          return span;
+        }
       },
       { key: "count", label: "Uses", type: "number", class: "text-center" },
     ];

@@ -132,7 +132,12 @@ export default class SortableTable {
           if (col.class) td.className = col.class;
 
           if (col.render) {
-            td.innerHTML = col.render(item);
+            const rendered = col.render(item);
+            if (typeof rendered === "string") {
+              td.textContent = rendered;
+            } else {
+              td.appendChild(rendered); // Allow render to return DOM nodes
+            }
           } else {
             let val = item[col.key];
             if (col.type === "currency") {

@@ -360,18 +360,31 @@ class TransactionsComponent {
     }
 
     if (value) {
-      return `
-            <span class="tag-pill ${
-              isPending ? "pending-change" : ""
-            }" data-row="${rowId}" data-type="${type}">
-                <span class="tag-text">${escapeHtml(value)}</span>
-                <span class="remove-btn" title="Remove Tag">×</span>
-            </span>
-          `;
+      const pill = document.createElement("span");
+      pill.className = `tag-pill ${isPending ? "pending-change" : ""}`;
+      pill.dataset.row = rowId;
+      pill.dataset.type = type;
+
+      const textSpan = document.createElement("span");
+      textSpan.className = "tag-text";
+      textSpan.textContent = value; // content is automatically escaped
+      pill.appendChild(textSpan);
+
+      const removeBtn = document.createElement("span");
+      removeBtn.className = "remove-btn";
+      removeBtn.title = "Remove Tag";
+      removeBtn.textContent = "×";
+      pill.appendChild(removeBtn);
+
+      return pill;
     } else {
-      return `
-            <span class="add-tag-placeholder" data-row="${rowId}" data-type="${type}" title="Add Tag">+</span>
-          `;
+      const placeholder = document.createElement("span");
+      placeholder.className = "add-tag-placeholder";
+      placeholder.dataset.row = rowId;
+      placeholder.dataset.type = type;
+      placeholder.title = "Add Tag";
+      placeholder.textContent = "+";
+      return placeholder;
     }
   }
 
@@ -422,12 +435,13 @@ class TransactionsComponent {
               const safeExpense = isNaN(expense) ? 0 : expense;
 
               const net = safeIncome - safeExpense;
-
               const classType =
                 net > 0 ? "positive" : net < 0 ? "negative" : "";
-              return `<span class="${classType}">${formatCurrency(
-                Math.abs(net)
-              )}</span>`;
+
+              const span = document.createElement("span");
+              if (classType) span.className = classType;
+              span.textContent = formatCurrency(Math.abs(net));
+              return span;
             },
           },
         ],

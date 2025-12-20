@@ -66,7 +66,12 @@ class UploadComponent {
                 key: 'status', 
                 label: 'Status', 
                 type: 'custom',
-                render: (row) => row.isDuplicate ? '<span style="color: orange;">Duplicate</span>' : '<span style="color: lightgreen;">New</span>'
+                render: (row) => {
+                  const span = document.createElement('span');
+                  span.className = row.isDuplicate ? 'status-duplicate' : 'status-new';
+                  span.textContent = row.isDuplicate ? 'Duplicate' : 'New';
+                  return span;
+                }
             }
         ],
         initialSortField: 'date',

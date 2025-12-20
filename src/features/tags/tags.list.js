@@ -217,13 +217,26 @@ export default class TagsList {
             Investment: { icon: "🚀", color: "#5bc0de", title: "Investment" },
           };
           const s = styles[status] || styles["Active"];
+          
+          const span = document.createElement("span");
+          span.style.color = s.color;
+          span.style.fontWeight = "bold";
+          span.style.fontSize = "1.2em";
+          span.textContent = s.icon;
 
           if (!this.isEditMode) {
             // Interactive in View Mode
-            return `<span class="status-toggle-btn" data-tag="${item.tag}" data-status="${status}" title="${s.title} - Click to cycle" style="cursor: pointer; color: ${s.color}; font-weight: bold; font-size: 1.2em;">${s.icon}</span>`;
+            span.className = "status-toggle-btn";
+            span.dataset.tag = item.tag;
+            span.dataset.status = status;
+            span.title = `${s.title} - Click to cycle`;
+            span.style.cursor = "pointer";
+          } else {
+            // Non-interactive in Edit Mode
+            span.title = `${s.title} (Exit edit mode to change)`;
+            span.style.opacity = "0.7";
           }
-          // Non-interactive in Edit Mode
-          return `<span title="${s.title} (Exit edit mode to change)" style="color: ${s.color}; opacity: 0.7; font-weight: bold; font-size: 1.2em;">${s.icon}</span>`;
+          return span;
         },
       });
 
@@ -235,17 +248,34 @@ export default class TagsList {
           // In edit mode: text only. Not in edit mode: interactive.
           if (!this.isEditMode) {
             if (item.tripType) {
-              return `
-                                <span class="tag-pill" data-tag="${item.tag}" data-type="Type">
-                                    <span class="tag-text">${item.tripType}</span>
-                                    <span class="remove-btn" title="Remove Type">×</span>
-                                </span>
-                             `;
+              const pill = document.createElement("span");
+              pill.className = "tag-pill";
+              pill.dataset.tag = item.tag;
+              pill.dataset.type = "Type";
+
+              const text = document.createElement("span");
+              text.className = "tag-text";
+              text.textContent = item.tripType;
+              pill.appendChild(text);
+
+              const remove = document.createElement("span");
+              remove.className = "remove-btn";
+              remove.title = "Remove Type";
+              remove.textContent = "×";
+              pill.appendChild(remove);
+
+              return pill;
             } else {
-              return `<span class="add-tag-placeholder" data-tag="${item.tag}" data-type="Type" title="Add Type">+</span>`;
+              const add = document.createElement("span");
+              add.className = "add-tag-placeholder";
+              add.dataset.tag = item.tag;
+              add.dataset.type = "Type";
+              add.title = "Add Type";
+              add.textContent = "+";
+              return add;
             }
           }
-          return item.tripType || "";
+          return document.createTextNode(item.tripType || "");
         },
       });
     }
@@ -268,10 +298,13 @@ export default class TagsList {
         label: "Net",
         type: "currency",
         class: "tags-table-num text-right",
-        render: (item) =>
-          `<span class="${
-            item.net > 0 ? "positive" : item.net < 0 ? "negative" : ""
-          }">${formatCurrency(Math.abs(item.net))}</span>`,
+        render: (item) => {
+            const span = document.createElement("span");
+            if (item.net > 0) span.className = "positive";
+            else if (item.net < 0) span.className = "negative";
+            span.textContent = formatCurrency(Math.abs(item.net));
+            return span;
+        }
       },
       { key: "count", label: "Uses", type: "number", class: "text-center" }
     );
@@ -283,10 +316,32 @@ export default class TagsList {
         type: "custom",
         sortable: false,
         class: "text-right tags-actions-cell",
-        render: (item) => `
-                    <button class="icon-btn rename-btn" data-tag="${item.tag}" data-type="${item.type}" title="Rename">✏️</button>
-                    <button class="icon-btn delete-btn" data-tag="${item.tag}" data-type="${item.type}" title="Delete">🗑️</button>
-                `,
+        render: (item) => {
+            const div = document.createElement("div");
+            
+            const renameBtn = document.createElement("button");
+            renameBtn.className = "icon-btn rename-btn";
+            renameBtn.title = "Rename";
+            renameBtn.textContent = "✏️";
+            renameBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (this.callbacks.onTagRename) this.callbacks.onTagRename(item.type, item.tag);
+            };
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "icon-btn delete-btn";
+            deleteBtn.title = "Delete";
+            deleteBtn.textContent = "🗑️";
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (this.callbacks.onTagDelete) this.callbacks.onTagDelete(item.type, item.tag);
+            };
+
+            div.appendChild(renameBtn);
+            div.appendChild(document.createTextNode(" "));
+            div.appendChild(deleteBtn);
+            return div;
+        },
       });
     }
 
@@ -316,26 +371,6 @@ export default class TagsList {
 
     // Store reference for potential future updates
     this.tables[type] = table;
-
-    // Bind action buttons if in edit mode
-    if (this.isEditMode) {
-      container.querySelectorAll(".rename-btn").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const tag = e.currentTarget.dataset.tag;
-          const t = e.currentTarget.dataset.type;
-          if (this.callbacks.onTagRename) this.callbacks.onTagRename(t, tag);
-        });
-      });
-      container.querySelectorAll(".delete-btn").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const tag = e.currentTarget.dataset.tag;
-          const t = e.currentTarget.dataset.type;
-          if (this.callbacks.onTagDelete) this.callbacks.onTagDelete(t, tag);
-        });
-      });
-    }
   }
 
   handleInteractiveClick(e) {

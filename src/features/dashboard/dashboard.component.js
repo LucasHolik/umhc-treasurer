@@ -103,7 +103,10 @@ class DashboardComponent {
                     const net = safeIncome - safeExpense;
                     
                     const classType = net > 0 ? 'positive' : (net < 0 ? 'negative' : '');
-                    return `<span class="${classType}">${formatCurrency(Math.abs(net))}</span>`;
+                    const span = document.createElement('span');
+                    if (classType) span.className = classType;
+                    span.textContent = formatCurrency(Math.abs(net));
+                    return span;
                 }
             }
         ],
