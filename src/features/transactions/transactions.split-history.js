@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../core/utils.js';
+import { formatCurrency, parseDate, escapeHtml } from '../../core/utils.js';
 import ApiService from '../../services/api.service.js';
 import store from '../../core/state.js';
 import SplitTransactionModal from './split-transaction.modal.js';
@@ -19,9 +19,14 @@ export default class TransactionsSplitHistory {
         const groups = {};
         // Sort by date desc first
         const sorted = [...data].sort((a, b) => {
-             // Try parse date
-             const dateA = new Date(a.Date);
-             const dateB = new Date(b.Date);
+             const dateA = parseDate(a.Date);
+             const dateB = parseDate(b.Date);
+
+             // Handle invalid dates by placing them at the end
+             if (!dateA && !dateB) return 0;
+             if (!dateA) return 1;
+             if (!dateB) return -1;
+
              return dateB - dateA;
         });
 
@@ -69,6 +74,7 @@ export default class TransactionsSplitHistory {
                     const rDate = row.Date || '';
                     const rTrip = row['Trip/Event'] || '';
                     const rCat = row['Category'] || '';
+                    const tagsDisplay = [escapeHtml(rTrip), escapeHtml(rCat)].filter(Boolean).join(' / ') || '-';
                     
                     let rAmount = 0;
                     if (row.Income) rAmount = parseFloat(String(row.Income).replace(/,/g, ''));
@@ -87,8 +93,8 @@ export default class TransactionsSplitHistory {
                         <tr class="split-detail-row ${clickableClass}" style="background: ${rBg}; ${cursorStyle}" data-group="${groupId}">
                             <td style="padding: 8px;">${rType}</td>
                             <td>${rDate}</td>
-                            <td>${rDesc}</td>
-                            <td>${rTrip} / ${rCat}</td>
+                            <td>${escapeHtml(rDesc)}</td>
+                            <td>${tagsDisplay}</td>
                             <td><span class="${rAmountClass}">${formatCurrency(Math.abs(rAmount))}</span></td>
                         </tr>
                     `;
@@ -99,7 +105,7 @@ export default class TransactionsSplitHistory {
                     <tr class="split-group-header" data-group="${groupId}">
                         <td style="width: 40px; text-align: center;"><span class="split-toggle-icon">▶</span></td>
                         <td>${date}</td>
-                        <td>${desc} ${statusLabel}</td>
+                        <td>${escapeHtml(desc)} ${statusLabel}</td>
                         <td><span class="${amountClass}">${formatCurrency(Math.abs(amount))}</span></td>
                         <td style="font-family: monospace; color: #888;">${groupId.substring(0, 8)}...</td>
                     </tr>
@@ -225,6 +231,7 @@ export default class TransactionsSplitHistory {
                 } catch (error) {
                     console.error("Failed to update split:", error);
                     alert("Failed to update split: " + error.message);
+                } finally {
                     store.setState('savingSplitTransaction', false);
                 }
                 this.resolvePromise(true); 
@@ -238,6 +245,7 @@ export default class TransactionsSplitHistory {
                  } catch (error) {
                      console.error("Failed to revert split:", error);
                      alert("Failed to revert split: " + error.message);
+                 } finally {
                      store.setState('savingSplitTransaction', false);
                  }
 
