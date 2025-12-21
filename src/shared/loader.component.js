@@ -1,23 +1,12 @@
+import { el } from '../core/dom.js';
 
 export default class LoaderComponent {
   render() {
-    return `
-      <style>
-        .loader {
-          border: 4px solid #f3f3f3;
-          border-top: 4px solid #f0ad4e;
-          border-radius: 50%;
-          width: 30px;
-          height: 30px;
-          animation: spin 1s linear infinite;
-          margin: 0 auto;
-        }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      </style>
-      <div class="loader"></div>
-    `;
+    const element = el('div', { className: 'loader' });
+    
+    // For backward compatibility with template literals during refactoring
+    element.toString = () => '<div class="loader"></div>';
+    
+    return element;
   }
 }

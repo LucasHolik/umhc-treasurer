@@ -9,6 +9,7 @@
  */
 export const el = (tag, attributes = {}, ...children) => {
     const element = document.createElement(tag);
+    const listeners = [];
 
     // Handle attributes
     if (attributes) {
@@ -17,6 +18,7 @@ export const el = (tag, attributes = {}, ...children) => {
                 // Handle event listeners (e.g., onclick, onchange)
                 const eventName = key.substring(2).toLowerCase();
                 element.addEventListener(eventName, value);
+                listeners.push({ event: eventName, handler: value });
             } else if (key === 'className' || key === 'class') {
                 // Handle class names
                 element.className = value;
@@ -47,6 +49,14 @@ export const el = (tag, attributes = {}, ...children) => {
             element.appendChild(document.createTextNode(String(child)));
         }
     });
+
+    // Attach cleanup function to remove event listeners
+    element._cleanup = () => {
+        listeners.forEach(({ event, handler }) => {
+            element.removeEventListener(event, handler);
+        });
+        listeners.length = 0;
+    };
 
     return element;
 };

@@ -73,7 +73,7 @@ class DashboardComponent {
     
     this.loadingPlaceholder = this.element.querySelector('#dashboard-loading-placeholder');
     this.loadedContent = this.element.querySelector('#dashboard-loaded-content');
-    this.loadingPlaceholder.innerHTML = new LoaderComponent().render();
+    this.loadingPlaceholder.replaceChildren(new LoaderComponent().render());
 
     // Initialize SortableTable
     this.transactionsTable = new SortableTable(this.recentTransactionsContentEl, {

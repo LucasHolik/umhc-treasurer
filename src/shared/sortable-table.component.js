@@ -1,4 +1,5 @@
 import { formatCurrency } from "../core/utils.js";
+import { el } from "../core/dom.js";
 
 export default class SortableTable {
   /**
@@ -41,19 +42,18 @@ export default class SortableTable {
   }
 
   render() {
-    this.container.innerHTML = "";
-    const table = document.createElement("table");
-    table.className = "sortable-table section-table"; // Using existing 'section-table' class to match theme
+    this.container.replaceChildren();
+    const table = el("table", { className: "sortable-table section-table" });
 
     // THEAD
-    const thead = document.createElement("thead");
-    const headerRow = document.createElement("tr");
+    const headerRow = el("tr");
 
     if (this.enableSelection) {
-      const th = document.createElement("th");
-      th.style.width = "40px";
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
+      const checkbox = el("input", {
+        type: "checkbox",
+        onclick: (e) => e.stopPropagation(), // Prevent triggering header click if any
+        onchange: (e) => this.handleSelectAll(e.target.checked)
+      });
 
       // Check if all visible rows are selected
       const allSelected =
@@ -61,17 +61,13 @@ export default class SortableTable {
         this.data.every((item) => this.selectedRows.has(item.row));
       checkbox.checked = allSelected;
 
-      checkbox.addEventListener("change", (e) =>
-        this.handleSelectAll(e.target.checked)
-      );
-      th.appendChild(checkbox);
-      headerRow.appendChild(th);
+      headerRow.appendChild(el("th", { style: { width: "40px" } }, checkbox));
     }
 
     this.columns.forEach((col) => {
-      const th = document.createElement("th");
-      th.innerHTML = col.label;
-      if (col.class) th.className = col.class;
+      const th = el("th", {
+        className: col.class || ""
+      }, col.label);
 
       if (col.sortable !== false) {
         th.classList.add("sortable");
@@ -81,76 +77,70 @@ export default class SortableTable {
         });
 
         if (this.sortField === col.key) {
-          const icon = document.createElement("span");
-          icon.className = "sort-icon";
-          icon.textContent = this.sortAsc ? "▲" : "▼";
-          th.appendChild(icon);
+          th.appendChild(el("span", { className: "sort-icon" }, this.sortAsc ? " ▲" : " ▼"));
         }
       }
       headerRow.appendChild(th);
     });
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
+    
+    table.appendChild(el("thead", {}, headerRow));
 
     // TBODY
-    const tbody = document.createElement("tbody");
+    const tbody = el("tbody");
     if (this.data.length === 0) {
-      const row = document.createElement("tr");
       const colspan = this.columns.length + (this.enableSelection ? 1 : 0);
-      row.innerHTML = `<td colspan="${colspan}" style="text-align: center; color: #aaa;">No data available</td>`;
-      tbody.appendChild(row);
+      tbody.appendChild(
+        el("tr", {}, 
+          el("td", { 
+            colspan, 
+            style: { textAlign: "center", color: "#aaa" } 
+          }, "No data available")
+        )
+      );
     } else {
       this.data.forEach((item) => {
-        const row = document.createElement("tr");
+        const row = el("tr");
         if (this.onRowClick && !this.enableSelection) {
           row.style.cursor = "pointer";
-          row.addEventListener("click", (e) => this.onRowClick(item, e));
+          row.onclick = (e) => this.onRowClick(item, e);
         }
 
         if (this.enableSelection) {
-          const td = document.createElement("td");
-          const checkbox = document.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.checked = this.selectedRows.has(item.row); // Assuming 'row' is the ID
-          checkbox.addEventListener("change", (e) =>
-            this.handleRowSelect(item.row, e.target.checked)
-          );
-          td.appendChild(checkbox);
-          row.appendChild(td);
+          const checkbox = el("input", {
+            type: "checkbox",
+            checked: this.selectedRows.has(item.row),
+            onchange: (e) => this.handleRowSelect(item.row, e.target.checked),
+            onclick: (e) => e.stopPropagation()
+          });
+
+          row.appendChild(el("td", {}, checkbox));
 
           row.style.cursor = "pointer";
-          row.addEventListener("click", (e) => {
+          row.onclick = (e) => {
             if (e.target.type === "checkbox") return;
             const newState = !this.selectedRows.has(item.row);
             checkbox.checked = newState;
             this.handleRowSelect(item.row, newState);
-          });
+          };
         }
 
         this.columns.forEach((col) => {
-          const td = document.createElement("td");
-          if (col.class) td.className = col.class;
+          const td = el("td", { className: col.class || "" });
 
           if (col.render) {
             const rendered = col.render(item);
-            if (typeof rendered === "string") {
-              td.textContent = rendered;
+            if (rendered instanceof Node) {
+              td.appendChild(rendered);
             } else {
-              td.appendChild(rendered); // Allow render to return DOM nodes
+              td.textContent = String(rendered);
             }
           } else {
             let val = item[col.key];
             if (col.type === "currency") {
               val = formatCurrency(val);
-            } else if (col.type === "number") {
-              // val = val; // already formatted or raw?
             }
             td.textContent = val !== undefined && val !== null ? val : "";
           }
-
-          // Add click handler to cell if row selection is enabled but we also want row actions?
-          // For now, just attach to row.
-          tbody.appendChild(row);
           row.appendChild(td);
         });
         tbody.appendChild(row);

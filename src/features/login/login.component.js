@@ -152,7 +152,7 @@ class LoginComponent {
   handleLoading(isLoading) {
     if (this.loginStatus) {
         if (isLoading) {
-            this.loginStatus.innerHTML = this.loader.render();
+            this.loginStatus.replaceChildren(this.loader.render());
         } else {
             // Don't clear error messages when loading is finished
             if (!store.getState('error')) {

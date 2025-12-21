@@ -1,5 +1,7 @@
 // src/shared/modal.component.js
 
+import { el } from '../core/dom.js';
+
 class ModalComponent {
   constructor() {
     // Inject styles if not already present
@@ -60,102 +62,97 @@ class ModalComponent {
 
   _show(options) {
     return new Promise((resolve) => {
-      const overlay = document.createElement('div');
-      overlay.className = 'modal-overlay';
-      
-      const inputHtml = options.type === 'prompt' 
-        ? `<input type="text" id="modal-input" aria-label="Value" value="${options.defaultValue}" />` 
-        : '';
+      let inputEl;
+      if (options.type === 'prompt') {
+        inputEl = el('input', {
+          type: 'text',
+          id: 'modal-input',
+          'aria-label': 'Value',
+          value: options.defaultValue || ''
+        });
+      }
 
-      const cancelBtnHtml = options.type !== 'alert' 
-        ? `<button class="modal-btn modal-btn-cancel" id="modal-cancel">${options.cancelText || 'Cancel'}</button>` 
-        : '';
+      const confirmBtn = el('button', {
+        className: 'modal-btn modal-btn-confirm',
+        id: 'modal-confirm'
+      }, options.confirmText || 'OK');
 
-      overlay.innerHTML = `
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3>${options.title}</h3>
-            <button class="modal-close" id="modal-close-x">&times;</button>
-          </div>
-          <div class="modal-body">
-            <div>${options.body}</div>
-            ${inputHtml}
-          </div>
-          <div class="modal-footer">
-            ${cancelBtnHtml}
-            <button class="modal-btn modal-btn-confirm" id="modal-confirm">${options.confirmText || 'OK'}</button>
-          </div>
-        </div>
-      `;
+      const cancelBtn = options.type !== 'alert' ? el('button', {
+        className: 'modal-btn modal-btn-cancel',
+        id: 'modal-cancel'
+      }, options.cancelText || 'Cancel') : null;
+
+      const closeX = el('button', {
+        className: 'modal-close',
+        id: 'modal-close-x'
+      }, '×');
+
+      const modalContent = el('div', { className: 'modal-content' },
+        el('div', { className: 'modal-header' },
+          el('h3', {}, options.title),
+          closeX
+        ),
+        el('div', { className: 'modal-body' },
+          el('div', {}, options.body),
+          inputEl
+        ),
+        el('div', { className: 'modal-footer' },
+          cancelBtn,
+          confirmBtn
+        )
+      );
+
+      const overlay = el('div', { className: 'modal-overlay' }, modalContent);
 
       document.body.appendChild(overlay);
-
-      const inputEl = overlay.querySelector('#modal-input');
-      const confirmBtn = overlay.querySelector('#modal-confirm');
-      const cancelBtn = overlay.querySelector('#modal-cancel');
-      const closeX = overlay.querySelector('#modal-close-x');
 
       if (inputEl) {
         inputEl.focus();
         inputEl.select();
         inputEl.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') confirmBtn.click();
+          if (e.key === 'Enter') confirmBtn.click();
         });
       }
 
       const close = (result) => {
         overlay.style.opacity = '0'; // Fade out
         setTimeout(() => {
-            if (document.body.contains(overlay)) {
-                document.body.removeChild(overlay);
-            }
+          if (document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+          }
         }, 200);
         resolve(result);
       };
 
       confirmBtn.addEventListener('click', () => {
+        let val;
         if (options.type === 'prompt') {
-          resolve(inputEl.value);
+          val = inputEl.value;
         } else if (options.type === 'confirm') {
-          resolve(true);
-        } else {
-          resolve();
+          val = true;
         }
-        close(); // Close handles cleanup, but we resolved already.
-        // Wait, if I resolve in close(), then I shouldn't resolve here?
-        // Actually, the standard pattern is:
-        // handle action -> close -> (inside close, remove dom).
-        // The promise should be resolved with the value.
-        // Let's refactor slightly to be cleaner.
+        close(val);
       });
 
       if (cancelBtn) {
         cancelBtn.addEventListener('click', () => {
-           if (options.type === 'prompt') resolve(null);
-           else resolve(false);
-           
-           overlay.style.opacity = '0';
-           setTimeout(() => document.body.removeChild(overlay), 200);
+          close(options.type === 'confirm' ? false : null);
         });
       }
 
       closeX.addEventListener('click', () => {
-          if (options.type === 'prompt') resolve(null);
-          else if (options.type === 'confirm') resolve(false);
-          else resolve();
-
-          overlay.style.opacity = '0';
-          setTimeout(() => document.body.removeChild(overlay), 200);
+        close(options.type === 'confirm' ? false : (options.type === 'prompt' ? null : undefined));
       });
-      
+
       // Close on backdrop click
       overlay.addEventListener('click', (e) => {
-          if (e.target === overlay) {
-              closeX.click();
-          }
+        if (e.target === overlay) {
+          closeX.click();
+        }
       });
     });
   }
 }
 
 export default ModalComponent;
+

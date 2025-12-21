@@ -1,4 +1,5 @@
 import store from '../core/state.js';
+import { el } from '../core/dom.js';
 
 export default class TagSelector {
     constructor() {
@@ -6,9 +7,10 @@ export default class TagSelector {
         this.currentConfig = null; // { x, y, type, onSelect, currentVal }
         this.searchTerm = '';
         
-        this.element = document.createElement('div');
-        this.element.className = 'tag-selector-popover';
-        this.element.style.display = 'none';
+        this.element = el('div', {
+            className: 'tag-selector-popover',
+            style: { display: 'none' }
+        });
         document.body.appendChild(this.element);
         
         // Global click to close
@@ -19,18 +21,22 @@ export default class TagSelector {
         });
 
         // Render structure once
-        this.element.innerHTML = `
-            <input type="text" name="tag-selector-search" aria-label="Search Tags" class="tag-selector-search" placeholder="Search..." />
-            <div class="tag-selector-list"></div>
-        `;
-        
-        this.searchInput = this.element.querySelector('input');
-        this.listContainer = this.element.querySelector('.tag-selector-list');
-        
-        this.searchInput.addEventListener('input', (e) => {
-            this.searchTerm = e.target.value.toLowerCase();
-            this.renderList();
+        this.searchInput = el('input', {
+            type: 'text',
+            name: 'tag-selector-search',
+            'aria-label': 'Search Tags',
+            className: 'tag-selector-search',
+            placeholder: 'Search...',
+            oninput: (e) => {
+                this.searchTerm = e.target.value.toLowerCase();
+                this.renderList();
+            }
         });
+        
+        this.listContainer = el('div', { className: 'tag-selector-list' });
+        
+        this.element.appendChild(this.searchInput);
+        this.element.appendChild(this.listContainer);
 
         // Prevent closing when clicking inside
         this.element.addEventListener('click', (e) => e.stopPropagation());
@@ -90,24 +96,24 @@ export default class TagSelector {
             tag.toLowerCase().includes(this.searchTerm)
         ).sort();
 
-        this.listContainer.innerHTML = '';
+        this.listContainer.replaceChildren();
 
         if (filteredTags.length === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'tag-selector-item empty';
-            empty.textContent = 'No matching tags';
-            this.listContainer.appendChild(empty);
+            this.listContainer.appendChild(
+                el('div', { className: 'tag-selector-item empty' }, 'No matching tags')
+            );
         }
 
         filteredTags.forEach(tag => {
-            const item = document.createElement('div');
-            item.className = 'tag-selector-item';
-            item.textContent = tag;
-            item.addEventListener('click', () => {
-                onSelect(tag);
-                this.close();
-            });
+            const item = el('div', {
+                className: 'tag-selector-item',
+                onclick: () => {
+                    onSelect(tag);
+                    this.close();
+                }
+            }, tag);
             this.listContainer.appendChild(item);
         });
     }
 }
+
