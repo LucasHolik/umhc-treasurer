@@ -51,6 +51,7 @@ export default class SortableTable {
     if (this.enableSelection) {
       const checkbox = el("input", {
         type: "checkbox",
+        "aria-label": "Select all rows",
         onclick: (e) => e.stopPropagation(), // Prevent triggering header click if any
         onchange: (e) => this.handleSelectAll(e.target.checked)
       });
@@ -108,6 +109,7 @@ export default class SortableTable {
         if (this.enableSelection) {
           const checkbox = el("input", {
             type: "checkbox",
+            "aria-label": "Select row",
             checked: this.selectedRows.has(item.row),
             onchange: (e) => this.handleRowSelect(item.row, e.target.checked),
             onclick: (e) => e.stopPropagation()

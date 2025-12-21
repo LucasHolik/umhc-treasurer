@@ -29,7 +29,7 @@ Modify shared components to return or append DOM elements instead of HTML string
 4.  **`src/shared/tag-selector.component.js`** & **`src/shared/sortable-table.component.js`**:
     - Replace `innerHTML` template injection with DOM construction.
 
-### Step 3: Refactor Core Application Structure
+### Step 3: Refactor Core Application Structure [COMPLETE]
 1.  **`src/App.js`**:
     - Replace `this.element.innerHTML = ...` in `renderLogin` and `renderMainApp` with `this.element.replaceChildren(...)` (or clear and append) using the constructed DOM tree.
 

@@ -1,4 +1,4 @@
-// src/App.js
+import { el } from './core/dom.js';
 import store from './core/state.js';
 import router from './core/router.js';
 import AuthService from './services/auth.service.js';
@@ -72,84 +72,76 @@ class App {
 
   renderLogin() {
     this.cleanupComponents();
-    this.element.innerHTML = '<div id="login-root"></div>';
-    this.loginComponent = new LoginComponent(this.element.querySelector('#login-root'));
+    const loginRoot = el('div', { id: 'login-root' });
+    this.element.replaceChildren(loginRoot);
+    this.loginComponent = new LoginComponent(loginRoot);
   }
 
   renderMainApp() {
     store.setState('isLoading', true);
-    this.element.innerHTML = `
-      <div class="main-menu-container">
-        <aside class="sidebar">
-            <div class="logo-section">
-                <img src="logo.jpg" alt="UMHC Logo" class="sidebar-logo">
-                <h2>UMHC Treasurer</h2>
-            </div>
-            <nav class="nav-menu">
-                <ul>
-                    <li class="nav-item active" data-tab="dashboard">
-                        <a href="#dashboard">
-                            <span class="nav-icon">📊</span>
-                            <span class="nav-text">Dashboard</span>
-                        </a>
-                    </li>
-                    <li class="nav-item" data-tab="transactions">
-                        <a href="#transactions">
-                            <span class="nav-icon">💳</span>
-                            <span class="nav-text">Transactions</span>
-                        </a>
-                    </li>
-                    <li class="nav-item" data-tab="upload">
-                        <a href="#upload">
-                            <span class="nav-icon">📤</span>
-                            <span class="nav-text">Upload</span>
-                        </a>
-                    </li>
-                    <li class="nav-item" data-tab="tags">
-                        <a href="#tags">
-                            <span class="nav-icon">🏷️</span>
-                            <span class="nav-text">Manage Tags</span>
-                        </a>
-                    </li>
-                    <li class="nav-item" data-tab="analysis">
-                        <a href="#analysis">
-                            <span class="nav-icon">📈</span>
-                            <span class="nav-text">Analysis</span>
-                        </a>
-                    </li>
-                    <li class="nav-item" data-tab="settings">
-                        <a href="#settings">
-                            <span class="nav-icon">⚙️</span>
-                            <span class="nav-text">Settings</span>
-                        </a>
-                    </li>
-                </ul>
-            </nav>
-            <div class="sidebar-footer" style="padding: 20px; text-align: center;">
-                <button id="logout-button" style="background-color: transparent; border: 1px solid #d9534f; color: #d9534f; padding: 8px 15px; border-radius: 4px; cursor: pointer;">Logout</button>
-            </div>
-        </aside>
-        <main class="main-content">
-            <header class="main-header">
-              <div class="header-content">
-                <h1 id="page-title">Dashboard</h1>
-                <button class="refresh-btn" title="Refresh Data">🔄</button>
-              </div>
-            </header>
-            <div id="global-loader-container" style="display: none; justify-content: center; align-items: center; height: 80%; width: 100%;">
-                ${new LoaderComponent().render()}
-            </div>
-            <div class="content-wrapper">
-                <section id="dashboard-content" class="tab-content"></section>
-                <section id="transactions-content" class="tab-content"></section>
-                <section id="upload-content" class="tab-content"></section>
-                <section id="tags-content" class="tab-content"></section>
-                <section id="analysis-content" class="tab-content"></section>
-                <section id="settings-content" class="tab-content"></section>
-            </div>
-        </main>
-      </div>
-    `;
+    this.globalLoader = new LoaderComponent();
+
+    const navItem = (tab, icon, text, active = false) => 
+        el('li', { className: `nav-item${active ? ' active' : ''}`, dataset: { tab } },
+            el('a', { href: `#${tab}` },
+                el('span', { className: 'nav-icon' }, icon),
+                el('span', { className: 'nav-text' }, text)
+            )
+        );
+
+    const mainApp = el('div', { className: 'main-menu-container' },
+        el('aside', { className: 'sidebar' },
+            el('div', { className: 'logo-section' },
+                el('img', { src: 'logo.jpg', alt: 'UMHC Logo', className: 'sidebar-logo' }),
+                el('h2', {}, 'UMHC Treasurer')
+            ),
+            el('nav', { className: 'nav-menu' },
+                el('ul', {},
+                    navItem('dashboard', '📊', 'Dashboard', true),
+                    navItem('transactions', '💳', 'Transactions'),
+                    navItem('upload', '📤', 'Upload'),
+                    navItem('tags', '🏷️', 'Manage Tags'),
+                    navItem('analysis', '📈', 'Analysis'),
+                    navItem('settings', '⚙️', 'Settings')
+                )
+            ),
+            el('div', { className: 'sidebar-footer', style: { padding: '20px', textAlign: 'center' } },
+                el('button', { 
+                    id: 'logout-button', 
+                    style: { 
+                        backgroundColor: 'transparent', 
+                        border: '1px solid #d9534f', 
+                        color: '#d9534f', 
+                        padding: '8px 15px', 
+                        borderRadius: '4px', 
+                        cursor: 'pointer' 
+                    } 
+                }, 'Logout')
+            )
+        ),
+        el('main', { className: 'main-content' },
+            el('header', { className: 'main-header' },
+                el('div', { className: 'header-content' },
+                    el('h1', { id: 'page-title' }, 'Dashboard'),
+                    el('button', { className: 'refresh-btn', title: 'Refresh Data' }, '🔄')
+                )
+            ),
+            el('div', { 
+                id: 'global-loader-container', 
+                style: { display: 'none', justifyContent: 'center', alignItems: 'center', height: '80%', width: '100%' } 
+            }, this.globalLoader.render()),
+            el('div', { className: 'content-wrapper' },
+                el('section', { id: 'dashboard-content', className: 'tab-content' }),
+                el('section', { id: 'transactions-content', className: 'tab-content' }),
+                el('section', { id: 'upload-content', className: 'tab-content' }),
+                el('section', { id: 'tags-content', className: 'tab-content' }),
+                el('section', { id: 'analysis-content', className: 'tab-content' }),
+                el('section', { id: 'settings-content', className: 'tab-content' })
+            )
+        )
+    );
+
+    this.element.replaceChildren(mainApp);
     this.initComponents();
     this.attachEventListeners();
     this.handleLoadingState();
@@ -163,6 +155,11 @@ class App {
         if (component?.destroy) component.destroy();
       });
     }
+
+    if (this.globalLoader?.destroy) {
+      this.globalLoader.destroy();
+    }
+
     // Reset router
     if (router.reset) router.reset();
     
