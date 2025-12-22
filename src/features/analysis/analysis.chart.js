@@ -5,6 +5,7 @@ export default class AnalysisChart {
     this.element = element; // The canvas element or container
     this.chartInstance = null;
     this.libLoaded = false;
+    this.pendingRender = null;
     this.loadLib();
   }
 
@@ -14,11 +15,33 @@ export default class AnalysisChart {
       return;
     }
 
+    // Check if script is already present to prevent duplicates
+    if (document.querySelector('script[src="src/lib/chart.umd.min.js"]')) {
+      // Wait for it to load
+      const existingScript = document.querySelector(
+        'script[src="src/lib/chart.umd.min.js"]'
+      );
+      const originalOnLoad = existingScript.onload;
+      existingScript.onload = () => {
+        if (originalOnLoad) originalOnLoad();
+        this.libLoaded = true;
+        if (this.pendingRender) {
+          this.render(this.pendingRender.data, this.pendingRender.options);
+          this.pendingRender = null;
+        }
+      };
+      return;
+    }
+
     const script = document.createElement("script");
     script.src = "src/lib/chart.umd.min.js";
     script.onload = () => {
       this.libLoaded = true;
       console.log("Chart.js loaded");
+      if (this.pendingRender) {
+        this.render(this.pendingRender.data, this.pendingRender.options);
+        this.pendingRender = null;
+      }
     };
     script.onerror = () => {
       console.error("Failed to load Chart.js");
@@ -28,7 +51,7 @@ export default class AnalysisChart {
 
   render(data, options) {
     if (!this.libLoaded) {
-      console.warn("Chart.js not loaded yet");
+      this.pendingRender = { data, options };
       return;
     }
 
