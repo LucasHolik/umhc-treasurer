@@ -114,7 +114,7 @@ export default class TransactionsFilters {
         "div",
         { className: "tag-checkbox-item" },
         selectAllCheckbox,
-        el("label", { for: selectAllUid }, el("em", {}, "Select All Visible"))
+        el("label", { for: selectAllUid }, el("em", {}, "Select All"))
       );
       children.push(selectAllDiv);
     } else {
