@@ -1,5 +1,5 @@
 import { formatCurrency } from "../core/utils.js";
-import { el } from "../core/dom.js";
+import { el, clear } from "../core/dom.js";
 
 export default class SortableTable {
   /**
@@ -42,7 +42,7 @@ export default class SortableTable {
   }
 
   render() {
-    this.container.replaceChildren();
+    clear(this.container);
     const table = el("table", { className: "sortable-table section-table" });
 
     // THEAD
@@ -53,7 +53,7 @@ export default class SortableTable {
         type: "checkbox",
         "aria-label": "Select all rows",
         onclick: (e) => e.stopPropagation(), // Prevent triggering header click if any
-        onchange: (e) => this.handleSelectAll(e.target.checked)
+        onchange: (e) => this.handleSelectAll(e.target.checked),
       });
 
       // Check if all visible rows are selected
@@ -66,9 +66,13 @@ export default class SortableTable {
     }
 
     this.columns.forEach((col) => {
-      const th = el("th", {
-        className: col.class || ""
-      }, col.label);
+      const th = el(
+        "th",
+        {
+          className: col.class || "",
+        },
+        col.label
+      );
 
       if (col.sortable !== false) {
         th.classList.add("sortable");
@@ -78,12 +82,14 @@ export default class SortableTable {
         });
 
         if (this.sortField === col.key) {
-          th.appendChild(el("span", { className: "sort-icon" }, this.sortAsc ? " ▲" : " ▼"));
+          th.appendChild(
+            el("span", { className: "sort-icon" }, this.sortAsc ? " ▲" : " ▼")
+          );
         }
       }
       headerRow.appendChild(th);
     });
-    
+
     table.appendChild(el("thead", {}, headerRow));
 
     // TBODY
@@ -91,11 +97,17 @@ export default class SortableTable {
     if (this.data.length === 0) {
       const colspan = this.columns.length + (this.enableSelection ? 1 : 0);
       tbody.appendChild(
-        el("tr", {}, 
-          el("td", { 
-            colspan, 
-            style: { textAlign: "center", color: "#aaa" } 
-          }, "No data available")
+        el(
+          "tr",
+          {},
+          el(
+            "td",
+            {
+              colspan,
+              style: { textAlign: "center", color: "#aaa" },
+            },
+            "No data available"
+          )
         )
       );
     } else {
@@ -112,7 +124,7 @@ export default class SortableTable {
             "aria-label": "Select row",
             checked: this.selectedRows.has(item.row),
             onchange: (e) => this.handleRowSelect(item.row, e.target.checked),
-            onclick: (e) => e.stopPropagation()
+            onclick: (e) => e.stopPropagation(),
           });
 
           row.appendChild(el("td", {}, checkbox));

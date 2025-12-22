@@ -11,7 +11,7 @@ import SplitTransactionModal from "./split-transaction.modal.js";
 import TransactionsSplitHistory from "./transactions.split-history.js";
 import * as TransactionsLogic from "./transactions.logic.js";
 import TagSelector from "../../shared/tag-selector.component.js";
-
+import { el, replace } from "../../core/dom.js";
 import { formatCurrency, escapeHtml } from "../../core/utils.js";
 
 class TransactionsComponent {
@@ -179,12 +179,8 @@ class TransactionsComponent {
   }
 
   render() {
-    this.element.innerHTML = `
-        <div id="transactions-display"></div>
-    `;
-    this.transactionsDisplay = this.element.querySelector(
-      "#transactions-display"
-    );
+    this.transactionsDisplay = el("div", { id: "transactions-display" });
+    replace(this.element, this.transactionsDisplay);
     this.renderTransactionsDisplay();
   }
 
@@ -196,131 +192,352 @@ class TransactionsComponent {
       store.getState("taggingProgress") || "Initializing...";
 
     if (isTagging) {
+      let content;
       if (taggingSource === "transactions") {
-        this.transactionsDisplay.innerHTML = `
-                <div class="section" style="height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                    <div class="loader" style="width: 50px; height: 50px; margin-bottom: 20px;"></div>
-                    <h3 style="color: #f0ad4e; margin-bottom: 10px;">Processing Tags...</h3>
-                    <p id="tagging-progress-text" style="color: #fff; font-size: 1.1em;">${escapeHtml(
-                      taggingProgress
-                    )}</p>
-                </div>
-            `;
+        content = el(
+          "div",
+          {
+            className: "section",
+            style: {
+              height: "400px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+            },
+          },
+          el("div", {
+            className: "loader",
+            style: { width: "50px", height: "50px", marginBottom: "20px" },
+          }),
+          el(
+            "h3",
+            { style: { color: "#f0ad4e", marginBottom: "10px" } },
+            "Processing Tags..."
+          ),
+          el(
+            "p",
+            {
+              id: "tagging-progress-text",
+              style: { color: "#fff", fontSize: "1.1em" },
+            },
+            taggingProgress
+          )
+        );
       } else {
-        this.transactionsDisplay.innerHTML = `
-                <div class="section" style="height: 400px; display: flex; justify-content: center; align-items: center;">
-                    ${new LoaderComponent().render()}
-                </div>
-            `;
+        content = el(
+          "div",
+          {
+            className: "section",
+            style: {
+              height: "400px",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            },
+          },
+          new LoaderComponent().render()
+        );
       }
+      replace(this.transactionsDisplay, content);
       return;
     }
 
     if (isSavingSplit) {
-      this.transactionsDisplay.innerHTML = `
-            <div class="section" style="height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <div class="loader" style="width: 50px; height: 50px; margin-bottom: 20px;"></div>
-                <h3 style="color: #f0ad4e; margin-bottom: 10px;">Saving Split Transaction...</h3>
-                <p style="color: #aaa;">Please wait while we update the finances.</p>
-            </div>
-        `;
+      replace(
+        this.transactionsDisplay,
+        el(
+          "div",
+          {
+            className: "section",
+            style: {
+              height: "400px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+            },
+          },
+          el("div", {
+            className: "loader",
+            style: { width: "50px", height: "50px", marginBottom: "20px" },
+          }),
+          el(
+            "h3",
+            { style: { color: "#f0ad4e", marginBottom: "10px" } },
+            "Saving Split Transaction..."
+          ),
+          el(
+            "p",
+            { style: { color: "#aaa" } },
+            "Please wait while we update the finances."
+          )
+        )
+      );
       return;
     }
 
+    // Default View
     const hasPendingChanges = this.pendingChanges.size > 0;
 
-    this.transactionsDisplay.innerHTML = `
-        <div class="section">
-            <div class="transactions-header">
-                <h2>All Transactions</h2>
-            </div>
-            
-            <!-- Controls Toolbar -->
-            <div id="main-controls" class="transaction-controls ${
-              this.selectionMode ? "disabled" : ""
-            }">
-                
-                <!-- New Tag Filters (Analysis Style) -->
-                <div class="control-group" style="flex-grow: 1;">
-                    <div class="control-label" style="font-weight: bold; margin-bottom: 5px;">Filter Tags</div>
-                    <div class="tag-filters-container">
-                        <!-- Trip Filter -->
-                        <div class="tag-filter-column">
-                            <div class="tag-filter-header">Trips / Events</div>
-                            <input type="text" id="transactions-trip-search" name="transactions-trip-search" aria-label="Search Trips" class="tag-search-input" placeholder="Search trips..." value="${
-                              this.tripSearchTerm
-                            }">
-                            <div id="trip-selector-container" class="tag-selector">
-                                <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
-                            </div>
-                        </div>
-                        
-                        <!-- Category Filter -->
-                        <div class="tag-filter-column">
-                            <div class="tag-filter-header">Categories</div>
-                            <input type="text" id="transactions-cat-search" name="transactions-cat-search" aria-label="Search Categories" class="tag-search-input" placeholder="Search categories..." value="${
-                              this.categorySearchTerm
-                            }">
-                            <div id="category-selector-container" class="tag-selector">
-                                <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="transaction-actions" style="align-self: flex-start; margin-top: 22px;">
-                    ${
-                      hasPendingChanges
-                        ? `<button id="save-changes-btn" class="action-btn">Save Changes (${this.pendingChanges.size})</button>`
-                        : ""
-                    }
-                    <button id="tag-transactions-btn" class="secondary-btn">Bulk Tagging Mode</button>
-                    <button id="add-manual-btn" class="secondary-btn">Add Manual Transaction</button>
-                    <button id="view-splits-btn" class="secondary-btn">View Split Transactions</button>
-                </div>
+    // Controls
+    const saveBtn = hasPendingChanges
+      ? el(
+          "button",
+          {
+            id: "save-changes-btn",
+            className: "action-btn",
+            onclick: () => this.savePendingChanges(),
+          },
+          `Save Changes (${this.pendingChanges.size})`
+        )
+      : null;
 
-            </div>
+    // Tag Filters Container
+    const tripFilterInput = el("input", {
+      type: "text",
+      id: "transactions-trip-search",
+      name: "transactions-trip-search",
+      "aria-label": "Search Trips",
+      className: "tag-search-input",
+      placeholder: "Search trips...",
+      value: this.tripSearchTerm,
+    });
+    const tripSelectorContainer = el(
+      "div",
+      { id: "trip-selector-container", className: "tag-selector" },
+      el(
+        "div",
+        { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
+        "Loading..."
+      )
+    );
 
-            <!-- Bulk Actions Toolbar (Hidden by default) -->
-            <div id="bulk-actions-toolbar" class="bulk-actions-toolbar">
-                <div class="bulk-actions-content">
-                    <strong class="bulk-label">BULK ACTIONS:</strong>
-                    
-                    <!-- Custom Trip Dropdown -->
-                    <div class="custom-dropdown" id="bulk-trip-container">
-                        <div class="dropdown-trigger" id="bulk-trip-trigger">Set Trip/Event...</div>
-                        <div class="dropdown-content" id="bulk-trip-content" style="display:none;">
-                            <input type="text" class="tag-search-input" id="bulk-trip-search" aria-label="Search trips for bulk action" placeholder="Search trips...">
-                            <div class="tag-selector" id="bulk-trip-list"></div>
-                        </div>
-                    </div>
+    const catFilterInput = el("input", {
+      type: "text",
+      id: "transactions-cat-search",
+      name: "transactions-cat-search",
+      "aria-label": "Search Categories",
+      className: "tag-search-input",
+      placeholder: "Search categories...",
+      value: this.categorySearchTerm,
+    });
+    const catSelectorContainer = el(
+      "div",
+      { id: "category-selector-container", className: "tag-selector" },
+      el(
+        "div",
+        { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
+        "Loading..."
+      )
+    );
 
-                    <!-- Custom Category Dropdown -->
-                    <div class="custom-dropdown" id="bulk-category-container">
-                        <div class="dropdown-trigger" id="bulk-category-trigger">Set Category...</div>
-                        <div class="dropdown-content" id="bulk-category-content" style="display:none;">
-                            <input type="text" class="tag-search-input" id="bulk-category-search" aria-label="Search categories for bulk action" placeholder="Search categories...">
-                            <div class="tag-selector" id="bulk-category-list"></div>
-                        </div>
-                    </div>
+    const controls = el(
+      "div",
+      {
+        id: "main-controls",
+        className: `transaction-controls ${
+          this.selectionMode ? "disabled" : ""
+        }`,
+      },
+      // New Tag Filters
+      el(
+        "div",
+        { className: "control-group", style: { flexGrow: "1" } },
+        el(
+          "div",
+          {
+            className: "control-label",
+            style: { fontWeight: "bold", marginBottom: "5px" },
+          },
+          "Filter Tags"
+        ),
+        el(
+          "div",
+          { className: "tag-filters-container" },
+          // Trip Filter
+          el(
+            "div",
+            { className: "tag-filter-column" },
+            el("div", { className: "tag-filter-header" }, "Trips / Events"),
+            tripFilterInput,
+            tripSelectorContainer
+          ),
+          // Category Filter
+          el(
+            "div",
+            { className: "tag-filter-column" },
+            el("div", { className: "tag-filter-header" }, "Categories"),
+            catFilterInput,
+            catSelectorContainer
+          )
+        )
+      ),
+      // Action Buttons
+      el(
+        "div",
+        {
+          className: "transaction-actions",
+          style: { alignSelf: "flex-start", marginTop: "22px" },
+        },
+        saveBtn,
+        el(
+          "button",
+          { id: "tag-transactions-btn", className: "secondary-btn" },
+          "Bulk Tagging Mode"
+        ),
+        el(
+          "button",
+          {
+            id: "add-manual-btn",
+            className: "secondary-btn",
+            onclick: () => this.openManualModal(),
+          },
+          "Add Manual Transaction"
+        ),
+        el(
+          "button",
+          {
+            id: "view-splits-btn",
+            className: "secondary-btn",
+            onclick: () => this.viewSplitHistory(),
+          },
+          "View Split Transactions"
+        )
+      )
+    );
 
-                    <div style="flex-grow: 1;"></div>
-                    <span id="selection-count" class="selection-count">0 selected</span>
-                    <button id="bulk-apply-btn" class="action-btn">Apply Tags</button>
-                    <button id="bulk-cancel-btn" class="secondary-btn" style="border-color: #d9534f; color: #d9534f;">Cancel</button>
-                </div>
-            </div>
-            
-            <!-- Description Search (Full Width) -->
-            <div style="margin-bottom: 15px;">
-                <input type="text" id="transactions-desc-search" name="transactions-desc-search" aria-label="Search transaction descriptions" class="tag-search-input" style="width: 100%; padding: 12px; box-sizing: border-box; font-size: 1em; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);" placeholder="Search transaction descriptions..." value="${
-                  this.descriptionSearchTerm
-                }">
-            </div>
+    // Bulk Actions Toolbar
+    const bulkToolbar = el(
+      "div",
+      { id: "bulk-actions-toolbar", className: "bulk-actions-toolbar" },
+      el(
+        "div",
+        { className: "bulk-actions-content" },
+        el("strong", { className: "bulk-label" }, "BULK ACTIONS:"),
+        // Custom Trip Dropdown
+        el(
+          "div",
+          { className: "custom-dropdown", id: "bulk-trip-container" },
+          el(
+            "div",
+            { className: "dropdown-trigger", id: "bulk-trip-trigger" },
+            "Set Trip/Event..."
+          ),
+          el(
+            "div",
+            {
+              className: "dropdown-content",
+              id: "bulk-trip-content",
+              style: { display: "none" },
+            },
+            el("input", {
+              type: "text",
+              className: "tag-search-input",
+              id: "bulk-trip-search",
+              "aria-label": "Search trips for bulk action",
+              placeholder: "Search trips...",
+            }),
+            el("div", { className: "tag-selector", id: "bulk-trip-list" })
+          )
+        ),
+        // Custom Category Dropdown
+        el(
+          "div",
+          { className: "custom-dropdown", id: "bulk-category-container" },
+          el(
+            "div",
+            { className: "dropdown-trigger", id: "bulk-category-trigger" },
+            "Set Category..."
+          ),
+          el(
+            "div",
+            {
+              className: "dropdown-content",
+              id: "bulk-category-content",
+              style: { display: "none" },
+            },
+            el("input", {
+              type: "text",
+              className: "tag-search-input",
+              id: "bulk-category-search",
+              "aria-label": "Search categories for bulk action",
+              placeholder: "Search categories...",
+            }),
+            el("div", { className: "tag-selector", id: "bulk-category-list" })
+          )
+        ),
+        el("div", { style: { flexGrow: "1" } }),
+        el(
+          "span",
+          { id: "selection-count", className: "selection-count" },
+          "0 selected"
+        ),
+        el(
+          "button",
+          { id: "bulk-apply-btn", className: "action-btn" },
+          "Apply Tags"
+        ),
+        el(
+          "button",
+          {
+            id: "bulk-cancel-btn",
+            className: "secondary-btn",
+            style: { borderColor: "#d9534f", color: "#d9534f" },
+          },
+          "Cancel"
+        )
+      )
+    );
 
-            <div id="transactions-table-container"></div>
-        </div>
-    `;
+    // Description Search
+    const descSearchInput = el("input", {
+      type: "text",
+      id: "transactions-desc-search",
+      name: "transactions-desc-search",
+      "aria-label": "Search transaction descriptions",
+      className: "tag-search-input",
+      style: {
+        width: "100%",
+        padding: "12px",
+        boxSizing: "border-box",
+        fontSize: "1em",
+        background: "rgba(0,0,0,0.3)",
+        border: "1px solid rgba(255,255,255,0.2)",
+      },
+      placeholder: "Search transaction descriptions...",
+      value: this.descriptionSearchTerm,
+    });
+
+    // Attach listener for description search
+    descSearchInput.addEventListener("input", (e) => {
+      this.descriptionSearchTerm = e.target.value;
+      this.applyFilters();
+    });
+
+    const descSearchContainer = el(
+      "div",
+      { style: { marginBottom: "15px" } },
+      descSearchInput
+    );
+
+    const tableContainer = el("div", { id: "transactions-table-container" });
+
+    const mainContainer = el(
+      "div",
+      { className: "section" },
+      el(
+        "div",
+        { className: "transactions-header" },
+        el("h2", {}, "All Transactions")
+      ),
+      controls,
+      bulkToolbar,
+      descSearchContainer,
+      tableContainer
+    );
+
+    replace(this.transactionsDisplay, mainContainer);
 
     this.initializeSubComponents();
 
@@ -332,17 +549,6 @@ class TransactionsComponent {
     }
 
     this.handleTagsChange(); // Populate filters
-
-    // Bind Buttons
-    const saveBtn = this.element.querySelector("#save-changes-btn");
-    if (saveBtn) {
-      saveBtn.addEventListener("click", () => this.savePendingChanges());
-    }
-
-    const viewSplitsBtn = this.element.querySelector("#view-splits-btn");
-    if (viewSplitsBtn) {
-      viewSplitsBtn.addEventListener("click", () => this.viewSplitHistory());
-    }
   }
 
   renderTagCell(item, type) {
@@ -360,31 +566,25 @@ class TransactionsComponent {
     }
 
     if (value) {
-      const pill = document.createElement("span");
-      pill.className = `tag-pill ${isPending ? "pending-change" : ""}`;
-      pill.dataset.row = rowId;
-      pill.dataset.type = type;
-
-      const textSpan = document.createElement("span");
-      textSpan.className = "tag-text";
-      textSpan.textContent = value; // content is automatically escaped
-      pill.appendChild(textSpan);
-
-      const removeBtn = document.createElement("span");
-      removeBtn.className = "remove-btn";
-      removeBtn.title = "Remove Tag";
-      removeBtn.textContent = "×";
-      pill.appendChild(removeBtn);
-
-      return pill;
+      return el(
+        "span",
+        {
+          className: `tag-pill ${isPending ? "pending-change" : ""}`,
+          dataset: { row: rowId, type: type },
+        },
+        el("span", { className: "tag-text" }, value),
+        el("span", { className: "remove-btn", title: "Remove Tag" }, "×")
+      );
     } else {
-      const placeholder = document.createElement("span");
-      placeholder.className = "add-tag-placeholder";
-      placeholder.dataset.row = rowId;
-      placeholder.dataset.type = type;
-      placeholder.title = "Add Tag";
-      placeholder.textContent = "+";
-      return placeholder;
+      return el(
+        "span",
+        {
+          className: "add-tag-placeholder",
+          dataset: { row: rowId, type: type },
+          title: "Add Tag",
+        },
+        "+"
+      );
     }
   }
 
@@ -468,23 +668,6 @@ class TransactionsComponent {
       onToggleMode: (active) => this.toggleSelectionMode(active),
       onApply: (tripVal, catVal) => this.applyBulkTags(tripVal, catVal),
     });
-
-    // Manual Transaction Button
-    const manualBtn = this.transactionsDisplay.querySelector("#add-manual-btn");
-    if (manualBtn) {
-      manualBtn.addEventListener("click", () => this.openManualModal());
-    }
-
-    // Description Search Listener
-    const descSearch = this.transactionsDisplay.querySelector(
-      "#transactions-desc-search"
-    );
-    if (descSearch) {
-      descSearch.addEventListener("input", (e) => {
-        this.descriptionSearchTerm = e.target.value;
-        this.applyFilters();
-      });
-    }
   }
 
   handleRowClick(item, e) {
@@ -724,11 +907,15 @@ class TransactionsComponent {
         existingBtn.textContent = btnText;
       } else {
         // Insert button if it's missing (prepend to actions)
-        const newBtn = document.createElement("button");
-        newBtn.id = "save-changes-btn";
-        newBtn.className = "action-btn";
-        newBtn.textContent = btnText;
-        newBtn.addEventListener("click", () => this.savePendingChanges());
+        const newBtn = el(
+          "button",
+          {
+            id: "save-changes-btn",
+            className: "action-btn",
+            onclick: () => this.savePendingChanges(),
+          },
+          btnText
+        );
         container.prepend(newBtn);
       }
     } else {
@@ -997,5 +1184,4 @@ class TransactionsComponent {
     }
   }
 }
-
 export default TransactionsComponent;

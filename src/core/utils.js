@@ -97,13 +97,65 @@ export function filterTransactionsByTimeframe(transactions, timeframe) {
 }
 
 /**
+ * Formats a Date object to a YYYY-MM-DD string in local time.
+ * @param {Date} date
+ * @returns {string}
+ */
+export function formatDateForInput(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Escapes HTML special characters in a string to prevent XSS.
  * @param {string} str
  * @returns {string}
  */
 export function escapeHtml(str) {
   if (typeof str !== "string") return str;
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
+  const matchHtmlRegExp = /["'&<>]/;
+  const match = matchHtmlRegExp.exec(str);
+
+  if (!match) {
+    return str;
+  }
+
+  let escape;
+  let html = "";
+  let index = 0;
+  let lastIndex = 0;
+
+  for (index = match.index; index < str.length; index++) {
+    switch (str.charCodeAt(index)) {
+      case 34: // "
+        escape = "&quot;";
+        break;
+      case 38: // &
+        escape = "&amp;";
+        break;
+      case 39: // '
+        escape = "&#39;";
+        break;
+      case 60: // <
+        escape = "&lt;";
+        break;
+      case 62: // >
+        escape = "&gt;";
+        break;
+      default:
+        continue;
+    }
+
+    if (lastIndex !== index) {
+      html += str.substring(lastIndex, index);
+    }
+
+    lastIndex = index + 1;
+    html += escape;
+  }
+
+  return lastIndex !== index ? html + str.substring(lastIndex, index) : html;
 }

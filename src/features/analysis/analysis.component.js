@@ -1,5 +1,5 @@
 import store from "../../core/state.js";
-import { formatCurrency } from "../../core/utils.js";
+import { formatCurrency, formatDateForInput } from "../../core/utils.js";
 import ModalComponent from "../../shared/modal.component.js";
 import AnalysisLogic from "./analysis.logic.js";
 import { calculateFinancials } from "../../core/financial.logic.js";
@@ -8,6 +8,7 @@ import AnalysisControls from "./analysis.controls.js";
 import AnalysisFilters from "./analysis.filters.js";
 import AnalysisChart from "./analysis.chart.js";
 import AnalysisTable from "./analysis.table.js";
+import { el, replace } from "../../core/dom.js";
 
 class AnalysisComponent {
   constructor(element) {
@@ -66,44 +67,84 @@ class AnalysisComponent {
         expenses
       );
       if (range) {
-        this.state.startDate = range.start.toISOString().split("T")[0];
-        this.state.endDate = range.end.toISOString().split("T")[0];
+        this.state.startDate = formatDateForInput(range.start);
+        this.state.endDate = formatDateForInput(range.end);
       }
     }
 
-    this.element.innerHTML = `
-      <link rel="stylesheet" href="src/features/analysis/analysis.css">
-      <div class="analysis-container">
-        <div class="header-section">
-            <h2>Financial Analysis</h2>
-            <p>Generate custom reports and visualize your treasury data.</p>
-        </div>
+    const header = el(
+      "div",
+      { className: "header-section" },
+      el("h2", {}, "Financial Analysis"),
+      el("p", {}, "Generate custom reports and visualize your treasury data.")
+    );
 
-        <!-- Summary Cards -->
-        <div class="summary-cards-container" id="analysis-summary-cards">
-            <!-- Populated by updateStatsDOM -->
-        </div>
+    const summaryCards = el("div", {
+      className: "summary-cards-container",
+      id: "analysis-summary-cards",
+    });
+    const controlsContainer = el("div", {
+      className: "main-control-panel",
+      id: "analysis-controls-container",
+    });
+    const filtersContainer = el("div", {
+      className: "control-section tag-filters-section",
+      id: "analysis-filters-container",
+    });
 
-        <!-- Main Control Panel -->
-        <div class="main-control-panel" id="analysis-controls-container"></div>
-        
-        <!-- Tag Filters -->
-        <div class="control-section tag-filters-section" id="analysis-filters-container"></div>
+    const actionsBar = el(
+      "div",
+      { className: "analysis-actions-bar", id: "analysis-actions-bar" },
+      el(
+        "button",
+        { id: "btn-toggle-view", className: "btn-action" },
+        "Show Data Table"
+      ),
+      el(
+        "button",
+        { id: "btn-download-image", className: "btn-action" },
+        "Download Image"
+      ),
+      el(
+        "button",
+        {
+          id: "btn-download-data",
+          className: "btn-action",
+          style: { display: "none" },
+        },
+        "Download Data (CSV)"
+      )
+    );
 
-        <!-- Action Bar -->
-        <div class="analysis-actions-bar" id="analysis-actions-bar">
-            <button id="btn-toggle-view" class="btn-action">Show Data Table</button>
-            <button id="btn-download-image" class="btn-action">Download Image</button>
-            <button id="btn-download-data" class="btn-action" style="display: none;">Download Data (CSV)</button>
-        </div>
+    const chartContainer = el(
+      "div",
+      { className: "chart-container", id: "analysis-chart-container" },
+      el("canvas", { id: "analysis-chart" })
+    );
 
-        <div class="chart-container" id="analysis-chart-container">
-            <canvas id="analysis-chart"></canvas>
-        </div>
+    const tableContainer = el("div", {
+      id: "analysis-data-table-container",
+      style: { display: "none" },
+    });
 
-        <div id="analysis-data-table-container" style="display: none;"></div>
-      </div>
-    `;
+    const container = el(
+      "div",
+      { className: "analysis-container" },
+      header,
+      summaryCards,
+      controlsContainer,
+      filtersContainer,
+      actionsBar,
+      chartContainer,
+      tableContainer
+    );
+
+    const cssLink = el("link", {
+      rel: "stylesheet",
+      href: "src/features/analysis/analysis.css",
+    });
+
+    replace(this.element, cssLink, container);
 
     // Initialize Sub-components
     this.initializeSubComponents();
@@ -197,9 +238,9 @@ class AnalysisComponent {
           const base64 = this.chartComponent.toBase64Image();
           if (base64) {
             const link = document.createElement("a");
-            link.download = `analysis-chart-${
-              new Date().toISOString().split("T")[0]
-            }.png`;
+            link.download = `analysis-chart-${formatDateForInput(
+              new Date()
+            )}.png`;
             link.href = base64;
             link.click();
           } else {
@@ -230,7 +271,7 @@ class AnalysisComponent {
           link.setAttribute("href", url);
           link.setAttribute(
             "download",
-            `analysis-data-${new Date().toISOString().split("T")[0]}.csv`
+            `analysis-data-${formatDateForInput(new Date())}.csv`
           );
           link.style.visibility = "hidden";
           document.body.appendChild(link);
@@ -280,8 +321,8 @@ class AnalysisComponent {
         expenses
       );
       if (range) {
-        this.state.startDate = range.start.toISOString().split("T")[0];
-        this.state.endDate = range.end.toISOString().split("T")[0];
+        this.state.startDate = formatDateForInput(range.start);
+        this.state.endDate = formatDateForInput(range.end);
       }
     }
     this.controlsComponent.update(this.state);
@@ -324,10 +365,9 @@ class AnalysisComponent {
       expenses
     );
     if (range) {
-      this.state.startDate = range.start.toISOString().split("T")[0];
-      this.state.endDate = range.end.toISOString().split("T")[0];
+      this.state.startDate = formatDateForInput(range.start);
+      this.state.endDate = formatDateForInput(range.end);
     }
-
     this.controlsComponent.update(this.state);
     this.updateTagSelectors();
     this.generateChart();
@@ -367,28 +407,40 @@ class AnalysisComponent {
     const container = this.element.querySelector("#analysis-summary-cards");
     if (!container) return;
 
-    container.innerHTML = `
-        <div class="summary-card">
-            <h3>Total Income</h3>
-            <p>${formatCurrency(stats.totalIncome)}</p>
-        </div>
-        <div class="summary-card">
-            <h3>Total Expense</h3>
-            <p>${formatCurrency(stats.totalExpense)}</p>
-        </div>
-        <div class="summary-card">
-            <h3>Net Change</h3>
-            <p>${formatCurrency(stats.netChange)}</p>
-        </div>
-        <div class="summary-card">
-            <h3>Effective Balance</h3>
-            <p>${formatCurrency(stats.effectiveBalance)}</p>
-        </div>
-        <div class="summary-card">
-            <h3>Transactions</h3>
-            <p>${stats.transactionCount}</p>
-        </div>
-      `;
+    const cards = [
+      {
+        title: "Total Income",
+        value: formatCurrency(stats.totalIncome),
+        class: "",
+      },
+      {
+        title: "Total Expense",
+        value: formatCurrency(stats.totalExpense),
+        class: "",
+      },
+      {
+        title: "Net Change",
+        value: formatCurrency(stats.netChange),
+        class: "",
+      },
+      {
+        title: "Effective Balance",
+        value: formatCurrency(stats.effectiveBalance),
+        class: "",
+      },
+      { title: "Transactions", value: stats.transactionCount, class: "" },
+    ];
+
+    const cardElements = cards.map((card) =>
+      el(
+        "div",
+        { className: "summary-card" },
+        el("h3", {}, card.title),
+        el("p", { className: card.class }, card.value)
+      )
+    );
+
+    replace(container, ...cardElements);
   }
 
   updateViewVisibility() {

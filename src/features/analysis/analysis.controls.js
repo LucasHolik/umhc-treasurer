@@ -1,192 +1,254 @@
+import { el, replace } from "../../core/dom.js";
+
 export default class AnalysisControls {
   constructor(element, callbacks) {
     this.element = element;
     this.callbacks = callbacks || {};
     // callbacks: { onTimeframeChange, onStatusChange, onDateChange, onMetricChange, onChartTypeChange, onGroupChange, onPresetClick, onToggleTable, onDownload }
     this.render();
-    this.bindEvents();
   }
 
   render() {
-    this.element.innerHTML = `
-            <!-- Section 1: Scope (Time & Status) -->
-            <div class="control-section scope-section">
-                <div class="section-header">1. Scope</div>
-                <div class="control-row">
-                    <div class="control-group">
-                        <label for="analysis-timeframe-select">Timeframe</label>
-                        <select id="analysis-timeframe-select" class="control-input">
-                            <option value="current_month">Current Month</option>
-                            <option value="past_30_days">Past 30 Days</option>
-                            <option value="past_3_months">Past 3 Months</option>
-                            <option value="past_6_months">Past 6 Months</option>
-                            <option value="past_year">Past Year</option>
-                            <option value="all_time">All Time</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label for="analysis-trip-status-select">Trip Status</label>
-                        <select id="analysis-trip-status-select" class="control-input">
-                            <option value="All">All</option>
-                            <option value="Active">Active Only</option>
-                            <option value="Completed">Completed Only</option>
-                            <option value="Investment">Investment Only</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="control-row dates-row" style="margin-top: 10px;">
-                     <input type="date" id="analysis-start-date" aria-label="Start Date" class="control-input">
-                     <span style="color: #ccc; align-self: center;">to</span>
-                     <input type="date" id="analysis-end-date" aria-label="End Date" class="control-input">
-                </div>
-            </div>
+    // Helper to create options
+    const createOptions = (options, selectedValue) =>
+      options.map((opt) =>
+        el(
+          "option",
+          { value: opt.value, selected: opt.value === selectedValue },
+          opt.label
+        )
+      );
 
-            <!-- Section 2: View (Presets) -->
-            <div class="control-section presets-section">
-                <div class="section-header">2. Quick Views</div>
-                <div class="quick-reports-grid">
-                    <button class="quick-report-btn" data-preset="trip_cost_completed">🏁 Trip Cost (Completed)</button>
-                    <button class="quick-report-btn" data-preset="category_breakdown">📊 Category Breakdown</button>
-                    <button class="quick-report-btn" data-preset="monthly_trend">📅 Monthly Trend</button>
-                    <button class="quick-report-btn" data-preset="active_trip_status">✈️ Active Trip Status</button>
-                </div>
-            </div>
-
-            <!-- Section 3: Customization -->
-            <div class="control-section customization-section">
-                <div class="section-header">3. Customization</div>
-                <div class="control-grid">
-                    
-                    <!-- Visualization -->
-                    <div class="control-group">
-                        <label for="analysis-metric-select">Metric</label>
-                        <select id="analysis-metric-select" class="control-input">
-                            <option value="balance">Cumulative Balance</option>
-                            <option value="income">Income</option>
-                            <option value="expense">Expenses</option>
-                            <option value="net">Net Income</option>
-                        </select>
-                    </div>
-
-                     <div class="control-group">
-                        <label for="analysis-chart-type-select">Chart Type</label>
-                        <select id="analysis-chart-type-select" class="control-input">
-                            <option value="bar">Bar</option>
-                            <option value="line">Line</option>
-                            <option value="pie">Pie</option>
-                            <option value="doughnut">Doughnut</option>
-                        </select>
-                    </div>
-
-                    <!-- Grouping -->
-                    <div class="control-group">
-                        <label for="analysis-primary-group-select">X-Axis Group</label>
-                        <select id="analysis-primary-group-select" class="control-input">
-                            <option value="date">Date</option>
-                            <option value="category">Category</option>
-                            <option value="trip">Trip/Event</option>
-                        </select>
-                    </div>
-
-                    <div class="control-group">
-                        <label for="analysis-secondary-group-select">Sub-Group (Stack)</label>
-                        <select id="analysis-secondary-group-select" class="control-input">
-                            <option value="none">None</option>
-                            <option value="category">Category</option>
-                            <option value="trip">Trip/Event</option>
-                        </select>
-                    </div>
-
-                    <div class="control-group" id="time-unit-container">
-                        <label for="analysis-time-unit-select">Time Unit</label>
-                        <select id="analysis-time-unit-select" class="control-input">
-                            <option value="day">Daily</option>
-                            <option value="week">Weekly</option>
-                            <option value="month">Monthly</option>
-                            <option value="year">Yearly</option>
-                        </select>
-                    </div>
-
-                </div>
-            </div>
-        `;
-  }
-
-  bindEvents() {
-    this.element
-      .querySelector("#analysis-timeframe-select")
-      .addEventListener("change", (e) => {
-        if (this.callbacks.onTimeframeChange)
-          this.callbacks.onTimeframeChange(e.target.value);
-      });
-
-    this.element
-      .querySelector("#analysis-trip-status-select")
-      .addEventListener("change", (e) => {
-        if (this.callbacks.onStatusChange)
-          this.callbacks.onStatusChange(e.target.value);
-      });
-
-    this.element
-      .querySelector("#analysis-start-date")
-      .addEventListener("change", (e) => {
-        if (this.callbacks.onDateChange)
-          this.callbacks.onDateChange("start", e.target.value);
-      });
-
-    this.element
-      .querySelector("#analysis-end-date")
-      .addEventListener("change", (e) => {
-        if (this.callbacks.onDateChange)
-          this.callbacks.onDateChange("end", e.target.value);
-      });
-
-    this.element
-      .querySelector("#analysis-metric-select")
-      .addEventListener("change", (e) => {
-        if (this.callbacks.onMetricChange)
-          this.callbacks.onMetricChange(e.target.value);
-      });
-
-    this.element
-      .querySelector("#analysis-chart-type-select")
-      .addEventListener("change", (e) => {
-        if (this.callbacks.onChartTypeChange)
-          this.callbacks.onChartTypeChange(e.target.value);
-      });
-
-    const primarySelect = this.element.querySelector(
-      "#analysis-primary-group-select"
+    // 1. Scope Section
+    const timeframeSelect = el(
+      "select",
+      { id: "analysis-timeframe-select", className: "control-input" },
+      ...createOptions([
+        { value: "current_month", label: "Current Month" },
+        { value: "past_30_days", label: "Past 30 Days" },
+        { value: "past_3_months", label: "Past 3 Months" },
+        { value: "past_6_months", label: "Past 6 Months" },
+        { value: "past_year", label: "Past Year" },
+        { value: "all_time", label: "All Time" },
+        { value: "custom", label: "Custom" },
+      ])
     );
-    const secondarySelect = this.element.querySelector(
-      "#analysis-secondary-group-select"
+    timeframeSelect.addEventListener("change", (e) => {
+      if (this.callbacks.onTimeframeChange)
+        this.callbacks.onTimeframeChange(e.target.value);
+    });
+
+    const statusSelect = el(
+      "select",
+      { id: "analysis-trip-status-select", className: "control-input" },
+      ...createOptions([
+        { value: "All", label: "All" },
+        { value: "Active", label: "Active Only" },
+        { value: "Completed", label: "Completed Only" },
+        { value: "Investment", label: "Investment Only" },
+      ])
     );
-    const timeUnitSelect = this.element.querySelector(
-      "#analysis-time-unit-select"
+    statusSelect.addEventListener("change", (e) => {
+      if (this.callbacks.onStatusChange)
+        this.callbacks.onStatusChange(e.target.value);
+    });
+
+    const startDateInput = el("input", {
+      type: "date",
+      id: "analysis-start-date",
+      "aria-label": "Start Date",
+      className: "control-input",
+    });
+    startDateInput.addEventListener("change", (e) => {
+      if (this.callbacks.onDateChange)
+        this.callbacks.onDateChange("start", e.target.value);
+    });
+
+    const endDateInput = el("input", {
+      type: "date",
+      id: "analysis-end-date",
+      "aria-label": "End Date",
+      className: "control-input",
+    });
+    endDateInput.addEventListener("change", (e) => {
+      if (this.callbacks.onDateChange)
+        this.callbacks.onDateChange("end", e.target.value);
+    });
+
+    const scopeSection = el(
+      "div",
+      { className: "control-section scope-section" },
+      el("div", { className: "section-header" }, "1. Scope"),
+      el(
+        "div",
+        { className: "control-row" },
+        el(
+          "div",
+          { className: "control-group" },
+          el("label", { for: "analysis-timeframe-select" }, "Timeframe"),
+          timeframeSelect
+        ),
+        el(
+          "div",
+          { className: "control-group" },
+          el("label", { for: "analysis-trip-status-select" }, "Trip Status"),
+          statusSelect
+        )
+      ),
+      el(
+        "div",
+        { className: "control-row dates-row", style: { marginTop: "10px" } },
+        startDateInput,
+        el("span", { style: { color: "#ccc", alignSelf: "center" } }, "to"),
+        endDateInput
+      )
     );
 
-    primarySelect.addEventListener("change", (e) => {
+    // 2. Presets Section
+    const presetButtons = [
+      { id: "trip_cost_completed", label: "🏁 Trip Cost (Completed)" },
+      { id: "category_breakdown", label: "📊 Category Breakdown" },
+      { id: "monthly_trend", label: "📅 Monthly Trend" },
+      { id: "active_trip_status", label: "✈️ Active Trip Status" },
+    ].map((p) => {
+      const btn = el(
+        "button",
+        { className: "quick-report-btn", dataset: { preset: p.id } },
+        p.label
+      );
+      btn.addEventListener("click", (e) => {
+        if (this.callbacks.onPresetClick)
+          this.callbacks.onPresetClick(e.target.dataset.preset);
+      });
+      return btn;
+    });
+
+    const presetsSection = el(
+      "div",
+      { className: "control-section presets-section" },
+      el("div", { className: "section-header" }, "2. Quick Views"),
+      el("div", { className: "quick-reports-grid" }, ...presetButtons)
+    );
+
+    // 3. Customization Section
+    const metricSelect = el(
+      "select",
+      { id: "analysis-metric-select", className: "control-input" },
+      ...createOptions([
+        { value: "balance", label: "Cumulative Balance" },
+        { value: "income", label: "Income" },
+        { value: "expense", label: "Expenses" },
+        { value: "net", label: "Net Income" },
+      ])
+    );
+    metricSelect.addEventListener("change", (e) => {
+      if (this.callbacks.onMetricChange)
+        this.callbacks.onMetricChange(e.target.value);
+    });
+
+    const chartTypeSelect = el(
+      "select",
+      { id: "analysis-chart-type-select", className: "control-input" },
+      ...createOptions([
+        { value: "bar", label: "Bar" },
+        { value: "line", label: "Line" },
+        { value: "pie", label: "Pie" },
+        { value: "doughnut", label: "Doughnut" },
+      ])
+    );
+    chartTypeSelect.addEventListener("change", (e) => {
+      if (this.callbacks.onChartTypeChange)
+        this.callbacks.onChartTypeChange(e.target.value);
+    });
+
+    const primaryGroupSelect = el(
+      "select",
+      { id: "analysis-primary-group-select", className: "control-input" },
+      ...createOptions([
+        { value: "date", label: "Date" },
+        { value: "category", label: "Category" },
+        { value: "trip", label: "Trip/Event" },
+      ])
+    );
+    primaryGroupSelect.addEventListener("change", (e) => {
       if (this.callbacks.onGroupChange)
         this.callbacks.onGroupChange("primary", e.target.value);
     });
 
-    secondarySelect.addEventListener("change", (e) => {
+    const secondaryGroupSelect = el(
+      "select",
+      { id: "analysis-secondary-group-select", className: "control-input" },
+      ...createOptions([
+        { value: "none", label: "None" },
+        { value: "category", label: "Category" },
+        { value: "trip", label: "Trip/Event" },
+      ])
+    );
+    secondaryGroupSelect.addEventListener("change", (e) => {
       if (this.callbacks.onGroupChange)
         this.callbacks.onGroupChange("secondary", e.target.value);
     });
 
+    const timeUnitSelect = el(
+      "select",
+      { id: "analysis-time-unit-select", className: "control-input" },
+      ...createOptions([
+        { value: "day", label: "Daily" },
+        { value: "week", label: "Weekly" },
+        { value: "month", label: "Monthly" },
+        { value: "year", label: "Yearly" },
+      ])
+    );
     timeUnitSelect.addEventListener("change", (e) => {
       if (this.callbacks.onGroupChange)
         this.callbacks.onGroupChange("timeUnit", e.target.value);
     });
 
-    this.element.querySelectorAll(".quick-report-btn").forEach((button) => {
-      button.addEventListener("click", (e) => {
-        if (this.callbacks.onPresetClick)
-          this.callbacks.onPresetClick(e.target.dataset.preset);
-      });
-    });
+    const customizationSection = el(
+      "div",
+      { className: "control-section customization-section" },
+      el("div", { className: "section-header" }, "3. Customization"),
+      el(
+        "div",
+        { className: "control-grid" },
+        el(
+          "div",
+          { className: "control-group" },
+          el("label", { for: "analysis-metric-select" }, "Metric"),
+          metricSelect
+        ),
+        el(
+          "div",
+          { className: "control-group" },
+          el("label", { for: "analysis-chart-type-select" }, "Chart Type"),
+          chartTypeSelect
+        ),
+        el(
+          "div",
+          { className: "control-group" },
+          el("label", { for: "analysis-primary-group-select" }, "X-Axis Group"),
+          primaryGroupSelect
+        ),
+        el(
+          "div",
+          { className: "control-group" },
+          el(
+            "label",
+            { for: "analysis-secondary-group-select" },
+            "Sub-Group (Stack)"
+          ),
+          secondaryGroupSelect
+        ),
+        el(
+          "div",
+          { className: "control-group", id: "time-unit-container" },
+          el("label", { for: "analysis-time-unit-select" }, "Time Unit"),
+          timeUnitSelect
+        )
+      )
+    );
+
+    replace(this.element, scopeSection, presetsSection, customizationSection);
   }
 
   update(state) {

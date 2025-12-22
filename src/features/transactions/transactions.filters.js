@@ -1,121 +1,160 @@
+import { el, replace } from "../../core/dom.js";
+
 export default class TransactionsFilters {
-    constructor(element, callbacks) {
-        this.element = element; 
-        this.callbacks = callbacks || {}; // { onFilterChange, onFilterSelectAll, onSearchChange }
-        this.bindEvents();
+  constructor(element, callbacks) {
+    this.element = element;
+    this.callbacks = callbacks || {}; // { onFilterChange, onFilterSelectAll, onSearchChange }
+    this.bindEvents();
+  }
+
+  bindEvents() {
+    const catSearch = this.element.querySelector("#transactions-cat-search");
+    if (catSearch) {
+      catSearch.addEventListener("input", (e) => {
+        if (this.callbacks.onSearchChange) {
+          this.callbacks.onSearchChange("Category", e.target.value);
+        }
+      });
     }
 
-    bindEvents() {
-        const catSearch = this.element.querySelector('#transactions-cat-search');
-        if (catSearch) {
-            catSearch.addEventListener('input', (e) => {
-                if (this.callbacks.onSearchChange) {
-                    this.callbacks.onSearchChange('Category', e.target.value);
-                }
-            });
+    const tripSearch = this.element.querySelector("#transactions-trip-search");
+    if (tripSearch) {
+      tripSearch.addEventListener("input", (e) => {
+        if (this.callbacks.onSearchChange) {
+          this.callbacks.onSearchChange("Trip/Event", e.target.value);
         }
+      });
+    }
+  }
 
-        const tripSearch = this.element.querySelector('#transactions-trip-search');
-        if (tripSearch) {
-            tripSearch.addEventListener('input', (e) => {
-                 if (this.callbacks.onSearchChange) {
-                    this.callbacks.onSearchChange('Trip/Event', e.target.value);
-                }
-            });
-        }
+  renderTagLists(
+    tagsData,
+    selectedCategories,
+    selectedTrips,
+    categorySearch,
+    tripSearch
+  ) {
+    this.populateTagList(
+      "Category",
+      tagsData["Category"] || [],
+      selectedCategories,
+      categorySearch,
+      "#category-selector-container"
+    );
+
+    this.populateTagList(
+      "Trip/Event",
+      tagsData["Trip/Event"] || [],
+      selectedTrips,
+      tripSearch,
+      "#trip-selector-container"
+    );
+  }
+
+  populateTagList(type, tagsArray, selectionSet, searchTerm, containerId) {
+    const container = this.element.querySelector(containerId);
+    if (!container) return;
+
+    const NO_TAG_VALUE = "__NO_TAG__";
+
+    // 1. "No Tag" Option
+    const noTagUid = `tx-notag-${type.replace("/", "-")}`;
+    const noTagCheckbox = el("input", { type: "checkbox", id: noTagUid });
+    noTagCheckbox.checked = selectionSet.has(NO_TAG_VALUE);
+    noTagCheckbox.addEventListener("change", (e) => {
+      if (this.callbacks.onFilterChange) {
+        this.callbacks.onFilterChange(type, NO_TAG_VALUE, e.target.checked);
+      }
+    });
+
+    const noTagDiv = el(
+      "div",
+      {
+        className: "tag-checkbox-item",
+        style: {
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          marginBottom: "5px",
+          paddingBottom: "5px",
+        },
+      },
+      noTagCheckbox,
+      el("label", { for: noTagUid }, el("em", {}, "(No Tag)"))
+    );
+
+    const children = [noTagDiv];
+
+    if (tagsArray.length === 0) {
+      children.push(el("div", { style: { padding: "5px" } }, "No tags found"));
+      replace(container, ...children);
+      return;
     }
 
-    renderTagLists(tagsData, selectedCategories, selectedTrips, categorySearch, tripSearch) {
-        this.populateTagList(
-            'Category', 
-            tagsData['Category'] || [], 
-            selectedCategories, 
-            categorySearch, 
-            '#category-selector-container'
-        );
+    const sortedTags = [...tagsArray].sort();
+    const visibleTags = sortedTags.filter((tag) =>
+      tag.toLowerCase().includes(searchTerm)
+    );
 
-        this.populateTagList(
-            'Trip/Event', 
-            tagsData['Trip/Event'] || [], 
-            selectedTrips, 
-            tripSearch, 
-            '#trip-selector-container'
-        );
+    // 2. Select All
+    if (visibleTags.length > 0) {
+      const selectAllUid = `tx-all-${type.replace("/", "-")}`;
+      const allVisibleSelected = visibleTags.every((t) => selectionSet.has(t));
+
+      const selectAllCheckbox = el("input", {
+        type: "checkbox",
+        id: selectAllUid,
+      });
+      selectAllCheckbox.checked = allVisibleSelected;
+      selectAllCheckbox.addEventListener("change", (e) => {
+        if (this.callbacks.onFilterSelectAll) {
+          this.callbacks.onFilterSelectAll(type, visibleTags, e.target.checked);
+        }
+      });
+
+      const selectAllDiv = el(
+        "div",
+        { className: "tag-checkbox-item" },
+        selectAllCheckbox,
+        el("label", { for: selectAllUid }, el("em", {}, "Select All Visible"))
+      );
+      children.push(selectAllDiv);
+    } else {
+      children.push(
+        el(
+          "div",
+          { style: { padding: "5px", color: "#ccc" } },
+          "No matches found"
+        )
+      );
     }
 
-    populateTagList(type, tagsArray, selectionSet, searchTerm, containerId) {
-        const container = this.element.querySelector(containerId);
-        if (!container) return;
+    // 3. Tags
+    visibleTags.forEach((tag) => {
+      const isChecked = selectionSet.has(tag);
+      const uid = `tx-${type.replace("/", "-")}-${tag.replace(/\s+/g, "-")}`;
 
-        container.innerHTML = '';
-        const NO_TAG_VALUE = '__NO_TAG__';
-        
-        // 1. "No Tag" Option
-        const noTagDiv = document.createElement('div');
-        noTagDiv.className = 'tag-checkbox-item';
-        noTagDiv.style.borderBottom = '1px solid rgba(255,255,255,0.1)'; 
-        noTagDiv.style.marginBottom = '5px';
-        noTagDiv.style.paddingBottom = '5px';
-        
-        const noTagUid = `tx-notag-${type.replace('/','-')}`;
-        noTagDiv.innerHTML = `<input type="checkbox" id="${noTagUid}" /> <label for="${noTagUid}"><em>(No Tag)</em></label>`;
-        
-        const noTagCheckbox = noTagDiv.querySelector('input');
-        noTagCheckbox.checked = selectionSet.has(NO_TAG_VALUE);
-        
-        noTagCheckbox.addEventListener('change', (e) => {
-            if (this.callbacks.onFilterChange) {
-                this.callbacks.onFilterChange(type, NO_TAG_VALUE, e.target.checked);
-            }
-        });
-        container.appendChild(noTagDiv);
+      const tagCheckbox = el("input", {
+        type: "checkbox",
+        id: uid,
+        value: tag,
+        className: "tag-item-input",
+      });
+      if (isChecked) tagCheckbox.checked = true;
 
-        if (tagsArray.length === 0) {
-            container.innerHTML += '<div style="padding:5px;">No tags found</div>';
-            return;
+      tagCheckbox.addEventListener("change", (e) => {
+        if (this.callbacks.onFilterChange) {
+          this.callbacks.onFilterChange(type, tag, e.target.checked);
         }
+      });
 
-        const sortedTags = [...tagsArray].sort();
-        const visibleTags = sortedTags.filter(tag => tag.toLowerCase().includes(searchTerm));
+      const div = el(
+        "div",
+        { className: "tag-checkbox-item" },
+        tagCheckbox,
+        el("label", { for: uid }, tag)
+      );
+      children.push(div);
+    });
 
-        // 2. Select All
-        if (visibleTags.length > 0) {
-            const selectAllDiv = document.createElement('div');
-            selectAllDiv.className = 'tag-checkbox-item';
-            const selectAllUid = `tx-all-${type.replace('/','-')}`;
-            selectAllDiv.innerHTML = `<input type="checkbox" id="${selectAllUid}" /> <label for="${selectAllUid}"><em>Select All Visible</em></label>`;
-            
-            const allVisibleSelected = visibleTags.every(t => selectionSet.has(t));
-            const checkbox = selectAllDiv.querySelector('input');
-            checkbox.checked = allVisibleSelected;
-
-            checkbox.addEventListener('change', (e) => {
-                 if (this.callbacks.onFilterSelectAll) {
-                     this.callbacks.onFilterSelectAll(type, visibleTags, e.target.checked);
-                 }
-            });
-            container.appendChild(selectAllDiv);
-        } else {
-             container.innerHTML += '<div style="padding:5px; color:#ccc;">No matches found</div>';
-        }
-
-        // 3. Tags
-        visibleTags.forEach(tag => {
-            const div = document.createElement('div');
-            div.className = 'tag-checkbox-item';
-            const isChecked = selectionSet.has(tag);
-            const uid = `tx-${type.replace('/','-')}-${tag.replace(/\s+/g,'-')}`; 
-            div.innerHTML = `
-                <input type="checkbox" id="${uid}" value="${tag}" class="tag-item-input" ${isChecked ? 'checked' : ''}>
-                <label for="${uid}">${tag}</label>
-            `;
-            const input = div.querySelector('input');
-            input.addEventListener('change', (e) => {
-                if (this.callbacks.onFilterChange) {
-                    this.callbacks.onFilterChange(type, tag, e.target.checked);
-                }
-            });
-            container.appendChild(div);
-        });
-    }
+    replace(container, ...children);
+  }
 }

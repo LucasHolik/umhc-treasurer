@@ -58,7 +58,6 @@ function normalizeDateString(dateValue) {
   return dateString;
 }
 
-
 function parseAndCleanData(rows) {
   const transactions = [];
   let headerIndex = -1;
@@ -83,13 +82,23 @@ function parseAndCleanData(rows) {
     throw new Error("Couldn't find the header row in the Excel file.");
   }
 
-  const headers = rows[headerIndex].map(h => String(h || '').toLowerCase());
-  
-  const dateCol = headers.findIndex(h => h.includes("date"));
-  const documentCol = headers.findIndex(h => h.includes("document") || h.includes("ref"));
-  const descriptionCol = headers.findIndex(h => h.includes("description"));
-  const cashInCol = headers.findIndex(h => h.includes("in") && (h.includes("cash") || h.includes("amount") || h.includes("credit")));
-  const cashOutCol = headers.findIndex(h => h.includes("out") && (h.includes("cash") || h.includes("amount") || h.includes("debit")));
+  const headers = rows[headerIndex].map((h) => String(h || "").toLowerCase());
+
+  const dateCol = headers.findIndex((h) => h.includes("date"));
+  const documentCol = headers.findIndex(
+    (h) => h.includes("document") || h.includes("ref")
+  );
+  const descriptionCol = headers.findIndex((h) => h.includes("description"));
+  const cashInCol = headers.findIndex(
+    (h) =>
+      h.includes("in") &&
+      (h.includes("cash") || h.includes("amount") || h.includes("credit"))
+  );
+  const cashOutCol = headers.findIndex(
+    (h) =>
+      h.includes("out") &&
+      (h.includes("cash") || h.includes("amount") || h.includes("debit"))
+  );
 
   let currentTransaction = null;
 
@@ -98,7 +107,10 @@ function parseAndCleanData(rows) {
     if (!row || row.length === 0) continue;
 
     const rowText = row.join("").toLowerCase();
-    if (rowText.includes("please note recent transactions may not be included") || rowText.includes("pending transactions")) {
+    if (
+      rowText.includes("please note recent transactions may not be included") ||
+      rowText.includes("pending transactions")
+    ) {
       break;
     }
 
@@ -116,10 +128,18 @@ function parseAndCleanData(rows) {
         cashOut: row[cashOutCol] !== undefined ? row[cashOutCol] : null,
       };
     } else if (currentTransaction) {
-      if (row[documentCol] && !String(currentTransaction.document).includes(String(row[documentCol]))) {
+      if (
+        row[documentCol] &&
+        !String(currentTransaction.document).includes(String(row[documentCol]))
+      ) {
         currentTransaction.document += "\n" + row[documentCol];
       }
-      if (row[descriptionCol] && !String(currentTransaction.description).includes(String(row[descriptionCol]))) {
+      if (
+        row[descriptionCol] &&
+        !String(currentTransaction.description).includes(
+          String(row[descriptionCol])
+        )
+      ) {
         currentTransaction.description += " " + row[descriptionCol];
       }
     }
@@ -135,7 +155,7 @@ function parseAndCleanData(rows) {
 const ExcelService = {
   parseFile(file) {
     return new Promise((resolve, reject) => {
-      if (typeof readXlsxFile === 'undefined') {
+      if (typeof readXlsxFile === "undefined") {
         return reject(new Error("The 'readXlsxFile' library is not loaded."));
       }
       readXlsxFile(file)

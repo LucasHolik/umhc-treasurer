@@ -7,6 +7,7 @@ import TagsDetails from "./tags.details.js";
 import TagsSubList from "./tags.sublist.js";
 import TagsAddTrip from "./tags.add-trip.js";
 import { calculateTagStats, formatOperationsForApi } from "./tags.logic.js";
+import { el, replace } from "../../core/dom.js";
 
 class TagsComponent {
   constructor(element) {
@@ -132,13 +133,36 @@ class TagsComponent {
   }
 
   renderSavingState() {
-    this.element.innerHTML = `
-        <div class="section" style="height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-            <div class="loader" style="width: 50px; height: 50px; margin-bottom: 20px;"></div>
-            <h3 style="color: #f0ad4e; margin-bottom: 10px;">Processing...</h3>
-            <p style="color: #fff; font-size: 1.1em;">Syncing changes with the database.</p>
-        </div>
-      `;
+    replace(
+      this.element,
+      el(
+        "div",
+        {
+          className: "section",
+          style: {
+            height: "400px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        },
+        el("div", {
+          className: "loader",
+          style: { width: "50px", height: "50px", marginBottom: "20px" },
+        }),
+        el(
+          "h3",
+          { style: { color: "#f0ad4e", marginBottom: "10px" } },
+          "Processing..."
+        ),
+        el(
+          "p",
+          { style: { color: "#fff", fontSize: "1.1em" } },
+          "Syncing changes with the database."
+        )
+      )
+    );
   }
 
   // --- Navigation Handlers ---

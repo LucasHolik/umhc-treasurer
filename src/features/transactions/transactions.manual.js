@@ -1,106 +1,207 @@
-import store from '../../core/state.js';
+import store from "../../core/state.js";
+import { el } from "../../core/dom.js";
+import { formatDateForInput } from "../../core/utils.js";
+import ModalComponent from "../../shared/modal.component.js";
 
 export default class TransactionsManualModal {
-    constructor() {
-        // Styles handled by shared css or inline
-    }
+  constructor() {
+    this.modalService = new ModalComponent();
+  }
 
-    async open() {
-        return new Promise((resolve) => {
-            this.resolvePromise = resolve;
-            this.render();
-        });
-    }
+  async open() {
+    return new Promise((resolve) => {
+      this.resolvePromise = resolve;
+      this.render();
+    });
+  }
 
-    render() {
-        const overlay = document.createElement('div');
-        overlay.className = 'modal-overlay';
-        overlay.innerHTML = `
-            <div class="modal-content" style="max-width: 500px;">
-                <div class="modal-header">
-                    <h3>Add Manual Transaction</h3>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p style="color: #aaa; font-size: 0.9em; margin-bottom: 15px;">
-                        Use this ONLY for old transactions not covered by Excel files.
-                    </p>
-                    <div class="form-group">
-                        <label for="manual-date">Date</label>
-                        <input type="date" id="manual-date" class="theme-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group">
-                        <label for="manual-desc">Description</label>
-                        <input type="text" id="manual-desc" class="theme-input" placeholder="e.g. Old Equipment" style="width: 100%;">
-                    </div>
-                     <div class="form-group">
-                        <label for="manual-doc">Document (Optional)</label>
-                        <input type="text" id="manual-doc" class="theme-input" placeholder="e.g. Invoice #123" style="width: 100%;">
-                    </div>
-                                         <div class="form-group" style="display: flex; gap: 10px;">
-                        <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                            <label for="manual-type">Type</label>
-                            <select id="manual-type" class="theme-select" style="width: 100%;">
-                                <option value="Expense">Expense (Money Out)</option>
-                                <option value="Income">Income (Money In)</option>
-                            </select>
-                        </div>
-                        <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                            <label for="manual-amount">Amount (£)</label>
-                            <input type="number" id="manual-amount" class="theme-input" step="0.01" placeholder="0.00" style="width: 100%;">
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="modal-btn modal-btn-cancel">Cancel</button>
-                    <button class="modal-btn modal-btn-confirm" style="background-color: #f0ad4e;">Add Transaction</button>
-                </div>
-            </div>
-        `;
+  render() {
+    // Inputs
+    this.dateInput = el("input", {
+      type: "date",
+      id: "manual-date",
+      className: "theme-input",
+      style: { width: "100%" },
+    });
+    // Set default date to today (local timezone)
+    this.dateInput.value = formatDateForInput(new Date());
 
-        document.body.appendChild(overlay);
-        this.overlay = overlay;
-        
-        // Bind Events
-        overlay.querySelector('.modal-close').onclick = () => this.close(null);
-        overlay.querySelector('.modal-btn-cancel').onclick = () => this.close(null);
-        overlay.querySelector('.modal-btn-confirm').onclick = () => this.handleSubmit();
-        
-        // Set default date to today
-        const today = new Date().toISOString().split('T')[0];
-        overlay.querySelector('#manual-date').value = today;
-    }
+    this.descInput = el("input", {
+      type: "text",
+      id: "manual-desc",
+      className: "theme-input",
+      placeholder: "e.g. Old Equipment",
+      style: { width: "100%" },
+    });
+    this.docInput = el("input", {
+      type: "text",
+      id: "manual-doc",
+      className: "theme-input",
+      placeholder: "e.g. Invoice #123",
+      style: { width: "100%" },
+    });
 
-    async handleSubmit() {
-        const date = this.overlay.querySelector('#manual-date').value;
-        const desc = this.overlay.querySelector('#manual-desc').value;
-        const doc = this.overlay.querySelector('#manual-doc').value;
-        const type = this.overlay.querySelector('#manual-type').value;
-        const amount = parseFloat(this.overlay.querySelector('#manual-amount').value);
+    this.typeSelect = el(
+      "select",
+      {
+        id: "manual-type",
+        className: "theme-select",
+        style: { width: "100%" },
+      },
+      el("option", { value: "Expense" }, "Expense (Money Out)"),
+      el("option", { value: "Income" }, "Income (Money In)")
+    );
 
-        if (!date || !desc || isNaN(amount) || amount <= 0) {
-            alert("Please fill in all required fields with valid values.");
-            return;
+    this.amountInput = el("input", {
+      type: "number",
+      id: "manual-amount",
+      className: "theme-input",
+      step: "0.01",
+      placeholder: "0.00",
+      style: { width: "100%" },
+    });
+
+    // Modal Content
+    const modalContent = el(
+      "div",
+      { className: "modal-content", style: { maxWidth: "500px" } },
+      // Header
+      el(
+        "div",
+        { className: "modal-header" },
+        el("h3", {}, "Add Manual Transaction"),
+        el(
+          "button",
+          { className: "modal-close", onclick: () => this.close(null) },
+          "×"
+        )
+      ),
+      // Body
+      el(
+        "div",
+        { className: "modal-body" },
+        el(
+          "p",
+          { style: { color: "#aaa", fontSize: "0.9em", marginBottom: "15px" } },
+          "Use this ONLY for old transactions not covered by Excel files."
+        ),
+        el(
+          "div",
+          { className: "form-group" },
+          el("label", { for: "manual-date" }, "Date"),
+          this.dateInput
+        ),
+        el(
+          "div",
+          { className: "form-group" },
+          el("label", { for: "manual-desc" }, "Description"),
+          this.descInput
+        ),
+        el(
+          "div",
+          { className: "form-group" },
+          el("label", { for: "manual-doc" }, "Document (Optional)"),
+          this.docInput
+        ),
+        el(
+          "div",
+          { className: "form-group", style: { display: "flex", gap: "10px" } },
+          el(
+            "div",
+            {
+              style: {
+                flex: "1",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              },
+            },
+            el("label", { for: "manual-type" }, "Type"),
+            this.typeSelect
+          ),
+          el(
+            "div",
+            {
+              style: {
+                flex: "1",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              },
+            },
+            el("label", { for: "manual-amount" }, "Amount (£)"),
+            this.amountInput
+          )
+        )
+      ),
+      // Footer
+      el(
+        "div",
+        { className: "modal-footer" },
+        el(
+          "button",
+          {
+            className: "modal-btn modal-btn-cancel",
+            onclick: () => this.close(null),
+          },
+          "Cancel"
+        ),
+        el(
+          "button",
+          {
+            className: "modal-btn modal-btn-confirm",
+            style: { backgroundColor: "#f0ad4e" },
+            onclick: () => this.handleSubmit(),
+          },
+          "Add Transaction"
+        )
+      )
+    );
+
+    const overlay = el("div", { className: "modal-overlay" }, modalContent);
+
+    document.body.appendChild(overlay);
+    this.overlay = overlay;
+  }
+
+  close(data) {
+    if (this.overlay) {
+      this.overlay.style.opacity = "0";
+      setTimeout(() => {
+        if (this.overlay && this.overlay.parentNode) {
+          this.overlay.remove();
         }
+      }, 200);
+    }
+    if (this.resolvePromise) {
+      this.resolvePromise(data);
+      this.resolvePromise = null;
+    }
+  }
 
-        const transaction = {
-            date: date,
-            description: desc,
-            document: doc,
-            cashIn: type === 'Income' ? amount : "",
-            cashOut: type === 'Expense' ? amount : "",
-            isManual: true
-        };
+  async handleSubmit() {
+    const date = this.dateInput.value;
+    const desc = this.descInput.value;
+    const doc = this.docInput.value;
+    const type = this.typeSelect.value;
+    const amount = parseFloat(this.amountInput.value);
 
-        this.close(transaction);
+    if (!date || !desc || isNaN(amount) || amount <= 0) {
+      this.modalService.alert(
+        "Please fill in all required fields with valid values."
+      );
+      return;
     }
 
-    close(data) {
-        if (this.overlay) {
-            this.overlay.remove();
-        }
-        if (this.resolvePromise) {
-            this.resolvePromise(data);
-        }
-    }
+    const transaction = {
+      date: date,
+      description: desc,
+      document: doc,
+      cashIn: type === "Income" ? amount : "",
+      cashOut: type === "Expense" ? amount : "",
+      isManual: true,
+    };
+
+    this.close(transaction);
+  }
 }

@@ -1,7 +1,7 @@
 // src/features/analysis/analysis.logic.js
 
 import store from "../../core/state.js";
-import { getDateRange } from "../../core/utils.js";
+import { getDateRange, formatDateForInput } from "../../core/utils.js";
 import { calculateFinancials } from "../../core/financial.logic.js";
 
 class AnalysisLogic {
@@ -156,12 +156,12 @@ class AnalysisLogic {
     const getKey = (item, type) => {
       if (type === "date") {
         const date = new Date(item.Date);
-        if (timeUnit === "day") return date.toISOString().split("T")[0];
+        if (timeUnit === "day") return formatDateForInput(date);
         if (timeUnit === "week") {
           // Adjust date to the start of the week (Monday)
           const day = date.getDay();
           const diff = date.getDate() - day + (day === 0 ? -6 : 1); // If Sunday (0), go back 6 days to Monday
-          return new Date(date.setDate(diff)).toISOString().split("T")[0];
+          return formatDateForInput(new Date(date.setDate(diff)));
         }
         if (timeUnit === "year") return date.getFullYear().toString();
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(

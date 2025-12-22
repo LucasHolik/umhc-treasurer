@@ -1,17 +1,17 @@
 // src/services/api.service.js
 
-import store from '../core/state.js';
+import store from "../core/state.js";
 
 const activeRequests = new Map();
 let loadingRequestCount = 0;
 
-const getScriptUrl = () => localStorage.getItem('script_url');
+const getScriptUrl = () => localStorage.getItem("script_url");
 
 const setScriptUrl = (url) => {
   if (url) {
-    localStorage.setItem('script_url', url.trim());
+    localStorage.setItem("script_url", url.trim());
   } else {
-    localStorage.removeItem('script_url');
+    localStorage.removeItem("script_url");
   }
 };
 
@@ -33,7 +33,7 @@ const request = (action, params = {}, options = {}) => {
     return Promise.reject(new Error("Script URL is not configured."));
   }
 
-  const apiKey = store.getState('apiKey');
+  const apiKey = store.getState("apiKey");
   if (!apiKey) {
     return Promise.reject(new Error("API key is not set."));
   }
@@ -50,21 +50,21 @@ const request = (action, params = {}, options = {}) => {
 
   if (!options.skipLoading) {
     if (loadingRequestCount === 0) {
-      store.setState('isLoading', true);
+      store.setState("isLoading", true);
     }
     loadingRequestCount++;
   }
 
   const promise = new Promise((resolve, reject) => {
     const url = new URL(SCRIPT_URL);
-    url.searchParams.append('action', action);
-    url.searchParams.append('apiKey', apiKey);
+    url.searchParams.append("action", action);
+    url.searchParams.append("apiKey", apiKey);
     for (const key in sortedParams) {
       url.searchParams.append(key, sortedParams[key]);
     }
 
     const callbackName = "jsonp_callback_" + Math.round(100000 * Math.random());
-    url.searchParams.append('callback', callbackName);
+    url.searchParams.append("callback", callbackName);
 
     const script = document.createElement("script");
     const timeout = 15000; // 15 seconds
@@ -83,11 +83,11 @@ const request = (action, params = {}, options = {}) => {
         document.body.removeChild(script);
       }
       activeRequests.delete(requestKey);
-      
+
       if (!options.skipLoading) {
         loadingRequestCount--;
         if (loadingRequestCount === 0) {
-          store.setState('isLoading', false);
+          store.setState("isLoading", false);
         }
       }
     };
@@ -115,80 +115,111 @@ const request = (action, params = {}, options = {}) => {
 };
 
 const ApiService = {
-  login: () => request('login'),
-  getAppData: () => request('getAppData'),
-  getData: () => request('getData'),
-  saveData: (data, options = {}) => request('saveData', { data: JSON.stringify(data) }, options),
-  addTag: (type, value) => request('addTag', { type, value }),
-  updateExpenses: (data, options = {}) => request('updateExpenses', { data: JSON.stringify(data) }, options),
-  deleteTag: (type, value) => request('deleteTag', { type, value }),
-  renameTag: (type, oldValue, newValue) => request('renameTag', { type, oldValue, newValue }),
-  processTagOperations: (operations, options = {}) => request('processTagOperations', { operations: JSON.stringify(operations) }, options),
-  getOpeningBalance: () => request('getOpeningBalance'),
-  saveOpeningBalance: (balance, options = {}) => request('saveOpeningBalance', { balance }, options),
-  
+  login: () => request("login"),
+  getAppData: () => request("getAppData"),
+  getData: () => request("getData"),
+  saveData: (data, options = {}) =>
+    request("saveData", { data: JSON.stringify(data) }, options),
+  addTag: (type, value) => request("addTag", { type, value }),
+  updateExpenses: (data, options = {}) =>
+    request("updateExpenses", { data: JSON.stringify(data) }, options),
+  deleteTag: (type, value) => request("deleteTag", { type, value }),
+  renameTag: (type, oldValue, newValue) =>
+    request("renameTag", { type, oldValue, newValue }),
+  processTagOperations: (operations, options = {}) =>
+    request(
+      "processTagOperations",
+      { operations: JSON.stringify(operations) },
+      options
+    ),
+  getOpeningBalance: () => request("getOpeningBalance"),
+  saveOpeningBalance: (balance, options = {}) =>
+    request("saveOpeningBalance", { balance }, options),
+
   splitTransaction: async (original, splits, options = {}) => {
-      const res = await request('splitTransaction', { data: JSON.stringify({ original, splits }) }, options);
-      store.setState('splitTransactions', null); // Invalidate cache
-      return res;
+    const res = await request(
+      "splitTransaction",
+      { data: JSON.stringify({ original, splits }) },
+      options
+    );
+    store.setState("splitTransactions", null); // Invalidate cache
+    return res;
   },
   revertSplit: async (groupId, options = {}) => {
-      const res = await request('revertSplit', { groupId }, options);
-      store.setState('splitTransactions', null); // Invalidate cache
-      return res;
+    const res = await request("revertSplit", { groupId }, options);
+    store.setState("splitTransactions", null); // Invalidate cache
+    return res;
   },
   editSplit: async (groupId, splits, original, options = {}) => {
-      const res = await request('editSplit', { groupId, data: JSON.stringify({ groupId, original, splits }) }, options);
-      store.setState('splitTransactions', null); // Invalidate cache
-      return res;
+    const res = await request(
+      "editSplit",
+      { groupId, data: JSON.stringify({ groupId, original, splits }) },
+      options
+    );
+    store.setState("splitTransactions", null); // Invalidate cache
+    return res;
   },
-  getSplitGroup: (groupId) => request('getSplitGroup', { groupId }),
+  getSplitGroup: (groupId) => request("getSplitGroup", { groupId }),
   getSplitTransactions: async (options = {}) => {
-      const cached = store.getState('splitTransactions');
-      if (cached && !options.forceRefresh) {
-          // Log if from cache
-          const parents = cached.filter(item => item['Split Type'] === 'SOURCE').length;
-          const children = cached.filter(item => item['Split Type'] === 'CHILD').length;
-          console.log(`Loaded ${parents} split parents and ${children} split children (from cache).`);
-          return { success: true, data: cached };
-      }
-      
-      let allData = [];
-      let page = 1;
-      let hasMore = true;
-      
-      store.setState('isLoading', true);
-      
-      try {
-          while (hasMore) {
-              store.setState('taggingProgress', `Loading split history (Page ${page})...`);
-              const res = await request('getSplitHistory', { page, pageSize: 500 });
-              
-              if (!res.success) {
-                  throw new Error(res.message);
-              }
-              
-              allData = [...allData, ...res.data];
-              hasMore = res.hasMore;
-              page++;
-          }
-          
-          const parents = allData.filter(item => item['Split Type'] === 'SOURCE').length;
-          const children = allData.filter(item => item['Split Type'] === 'CHILD').length;
-          console.log(`Loaded ${parents} split parents and ${children} split children.`);
+    const cached = store.getState("splitTransactions");
+    if (cached && !options.forceRefresh) {
+      // Log if from cache
+      const parents = cached.filter(
+        (item) => item["Split Type"] === "SOURCE"
+      ).length;
+      const children = cached.filter(
+        (item) => item["Split Type"] === "CHILD"
+      ).length;
+      console.log(
+        `Loaded ${parents} split parents and ${children} split children (from cache).`
+      );
+      return { success: true, data: cached };
+    }
 
-          store.setState('splitTransactions', allData);
-          store.setState('taggingProgress', null);
-          store.setState('isLoading', false);
-          return { success: true, data: allData };
-          
-      } catch (error) {
-          store.setState('taggingProgress', null);
-          store.setState('isLoading', false);
-          return { success: false, message: error.message };
+    let allData = [];
+    let page = 1;
+    let hasMore = true;
+
+    store.setState("isLoading", true);
+
+    try {
+      while (hasMore) {
+        store.setState(
+          "taggingProgress",
+          `Loading split history (Page ${page})...`
+        );
+        const res = await request("getSplitHistory", { page, pageSize: 500 });
+
+        if (!res.success) {
+          throw new Error(res.message);
+        }
+
+        allData = [...allData, ...res.data];
+        hasMore = res.hasMore;
+        page++;
       }
+
+      const parents = allData.filter(
+        (item) => item["Split Type"] === "SOURCE"
+      ).length;
+      const children = allData.filter(
+        (item) => item["Split Type"] === "CHILD"
+      ).length;
+      console.log(
+        `Loaded ${parents} split parents and ${children} split children.`
+      );
+
+      store.setState("splitTransactions", allData);
+      store.setState("taggingProgress", null);
+      store.setState("isLoading", false);
+      return { success: true, data: allData };
+    } catch (error) {
+      store.setState("taggingProgress", null);
+      store.setState("isLoading", false);
+      return { success: false, message: error.message };
+    }
   },
-  
+
   getScriptUrl,
   setScriptUrl,
   hasScriptUrl,

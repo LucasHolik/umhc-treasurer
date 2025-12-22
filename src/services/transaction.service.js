@@ -1,10 +1,10 @@
-import { sortData } from '../features/transactions/transactions.logic.js';
+import { sortData } from "../features/transactions/transactions.logic.js";
 
 const TransactionService = {
   /**
    * Merges raw expenses with split transaction history.
    * Removes original "Source" transactions and injects "Child" splits.
-   * 
+   *
    * @param {Array} rawExpenses - The original list of transactions from the sheet.
    * @param {Array} splitHistory - The list of split definitions (Source and Child rows).
    * @returns {Array} - The processed list with splits baked in.
@@ -18,13 +18,13 @@ const TransactionService = {
     const splitMap = new Map(); // GroupID -> [Children]
     const sourceGroupIds = new Set(); // GroupIDs that have a Source (to be removed)
 
-    splitHistory.forEach(item => {
-      const gid = item['Split Group ID'];
+    splitHistory.forEach((item) => {
+      const gid = item["Split Group ID"];
       if (!gid) return;
 
-      if (item['Split Type'] === 'SOURCE') {
+      if (item["Split Type"] === "SOURCE") {
         sourceGroupIds.add(gid);
-      } else if (item['Split Type'] === 'CHILD') {
+      } else if (item["Split Type"] === "CHILD") {
         if (!splitMap.has(gid)) {
           splitMap.set(gid, []);
         }
@@ -36,8 +36,8 @@ const TransactionService = {
     let processedList = [];
     const processedGroupIds = new Set();
 
-    rawExpenses.forEach(row => {
-      const gid = row['Split Group ID'];
+    rawExpenses.forEach((row) => {
+      const gid = row["Split Group ID"];
 
       // If this row is part of a split group
       if (gid && (sourceGroupIds.has(gid) || splitMap.has(gid))) {
@@ -45,8 +45,8 @@ const TransactionService = {
         if (!processedGroupIds.has(gid)) {
           // If we have children for this group, add them
           if (splitMap.has(gid)) {
-             const children = splitMap.get(gid);
-             processedList.push(...children);
+            const children = splitMap.get(gid);
+            processedList.push(...children);
           }
           // Mark group as processed so we don't add children multiple times
           // (In case multiple rows map to same group, which shouldn't happen for Source, but safety first)
@@ -62,8 +62,8 @@ const TransactionService = {
 
     // 3. Sort by Date (descending) to ensure children appear correctly relative to others
     // We reuse the existing sort logic to maintain consistency
-    return sortData(processedList, 'Date', false);
-  }
+    return sortData(processedList, "Date", false);
+  },
 };
 
 export default TransactionService;

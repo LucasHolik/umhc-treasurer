@@ -1,8 +1,10 @@
 // src/features/login/login.component.js
-import AuthService from '../../services/auth.service.js';
-import ApiService from '../../services/api.service.js';
-import store from '../../core/state.js';
-import LoaderComponent from '../../shared/loader.component.js';
+import AuthService from "../../services/auth.service.js";
+import ApiService from "../../services/api.service.js";
+import store from "../../core/state.js";
+import LoaderComponent from "../../shared/loader.component.js";
+import { el, replace } from "../../core/dom.js";
+import { CONFIG } from "../../core/config.js";
 
 class LoginComponent {
   constructor(element) {
@@ -10,9 +12,9 @@ class LoginComponent {
     this.loader = new LoaderComponent();
     this.isEditingUrl = false;
     this.render();
-    
-    store.subscribe('error', this.handleError.bind(this));
-    store.subscribe('isLoading', this.handleLoading.bind(this));
+
+    store.subscribe("error", this.handleError.bind(this));
+    store.subscribe("isLoading", this.handleLoading.bind(this));
   }
 
   render() {
@@ -24,113 +26,164 @@ class LoginComponent {
   }
 
   renderSetup() {
-    const currentUrl = ApiService.getScriptUrl() || '';
-    
-    this.element.innerHTML = `
-      <div class="login-container">
-        <img src="logo.jpg" alt="UMHC Logo" class="logo">
-        <div class="instruction-text">${this.isEditingUrl ? 'Update' : 'Enter'} Google Apps Script URL</div>
-        <div class="input-group">
-          <input type="text" id="script-url-input" aria-label="Script URL" placeholder="Script URL" value="${currentUrl}">
-          <button id="save-url-button">Save</button>
-        </div>
-        <div class="action-area">
-             ${this.isEditingUrl ? '<button id="cancel-url-button">Cancel</button>' : ''}
-        </div>
-        <div class="status-container">
-             <div id="login-status"></div>
-        </div>
-      </div>
-    `;
+    const currentUrl = ApiService.getScriptUrl() || "";
 
-    const urlInput = this.element.querySelector('#script-url-input');
-    const saveButton = this.element.querySelector('#save-url-button');
-    this.loginStatus = this.element.querySelector('#login-status');
-    
-    if (this.isEditingUrl) {
-        const cancelButton = this.element.querySelector('#cancel-url-button');
-        cancelButton.addEventListener('click', () => {
-            this.isEditingUrl = false;
-            store.setState('error', null);
-            this.render();
-        });
-    }
+    const urlInput = el("input", {
+      type: "text",
+      id: "script-url-input",
+      "aria-label": "Script URL",
+      placeholder: "Script URL",
+      value: currentUrl,
+    });
 
-    saveButton.addEventListener('click', () => this.handleSaveUrl(urlInput.value));
-    urlInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+    const saveButton = el(
+      "button",
+      {
+        id: "save-url-button",
+        onclick: () => this.handleSaveUrl(urlInput.value),
+      },
+      "Save"
+    );
+
+    // Keydown listener for input
+    urlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
         this.handleSaveUrl(urlInput.value);
       }
     });
+
+    const cancelButton = this.isEditingUrl
+      ? el(
+          "button",
+          {
+            id: "cancel-url-button",
+            onclick: () => {
+              this.isEditingUrl = false;
+              store.setState("error", null);
+              this.render();
+            },
+          },
+          "Cancel"
+        )
+      : null;
+
+    this.loginStatus = el("div", { id: "login-status" });
+
+    const container = el(
+      "div",
+      { className: "login-container" },
+      el("img", {
+        src: CONFIG.LOGO_PATH,
+        alt: "UMHC Logo",
+        className: "logo",
+        onerror: (e) => (e.target.style.display = "none"),
+      }),
+      el(
+        "div",
+        { className: "instruction-text" },
+        this.isEditingUrl
+          ? "Update Google Apps Script URL"
+          : "Enter Google Apps Script URL"
+      ),
+      el("div", { className: "input-group" }, urlInput, saveButton),
+      el("div", { className: "action-area" }, cancelButton),
+      el("div", { className: "status-container" }, this.loginStatus)
+    );
+
+    replace(this.element, container);
   }
 
   renderLogin() {
-    this.element.innerHTML = `
-      <div class="login-container">
-        <img src="logo.jpg" alt="UMHC Logo" class="logo">
-        <div class="instruction-text">Please enter your API Key</div>
-        <div class="input-group">
-          <input type="password" id="api-key" aria-label="API Key" placeholder="API Key">
-          <button id="login-button">Login</button>
-        </div>
-        <div class="action-area">
-            <button id="change-url-button">Change Script URL</button>
-        </div>
-        <div class="status-container">
-          <div id="login-status"></div>
-        </div>
-      </div>
-    `;
-    
-    this.apiKeyInput = this.element.querySelector('#api-key');
-    const loginButton = this.element.querySelector('#login-button');
-    const changeUrlButton = this.element.querySelector('#change-url-button');
-    this.loginStatus = this.element.querySelector('#login-status');
+    this.apiKeyInput = el("input", {
+      type: "password",
+      id: "api-key",
+      "aria-label": "API Key",
+      placeholder: "API Key",
+    });
 
-    loginButton.addEventListener('click', this.handleLogin.bind(this));
-    this.apiKeyInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+    this.apiKeyInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
         this.handleLogin();
       }
     });
-    
-    changeUrlButton.addEventListener('click', () => {
-        this.isEditingUrl = true;
-        store.setState('error', null);
-        this.render();
-    });
+
+    const loginButton = el(
+      "button",
+      {
+        id: "login-button",
+        onclick: this.handleLogin.bind(this),
+      },
+      "Login"
+    );
+
+    const changeUrlButton = el(
+      "button",
+      {
+        id: "change-url-button",
+        onclick: () => {
+          this.isEditingUrl = true;
+          store.setState("error", null);
+          this.render();
+        },
+      },
+      "Change Script URL"
+    );
+
+    this.loginStatus = el("div", { id: "login-status" });
+
+    const container = el(
+      "div",
+      { className: "login-container" },
+      el("img", {
+        src: CONFIG.LOGO_PATH,
+        alt: "UMHC Logo",
+        className: "logo",
+        onerror: (e) => (e.target.style.display = "none"),
+      }),
+      el("div", { className: "instruction-text" }, "Please enter your API Key"),
+      el("div", { className: "input-group" }, this.apiKeyInput, loginButton),
+      el("div", { className: "action-area" }, changeUrlButton),
+      el("div", { className: "status-container" }, this.loginStatus)
+    );
+
+    replace(this.element, container);
   }
 
   handleSaveUrl(url) {
     if (!url) {
-       store.setState('error', 'Please enter a valid URL.');
-       return;
+      store.setState("error", "Please enter a valid URL.");
+      return;
     }
 
     let cleanUrl = url.trim();
     // Remove surrounding quotes if present (common copy-paste error)
-    if ((cleanUrl.startsWith('"') && cleanUrl.endsWith('"')) || 
-        (cleanUrl.startsWith("'") && cleanUrl.endsWith("'"))) {
-        cleanUrl = cleanUrl.slice(1, -1);
+    if (
+      (cleanUrl.startsWith('"') && cleanUrl.endsWith('"')) ||
+      (cleanUrl.startsWith("'") && cleanUrl.endsWith("'"))
+    ) {
+      cleanUrl = cleanUrl.slice(1, -1);
     }
 
     try {
-        new URL(cleanUrl); // Validation check
+      new URL(cleanUrl); // Validation check
     } catch (e) {
-        store.setState('error', 'Invalid URL format. Please check for spaces or typos.');
-        return;
+      store.setState(
+        "error",
+        "Invalid URL format. Please check for spaces or typos."
+      );
+      return;
     }
 
     ApiService.setScriptUrl(cleanUrl);
     this.isEditingUrl = false;
-    store.setState('error', null);
+    store.setState("error", null);
     this.render();
   }
 
   async handleLogin() {
     const apiKey = this.apiKeyInput.value.trim();
     if (!apiKey) {
-      store.setState('error', 'Please enter an API key.');
+      store.setState("error", "Please enter an API key.");
       return;
     }
     await AuthService.login(apiKey);
@@ -138,27 +191,30 @@ class LoginComponent {
 
   handleError(error) {
     if (this.loginStatus) {
-        if (error) {
-            this.loginStatus.innerHTML = `<div class="status-message error">${error}</div>`;
-        } else {
-            // Only clear if we are NOT loading
-            if (!store.getState('isLoading')) {
-                this.loginStatus.innerHTML = '';
-            }
+      if (error) {
+        replace(
+          this.loginStatus,
+          el("div", { className: "status-message error" }, error)
+        );
+      } else {
+        // Only clear if we are NOT loading
+        if (!store.getState("isLoading")) {
+          replace(this.loginStatus);
         }
+      }
     }
   }
 
   handleLoading(isLoading) {
     if (this.loginStatus) {
-        if (isLoading) {
-            this.loginStatus.replaceChildren(this.loader.render());
-        } else {
-            // Don't clear error messages when loading is finished
-            if (!store.getState('error')) {
-                this.loginStatus.innerHTML = '';
-            }
+      if (isLoading) {
+        replace(this.loginStatus, this.loader.render());
+      } else {
+        // Don't clear error messages when loading is finished
+        if (!store.getState("error")) {
+          replace(this.loginStatus);
         }
+      }
     }
   }
 }

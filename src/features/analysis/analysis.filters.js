@@ -1,3 +1,5 @@
+import { el, replace } from "../../core/dom.js";
+
 export default class AnalysisFilters {
   constructor(element, callbacks) {
     this.element = element;
@@ -7,37 +9,80 @@ export default class AnalysisFilters {
   }
 
   render() {
-    this.element.innerHTML = `
-             <div class="section-header">Filter Specific Tags</div>
-             <div class="tag-filters-container">
-                <!-- Type Filter -->
-                <div class="tag-filter-column">
-                    <div class="tag-filter-header">Types</div>
-                    <input type="text" id="analysis-type-search" aria-label="Search Types" class="tag-search-input" placeholder="Search types...">
-                    <div id="type-selector-container" class="tag-selector">
-                        <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
-                    </div>
-                </div>
-
-                <!-- Trip Filter -->
-                <div class="tag-filter-column">
-                    <div class="tag-filter-header">Trips / Events</div>
-                    <input type="text" id="analysis-trip-search" aria-label="Search Trips" class="tag-search-input" placeholder="Search trips...">
-                    <div id="trip-selector-container" class="tag-selector">
-                        <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
-                    </div>
-                </div>
-
-                <!-- Category Filter -->
-                <div class="tag-filter-column">
-                    <div class="tag-filter-header">Categories</div>
-                    <input type="text" id="analysis-cat-search" aria-label="Search Categories" class="tag-search-input" placeholder="Search categories...">
-                    <div id="category-selector-container" class="tag-selector">
-                        <div style="padding: 5px; color: rgba(255,255,255,0.5);">Loading...</div>
-                    </div>
-                </div>
-            </div>
-        `;
+    replace(
+      this.element,
+      el("div", { className: "section-header" }, "Filter Specific Tags"),
+      el(
+        "div",
+        { className: "tag-filters-container" },
+        // Type Filter
+        el(
+          "div",
+          { className: "tag-filter-column" },
+          el("div", { className: "tag-filter-header" }, "Types"),
+          el("input", {
+            type: "text",
+            id: "analysis-type-search",
+            "aria-label": "Search Types",
+            className: "tag-search-input",
+            placeholder: "Search types...",
+          }),
+          el(
+            "div",
+            { id: "type-selector-container", className: "tag-selector" },
+            el(
+              "div",
+              { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
+              "Loading..."
+            )
+          )
+        ),
+        // Trip Filter
+        el(
+          "div",
+          { className: "tag-filter-column" },
+          el("div", { className: "tag-filter-header" }, "Trips / Events"),
+          el("input", {
+            type: "text",
+            id: "analysis-trip-search",
+            "aria-label": "Search Trips",
+            className: "tag-search-input",
+            placeholder: "Search trips...",
+          }),
+          el(
+            "div",
+            { id: "trip-selector-container", className: "tag-selector" },
+            el(
+              "div",
+              { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
+              "Loading..."
+            )
+          )
+        ),
+        // Category Filter
+        el(
+          "div",
+          { className: "tag-filter-column" },
+          el("div", { className: "tag-filter-header" }, "Categories"),
+          el("input", {
+            type: "text",
+            id: "analysis-cat-search",
+            "aria-label": "Search Categories",
+            className: "tag-search-input",
+            placeholder: "Search categories...",
+          }),
+          el(
+            "div",
+            { id: "category-selector-container", className: "tag-selector" },
+            el(
+              "div",
+              { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
+              "Loading..."
+            )
+          )
+        )
+      )
+    );
   }
 
   bindEvents() {
@@ -132,10 +177,11 @@ export default class AnalysisFilters {
     const container = this.element.querySelector(containerId);
     if (!container) return;
 
-    container.innerHTML = "";
-
     if (!tagsArray || tagsArray.length === 0) {
-      container.innerHTML = '<div style="padding:5px;">No tags found</div>';
+      replace(
+        container,
+        el("div", { style: { padding: "5px" } }, "No tags found")
+      );
       return;
     }
 
@@ -144,12 +190,11 @@ export default class AnalysisFilters {
       tag.toLowerCase().includes((searchTerm || "").toLowerCase())
     );
 
+    const children = [];
+
     // "Select All" Option
     if (visibleTags.length > 0) {
-      const selectAllDiv = document.createElement("div");
-      selectAllDiv.className = "tag-checkbox-item";
       const uid = `analysis-all-${type.replace("/", "-")}`;
-      selectAllDiv.innerHTML = `<input type="checkbox" id="${uid}" /> <label for="${uid}"><em>Select All</em></label>`;
 
       let allVisibleSelected = false;
       if (statusMap) {
@@ -160,28 +205,19 @@ export default class AnalysisFilters {
         allVisibleSelected = visibleTags.every((t) => selectionSet.has(t));
       }
 
-      const checkbox = selectAllDiv.querySelector("input");
+      const checkbox = el("input", { type: "checkbox", id: uid });
       checkbox.checked = allVisibleSelected && visibleTags.length > 0;
 
       checkbox.addEventListener("change", (e) => {
         visibleTags.forEach((tag) => {
-          // For statusMap mode, we rely on the callback to handle logic
-          // For Set mode, we update the Set directly here (as before)
           if (selectionSet) {
             if (e.target.checked) selectionSet.add(tag);
             else selectionSet.delete(tag);
           }
 
-          // Trigger callback
-          // Note: For statusMap, we pass e.target.checked. The parent must handle "Select All" logic if needed.
-          // However, here we iterate and trigger for EACH item.
-          // Optimization: Ideally the parent handles "Select All" bulk operation,
-          // but sticking to existing pattern of iterating items:
           if (statusMap) {
             if (onItemChange) onItemChange(tag, e.target.checked);
           } else {
-            const wasSelected = selectionSet.has(tag); // Already updated above, logic slightly circular if I use 'wasSelected' from before update.
-            // Simplified: Just trigger callback with new state.
             if (onItemChange) onItemChange(tag, e.target.checked);
           }
         });
@@ -190,18 +226,25 @@ export default class AnalysisFilters {
           this.callbacks.onFilterChange();
         }
       });
-      container.appendChild(selectAllDiv);
-    }
 
-    if (visibleTags.length === 0) {
-      container.innerHTML +=
-        '<div style="padding:5px; color:#ccc;">No matches found</div>';
+      const selectAllDiv = el(
+        "div",
+        { className: "tag-checkbox-item" },
+        checkbox,
+        el("label", { for: uid }, el("em", {}, "Select All"))
+      );
+      children.push(selectAllDiv);
+    } else {
+      children.push(
+        el(
+          "div",
+          { style: { padding: "5px", color: "#ccc" } },
+          "No matches found"
+        )
+      );
     }
 
     visibleTags.forEach((tag) => {
-      const div = document.createElement("div");
-      div.className = "tag-checkbox-item";
-
       let isChecked = false;
       let isIndeterminate = false;
 
@@ -217,11 +260,13 @@ export default class AnalysisFilters {
         /\s+/g,
         "-"
       )}`;
-      div.innerHTML = `
-                <input type="checkbox" id="${uid}" value="${tag}" class="tag-item-input">
-                <label for="${uid}">${tag}</label>
-            `;
-      const input = div.querySelector("input");
+
+      const input = el("input", {
+        type: "checkbox",
+        id: uid,
+        value: tag,
+        className: "tag-item-input",
+      });
       input.checked = isChecked;
       input.indeterminate = isIndeterminate;
 
@@ -239,7 +284,16 @@ export default class AnalysisFilters {
           this.callbacks.onFilterChange();
         }
       });
-      container.appendChild(div);
+
+      const div = el(
+        "div",
+        { className: "tag-checkbox-item" },
+        input,
+        el("label", { for: uid }, tag)
+      );
+      children.push(div);
     });
+
+    replace(container, ...children);
   }
 }

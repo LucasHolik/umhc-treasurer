@@ -1,5 +1,6 @@
 import { formatCurrency } from "../../core/utils.js";
 import SortableTable from "../../shared/sortable-table.component.js";
+import { el, replace } from "../../core/dom.js";
 
 export default class TagsSubList {
   constructor(element, callbacks) {
@@ -28,20 +29,52 @@ export default class TagsSubList {
       };
     });
 
-    this.element.innerHTML = `
-            <div class="section">
-                <div class="tags-header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <button id="back-sublist-btn" class="secondary-btn" style="padding: 5px 10px;">← Back</button>
-                        <h2 style="margin: 0;">${typeName} <span style="font-size: 0.6em; color: #aaa; font-weight: normal;">(Trip Type)</span></h2>
-                    </div>
-                </div>
+    const header = el(
+      "div",
+      {
+        className: "tags-header-actions",
+        style: {
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+        },
+      },
+      el(
+        "div",
+        { style: { display: "flex", alignItems: "center", gap: "15px" } },
+        el(
+          "button",
+          {
+            id: "back-sublist-btn",
+            className: "secondary-btn",
+            style: { padding: "5px 10px" },
+            onclick: () => {
+              if (this.callbacks.onBack) this.callbacks.onBack();
+            },
+          },
+          "← Back"
+        ),
+        el(
+          "h2",
+          { style: { margin: "0" } },
+          typeName,
+          el(
+            "span",
+            {
+              style: { fontSize: "0.6em", color: "#aaa", fontWeight: "normal" },
+            },
+            " (Trip Type)"
+          )
+        )
+      )
+    );
 
-                <div id="sublist-table-container"></div>
-            </div>
-        `;
+    const container = el("div", { id: "sublist-table-container" });
 
-    const container = this.element.querySelector("#sublist-table-container");
+    const section = el("div", { className: "section" }, header, container);
+
+    replace(this.element, section);
 
     const columns = [
       { key: "tag", label: "Trip/Event Name", type: "text" },
@@ -57,13 +90,15 @@ export default class TagsSubList {
             Investment: { icon: "🚀", color: "#5bc0de", title: "Investment" },
           };
           const s = styles[item.status] || styles["Active"];
-          
-          const span = document.createElement("span");
-          span.title = s.title;
-          span.style.color = s.color;
-          span.style.fontWeight = "bold";
-          span.style.fontSize = "1.2em";
-          span.textContent = s.icon;
+
+          const span = el(
+            "span",
+            {
+              title: s.title,
+              style: { color: s.color, fontWeight: "bold", fontSize: "1.2em" },
+            },
+            s.icon
+          );
           return span;
         },
       },
@@ -85,12 +120,11 @@ export default class TagsSubList {
         type: "currency",
         class: "text-right",
         render: (item) => {
-          const span = document.createElement("span");
+          const span = el("span", {}, formatCurrency(Math.abs(item.net)));
           if (item.net > 0) span.className = "positive";
           else if (item.net < 0) span.className = "negative";
-          span.textContent = formatCurrency(Math.abs(item.net));
           return span;
-        }
+        },
       },
       { key: "count", label: "Uses", type: "number", class: "text-center" },
     ];
@@ -107,12 +141,5 @@ export default class TagsSubList {
       },
     });
     table.update(data);
-
-    // Attach listeners
-    this.element
-      .querySelector("#back-sublist-btn")
-      .addEventListener("click", () => {
-        if (this.callbacks.onBack) this.callbacks.onBack();
-      });
   }
 }

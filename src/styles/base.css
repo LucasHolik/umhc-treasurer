@@ -24,7 +24,7 @@ html {
 
 /* Chrome, Edge, Safari */
 ::-webkit-scrollbar {
-  width: 10px;  /* Vertical width */
+  width: 10px; /* Vertical width */
   height: 10px; /* Horizontal height */
 }
 
@@ -34,7 +34,7 @@ html {
 
 ::-webkit-scrollbar-thumb {
   background-color: #8b4513; /* Brown to match borders */
-  border-radius: 20px;       /* Rounded ends */
+  border-radius: 20px; /* Rounded ends */
   border: 2px solid transparent; /* Simulates padding/floating effect */
   background-clip: content-box;
 }
