@@ -14,13 +14,20 @@ class SettingsComponent {
     store.subscribe("openingBalance", this.render.bind(this));
     store.subscribe("settingsSyncing", this.render.bind(this));
     store.subscribe("expenses", this.render.bind(this));
+    store.subscribe("taggingProgress", this.render.bind(this));
   }
 
   render() {
     const settingsSyncing = store.getState("settingsSyncing");
+    const taggingProgress = store.getState("taggingProgress");
 
     if (settingsSyncing) {
       this.renderSavingState();
+      return;
+    }
+
+    if (taggingProgress) {
+      this.renderRestoreProgress(taggingProgress);
       return;
     }
 
@@ -271,6 +278,84 @@ class SettingsComponent {
     replace(this.element, container);
   }
 
+  renderRestoreProgress(progressString) {
+    const match = progressString.match(/(.*): (\d+)\/(\d+)/);
+    let percent = 0;
+    let showBar = false;
+    let displayMessage = progressString;
+
+    if (match) {
+      showBar = true;
+      const current = parseInt(match[2], 10);
+      const total = parseInt(match[3], 10);
+      if (total > 0) percent = (current / total) * 100;
+      displayMessage = `${match[1]} (${current} / ${total})`;
+    }
+
+    const content = [
+      el("div", {
+        className: "loader",
+        style: { width: "50px", height: "50px", marginBottom: "20px" },
+      }),
+      el(
+        "h3",
+        { style: { color: "#f0ad4e", marginBottom: "10px" } },
+        "Restoring Data..."
+      ),
+    ];
+
+    if (showBar) {
+      content.push(
+        el(
+          "div",
+          { style: { width: "300px", marginBottom: "10px" } },
+          el(
+            "div",
+            {
+              style: {
+                width: "100%",
+                height: "10px",
+                backgroundColor: "rgba(255,255,255,0.1)",
+                borderRadius: "5px",
+                overflow: "hidden",
+              },
+            },
+            el("div", {
+              style: {
+                width: `${percent}%`,
+                height: "100%",
+                backgroundColor: "#5cb85c",
+                transition: "width 0.3s ease",
+              },
+            })
+          )
+        )
+      );
+    }
+
+    content.push(
+      el("p", { style: { color: "#fff", fontSize: "1.1em" } }, displayMessage)
+    );
+
+    replace(
+      this.element,
+      el(
+        "div",
+        {
+          className: "section",
+          style: {
+            height: "400px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        },
+        ...content
+      )
+    );
+  }
+
   renderSavingState() {
     replace(
       this.element,
@@ -402,13 +487,15 @@ class SettingsComponent {
 
           const result = await ApiService.restoreAppData(json);
           if (result.success) {
-            await this.modal.alert("Restore completed successfully. The page will now reload.");
+            await this.modal.alert(
+              "Restore completed successfully. The page will now reload."
+            );
             window.location.reload();
           } else {
             await this.modal.alert("Restore failed: " + result.message);
           }
         } else {
-            event.target.value = ""; // Clear if cancelled
+          event.target.value = ""; // Clear if cancelled
         }
       } catch (err) {
         console.error(err);
