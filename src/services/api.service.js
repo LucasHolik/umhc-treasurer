@@ -1,6 +1,9 @@
 // src/services/api.service.js
 
 import store from "../core/state.js";
+import { Chunker } from "../core/chunking.js";
+
+const CHUNK_MAX_URL_LENGTH = 2000;
 
 const activeRequests = new Map();
 let loadingRequestCount = 0;
@@ -119,24 +122,187 @@ const ApiService = {
   getAppData: () => request("getAppData"),
   getData: () => request("getData"),
   saveData: (data, options = {}) =>
-    request("saveData", { data: JSON.stringify(data) }, options),
+    Chunker.sendChunkedRequest(
+      request,
+      "saveData",
+      {},
+      data,
+      "data",
+      null,
+      CHUNK_MAX_URL_LENGTH,
+      getScriptUrl(),
+      store.getState("apiKey")
+    ),
   addTag: (type, value) => request("addTag", { type, value }),
   updateExpenses: (data, options = {}) =>
-    request("updateExpenses", { data: JSON.stringify(data) }, options),
+    Chunker.sendChunkedRequest(
+      request,
+      "updateExpenses",
+      {},
+      data,
+      "data",
+      null,
+      CHUNK_MAX_URL_LENGTH,
+      getScriptUrl(),
+      store.getState("apiKey")
+    ),
   deleteTag: (type, value) => request("deleteTag", { type, value }),
   renameTag: (type, oldValue, newValue) =>
     request("renameTag", { type, oldValue, newValue }),
   processTagOperations: (operations, options = {}) =>
-    request(
+    Chunker.sendChunkedRequest(
+      request,
       "processTagOperations",
-      { operations: JSON.stringify(operations) },
-      options
+      {},
+      operations,
+      "operations",
+      null,
+      CHUNK_MAX_URL_LENGTH,
+      getScriptUrl(),
+      store.getState("apiKey")
     ),
   getOpeningBalance: () => request("getOpeningBalance"),
   saveOpeningBalance: (balance, options = {}) =>
     request("saveOpeningBalance", { balance }, options),
+  
+  restoreAppData: async (data) => {
+    store.setState("isLoading", true);
+    
+    // 1. Create a safety backup of current data
+    store.setState("taggingProgress", "Creating safety backup...");
+    let originalData = null;
+    try {
+      const backupRes = await ApiService.getAppData();
+      if (backupRes.success) {
+        originalData = backupRes.data;
+      } else {
+        console.warn("Failed to create safety backup: " + backupRes.message);
+        // We proceed, but without rollback capability. 
+        // Ideally we might want to stop here, but user might want to force restore.
+      }
+    } catch (e) {
+      console.warn("Failed to create safety backup: " + e.message);
+    }
+
+    const executeRestore = async (dataToRestore) => {
+      // 1. Clear All
+      store.setState("taggingProgress", "Clearing existing data...");
+      const clearRes = await request("clearAllData");
+      if (!clearRes.success) {
+        throw new Error("Failed to clear data: " + clearRes.message);
+      }
+
+      // 2. Restore Tags
+      const tagOps = [];
+      if (dataToRestore.tags) {
+        const {
+          "Trip/Event": trips,
+          Category: cats,
+          Type: types,
+          TripTypeMap,
+          TripStatusMap,
+        } = dataToRestore.tags;
+        
+        if (trips) {
+          trips.forEach((t) =>
+            tagOps.push({
+              type: "Trip/Event",
+              value: t,
+              extra: TripTypeMap ? TripTypeMap[t] : "",
+              status: TripStatusMap ? TripStatusMap[t] : "",
+            })
+          );
+        }
+        if (cats) {
+          cats.forEach((t) => tagOps.push({ type: "Category", value: t }));
+        }
+        if (types) {
+          types.forEach((t) => tagOps.push({ type: "Type", value: t }));
+        }
+      }
+      
+      await Chunker.sendChunkedRequest(
+        request,
+        "restoreTags",
+        {},
+        tagOps,
+        "tags",
+        (p, t) => store.setState("taggingProgress", `Restoring tags: ${p}/${t}`),
+        CHUNK_MAX_URL_LENGTH,
+        getScriptUrl(),
+        store.getState("apiKey")
+      );
+
+      // 3. Restore Expenses
+      await Chunker.sendChunkedRequest(
+        request,
+        "saveData",
+        {},
+        dataToRestore.expenses || [],
+        "data",
+        (p, t) =>
+          store.setState("taggingProgress", `Restoring expenses: ${p}/${t}`),
+        CHUNK_MAX_URL_LENGTH,
+        getScriptUrl(),
+        store.getState("apiKey")
+      );
+
+      // 4. Restore Splits
+      await Chunker.sendChunkedRequest(
+        request,
+        "restoreSplits",
+        {},
+        dataToRestore.splitTransactions || [],
+        "splits",
+        (p, t) =>
+          store.setState("taggingProgress", `Restoring splits: ${p}/${t}`),
+        CHUNK_MAX_URL_LENGTH,
+        getScriptUrl(),
+        store.getState("apiKey")
+      );
+
+      // 5. Restore Balance
+      if (dataToRestore.openingBalance !== undefined) {
+        await request("saveOpeningBalance", { balance: dataToRestore.openingBalance });
+      }
+    };
+
+    try {
+      await executeRestore(data);
+      store.setState("isLoading", false);
+      store.setState("taggingProgress", null);
+      return { success: true, message: "Restore completed successfully." };
+    } catch (e) {
+      console.error("Restore failed:", e);
+      
+      if (originalData) {
+        store.setState("taggingProgress", `Restore failed. Rolling back...`);
+        try {
+          await executeRestore(originalData);
+          store.setState("isLoading", false);
+          store.setState("taggingProgress", null);
+          return { 
+            success: false, 
+            message: `Restore failed: ${e.message}. Original data was restored.` 
+          };
+        } catch (rollbackError) {
+          store.setState("isLoading", false);
+          store.setState("taggingProgress", null);
+          return { 
+            success: false, 
+            message: `CRITICAL FAILURE: Restore failed (${e.message}) AND Rollback failed (${rollbackError.message}). Data may be lost.` 
+          };
+        }
+      } else {
+        store.setState("isLoading", false);
+        store.setState("taggingProgress", null);
+        return { success: false, message: `Restore failed: ${e.message}. No backup was available for rollback.` };
+      }
+    }
+  },
 
   splitTransaction: async (original, splits, options = {}) => {
+
     const res = await request(
       "splitTransaction",
       { data: JSON.stringify({ original, splits }) },

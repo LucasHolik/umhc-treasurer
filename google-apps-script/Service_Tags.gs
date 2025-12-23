@@ -25,6 +25,72 @@ var Service_Tags = {
     return _renameTag(type, oldValue, newValue);
   },
 
+  clearTagSheet: function () {
+    try {
+      const tagSheet = _getTagSheet();
+      const lastRow = tagSheet.getLastRow();
+      if (lastRow > 1) {
+        tagSheet.deleteRows(2, lastRow - 1);
+      }
+      return { success: true, message: "Tag sheet cleared." };
+    } catch (error) {
+      console.error("Error clearing tag sheet:", error);
+      return {
+        success: false,
+        message: "Error clearing tag sheet: " + error.message,
+      };
+    }
+  },
+
+  restoreTags: function (e) {
+    try {
+      const tags = JSON.parse(e.parameter.tags || "[]");
+      if (tags.length === 0)
+        return { success: true, message: "No tags to restore." };
+
+      const tagSheet = _getTagSheet();
+      const trips = [];
+      const categories = [];
+      const types = [];
+
+      tags.forEach((t) => {
+        if (t.type === "Trip/Event")
+          trips.push([t.value, t.extra || "", t.status || "Active"]);
+        else if (t.type === "Category") categories.push([t.value]);
+        else if (t.type === "Type") types.push([t.value]);
+      });
+
+      if (trips.length > 0) {
+        const startRow = _getNextEmptyRow(tagSheet, 1);
+        tagSheet.getRange(startRow, 1, trips.length, 3).setValues(trips);
+      }
+
+      if (categories.length > 0) {
+        const startRow = _getNextEmptyRow(tagSheet, 4);
+        tagSheet
+          .getRange(startRow, 4, categories.length, 1)
+          .setValues(categories);
+      }
+
+      if (types.length > 0) {
+        const startRow = _getNextEmptyRow(tagSheet, 5);
+        tagSheet.getRange(startRow, 5, types.length, 1).setValues(types);
+      }
+
+      if (trips.length > 0) _sortTags("Trip/Event");
+      if (categories.length > 0) _sortTags("Category");
+      if (types.length > 0) _sortTags("Type");
+
+      return { success: true, message: "Restored " + tags.length + " tags." };
+    } catch (error) {
+      console.error("Error restoring tags:", error);
+      return {
+        success: false,
+        message: "Error restoring tags: " + error.message,
+      };
+    }
+  },
+
   processTagOperations: function (e) {
     try {
       const operationsParam = e.parameter.operations;
@@ -466,4 +532,18 @@ function _sortTags(type) {
     const output = tags.map((t) => [t]);
     tagSheet.getRange(2, column, output.length, 1).setValues(output);
   }
+}
+
+function _getNextEmptyRow(sheet, column) {
+  const lastRow = sheet.getLastRow();
+  const columnValues = sheet
+    .getRange(1, column, Math.max(lastRow, 1), 1)
+    .getValues();
+
+  for (let i = 0; i < columnValues.length; i++) {
+    if (!columnValues[i][0]) {
+      return i + 1;
+    }
+  }
+  return columnValues.length + 1;
 }

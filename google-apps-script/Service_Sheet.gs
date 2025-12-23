@@ -10,18 +10,28 @@ var Service_Sheet = {
       const financeSheet = _getFinanceSheet();
 
       const startRow = financeSheet.getLastRow() + 1;
-      const recordsToAdd = data.map((row) => [
-        row.document || "",
-        new Date(),
-        row.date || "",
-        row.description || "",
-        "",
-        "",
-        row.cashIn || "",
-        row.cashOut || "",
-        row.isManual ? "Manual" : row.isUploaded ? "Uploaded" : "",
-        "", // Split Group ID
-      ]);
+      const recordsToAdd = data.map((row) => {
+        const getVal = (key, lowerKey) => {
+          if (row[key] !== undefined && row[key] !== null) return row[key];
+          if (lowerKey && row[lowerKey] !== undefined && row[lowerKey] !== null)
+            return row[lowerKey];
+          return "";
+        };
+
+        return [
+          getVal("Document", "document"),
+          row["Time-uploaded"] ? new Date(row["Time-uploaded"]) : new Date(),
+          getVal("Date", "date"),
+          getVal("Description", "description"),
+          getVal("Trip/Event", "tripEvent"),
+          getVal("Category", "category"),
+          getVal("Income", "cashIn"),
+          getVal("Expense", "cashOut"),
+          getVal("Type") ||
+            (row.isManual ? "Manual" : row.isUploaded ? "Uploaded" : ""),
+          getVal("Split Group ID", "splitGroupId"),
+        ];
+      });
 
       if (recordsToAdd.length > 0) {
         // Format date column (Column 3 / C)
@@ -274,6 +284,23 @@ var Service_Sheet = {
       return {
         success: false,
         message: "Error updating expenses: " + error.message,
+      };
+    }
+  },
+
+  clearFinanceSheet: function () {
+    try {
+      const financeSheet = _getFinanceSheet();
+      const lastRow = financeSheet.getLastRow();
+      if (lastRow > 1) {
+        financeSheet.deleteRows(2, lastRow - 1);
+      }
+      return { success: true, message: "Finance sheet cleared." };
+    } catch (error) {
+      console.error("Error clearing finance sheet:", error);
+      return {
+        success: false,
+        message: "Error clearing finance sheet: " + error.message,
       };
     }
   },

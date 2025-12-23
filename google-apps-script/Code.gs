@@ -61,6 +61,15 @@ function doGet(e) {
       case "getSplitHistory":
         response = Service_Split.getSplitHistory(e);
         break;
+      case "clearAllData":
+        response = clearAllData();
+        break;
+      case "restoreTags":
+        response = Service_Tags.restoreTags(e);
+        break;
+      case "restoreSplits":
+        response = Service_Split.restoreSplitHistory(e);
+        break;
       default:
         response = { success: false, message: "Invalid action" };
     }
@@ -74,48 +83,75 @@ function doGet(e) {
   }
 }
 
+function clearAllData() {
+  try {
+    const sheetRes = Service_Sheet.clearFinanceSheet();
+    if (!sheetRes.success) throw new Error(sheetRes.message);
+
+    const tagRes = Service_Tags.clearTagSheet();
+    if (!tagRes.success) throw new Error(tagRes.message);
+
+    const splitRes = Service_Split.clearSplitSheet();
+    if (!splitRes.success) throw new Error(splitRes.message);
+
+    return { success: true, message: "All data cleared successfully." };
+  } catch (error) {
+    return { success: false, message: "Error clearing data: " + error.message };
+  }
+}
+
 function getAppData() {
   try {
     const expenses = Service_Sheet.getData();
     if (!expenses.success) {
-        throw new Error(expenses.message || "Failed to fetch expenses");
+      throw new Error(expenses.message || "Failed to fetch expenses");
     }
 
     const tags = Service_Tags.getTags();
     const openingBalance = Service_Sheet.getOpeningBalance();
-    
+
     let splitTransactions = { success: true, data: [] };
     try {
-        splitTransactions = Service_Split.getAllSplitHistory();
-        if (!splitTransactions.success) {
-            console.error("Failed to fetch split transactions:", splitTransactions.message);
-            // Don't throw, just log and return empty array for splits
-            splitTransactions.data = []; 
-        }
-    } catch (splitError) {
-        console.error("Error fetching split transactions:", splitError.toString());
+      splitTransactions = Service_Split.getAllSplitHistory();
+      if (!splitTransactions.success) {
+        console.error(
+          "Failed to fetch split transactions:",
+          splitTransactions.message
+        );
+        // Don't throw, just log and return empty array for splits
         splitTransactions.data = [];
+      }
+    } catch (splitError) {
+      console.error(
+        "Error fetching split transactions:",
+        splitError.toString()
+      );
+      splitTransactions.data = [];
     }
 
-    return { 
-      success: true, 
-      data: { 
-        expenses: expenses.data, 
+    return {
+      success: true,
+      data: {
+        expenses: expenses.data,
         tags: tags,
         openingBalance: openingBalance.success ? openingBalance.balance : 0,
-        splitTransactions: splitTransactions.data
-      } 
+        splitTransactions: splitTransactions.data,
+      },
     };
   } catch (error) {
-    return { success: false, message: "Error loading app data: " + error.toString() };
+    return {
+      success: false,
+      message: "Error loading app data: " + error.toString(),
+    };
   }
 }
 
 function createJsonResponse(data, callback) {
   // Validate callback to prevent XSS - only allow safe JavaScript identifiers
   const safeCallback = callback || "callback";
-  const callbackRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/;
-  
+  const callbackRegex =
+    /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/;
+
   if (!callbackRegex.test(safeCallback)) {
     // Log the attempt and use default callback
     Logger.log("Invalid callback parameter detected: " + safeCallback);

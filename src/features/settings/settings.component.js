@@ -200,6 +200,71 @@ class SettingsComponent {
         )
       ),
 
+      el(
+        "div",
+        {
+          style: {
+            marginTop: "30px",
+            padding: "20px",
+            backgroundColor: "rgba(255, 255, 255, 0.05)",
+            borderRadius: "8px",
+          },
+        },
+        el(
+          "h3",
+          { style: { marginTop: "0", color: "#fff" } },
+          "Backup & Restore"
+        ),
+        el(
+          "p",
+          {
+            style: { color: "#aaa", fontSize: "0.9em", marginBottom: "20px" },
+          },
+          "Download a full backup of your data or restore from a previous backup file."
+        ),
+        el(
+          "div",
+          { style: { display: "flex", gap: "10px", alignItems: "center" } },
+          el(
+            "button",
+            {
+              className: "action-btn",
+              onclick: () => this.handleBackup(),
+            },
+            "⬇️ Backup Data"
+          ),
+          el(
+            "div",
+            {
+              style: {
+                position: "relative",
+                overflow: "hidden",
+                display: "inline-block",
+              },
+            },
+            el(
+              "button",
+              { className: "action-btn secondary-btn" },
+              "⬆️ Restore Data"
+            ),
+            el("input", {
+              type: "file",
+              accept: ".json",
+              style: {
+                position: "absolute",
+                top: 0,
+                left: 0,
+                opacity: 0,
+                width: "100%",
+                height: "100%",
+                cursor: "pointer",
+              },
+              onchange: (e) => this.handleRestore(e),
+            })
+          )
+        )
+      ),
+
       this.status
     );
 
@@ -282,6 +347,76 @@ class SettingsComponent {
         0
       );
     }
+  }
+
+  async handleBackup() {
+    try {
+      store.setState("isLoading", true);
+      const result = await ApiService.getAppData();
+      store.setState("isLoading", false);
+
+      if (result.success) {
+        const dataStr =
+          "data:text/json;charset=utf-8," +
+          encodeURIComponent(JSON.stringify(result.data, null, 2));
+        const downloadAnchorNode = document.createElement("a");
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute(
+          "download",
+          "umhc_treasurer_backup_" +
+            new Date().toISOString().slice(0, 10) +
+            ".json"
+        );
+        document.body.appendChild(downloadAnchorNode); // required for firefox
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        this.displayStatus("Backup downloaded successfully.", "success");
+      } else {
+        this.displayStatus(
+          "Failed to fetch data for backup: " + result.message,
+          "error"
+        );
+      }
+    } catch (e) {
+      store.setState("isLoading", false);
+      this.displayStatus("Backup failed: " + e.message, "error");
+    }
+  }
+
+  handleRestore(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const json = JSON.parse(e.target.result);
+        const confirmed = await this.modal.confirm(
+          "WARNING: This will overwrite ALL current data (Expenses, Tags, Splits, Balance) with the data from the backup file. This cannot be undone.\n\nAre you sure you want to proceed?",
+          "Restore Data"
+        );
+
+        if (confirmed) {
+          // Reset file input
+          event.target.value = "";
+
+          const result = await ApiService.restoreAppData(json);
+          if (result.success) {
+            await this.modal.alert("Restore completed successfully. The page will now reload.");
+            window.location.reload();
+          } else {
+            await this.modal.alert("Restore failed: " + result.message);
+          }
+        } else {
+            event.target.value = ""; // Clear if cancelled
+        }
+      } catch (err) {
+        console.error(err);
+        await this.modal.alert("Invalid backup file format.");
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file);
   }
 
   displayStatus(message, type) {
