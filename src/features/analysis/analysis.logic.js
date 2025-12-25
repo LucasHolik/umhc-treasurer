@@ -1,7 +1,11 @@
 // src/features/analysis/analysis.logic.js
 
 import store from "../../core/state.js";
-import { getDateRange, formatDateForInput } from "../../core/utils.js";
+import {
+  getDateRange,
+  formatDateForInput,
+  parseAmount,
+} from "../../core/utils.js";
 import { calculateFinancials } from "../../core/financial.logic.js";
 
 class AnalysisLogic {
@@ -144,8 +148,8 @@ class AnalysisLogic {
     const allSecondaryKeys = new Set();
 
     const getVal = (item) => {
-      const inc = parseFloat(item.Income || 0);
-      const exp = parseFloat(item.Expense || 0);
+      const inc = parseAmount(item.Income);
+      const exp = parseAmount(item.Expense);
       if (metric === "income") return inc;
       if (metric === "expense") return exp;
       if (metric === "net") return inc - exp;
@@ -161,7 +165,9 @@ class AnalysisLogic {
           // Adjust date to the start of the week (Monday)
           const day = date.getDay();
           const diff = date.getDate() - day + (day === 0 ? -6 : 1); // If Sunday (0), go back 6 days to Monday
-          return formatDateForInput(new Date(date.setDate(diff)));
+          const weekStart = new Date(date);
+          weekStart.setDate(diff);
+          return formatDateForInput(weekStart);
         }
         if (timeUnit === "year") return date.getFullYear().toString();
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
@@ -326,8 +332,8 @@ class AnalysisLogic {
     let totalExpense = 0;
 
     filteredData.forEach((item) => {
-      totalIncome += parseFloat(item.Income || 0);
-      totalExpense += parseFloat(item.Expense || 0);
+      totalIncome += parseAmount(item.Income);
+      totalExpense += parseAmount(item.Expense);
     });
 
     const netChange = totalIncome - totalExpense;
@@ -361,15 +367,9 @@ class AnalysisLogic {
     // Calculate Net sum of active transactions
     let netActiveContribution = 0;
     activeTripExpenses.forEach((item) => {
-      const inc = item.Income
-        ? parseFloat(String(item.Income).replace(/,/g, ""))
-        : 0;
-      const exp = item.Expense
-        ? parseFloat(String(item.Expense).replace(/,/g, ""))
-        : 0;
-      const safeInc = isNaN(inc) ? 0 : inc;
-      const safeExp = isNaN(exp) ? 0 : exp;
-      netActiveContribution += safeInc - safeExp;
+      const inc = parseAmount(item.Income);
+      const exp = parseAmount(item.Expense);
+      netActiveContribution += inc - exp;
     });
 
     return currentBalance - netActiveContribution;

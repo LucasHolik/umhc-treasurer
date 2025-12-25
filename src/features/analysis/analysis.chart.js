@@ -21,37 +21,52 @@ export default class AnalysisChart {
       const existingScript = document.querySelector(
         'script[src="src/lib/chart.umd.min.js"]'
       );
-      const originalOnLoad = existingScript.onload;
-      existingScript.onload = () => {
-        if (originalOnLoad) originalOnLoad();
+
+      const handleLoad = () => {
         this.libLoaded = true;
         if (this.pendingRender) {
           this.render(this.pendingRender.data, this.pendingRender.options);
           this.pendingRender = null;
         }
       };
+
+      if (window.Chart) {
+        handleLoad();
+      } else {
+        existingScript.addEventListener("load", handleLoad);
+        existingScript.addEventListener("error", () => {
+          console.error("Failed to load Chart.js");
+          this.pendingRender = null;
+        });
+      }
       return;
     }
 
     const script = document.createElement("script");
     script.src = "src/lib/chart.umd.min.js";
-    script.onload = () => {
+    script.addEventListener("load", () => {
       this.libLoaded = true;
       console.log("Chart.js loaded");
       if (this.pendingRender) {
         this.render(this.pendingRender.data, this.pendingRender.options);
         this.pendingRender = null;
       }
-    };
-    script.onerror = () => {
+    });
+    script.addEventListener("error", () => {
       console.error("Failed to load Chart.js");
-    };
+      this.pendingRender = null;
+    });
     document.head.appendChild(script);
   }
 
   render(data, options) {
     if (!this.libLoaded) {
       this.pendingRender = { data, options };
+      return;
+    }
+
+    if (!this.element || this.element.tagName !== "CANVAS") {
+      console.error("AnalysisChart requires a canvas element");
       return;
     }
 
@@ -107,15 +122,23 @@ export default class AnalysisChart {
                 if (label) {
                   label += ": ";
                 }
-                if (context.parsed.y !== null) {
-                  label += formatCurrency(context.parsed.y);
+                const value =
+                  context.parsed.y !== undefined
+                    ? context.parsed.y
+                    : context.parsed;
+                if (value !== null) {
+                  label += formatCurrency(value);
                 }
                 return label;
               },
               footer: function (tooltipItems) {
                 let sum = 0;
                 tooltipItems.forEach(function (tooltipItem) {
-                  sum += tooltipItem.parsed.y;
+                  const value =
+                    tooltipItem.parsed.y !== undefined
+                      ? tooltipItem.parsed.y
+                      : tooltipItem.parsed;
+                  sum += value;
                 });
                 if (tooltipItems.length > 1) {
                   return "Total: " + formatCurrency(sum);

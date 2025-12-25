@@ -13,18 +13,28 @@ export function formatCurrency(amount) {
     return "";
   }
 
-  let num;
-  if (typeof amount === "string") {
-    // Remove commas to handle formatted strings like "1,234.56"
-    num = parseFloat(amount.replace(/,/g, ""));
-  } else {
-    num = parseFloat(amount);
-  }
+  const num = parseAmount(amount);
 
   if (isNaN(num)) {
     return amount.toString(); // Return original if not a valid number
   }
   return num.toFixed(2);
+}
+
+/**
+ * Parses a string or number into a float, handling commas and empty values.
+ * @param {string|number} amount
+ * @returns {number}
+ */
+export function parseAmount(amount) {
+  if (amount === null || amount === undefined || amount === "") {
+    return 0;
+  }
+  if (typeof amount === "number") {
+    return amount;
+  }
+  const parsed = parseFloat(String(amount).replace(/,/g, ""));
+  return isNaN(parsed) ? 0 : parsed;
 }
 
 export function parseDate(dateString) {
