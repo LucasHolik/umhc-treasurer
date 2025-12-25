@@ -1,0 +1,55 @@
+# Plan: Context-Aware Loading & Progress UI
+
+## Goal
+Implement a context-aware loading system where:
+1.  **Section 'A' (The Active Saver):** When a section initiates a long-running, chunked operation (like Restoring Data in Settings), it displays a detailed loading view (Spinner + Progress Bar) *within* that section.
+2.  **Other Sections:** All other sections display a generic global loading overlay (Spinner only) to prevent interaction while the operation is in progress.
+3.  **Technical Mechanism:** Use `loadingSource` state to differentiate between the active section and others.
+
+## Implementation Steps
+
+### 1. Update `ApiService` (or Core Logic)
+*   **Target:** `src/services/api.service.js` (specifically `restoreAppData` and `saveOpeningBalance` if applicable).
+*   **Action:**
+    *   When starting `restoreAppData` (or any chunked operation), set a new state property: `loadingSource`.
+    *   Example: `store.setState('loadingSource', 'settings');`
+    *   Ensure `isLoading` is still set to `true`.
+    *   Ensure `taggingProgress` is updated during the chunking process (already implemented in `restoreAppData`).
+    *   Clear `loadingSource` when the operation finishes or fails.
+
+### 2. Update `App.js` (The Shell)
+*   **Target:** `src/App.js`
+*   **Action:** Modify `handleLoadingState` to respect `loadingSource`.
+    *   **Logic Change:**
+        ```javascript
+        const isLoading = store.getState("isLoading");
+        const loadingSource = store.getState("loadingSource");
+        const activeTab = ...; // Get active tab ID
+
+        // Default: Show global loader if isLoading is true
+        let showGlobal = isLoading;
+
+        // Exception: If we are on the source tab, let it handle the UI
+        if (loadingSource && loadingSource === activeTab) {
+            showGlobal = false;
+        }
+
+        // Apply to DOM (show/hide #global-loader-container and .content-wrapper)
+        ```
+    *   This ensures that if the user is on the 'settings' tab during a restore, the Global Loader is HIDDEN, allowing the `SettingsComponent` to render its detailed view.
+    *   If the user (somehow) switches tabs, the Global Loader will appear.
+
+### 3. Verify `SettingsComponent` (The View)
+*   **Target:** `src/features/settings/settings.component.js`
+*   **Action:**
+    *   Ensure it subscribes to `taggingProgress`.
+    *   Ensure `render()` checks for `taggingProgress`.
+    *   If `taggingProgress` is present, render the **Spinner + Progress Bar**.
+    *   Ensure the visual style matches the requirements (Loading Symbol + Progress Bar).
+
+### 4. Verify Chunking Logic
+*   **Target:** `src/core/chunking.js` and `src/services/api.service.js`
+*   **Action:** Confirm that `Chunker.sendChunkedRequest` is correctly reporting progress to the callback, which updates `taggingProgress`. (Already verified in reading, but will double-check during implementation).
+
+### 5. Cleanup
+*   Remove any conflicting logic that forces the Global Loader to show unconditionally when `isLoading` is true.
