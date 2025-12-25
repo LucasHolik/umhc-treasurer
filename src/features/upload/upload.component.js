@@ -267,6 +267,13 @@ class UploadComponent {
       return;
     }
 
+    // Re-check duplicates against the latest data in the store
+    // This ensures we don't re-upload data if the store has been updated
+    // (e.g. by a previous upload) but the file is still loaded.
+    const existingData = store.getState("rawExpenses") || [];
+    this.markDuplicates(this.parsedData, existingData);
+    this.displayExtractedData(); // Update UI to reflect current duplicate status
+
     // Filter for new records only
     const newRecords = this.parsedData
       .filter((r) => !r.isDuplicate)
