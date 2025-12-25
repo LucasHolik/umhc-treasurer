@@ -1,0 +1,323 @@
+/* Analysis Feature Styles */
+
+.analysis-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Summary Cards */
+.summary-cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.summary-card {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 15px 20px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.summary-card h3 {
+  margin-top: 0;
+  margin-bottom: 5px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-card p {
+  margin: 0;
+  font-size: 1.6em;
+  font-weight: bold;
+  color: #f0ad4e; /* Accent color */
+}
+
+/* Main Control Panel Structure */
+.main-control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.control-section {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px 20px;
+}
+
+.section-header {
+  font-size: 0.85em;
+  color: #f0ad4e;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 5px;
+}
+
+/* Scope Section */
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+}
+
+.dates-row {
+  align-items: center;
+}
+
+/* Presets Section */
+.quick-reports-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quick-report-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.2s;
+  flex: 1 1 auto; /* Grow to fill space */
+  text-align: center;
+  min-width: 150px;
+}
+
+.quick-report-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: #f0ad4e;
+  transform: translateY(-1px);
+}
+
+/* Customization Section */
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+/* Shared Control Styles */
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.control-group label {
+  font-size: 0.85em;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.control-input {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background-color: #1a6b10;
+  color: #fff;
+  font-size: 0.95em;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.control-input:focus {
+  outline: none;
+  border-color: #f0ad4e;
+}
+
+/* Tag Filters Section */
+.tag-filters-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.tag-filter-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tag-filter-header {
+  font-size: 0.85em;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Tag Search Input */
+.tag-search-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  font-size: 0.9em;
+  box-sizing: border-box;
+}
+
+.tag-search-input:focus {
+  outline: none;
+  border-color: #f0ad4e;
+}
+
+/* Custom Checkbox List for Tags */
+.tag-selector {
+  height: 180px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background-color: #1a6b10;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.tag-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 0.9em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tag-checkbox-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tag-checkbox-item input[type="checkbox"] {
+  accent-color: #f0ad4e;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+/* Actions Bar */
+.analysis-actions-bar {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-bottom: 10px; /* Space between bar and chart */
+  padding: 10px 0;
+}
+
+.btn-action {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.9em;
+}
+
+.btn-action:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-color: #f0ad4e;
+}
+
+/* Chart */
+.chart-container {
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 20px;
+  border-radius: 8px;
+  position: relative;
+  min-height: 400px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+canvas {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 600px;
+}
+
+/* Data Table Styles */
+.data-table-container {
+  margin-top: 20px;
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-x: auto;
+}
+
+.data-table-container h3 {
+  color: #f0ad4e;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #fff;
+  font-size: 0.9em;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
+}
+
+.data-table-header {
+  background-color: rgba(255, 255, 255, 0.1);
+  font-weight: bold;
+  color: #f0ad4e;
+  text-transform: uppercase;
+  font-size: 0.8em;
+  letter-spacing: 0.5px;
+}
+
+.data-table-row:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.data-table-row:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.data-table-cell.total-column {
+  font-weight: bold;
+  color: #f0ad4e;
+  background-color: rgba(240, 173, 78, 0.1);
+}
+
+@media (max-width: 768px) {
+  .control-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tag-filters-container {
+    grid-template-columns: 1fr;
+  }
+  .summary-cards-container {
+    grid-template-columns: 1fr;
+  }
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+}

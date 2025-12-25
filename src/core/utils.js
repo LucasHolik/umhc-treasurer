@@ -1,0 +1,161 @@
+// src/core/utils.js
+
+// Shared helper functions will be added here.
+
+/**
+ * Formats a number or string into a currency string with 2 decimal places.
+ * e.g. 4 -> "4.00", "4.5" -> "4.50", "1,234" -> "1234.00"
+ * @param {string|number} amount
+ * @returns {string}
+ */
+export function formatCurrency(amount) {
+  if (amount === null || amount === undefined || amount === "") {
+    return "";
+  }
+
+  let num;
+  if (typeof amount === "string") {
+    // Remove commas to handle formatted strings like "1,234.56"
+    num = parseFloat(amount.replace(/,/g, ""));
+  } else {
+    num = parseFloat(amount);
+  }
+
+  if (isNaN(num)) {
+    return amount.toString(); // Return original if not a valid number
+  }
+  return num.toFixed(2);
+}
+
+export function parseDate(dateString) {
+  if (!dateString) return null;
+  let date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    const formattedDate = dateString.replace(/[-./]/g, "/");
+    date = new Date(formattedDate);
+  }
+  if (isNaN(date.getTime())) return null;
+  return date;
+}
+
+export function getCurrentMonthRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { start, end };
+}
+
+export function getPastDaysRange(days) {
+  const now = new Date();
+  const start = new Date();
+  start.setDate(now.getDate() - days);
+  return { start, end: now };
+}
+
+export function getPastMonthsRange(months) {
+  const now = new Date();
+  const start = new Date();
+  start.setMonth(now.getMonth() - months);
+  return { start, end: now };
+}
+
+export function getPastYearRange() {
+  const now = new Date();
+  const start = new Date();
+  start.setFullYear(now.getFullYear() - 1);
+  return { start, end: now };
+}
+
+export function getDateRange(timeframe) {
+  switch (timeframe) {
+    case "current_month":
+      return getCurrentMonthRange();
+    case "past_30_days":
+      return getPastDaysRange(30);
+    case "past_3_months":
+      return getPastMonthsRange(3);
+    case "past_6_months":
+      return getPastMonthsRange(6);
+    case "past_year":
+      return getPastYearRange();
+    default:
+      return getPastDaysRange(30);
+  }
+}
+
+export function filterTransactionsByTimeframe(transactions, timeframe) {
+  if (!transactions || transactions.length === 0) return [];
+  if (timeframe === "all_time") return transactions;
+
+  const { start, end } = getDateRange(timeframe);
+
+  return transactions.filter((transaction) => {
+    const date = parseDate(transaction.Date);
+    if (!date) return false;
+    return date >= start && date <= end;
+  });
+}
+
+/**
+ * Formats a Date object to a YYYY-MM-DD string in local time.
+ * @param {Date} date
+ * @returns {string}
+ */
+export function formatDateForInput(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Escapes HTML special characters in a string to prevent XSS.
+ * @param {string} str
+ * @returns {string}
+ */
+export function escapeHtml(str) {
+  if (typeof str !== "string") return str;
+  const matchHtmlRegExp = /["'&<>]/;
+  const match = matchHtmlRegExp.exec(str);
+
+  if (!match) {
+    return str;
+  }
+
+  let escape;
+  let html = "";
+  let index = 0;
+  let lastIndex = 0;
+
+  for (index = match.index; index < str.length; index++) {
+    switch (str.charCodeAt(index)) {
+      case 34: // "
+        escape = "&quot;";
+        break;
+      case 38: // &
+        escape = "&amp;";
+        break;
+      case 39: // '
+        escape = "&#39;";
+        break;
+      case 60: // <
+        escape = "&lt;";
+        break;
+      case 62: // >
+        escape = "&gt;";
+        break;
+      default:
+        continue;
+    }
+
+    if (lastIndex !== index) {
+      html += str.substring(lastIndex, index);
+    }
+
+    lastIndex = index + 1;
+    html += escape;
+  }
+
+  return lastIndex !== index ? html + str.substring(lastIndex, index) : html;
+}

@@ -1,0 +1,178 @@
+/* Shared UI Components */
+
+/* Section styling */
+.section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.section h2 {
+  margin-top: 0;
+  color: #f0ad4e;
+  display: inline-block;
+  padding-bottom: 10px;
+  border-bottom: 2.4px solid #8b4513;
+}
+
+.section input[type="file"] {
+  margin-left: 20px;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.section pre {
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 15px;
+  border-radius: 5px;
+  overflow: auto;
+  color: #f8f8f8;
+}
+
+.section table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.section th,
+.section td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section th {
+  background-color: rgba(240, 173, 78, 0.2);
+  color: #fff;
+}
+
+/* Shared Table Styling (Explicit class) */
+.section-table {
+  width: 100%;
+  table-layout: fixed; /* Added to ensure table respects 100% width and prevents overflow */
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.section-table th,
+.section-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-table th {
+  background-color: rgba(240, 173, 78, 0.2);
+  color: #fff;
+}
+
+.section-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Buttons */
+.secondary-btn {
+  background-color: transparent;
+  border: 1px solid #f0ad4e;
+  color: #f0ad4e;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.secondary-btn:hover {
+  background-color: #f0ad4e;
+  color: #fff;
+}
+
+/* Disabled button style */
+.disabled-btn {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+}
+
+/* View toggle buttons */
+.view-toggle {
+  margin: 15px 0;
+}
+
+.view-toggle-btn {
+  padding: 8px 15px;
+  border: 1px solid #f0ad4e;
+  background-color: transparent;
+  color: #f0ad4e;
+  cursor: pointer;
+  margin-right: 5px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.view-toggle-btn.active,
+.view-toggle-btn:hover {
+  background-color: #f0ad4e;
+  color: #fff;
+}
+
+/* Financial Signifiers */
+.positive {
+  color: #5cb85c; /* A shade of green */
+}
+
+.negative {
+  color: #d9534f; /* A shade of red */
+}
+
+/* Timeframe selector styling (Moved from dashboard.css) */
+.timeframe-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.timeframe-selector label {
+  font-size: 0.9em;
+  color: #fff;
+}
+
+.timeframe-selector select {
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background-color: #1a6b10;
+  color: #fff;
+  font-size: 0.9em;
+  cursor: pointer;
+  min-width: 150px;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  padding-right: 30px;
+}
+
+.timeframe-selector select:focus {
+  outline: none;
+  border-color: #f0ad4e;
+}
+
+/* Add styling for the dropdown arrow on different browsers */
+.timeframe-selector select::-ms-expand {
+  display: none;
+}
+
+/* Responsive design for timeframe selector */
+@media (max-width: 768px) {
+  .timeframe-selector {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .timeframe-selector select {
+    min-width: auto;
+    flex: 1;
+  }
+}

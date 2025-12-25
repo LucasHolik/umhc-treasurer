@@ -1,0 +1,144 @@
+# PROJECT ARCHITECTURE FRAMEWORK: UMHC TREASURER 2.0
+# Goal: modularity, stability, and expandability.
+
+================================================================================
+1. CORE PHILOSOPHY: "THE SEPARATION OF CONCERNS"
+================================================================================
+
+The root cause of "vibe coding" failure is tight coupling—where your UI knows 
+too much about your API, and your API knows too much about your DOM. 
+
+To fix this, we will adopt a strict unidirectional data flow:
+Action -> Service -> State -> UI Update
+
+1.  **The UI is dumb.** It only knows how to display data it is given and trigger events.
+2.  **The State is the single source of truth.** Data lives here, not in the DOM.
+3.  **The Services handle the dirty work.** API calls, calculations, and formatting.
+
+================================================================================
+2. RECOMMENDED DIRECTORY STRUCTURE
+================================================================================
+
+Refactor your folders to group files by *domain* (what they do) rather than 
+just file type.
+
+/project-root
+  /src
+    /core             # The framework plumbing
+      state.js        # Central Store (Pub/Sub system)
+      router.js       # Handles tab switching/URL state
+      utils.js        # Shared helpers (date formatting, etc.)
+    
+    /services         # Logic that touches external things
+      api.service.js  # Communication with Google Apps Script
+      excel.service.js# Excel parsing logic
+      auth.service.js # Login logic
+    
+    /features         # Self-contained feature modules
+      /dashboard
+        dashboard.component.js
+        dashboard.css
+      /transactions
+        transactions.table.js
+        transactions.filters.js
+      /tags
+        tags.manager.js
+      /upload
+        file-upload.js
+      /shared         # Reusable UI elements
+        loader.js
+        modal.js
+        
+  /google-apps-script # Backend Code
+    Controller.gs     # The entry point (doGet, router)
+    Service_Sheet.gs  # Database interaction
+    Service_Auth.gs   # Auth logic
+    Config.gs         # Constants
+
+  index.html          # The minimal skeleton
+
+================================================================================
+3. CLIENT-SIDE ARCHITECTURE (The Frontend)
+================================================================================
+
+A. The Store (State Management)
+--------------------------------------------------------------------------------
+Stop storing data in HTML tables or global variables scattered in `main.js`. 
+Create a central "Store."
+- **Concept:** A javascript object that holds the application state (e.g., `currentUser`, `expensesList`, `tagsList`, `isLoading`).
+- **Mechanism:** Use the "Observer Pattern" (Pub/Sub).
+    1. Components "subscribe" to specific data changes (e.g., Dashboard subscribes to `expensesList`).
+    2. When data changes, the Store notifies only the subscribers.
+    3. The UI automatically re-renders based on the new data.
+
+B. The Component Pattern
+--------------------------------------------------------------------------------
+Every section of your app (Dashboard, Transaction Table, Tag Editor) should be a 
+"Component." A Component is a JS class/object that adheres to strict rules:
+1.  **Init:** It caches its own DOM elements (buttons, inputs) within its scope.
+2.  **Render:** It accepts *data* as an argument and updates its HTML. It never fetches its own data.
+3.  **Listen:** It listens for user clicks and dispatches "Actions" to the Services. It does *not* perform the business logic itself.
+    * *Bad:* Click Save -> UI calculates total -> UI calls API.
+    * *Good:* Click Save -> UI triggers `ExpenseService.save()`.
+
+C. The Service Layer
+--------------------------------------------------------------------------------
+This is the boundary between your app and the outside world.
+- **API Service:** Wraps `google.script.run` or your JSONP implementation. It returns Promises. It handles network errors so the UI doesn't have to.
+- **Excel Service:** Pure logic. Input: File -> Output: Clean JSON. No UI code allowed here.
+
+================================================================================
+4. SERVER-SIDE ARCHITECTURE (Google Apps Script)
+================================================================================
+
+A. The Controller (Code.gs)
+--------------------------------------------------------------------------------
+This file should contain *no business logic*. It is a traffic cop.
+- It receives the request (`doGet` or `post`).
+- It checks the Action parameter (e.g., `action=getData`).
+- It routes the request to the appropriate Service function.
+- It formats the response (Success/Error) standardizing the output format.
+
+B. The Services (Backend)
+--------------------------------------------------------------------------------
+Break your backend logic into specialized files:
+- **Repository Pattern:** Create a `SheetService` that acts as the *only* place that touches `SpreadsheetApp`.
+    - `getAllExpenses()`
+    - `addExpense(row)`
+    - `updateTag(id, tag)`
+- This prevents "spaghetti code" where every function tries to find the active sheet and calculate rows.
+
+================================================================================
+5. DATA FLOW SCENARIO: "Adding a Tag"
+================================================================================
+
+Here is how a feature should work to ensure stability:
+
+1.  **User Interaction:** User types "Food" into the Tag Input and hits Enter.
+2.  **Component:** `TagsComponent` catches the event. It calls `TagService.addTag('Food')`.
+3.  **Service (Client):** `TagService` calls the Google Backend API.
+4.  **Backend Controller:** Receives request, calls `BackendTagService.add()`.
+5.  **Backend Service:** Validates input, writes to Sheet, returns "Success".
+6.  **Service (Client):** Receives "Success". It now updates the **State** (The Store), adding "Food" to the `tagsList`.
+7.  **State:** The Store triggers an event: "TagsUpdated".
+8.  **UI Update:** Both `TagsComponent` AND `TransactionTableComponent` (which has a dropdown for tags) are subscribed to "TagsUpdated". They both re-render automatically.
+
+*Result:* You didn't have to manually update the dropdowns in the transaction table. The architecture did it for you.
+
+================================================================================
+6. WORKFLOW FOR EXPANSION (How to add features)
+================================================================================
+
+When you want to add a new feature (e.g., "Budget Goals"):
+
+1.  **Define Data:** What does a "Budget Goal" look like? (Amount, Category, Month). Add this shape to your mental model.
+2.  **Backend:** Create `Service_Budget.gs`. Write functions to read/write this data to a new Sheet tab.
+3.  **Frontend Service:** Add `BudgetService.js` to talk to the backend.
+4.  **Frontend State:** Add `budgetList` to your Store.
+5.  **UI Component:** Create `BudgetComponent.js`.
+    - Subscribe to `budgetList` in the Store.
+    - Render the HTML.
+    - On click, call `BudgetService`.
+6.  **Wire Up:** Add the new component to your navigation router.
+
+By following this order, you never touch the existing "Transactions" code to add "Budgets." Nothing breaks.

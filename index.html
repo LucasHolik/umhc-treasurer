@@ -3,34 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>UMHC Finance Hub</title>
-    <link rel="stylesheet" href="css/style.css" />
+    <title>UMHC Treasurer</title>
+    <link rel="icon" href="favicon.ico" />
+
+    <!-- Base & Shared Styles -->
+    <link rel="stylesheet" href="src/styles/base.css" />
+    <link rel="stylesheet" href="src/styles/shared.css" />
+    <link rel="stylesheet" href="src/shared/tag-selector.css" />
+    <link rel="stylesheet" href="src/shared/action-button.css" />
+    <link rel="stylesheet" href="src/shared/sortable-table.css" />
+    <link rel="stylesheet" href="src/App.css" />
+    <link rel="stylesheet" href="src/shared/loader.css" />
+
+    <!-- Feature Styles -->
+    <link rel="stylesheet" href="src/features/login/login.css" />
+    <link rel="stylesheet" href="src/features/dashboard/dashboard.css" />
+    <link rel="stylesheet" href="src/features/transactions/transactions.css" />
+    <link rel="stylesheet" href="src/features/tags/tags.css" />
+    <link rel="stylesheet" href="src/features/upload/upload.css" />
   </head>
   <body>
-    <div id="app">
-      <div id="login-container">
-        <h1>UMHC Finance Hub</h1>
-        <form id="login-form">
-          <p>Enter the shared key to access the application.</p>
-          <input
-            type="password"
-            id="shared-key"
-            placeholder="Shared Key"
-            required
-          />
-          <button type="submit">Login</button>
-          <p id="error-message" class="error-message"></p>
-        </form>
-      </div>
+    <div id="app"></div>
 
-      <div id="main-content" style="display: none">
-        <!-- Main application content will go here -->
-        <h2>Main Application</h2>
-        <button id="logout-button">Logout</button>
-      </div>
-    </div>
-
-    <script src="js/api.js"></script>
-    <script src="js/app.js"></script>
+    <script src="src/lib/read-excel-file.min.js"></script>
+    <script type="module" src="src/App.js"></script>
   </body>
 </html>

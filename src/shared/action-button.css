@@ -1,0 +1,35 @@
+/* Shared Action Button Styles */
+.action-btn {
+  background-color: #f0ad4e;
+  color: #2a4d25;
+  border: none;
+  font-weight: bold;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Pulse animation only on hover */
+.action-btn:hover:not(:disabled) {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(240, 173, 78, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(240, 173, 78, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(240, 173, 78, 0);
+  }
+}
