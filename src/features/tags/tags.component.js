@@ -23,6 +23,7 @@ class TagsComponent {
     this.selectedTag = null; // { type, name }
     this.targetTypeName = null; // For add-trip view
     this.timeframe = "all_time";
+    this.history = []; // Navigation stack
 
     this.modal = new ModalComponent();
 
@@ -168,6 +169,12 @@ class TagsComponent {
   // --- Navigation Handlers ---
 
   handleTagClick(type, name) {
+    // Push current state to history before navigating
+    this.history.push({
+      viewMode: this.viewMode,
+      selectedTag: this.selectedTag,
+    });
+
     this.selectedTag = { type, name };
     if (type === "Type") {
       this.viewMode = "sublist";
@@ -178,30 +185,22 @@ class TagsComponent {
   }
 
   handleBack() {
+    this.history = []; // Clear history when going back to root
     this.selectedTag = null;
     this.viewMode = "list";
     this.render();
   }
 
   handleDetailsBack() {
-    // If we came from a Type sublist (Trip/Event), go back to sublist
-    if (this.selectedTag && this.selectedTag.type === "Trip/Event") {
-      // We need to know which Type "owns" this trip to go back to the correct sublist.
-      // However, we don't store the "parent" type in selectedTag.
-      // We can look it up.
-      const tagsData = store.getState("tags") || {};
-      const tripTypeMap = tagsData.TripTypeMap || {};
-      const parentType = tripTypeMap[this.selectedTag.name];
-
-      if (parentType) {
-        this.selectedTag = { type: "Type", name: parentType };
-        this.viewMode = "sublist";
-        this.render();
-        return;
-      }
+    if (this.history.length > 0) {
+      const prevState = this.history.pop();
+      this.viewMode = prevState.viewMode;
+      this.selectedTag = prevState.selectedTag;
+      this.render();
+    } else {
+      // Default fallback
+      this.handleBack();
     }
-    // Default fallback
-    this.handleBack();
   }
 
   handleAddTransactions(type, name) {
