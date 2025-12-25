@@ -27,8 +27,11 @@ export default class SplitTransactionModal {
       ? parseFloat(String(transaction.Expense).replace(/,/g, ""))
       : 0;
     this.originalAmount = isNaN(income) ? 0 : income;
-    if (expense > 0) this.originalAmount = expense; // Treat as positive magnitude for splitting
     this.isIncome = income > 0;
+    if (expense > 0) {
+      this.originalAmount = expense; // Treat as positive magnitude for splitting
+      this.isIncome = false;
+    }
 
     if (existingSplits) {
       this.mode = "edit";
@@ -48,7 +51,7 @@ export default class SplitTransactionModal {
         }
 
         return {
-          description: s.Description || s.description, // handle both cases
+          description: s.Description || s.description || "", // handle both cases
           amount: parseFloat(amt || 0),
         };
       });
@@ -56,11 +59,11 @@ export default class SplitTransactionModal {
       this.mode = "create";
       this.splits = [
         {
-          description: transaction.Description + " (Part 1)",
+          description: (transaction.Description ?? "Transaction") + " (Part 1)",
           amount: 0,
         },
         {
-          description: transaction.Description + " (Part 2)",
+          description: (transaction.Description ?? "Transaction") + " (Part 2)",
           amount: 0,
         },
       ];
@@ -164,7 +167,7 @@ export default class SplitTransactionModal {
                 marginBottom: "5px",
               },
             },
-            this.transaction.Description
+            this.transaction.Description ?? "No Description"
           ),
           el(
             "div",
@@ -175,7 +178,7 @@ export default class SplitTransactionModal {
                 alignItems: "center",
               },
             },
-            el("span", { style: { color: "#ddd" } }, this.transaction.Date),
+            el("span", { style: { color: "#ddd" } }, this.transaction.Date ?? ""),
             el(
               "span",
               {
@@ -248,6 +251,14 @@ export default class SplitTransactionModal {
     document.body.appendChild(overlay);
     this.overlay = overlay;
 
+    // Keyboard accessibility for ESC key
+    this.handleEscape = (e) => {
+      if (e.key === "Escape") {
+        this.close(null);
+      }
+    };
+    document.addEventListener("keydown", this.handleEscape);
+
     // Render initial splits
     this.renderSplits();
   }
@@ -291,6 +302,7 @@ export default class SplitTransactionModal {
         "button",
         {
           className: "remove-split-btn",
+          "aria-label": `Remove split ${index + 1}`,
           dataset: { index },
           style: {
             background: "none",
@@ -325,12 +337,9 @@ export default class SplitTransactionModal {
   }
 
   addSplit() {
+    const baseDesc = this.transaction.Description ?? "Transaction";
     this.splits.push({
-      description:
-        this.transaction.Description +
-        " (Part " +
-        (this.splits.length + 1) +
-        ")",
+      description: baseDesc + " (Part " + (this.splits.length + 1) + ")",
       amount: 0,
     });
     this.renderSplits();
@@ -393,7 +402,7 @@ export default class SplitTransactionModal {
       return;
     }
 
-    if (this.splits.some((s) => !s.description.trim())) {
+    if (this.splits.some((s) => !s.description || !s.description.trim())) {
       await new ModalComponent().alert("All splits must have a description.");
       return;
     }
@@ -419,6 +428,9 @@ export default class SplitTransactionModal {
   }
 
   close(data) {
+    if (this.handleEscape) {
+      document.removeEventListener("keydown", this.handleEscape);
+    }
     if (this.overlay) {
       this.overlay.remove();
     }
