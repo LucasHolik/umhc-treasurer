@@ -70,11 +70,20 @@ class TransactionsComponent {
       this.handleInteractiveTagClick(e);
     };
     document.addEventListener("click", this.boundGlobalClickHandler);
+
+    // Global keydown listener for accessibility
+    this.boundGlobalKeydownHandler = (e) => {
+      this.handleInteractiveTagKeydown(e);
+    };
+    document.addEventListener("keydown", this.boundGlobalKeydownHandler);
   }
 
   destroy() {
     if (this.boundGlobalClickHandler) {
       document.removeEventListener("click", this.boundGlobalClickHandler);
+    }
+    if (this.boundGlobalKeydownHandler) {
+      document.removeEventListener("keydown", this.boundGlobalKeydownHandler);
     }
     if (this.subscriptions) {
       this.subscriptions.forEach((sub) => sub.unsubscribe());
@@ -130,6 +139,27 @@ class TransactionsComponent {
       this.tagSelector.show(rect, type, currentVal, (newVal) => {
         this.updatePendingChange(rowId, type, newVal);
       });
+    }
+  }
+
+  handleInteractiveTagKeydown(e) {
+    // Ignore if we are in bulk selection mode
+    if (this.selectionMode) return;
+
+    // Check for Enter (13) or Space (32)
+    if (e.key === "Enter" || e.key === " ") {
+      const target = e.target;
+
+      // Handle "Remove Tag" (X button)
+      if (target.classList.contains("remove-btn")) {
+        e.preventDefault(); // Prevent scrolling for Space
+        e.stopPropagation();
+        const pill = target.closest(".tag-pill");
+        const rowId = pill.dataset.row;
+        const type = pill.dataset.type;
+        this.updatePendingChange(rowId, type, "");
+        return;
+      }
     }
   }
 
@@ -592,7 +622,17 @@ class TransactionsComponent {
           dataset: { row: rowId, type: type },
         },
         el("span", { className: "tag-text" }, value),
-        el("span", { className: "remove-btn", title: "Remove Tag" }, "×")
+        el(
+          "span",
+          {
+            className: "remove-btn",
+            title: "Remove Tag",
+            tabIndex: "0",
+            role: "button",
+            "aria-label": "Remove Tag",
+          },
+          "×"
+        )
       );
     } else {
       return el(

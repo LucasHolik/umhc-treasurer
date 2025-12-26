@@ -27,7 +27,8 @@
   line-height: 1;
 }
 
-.tag-pill:hover .remove-btn {
+.tag-pill:hover .remove-btn,
+.tag-pill:focus-within .remove-btn {
   opacity: 1;
 }
 
