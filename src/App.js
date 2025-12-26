@@ -65,7 +65,6 @@ class App {
     );
 
     this.dataUploadedHandler = () => {
-      store.setState("isLoading", true);
       this.loadInitialData();
     };
     document.addEventListener("dataUploaded", this.dataUploadedHandler);
@@ -91,6 +90,7 @@ class App {
   }
 
   renderLogin() {
+    this.cleanupMainApp();
     this.cleanupComponents();
     const loginRoot = el("div", { id: "login-root" });
     replace(this.element, loginRoot);
@@ -99,7 +99,6 @@ class App {
 
   renderMainApp() {
     this.cleanupMainApp();
-    store.setState("isLoading", true);
     this.globalLoader = new LoaderComponent();
 
     const navItem = (tab, icon, text, active = false) =>
@@ -251,6 +250,19 @@ class App {
     const analysisEl = this.element.querySelector("#analysis-content");
     const settingsEl = this.element.querySelector("#settings-content");
 
+    if (
+      !dashboardEl ||
+      !transactionsEl ||
+      !uploadEl ||
+      !tagsEl ||
+      !analysisEl ||
+      !settingsEl
+    ) {
+      console.error("Failed to find all content containers");
+      store.setState("error", "Application initialization failed");
+      return;
+    }
+
     this.components.dashboard = new DashboardComponent(dashboardEl);
     this.components.transactions = new TransactionsComponent(transactionsEl);
     this.components.upload = new UploadComponent(uploadEl);
@@ -355,6 +367,7 @@ class App {
   }
 
   async loadInitialData() {
+    store.setState("isLoading", true);
     try {
       console.log("Fetching initial data...");
 
@@ -403,4 +416,9 @@ class App {
   }
 }
 
-new App(document.getElementById("app"));
+const appElement = document.getElementById("app");
+if (appElement) {
+  new App(appElement);
+} else {
+  console.error("Root element #app not found");
+}

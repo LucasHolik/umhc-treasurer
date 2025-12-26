@@ -1032,7 +1032,9 @@ class TransactionsComponent {
         // Merge pending changes with original data to get full update object
         // But API updateExpenses expects: { row, tripEvent, category }
 
-        const updateObj = { row: rowId };
+        // Use original.row to ensure correct type (Number for standard, String for split)
+        // instead of rowId which is always a string from Map keys
+        const updateObj = { row: original.row };
 
         if (changes.hasOwnProperty("Trip/Event")) {
           updateObj.tripEvent = changes["Trip/Event"];
