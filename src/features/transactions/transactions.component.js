@@ -565,6 +565,25 @@ class TransactionsComponent {
       }
     }
 
+    // Check if in Bulk Tagging Mode
+    if (this.selectionMode) {
+      if (value) {
+        return el(
+          "span",
+          {
+            className: `tag-pill ${isPending ? "pending-change" : ""}`,
+            dataset: { row: rowId, type: type },
+            style: { cursor: "default" }, // Override pointer cursor
+          },
+          el("span", { className: "tag-text" }, value)
+          // No remove button
+        );
+      } else {
+        // No "+" button in bulk mode
+        return el("span", {}, "");
+      }
+    }
+
     if (value) {
       return el(
         "span",
