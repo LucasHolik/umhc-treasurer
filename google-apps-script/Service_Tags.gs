@@ -11,10 +11,6 @@ var Service_Tags = {
     const type = e.parameter.type;
     const value = e.parameter.value;
     const deleteResult = _deleteTag(type, value);
-    if (deleteResult.success) {
-      Service_Sheet.removeTagFromExpenses(type, value);
-      Service_Split.removeTagFromSplits(type, value);
-    }
     return deleteResult;
   },
 
@@ -169,6 +165,23 @@ function _addTag(type, value, skipSort, extraData) {
   // If adding a Trip/Event, we must set its Type (Col 2) and Status (Col 3)
   if (type === "Trip/Event") {
     const typeValue = extraData || "";
+
+    // Validate typeValue exists in Type List (Col 5)
+    if (typeValue && lastRow > 1) {
+      const existingTypes = tagSheet
+        .getRange(2, 5, lastRow - 1, 1)
+        .getValues()
+        .flat()
+        .map(String)
+        .filter((t) => t !== "");
+      if (!existingTypes.includes(typeValue)) {
+        return {
+          success: false,
+          message: "Invalid type: " + typeValue + " not found in Type List",
+        };
+      }
+    }
+
     tagSheet.getRange(nextEmptyRow, 2).setValue(typeValue);
     tagSheet.getRange(nextEmptyRow, 3).setValue("Active"); // Default status
   }
@@ -257,6 +270,20 @@ function _deleteTag(type, value) {
     }
   }
 
+  try {
+    Service_Sheet.removeTagFromExpenses(type, value);
+    Service_Split.removeTagFromSplits(type, value);
+  } catch (error) {
+    console.error("Error updating related data after tag deletion:", error);
+    return {
+      success: false,
+      message:
+        "Tag deleted from Tags sheet, but failed to update related expenses/splits: " +
+        error.message,
+      partial: true,
+    };
+  }
+
   return { success: true, message: "Tag deleted successfully." };
 }
 
@@ -312,8 +339,19 @@ function _renameTag(type, oldValue, newValue, skipSort) {
 
   // Renaming Trip/Event doesn't need to check "CompletedList" anymore since it's on the same row
 
-  Service_Sheet.updateExpensesWithTag(oldValue, newValue, type);
-  Service_Split.updateTagInSplits(oldValue, newValue, type);
+  try {
+    Service_Sheet.updateExpensesWithTag(oldValue, newValue, type);
+    Service_Split.updateTagInSplits(oldValue, newValue, type);
+  } catch (error) {
+    console.error("Error updating related data after tag rename:", error);
+    return {
+      success: false,
+      message:
+        "Tag renamed in Tags sheet, but failed to update related data: " +
+        error.message,
+      partial: true,
+    };
+  }
 
   if (!skipSort) {
     _sortTags(type);
@@ -385,10 +423,6 @@ function _processTagOperations(operations) {
         break;
       case "delete":
         result = _deleteTag(tagType, oldValue);
-        if (result.success) {
-          Service_Sheet.removeTagFromExpenses(tagType, oldValue);
-          Service_Split.removeTagFromSplits(tagType, oldValue);
-        }
         break;
       case "rename":
         result = _renameTag(tagType, oldValue, newValue, true);
