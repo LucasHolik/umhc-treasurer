@@ -305,7 +305,6 @@ export default class TagsAddTrip {
     }
 
     return filtered.map((trip) => ({
-      row: trip, // SortableTable expects a 'row' property for selection
       trip: trip,
       type: this.tripTypeMap[trip] || "",
       selected: this.selectedTrips.has(trip),
@@ -317,6 +316,7 @@ export default class TagsAddTrip {
 
     this.tableComponent = new SortableTable(container, {
       enableSelection: true,
+      rowIdField: "trip",
       columns: [
         { key: "trip", label: "Trip/Event", type: "text", sortable: true },
         { key: "type", label: "Current Type", type: "text", sortable: true },
@@ -333,9 +333,7 @@ export default class TagsAddTrip {
 
     // Header Select All Logic - handled by SortableTable when enableSelection: true
     // The previous manual event listener is no longer needed here.
-    this.tableComponent.update(
-      this.getFilteredData().map((item) => ({ ...item, row: item.trip }))
-    ); // SortableTable expects 'row' as unique identifier
+    this.tableComponent.update(this.getFilteredData());
     this.updateSelectionUI();
   }
 

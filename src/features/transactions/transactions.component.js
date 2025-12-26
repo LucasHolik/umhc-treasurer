@@ -732,6 +732,7 @@ class TransactionsComponent {
           },
         ],
         enableSelection: this.selectionMode,
+        rowIdField: "row",
         initialSortField: "Date",
         initialSortAsc: false,
         onSelectionChange: (selectedIds) =>

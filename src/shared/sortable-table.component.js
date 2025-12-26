@@ -26,13 +26,13 @@ export default class SortableTable {
     this.onRowClick = config.onRowClick;
     this.enableSelection = config.enableSelection || false;
     this.onSelectionChange = config.onSelectionChange;
+    this.rowIdField = config.rowIdField || "id";
 
     this.data = [];
     this.sortField = config.initialSortField || null;
     this.sortAsc =
       config.initialSortAsc !== undefined ? config.initialSortAsc : true;
-    this.selectedRows = new Set(); // Stores row IDs (or whole objects if no ID?) - prefer IDs.
-    // Assuming data items have a unique 'row' or 'id' property if selection is enabled.
+    this.selectedRows = new Set();
   }
 
   update(data) {
@@ -59,7 +59,7 @@ export default class SortableTable {
       // Check if all visible rows are selected
       const allSelected =
         this.data.length > 0 &&
-        this.data.every((item) => this.selectedRows.has(item.row));
+        this.data.every((item) => this.selectedRows.has(item[this.rowIdField]));
       checkbox.checked = allSelected;
 
       headerRow.appendChild(el("th", { style: { width: "40px" } }, checkbox));
@@ -134,8 +134,9 @@ export default class SortableTable {
           const checkbox = el("input", {
             type: "checkbox",
             "aria-label": "Select row",
-            checked: this.selectedRows.has(item.row),
-            onchange: (e) => this.handleRowSelect(item.row, e.target.checked),
+            checked: this.selectedRows.has(item[this.rowIdField]),
+            onchange: (e) =>
+              this.handleRowSelect(item[this.rowIdField], e.target.checked),
             onclick: (e) => e.stopPropagation(),
           });
 
@@ -144,9 +145,9 @@ export default class SortableTable {
           row.style.cursor = "pointer";
           row.onclick = (e) => {
             if (e.target.type === "checkbox") return;
-            const newState = !this.selectedRows.has(item.row);
+            const newState = !this.selectedRows.has(item[this.rowIdField]);
             checkbox.checked = newState;
-            this.handleRowSelect(item.row, newState);
+            this.handleRowSelect(item[this.rowIdField], newState);
           };
         }
 
@@ -205,8 +206,10 @@ export default class SortableTable {
 
       // Handle Dates
       if (colDef && colDef.type === "date") {
-        valA = new Date(valA || 0).getTime();
-        valB = new Date(valB || 0).getTime();
+        const dateA = new Date(valA);
+        const dateB = new Date(valB);
+        valA = isNaN(dateA.getTime()) ? Infinity : dateA.getTime();
+        valB = isNaN(dateB.getTime()) ? Infinity : dateB.getTime();
       } else if (
         colDef &&
         (colDef.type === "number" || colDef.type === "currency")
@@ -242,7 +245,7 @@ export default class SortableTable {
 
   handleSelectAll(checked) {
     if (checked) {
-      this.data.forEach((item) => this.selectedRows.add(item.row));
+      this.data.forEach((item) => this.selectedRows.add(item[this.rowIdField]));
     } else {
       this.selectedRows.clear();
     }
