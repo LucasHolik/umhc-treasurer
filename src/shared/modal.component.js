@@ -60,7 +60,23 @@ class ModalComponent {
     });
   }
 
-  _show(options) {
+  _ensureStylesLoaded() {
+    return new Promise((resolve) => {
+      const existing = document.getElementById("modal-styles");
+      if (existing && existing.sheet) {
+        resolve();
+        return;
+      }
+      if (existing) {
+        existing.addEventListener("load", () => resolve(), { once: true });
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  async _show(options) {
+    await this._ensureStylesLoaded();
     return new Promise((resolve) => {
       let inputEl;
       if (options.type === "prompt") {
@@ -102,18 +118,27 @@ class ModalComponent {
         "×"
       );
 
+      const titleId = `modal-title-${Date.now()}`;
+      const bodyId = `modal-body-${Date.now()}`;
+
       const modalContent = el(
         "div",
-        { className: "modal-content" },
+        {
+          className: "modal-content",
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-labelledby": titleId,
+          "aria-describedby": bodyId,
+        },
         el(
           "div",
           { className: "modal-header" },
-          el("h3", {}, options.title),
+          el("h3", { id: titleId }, options.title),
           closeX
         ),
         el(
           "div",
-          { className: "modal-body" },
+          { className: "modal-body", id: bodyId },
           el("div", {}, options.body),
           inputEl
         ),
@@ -124,15 +149,57 @@ class ModalComponent {
 
       document.body.appendChild(overlay);
 
+      // Focus Management and Keyboard Accessibility
+      const focusableElementsString =
+        'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex="0"], [contenteditable]';
+      let focusableElements = modalContent.querySelectorAll(
+        focusableElementsString
+      );
+      focusableElements = Array.from(focusableElements);
+      const firstTabStop = focusableElements[0];
+      const lastTabStop = focusableElements[focusableElements.length - 1];
+
       if (inputEl) {
         inputEl.focus();
         inputEl.select();
         inputEl.addEventListener("keypress", (e) => {
           if (e.key === "Enter") confirmBtn.click();
         });
+      } else {
+        // If no input, focus the first focusable element (usually cancel or confirm) or the modal itself
+        if (firstTabStop) {
+          firstTabStop.focus();
+        } else {
+          modalContent.setAttribute("tabindex", "-1");
+          modalContent.focus();
+        }
       }
 
+      const trapTabKey = (e) => {
+        if (e.key === "Tab") {
+          // SHIFT + TAB
+          if (e.shiftKey) {
+            if (document.activeElement === firstTabStop) {
+              e.preventDefault();
+              lastTabStop.focus();
+            }
+          } else {
+            // TAB
+            if (document.activeElement === lastTabStop) {
+              e.preventDefault();
+              firstTabStop.focus();
+            }
+          }
+        }
+        if (e.key === "Escape") {
+          closeX.click();
+        }
+      };
+
+      document.addEventListener("keydown", trapTabKey);
+
       const close = (result) => {
+        document.removeEventListener("keydown", trapTabKey);
         overlay.style.opacity = "0"; // Fade out
         setTimeout(() => {
           if (document.body.contains(overlay)) {
@@ -148,6 +215,8 @@ class ModalComponent {
           val = inputEl.value;
         } else if (options.type === "confirm") {
           val = true;
+        } else if (options.type === "alert") {
+          val = undefined;
         }
         close(val);
       });
