@@ -132,10 +132,9 @@
 
 .tag-selector-item:focus,
 .tag-selector-item:focus-visible {
-  outline: 1px solid #f0ad4e;
-  outline-offset: -1px;
-  background-color: rgba(255, 255, 255, 0.2);
-  color: #f0ad4e;
+  outline: 2px solid #f0ad4e;
+  outline-offset: -2px;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .tag-selector-item.empty {
@@ -145,5 +144,11 @@
 }
 
 .tag-selector-item.empty:hover {
+  background-color: transparent;
+}
+
+.tag-selector-item.empty:focus,
+.tag-selector-item.empty:focus-visible {
+  outline: none;
   background-color: transparent;
 }
