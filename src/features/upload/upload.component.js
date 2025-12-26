@@ -96,6 +96,8 @@ class UploadComponent {
             width: "1px",
             height: "1px",
             overflow: "hidden",
+            clip: "rect(0,0,0,0)",
+            whiteSpace: "nowrap",
           },
         },
         "Choose Excel File"
@@ -180,7 +182,7 @@ class UploadComponent {
   }
 
   async handleFileSelect(event) {
-    const file = event.target.files[0];
+    const file = event.target.files?.[0];
     if (!file) {
       this.displayUploadStatus("Please select a file.", "info");
       this.extractedContentSection.style.display = "none";
@@ -195,9 +197,10 @@ class UploadComponent {
       this.markDuplicates(this.parsedData, existingData);
 
       this.displayExtractedData();
+      this.switchToTableView();
       this.extractedContentSection.style.display = "block";
     } catch (error) {
-      console.error(error);
+      console.error("File parsing error:", error.message);
       this.displayUploadStatus(`Error reading file: ${error.message}`, "error");
       this.extractedContentSection.style.display = "none";
     }
@@ -236,15 +239,13 @@ class UploadComponent {
   }
 
   displayExtractedData() {
-    this.fileContentJson.textContent = JSON.stringify(this.parsedData, null, 2);
-
     const showNewOnly = this.showNewOnlyCheckbox.checked;
     const dataToShow = showNewOnly
       ? this.parsedData.filter((r) => !r.isDuplicate)
       : this.parsedData;
 
+    this.fileContentJson.textContent = JSON.stringify(dataToShow, null, 2);
     this.table.update(dataToShow);
-    this.switchToTableView();
   }
 
   switchToTableView() {
@@ -305,6 +306,7 @@ class UploadComponent {
   async _uploadInChunks(records) {
     const recordsPerChunk = 20;
     const totalChunks = Math.ceil(records.length / recordsPerChunk);
+    let successfulCount = 0;
 
     for (let i = 0; i < totalChunks; i++) {
       const start = i * recordsPerChunk;
@@ -314,7 +316,21 @@ class UploadComponent {
         `Uploading chunk ${i + 1} of ${totalChunks}...`,
         "info"
       );
-      await ApiService.saveData(chunk, { skipLoading: true });
+
+      try {
+        await ApiService.saveData(chunk, { skipLoading: true });
+        successfulCount += chunk.length;
+      } catch (error) {
+        if (successfulCount > 0) {
+          // If we uploaded some data, we should notify the app to refresh
+          document.dispatchEvent(new CustomEvent("dataUploaded"));
+        }
+        throw new Error(
+          `Upload interrupted at chunk ${
+            i + 1
+          }. ${successfulCount} records were saved. Error: ${error.message}`
+        );
+      }
     }
 
     this.displayUploadStatus(
