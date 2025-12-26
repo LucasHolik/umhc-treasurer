@@ -7,6 +7,17 @@ var Service_Sheet = {
         return { success: true, message: "No data to save.", added: 0 };
       }
 
+      // Validate all dates before processing
+      const invalidDates = data.filter(
+        (row) => row.date && !/^\d{4}-\d{2}-\d{2}$/.test(row.date)
+      );
+      if (invalidDates.length > 0) {
+        return {
+          success: false,
+          message: "Invalid date format. Expected yyyy-MM-dd.",
+        };
+      }
+
       const financeSheet = _getFinanceSheet();
 
       const startRow = financeSheet.getLastRow() + 1;
@@ -79,6 +90,20 @@ var Service_Sheet = {
         }
         if (obj["Date"] instanceof Date) {
           obj["Date"] = Utilities.formatDate(obj["Date"], "UTC", "yyyy-MM-dd");
+        } else if (typeof obj["Date"] === "string" && obj["Date"]) {
+          // Date is already a string.
+          // If it matches YYYY-MM-DD, we leave it alone to preserve exact value (avoiding timezone shifts).
+          // If it's in another format (e.g. DD-MM-YYYY manually entered), we parse it safely as UTC.
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(obj["Date"])) {
+            const parts = obj["Date"].split("-");
+            if (parts.length === 3) {
+              // Parse as UTC to prevent script timezone (e.g. BST) from shifting the date back by 1 day
+              const dateObj = new Date(
+                Date.UTC(parts[0], parts[1] - 1, parts[2])
+              );
+              obj["Date"] = Utilities.formatDate(dateObj, "UTC", "yyyy-MM-dd");
+            }
+          }
         }
         return obj;
       });
@@ -303,7 +328,8 @@ function _getFinanceSheet() {
 
       // Check if current headers match the beginning of CONFIG.HEADERS
       let match = true;
-      for (let i = 0; i < currentHeaders.length; i++) {
+      const minLength = Math.min(currentHeaders.length, CONFIG.HEADERS.length);
+      for (let i = 0; i < minLength; i++) {
         if (currentHeaders[i] !== CONFIG.HEADERS[i]) {
           match = false;
           break;
@@ -321,8 +347,8 @@ function _getFinanceSheet() {
         throw new Error(
           "Sheet headers do not match expected configuration. Manual intervention required."
         );
-      } else if (currentHeaders.length < CONFIG.HEADERS.length) {
-        // If partial match (subset), just update the header row to include new columns
+      } else if (currentHeaders.length !== CONFIG.HEADERS.length) {
+        // If length mismatch, update the header row to ensure consistency
         financeSheet
           .getRange(1, 1, 1, CONFIG.HEADERS.length)
           .setValues([CONFIG.HEADERS]);
