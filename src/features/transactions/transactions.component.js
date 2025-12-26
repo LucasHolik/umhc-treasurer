@@ -821,18 +821,15 @@ class TransactionsComponent {
     }
 
     if (!foundLocally) {
-      store.setState("isLoading", true);
       try {
         // 1. Fetch group details (Source + Children)
         const result = await ApiService.getSplitGroup(groupId);
-        store.setState("isLoading", false);
 
         if (!result.success) throw new Error(result.message);
 
         source = result.data.source;
         children = result.data.children;
       } catch (error) {
-        store.setState("isLoading", false);
         console.error("Edit Split failed:", error);
         alert("Failed to load split details: " + error.message);
         return;
@@ -878,10 +875,8 @@ class TransactionsComponent {
   }
 
   async viewSplitHistory() {
-    store.setState("isLoading", true);
     try {
       const response = await ApiService.getSplitTransactions();
-      store.setState("isLoading", false);
 
       const modal = new TransactionsSplitHistory();
       const changed = await modal.open(response.data);
@@ -891,7 +886,6 @@ class TransactionsComponent {
         document.dispatchEvent(new CustomEvent("dataUploaded"));
       }
     } catch (error) {
-      store.setState("isLoading", false);
       console.error("Failed to load history:", error);
       alert("Failed to load split history.");
     }
@@ -906,7 +900,6 @@ class TransactionsComponent {
   }
 
   async handleManualAdd(data) {
-    store.setState("isLoading", true);
     try {
       // Wrap single object in array
       await ApiService.saveData([data]);
@@ -914,7 +907,6 @@ class TransactionsComponent {
     } catch (error) {
       console.error("Failed to add manual transaction", error);
       alert("Failed to add transaction: " + error.message);
-      store.setState("isLoading", false);
     }
   }
 

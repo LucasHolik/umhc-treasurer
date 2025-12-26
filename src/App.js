@@ -367,7 +367,6 @@ class App {
   }
 
   async loadInitialData() {
-    store.setState("isLoading", true);
     try {
       console.log("Fetching initial data...");
 
@@ -398,8 +397,6 @@ class App {
     } catch (error) {
       console.error("Load initial data error:", error);
       store.setState("error", error.message);
-    } finally {
-      store.setState("isLoading", false);
     }
   }
 

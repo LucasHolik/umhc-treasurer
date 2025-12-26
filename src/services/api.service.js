@@ -68,6 +68,7 @@ const request = (action, params = {}, options = {}) => {
 
     const script = document.createElement("script");
     const timeout = 15000; // 15 seconds
+    let cleanedUp = false;
 
     const timeoutId = setTimeout(() => {
       cleanup();
@@ -75,6 +76,9 @@ const request = (action, params = {}, options = {}) => {
     }, timeout);
 
     const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+
       clearTimeout(timeoutId);
       if (window[callbackName]) {
         delete window[callbackName];
@@ -180,7 +184,10 @@ const ApiService = {
     let page = 1;
     let hasMore = true;
 
-    store.setState("isLoading", true);
+    if (loadingRequestCount === 0) {
+      store.setState("isLoading", true);
+    }
+    loadingRequestCount++;
 
     try {
       while (hasMore) {
@@ -188,7 +195,12 @@ const ApiService = {
           "taggingProgress",
           `Loading split history (Page ${page})...`
         );
-        const res = await request("getSplitHistory", { page, pageSize: 500 });
+        // Use skipLoading: true because we are managing loading state manually for the whole loop
+        const res = await request(
+          "getSplitHistory",
+          { page, pageSize: 500 },
+          { skipLoading: true }
+        );
 
         if (!res.success) {
           throw new Error(res.message);
@@ -210,13 +222,13 @@ const ApiService = {
       );
 
       store.setState("splitTransactions", allData);
-      store.setState("taggingProgress", null);
-      store.setState("isLoading", false);
       return { success: true, data: allData };
-    } catch (error) {
+    } finally {
+      loadingRequestCount--;
+      if (loadingRequestCount === 0) {
+        store.setState("isLoading", false);
+      }
       store.setState("taggingProgress", null);
-      store.setState("isLoading", false);
-      return { success: false, message: error.message };
     }
   },
 

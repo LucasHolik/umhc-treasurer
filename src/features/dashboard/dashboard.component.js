@@ -1,6 +1,5 @@
 // src/features/dashboard/dashboard.component.js
 import store from "../../core/state.js";
-import LoaderComponent from "../../shared/loader.component.js";
 import SortableTable from "../../shared/sortable-table.component.js";
 import {
   formatCurrency,
@@ -17,8 +16,6 @@ class DashboardComponent {
     this.attachEventListeners();
     store.subscribe("expenses", () => this.calculateAndDisplayStats());
     store.subscribe("openingBalance", () => this.calculateAndDisplayStats());
-    store.subscribe("isLoading", (isLoading) => this.handleLoading(isLoading));
-    this.handleLoading(store.getState("isLoading"));
   }
 
   render() {
@@ -39,11 +36,6 @@ class DashboardComponent {
         el("option", { value: opt.value, selected: opt.selected }, opt.text)
       )
     );
-
-    this.loadingPlaceholder = el("div", {
-      id: "dashboard-loading-placeholder",
-      style: { display: "none" },
-    });
 
     this.currentBalanceEl = el(
       "p",
@@ -137,12 +129,10 @@ class DashboardComponent {
           this.timeframeSelect
         )
       ),
-      this.loadingPlaceholder,
       this.loadedContent
     );
 
     replace(this.element, container);
-    replace(this.loadingPlaceholder, new LoaderComponent().render());
 
     // Initialize SortableTable
     this.transactionsTable = new SortableTable(
@@ -194,18 +184,6 @@ class DashboardComponent {
         initialSortAsc: false,
       }
     );
-  }
-
-  handleLoading(isLoading) {
-    if (this.loadingPlaceholder && this.loadedContent) {
-      if (isLoading) {
-        this.loadingPlaceholder.style.display = "block";
-        this.loadedContent.style.display = "none";
-      } else {
-        this.loadingPlaceholder.style.display = "none";
-        this.loadedContent.style.display = "block";
-      }
-    }
   }
 
   attachEventListeners() {

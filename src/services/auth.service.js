@@ -36,7 +36,6 @@ const AuthService = {
     } catch (error) {
       this.logout(); // Clear invalid key
       store.setState("error", error.message);
-      store.setState("isLoading", false);
       return false;
     }
   },
