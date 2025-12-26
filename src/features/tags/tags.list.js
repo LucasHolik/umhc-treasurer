@@ -27,6 +27,22 @@ export default class TagsList {
     this.element.addEventListener("click", (e) =>
       this.handleInteractiveClick(e)
     );
+
+    this.element.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        // Only trigger if the target is interactive
+        const target = e.target;
+        if (
+          target.classList.contains("tag-pill") ||
+          target.classList.contains("add-tag-placeholder") ||
+          target.classList.contains("remove-btn") ||
+          target.classList.contains("status-toggle-btn")
+        ) {
+          e.preventDefault();
+          this.handleInteractiveClick(e);
+        }
+      }
+    });
   }
 
   render(
@@ -345,6 +361,8 @@ export default class TagsList {
               },
               title: `${s.title} - Click to cycle`,
               dataset: { tag: item.tag, status: status },
+              tabindex: "0",
+              role: "button",
             },
             s.icon
           );
@@ -369,9 +387,20 @@ export default class TagsList {
               {
                 className: "tag-pill",
                 dataset: { tag: item.tag, type: "Type" },
+                tabindex: "0",
+                role: "button",
               },
               el("span", { className: "tag-text" }, item.tripType),
-              el("span", { className: "remove-btn", title: "Remove Type" }, "×")
+              el(
+                "span",
+                {
+                  className: "remove-btn",
+                  title: "Remove Type",
+                  tabindex: "0",
+                  role: "button",
+                },
+                "×"
+              )
             );
           } else {
             content = el(
@@ -380,6 +409,8 @@ export default class TagsList {
                 className: "add-tag-placeholder",
                 dataset: { tag: item.tag, type: "Type" },
                 title: "Add Type",
+                tabindex: "0",
+                role: "button",
               },
               "+"
             );

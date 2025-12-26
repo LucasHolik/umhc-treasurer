@@ -46,6 +46,13 @@ export default class TagSelector {
 
     // Prevent closing when clicking inside
     this.element.addEventListener("click", (e) => e.stopPropagation());
+
+    // Escape to close
+    this.element.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        this.close();
+      }
+    });
   }
 
   show(rect, type, currentVal, onSelect, customOptions = null) {
@@ -115,9 +122,18 @@ export default class TagSelector {
         "div",
         {
           className: "tag-selector-item",
+          tabindex: "0",
+          role: "button",
           onclick: () => {
             onSelect(tag);
             this.close();
+          },
+          onkeydown: (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelect(tag);
+              this.close();
+            }
           },
         },
         tag

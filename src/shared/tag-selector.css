@@ -17,6 +17,13 @@
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+.tag-pill:focus,
+.tag-pill:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
 .tag-pill .remove-btn {
   margin-left: 6px;
   color: #ff6b6b;
@@ -47,6 +54,13 @@
 }
 
 .add-tag-placeholder:hover {
+  color: #f0ad4e;
+}
+
+.add-tag-placeholder:focus,
+.add-tag-placeholder:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
   color: #f0ad4e;
 }
 
@@ -105,6 +119,13 @@
 
 .tag-selector-item:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tag-selector-item:focus,
+.tag-selector-item:focus-visible {
+  outline: none;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #f0ad4e;
 }
 
 .tag-selector-item.empty {

@@ -245,6 +245,14 @@
   color: #fff;
 }
 
+.tag-edit-item .rename-btn:focus,
+.icon-btn.rename-btn:focus,
+.tag-edit-item .rename-btn:focus-visible,
+.icon-btn.rename-btn:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+}
+
 .tag-edit-item .delete-btn,
 .icon-btn.delete-btn {
   border-color: #d9534f;
@@ -255,6 +263,21 @@
 .icon-btn.delete-btn:hover {
   background-color: #d9534f;
   color: #fff;
+}
+
+.tag-edit-item .delete-btn:focus,
+.icon-btn.delete-btn:focus,
+.tag-edit-item .delete-btn:focus-visible,
+.icon-btn.delete-btn:focus-visible {
+  outline: 2px solid #d9534f;
+  outline-offset: 2px;
+}
+
+.status-toggle-btn:focus,
+.status-toggle-btn:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .tag-edit-item .done-btn,

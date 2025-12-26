@@ -160,6 +160,28 @@ class TransactionsComponent {
         this.updatePendingChange(rowId, type, "");
         return;
       }
+
+      // Handle "Add Tag" (+) or "Change Tag" (pill body)
+      if (
+        target.classList.contains("add-tag-placeholder") ||
+        target.classList.contains("tag-pill")
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        const rowId = target.dataset.row;
+        const type = target.dataset.type;
+
+        let currentVal = "";
+        if (target.classList.contains("tag-pill")) {
+          const tagTextEl = target.querySelector(".tag-text");
+          currentVal = tagTextEl ? tagTextEl.textContent : "";
+        }
+
+        const rect = target.getBoundingClientRect();
+        this.tagSelector.show(rect, type, currentVal, (newVal) => {
+          this.updatePendingChange(rowId, type, newVal);
+        });
+      }
     }
   }
 
@@ -620,6 +642,9 @@ class TransactionsComponent {
         {
           className: `tag-pill ${isPending ? "pending-change" : ""}`,
           dataset: { row: rowId, type: type },
+          tabIndex: "0",
+          role: "button",
+          title: "Click to change tag",
         },
         el("span", { className: "tag-text" }, value),
         el(
@@ -641,6 +666,8 @@ class TransactionsComponent {
           className: "add-tag-placeholder",
           dataset: { row: rowId, type: type },
           title: "Add Tag",
+          tabIndex: "0",
+          role: "button",
         },
         "+"
       );
