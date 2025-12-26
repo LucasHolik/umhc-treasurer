@@ -22,6 +22,7 @@
   outline: 2px solid #f0ad4e;
   outline-offset: 2px;
   background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .tag-pill .remove-btn {
@@ -32,6 +33,14 @@
   opacity: 0;
   transition: opacity 0.2s;
   line-height: 1;
+}
+
+.tag-pill .remove-btn:focus,
+.tag-pill .remove-btn:focus-visible {
+  outline: 1px solid #ff6b6b;
+  outline-offset: 1px;
+  border-radius: 2px;
+  opacity: 1;
 }
 
 .tag-pill:hover .remove-btn,
@@ -123,7 +132,8 @@
 
 .tag-selector-item:focus,
 .tag-selector-item:focus-visible {
-  outline: none;
+  outline: 1px solid #f0ad4e;
+  outline-offset: -1px;
   background-color: rgba(255, 255, 255, 0.2);
   color: #f0ad4e;
 }

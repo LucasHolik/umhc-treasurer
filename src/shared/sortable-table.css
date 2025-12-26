@@ -28,6 +28,13 @@
   background: rgba(0, 0, 0, 0.4);
 }
 
+.sortable-table th.sortable:focus,
+.sortable-table th.sortable:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: -2px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
 .sortable-table tr:last-child td {
   border-bottom: none;
 }

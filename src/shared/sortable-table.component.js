@@ -76,9 +76,21 @@ export default class SortableTable {
 
       if (col.sortable !== false) {
         th.classList.add("sortable");
-        th.addEventListener("click", (e) => {
+        th.setAttribute("tabindex", "0");
+        th.setAttribute("role", "button");
+        th.setAttribute("aria-label", `Sort by ${col.label}`);
+
+        const sortHandler = (e) => {
           if (e.target.closest(".no-sort")) return;
           this.handleSort(col.key);
+        };
+
+        th.addEventListener("click", sortHandler);
+        th.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            sortHandler(e);
+          }
         });
 
         if (this.sortField === col.key) {

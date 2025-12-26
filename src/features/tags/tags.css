@@ -36,6 +36,13 @@
   background-color: rgba(255, 255, 255, 0.05);
 }
 
+.tab-btn:focus,
+.tab-btn:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: -2px;
+  color: #fff;
+}
+
 .tab-btn.active {
   color: #f0ad4e;
   border-bottom-color: #f0ad4e;
@@ -95,7 +102,8 @@
 }
 
 .tag-search-input:focus {
-  outline: none;
+  outline: 2px solid #f0ad4e;
+  outline-offset: -1px;
   border-color: #f0ad4e;
 }
 
@@ -110,7 +118,8 @@
 }
 
 .theme-select:focus {
-  outline: none;
+  outline: 2px solid #f0ad4e;
+  outline-offset: -1px;
   border-color: #f0ad4e;
 }
 
@@ -341,7 +350,8 @@
 }
 
 .add-tag-input:focus {
-  outline: none;
+  outline: 2px solid #f0ad4e;
+  outline-offset: -1px;
   border-color: #f0ad4e;
 }
 
