@@ -1,4 +1,4 @@
-// google-sheets/Config.gs
+// google-apps-script/Config.gs
 
 var CONFIG = {
   SHEET_NAME: "Finances",
@@ -19,6 +19,6 @@ var CONFIG = {
     "Income",
     "Expense",
     "Type",
-    "Split Group ID"
+    "Split Group ID",
   ],
 };

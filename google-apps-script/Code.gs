@@ -69,7 +69,9 @@ function doGet(e) {
   } catch (error) {
     return createJsonResponse(
       { success: false, message: "Server Error: " + error.toString() },
-      e && e.parameter ? e.parameter.callback : "callback"
+      e && e.parameter && e.parameter.callback
+        ? e.parameter.callback
+        : "callback"
     );
   }
 }
@@ -78,44 +80,71 @@ function getAppData() {
   try {
     const expenses = Service_Sheet.getData();
     if (!expenses.success) {
-        throw new Error(expenses.message || "Failed to fetch expenses");
+      throw new Error(expenses.message || "Failed to fetch expenses");
     }
 
-    const tags = Service_Tags.getTags();
-    const openingBalance = Service_Sheet.getOpeningBalance();
-    
+    let tags = {
+      "Trip/Event": [],
+      Category: [],
+      Type: [],
+      TripTypeMap: {},
+      TripStatusMap: {},
+    };
+    try {
+      tags = Service_Tags.getTags();
+    } catch (tagError) {
+      console.error("Error fetching tags:", tagError.toString());
+    }
+
+    let openingBalance = { success: true, balance: 0 };
+    try {
+      openingBalance = Service_Sheet.getOpeningBalance();
+    } catch (balanceError) {
+      console.error("Error fetching opening balance:", balanceError.toString());
+    }
+
     let splitTransactions = { success: true, data: [] };
     try {
-        splitTransactions = Service_Split.getAllSplitHistory();
-        if (!splitTransactions.success) {
-            console.error("Failed to fetch split transactions:", splitTransactions.message);
-            // Don't throw, just log and return empty array for splits
-            splitTransactions.data = []; 
-        }
-    } catch (splitError) {
-        console.error("Error fetching split transactions:", splitError.toString());
+      splitTransactions = Service_Split.getAllSplitHistory();
+      if (!splitTransactions.success) {
+        console.error(
+          "Failed to fetch split transactions:",
+          splitTransactions.message
+        );
+        // Don't throw, just log and return empty array for splits
         splitTransactions.data = [];
+      }
+    } catch (splitError) {
+      console.error(
+        "Error fetching split transactions:",
+        splitError.toString()
+      );
+      splitTransactions.data = [];
     }
 
-    return { 
-      success: true, 
-      data: { 
-        expenses: expenses.data, 
+    return {
+      success: true,
+      data: {
+        expenses: expenses.data,
         tags: tags,
         openingBalance: openingBalance.success ? openingBalance.balance : 0,
-        splitTransactions: splitTransactions.data
-      } 
+        splitTransactions: splitTransactions.data,
+      },
     };
   } catch (error) {
-    return { success: false, message: "Error loading app data: " + error.toString() };
+    return {
+      success: false,
+      message: "Error loading app data: " + error.toString(),
+    };
   }
 }
 
 function createJsonResponse(data, callback) {
   // Validate callback to prevent XSS - only allow safe JavaScript identifiers
   const safeCallback = callback || "callback";
-  const callbackRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/;
-  
+  const callbackRegex =
+    /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/;
+
   if (!callbackRegex.test(safeCallback)) {
     // Log the attempt and use default callback
     Logger.log("Invalid callback parameter detected: " + safeCallback);
