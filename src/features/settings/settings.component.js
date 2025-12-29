@@ -10,10 +10,26 @@ class SettingsComponent {
   constructor(element) {
     this.element = element;
     this.modal = new ModalComponent();
+    this.status = el("div", {
+      id: "settings-status",
+      style: { marginTop: "20px" },
+    });
+    this.unsubscribers = [];
     this.render();
-    store.subscribe("openingBalance", this.render.bind(this));
-    store.subscribe("settingsSyncing", this.render.bind(this));
-    store.subscribe("expenses", this.render.bind(this));
+    this.unsubscribers.push(
+      store.subscribe("openingBalance", this.render.bind(this))
+    );
+    this.unsubscribers.push(
+      store.subscribe("settingsSyncing", this.render.bind(this))
+    );
+    this.unsubscribers.push(
+      store.subscribe("expenses", this.render.bind(this))
+    );
+  }
+
+  destroy() {
+    this.unsubscribers.forEach((sub) => sub.unsubscribe());
+    this.unsubscribers = [];
   }
 
   render() {
@@ -23,6 +39,9 @@ class SettingsComponent {
       this.renderSavingState();
       return;
     }
+
+    // Reset status content on re-render to match previous behavior (fresh state)
+    this.status.innerHTML = "";
 
     const currentBalance = store.getState("openingBalance") || 0;
     const expenses = store.getState("expenses") || [];
@@ -43,11 +62,6 @@ class SettingsComponent {
       },
       "✏️ Edit"
     );
-
-    this.status = el("div", {
-      id: "settings-status",
-      style: { marginTop: "20px" },
-    });
 
     const container = el(
       "div",
@@ -255,7 +269,7 @@ class SettingsComponent {
       return;
     }
 
-    this.handleSave(newBalance);
+    await this.handleSave(newBalance);
   }
 
   async handleSave(balance) {
@@ -263,24 +277,19 @@ class SettingsComponent {
 
     try {
       await ApiService.saveOpeningBalance(balance, { skipLoading: true });
-      store.setState("openingBalance", balance); // Optimistic update before reload
 
-      // Trigger full site refresh logic
-      document.dispatchEvent(new CustomEvent("dataUploaded"));
-
-      // We turn off the syncing state, but the global loader (from App.js responding to dataUploaded)
-      // will likely take over immediately.
+      // Update state locally. No need for full site refresh (dataUploaded)
+      // as opening balance is an isolated config value.
+      store.setState("openingBalance", balance);
       store.setState("settingsSyncing", false);
+
+      this.displayStatus("Saved successfully!", "success");
     } catch (error) {
       console.error("Settings save failed:", error);
       store.setState("settingsSyncing", false);
-      // We need to re-render to show the error since we turned off the loading state
+      // Re-render ensures UI is ready, and status is stable from constructor
       this.render();
-      // Use setTimeout to ensure DOM is ready after re-render
-      setTimeout(
-        () => this.displayStatus(`Error: ${error.message}`, "error"),
-        0
-      );
+      this.displayStatus(`Error: ${error.message}`, "error");
     }
   }
 
