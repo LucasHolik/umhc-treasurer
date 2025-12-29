@@ -15,6 +15,8 @@ class AnalysisComponent {
     this.element = element;
     this.modal = new ModalComponent();
     this.analysisLogic = AnalysisLogic;
+    this.unsubscribeHandlers = [];
+    this.timeouts = [];
 
     // Default State
     this.state = {
@@ -51,11 +53,15 @@ class AnalysisComponent {
 
     this.render();
 
-    store.subscribe("expenses", () => {
-      this.updateTagSelectors();
-      this.generateChart();
-    });
-    store.subscribe("tags", () => this.updateTagSelectors());
+    this.unsubscribeHandlers.push(
+      store.subscribe("expenses", () => {
+        this.updateTagSelectors();
+        this.generateChart();
+      })
+    );
+    this.unsubscribeHandlers.push(
+      store.subscribe("tags", () => this.updateTagSelectors())
+    );
   }
 
   render() {
@@ -152,46 +158,55 @@ class AnalysisComponent {
 
     // Initial Updates
     this.updateStatsDOM();
-    setTimeout(() => this.updateTagSelectors(), 0);
-    setTimeout(() => this.generateChart(), 0);
+    this.timeouts.push(setTimeout(() => this.updateTagSelectors(), 0));
+    this.timeouts.push(setTimeout(() => this.generateChart(), 0));
   }
 
   initializeSubComponents() {
     // 1. Controls
-    this.controlsComponent = new AnalysisControls(
-      this.element.querySelector("#analysis-controls-container"),
-      {
-        onTimeframeChange: (val) => this.handleTimeframeChange(val),
-        onStatusChange: (val) => {
-          this.state.tripStatusFilter = val;
-          this.updateTagSelectors();
-          this.generateChart();
-        },
-        onDateChange: (type, val) => {
-          if (type === "start") this.state.startDate = val;
-          else this.state.endDate = val;
-          this.state.timeframe = "custom";
-          this.controlsComponent.update(this.state);
-          this.generateChart();
-        },
-        onMetricChange: (val) => {
-          this.state.metric = val;
-          this.generateChart();
-        },
-        onChartTypeChange: (val) => {
-          this.state.chartType = val;
-          this.generateChart();
-        },
-        onGroupChange: (type, val) => this.handleGroupChange(type, val),
-        onPresetClick: (preset) => this.applyPreset(preset),
-      }
+    const controlsContainer = this.element.querySelector(
+      "#analysis-controls-container"
     );
+    if (!controlsContainer) {
+      console.error("Analysis: Controls container not found");
+      return;
+    }
+
+    this.controlsComponent = new AnalysisControls(controlsContainer, {
+      onTimeframeChange: (val) => this.handleTimeframeChange(val),
+      onStatusChange: (val) => {
+        this.state.tripStatusFilter = val;
+        this.updateTagSelectors();
+        this.generateChart();
+      },
+      onDateChange: (type, val) => {
+        if (type === "start") this.state.startDate = val;
+        else this.state.endDate = val;
+        this.state.timeframe = "custom";
+        this.controlsComponent.update(this.state);
+        this.generateChart();
+      },
+      onMetricChange: (val) => {
+        this.state.metric = val;
+        this.generateChart();
+      },
+      onChartTypeChange: (val) => {
+        this.state.chartType = val;
+        this.generateChart();
+      },
+      onGroupChange: (type, val) => this.handleGroupChange(type, val),
+      onPresetClick: (preset) => this.applyPreset(preset),
+    });
     this.controlsComponent.update(this.state);
 
     // 2. Filters
-    this.filtersComponent = new AnalysisFilters(
-      this.element.querySelector("#analysis-filters-container"),
-      {
+    const filtersContainer = this.element.querySelector(
+      "#analysis-filters-container"
+    );
+    if (!filtersContainer) {
+      console.error("Analysis: Filters container not found");
+    } else {
+      this.filtersComponent = new AnalysisFilters(filtersContainer, {
         onFilterChange: () => {
           this.generateChart();
           this.updateTagSelectors();
@@ -209,31 +224,40 @@ class AnalysisComponent {
         onTypeChange: (typeTag, isChecked) => {
           this.handleTypeChange(typeTag, isChecked);
         },
-      }
-    );
+      });
+    }
 
     // 3. Chart
-    this.chartComponent = new AnalysisChart(
-      this.element.querySelector("#analysis-chart")
-    );
+    const chartEl = this.element.querySelector("#analysis-chart");
+    if (!chartEl) {
+      console.error("Analysis: Chart canvas not found");
+    } else {
+      this.chartComponent = new AnalysisChart(chartEl);
+    }
 
     // 4. Table
-    this.tableComponent = new AnalysisTable(
-      this.element.querySelector("#analysis-data-table-container")
+    const tableContainer = this.element.querySelector(
+      "#analysis-data-table-container"
     );
+    if (!tableContainer) {
+      console.error("Analysis: Data table container not found");
+    } else {
+      this.tableComponent = new AnalysisTable(tableContainer);
+    }
   }
 
   initializeActionButtons() {
-    this.element
-      .querySelector("#btn-toggle-view")
-      .addEventListener("click", () => {
+    const toggleBtn = this.element.querySelector("#btn-toggle-view");
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", () => {
         this.state.showDataTable = !this.state.showDataTable;
         this.updateViewVisibility();
       });
+    }
 
-    this.element
-      .querySelector("#btn-download-image")
-      .addEventListener("click", () => {
+    const downloadImgBtn = this.element.querySelector("#btn-download-image");
+    if (downloadImgBtn) {
+      downloadImgBtn.addEventListener("click", () => {
         if (this.chartComponent) {
           const base64 = this.chartComponent.toBase64Image();
           if (base64) {
@@ -244,14 +268,15 @@ class AnalysisComponent {
             link.href = base64;
             link.click();
           } else {
-            alert("Chart not ready.");
+            this.modal.alert("Chart not ready.", "Download Error");
           }
         }
       });
+    }
 
-    this.element
-      .querySelector("#btn-download-data")
-      .addEventListener("click", () => {
+    const downloadDataBtn = this.element.querySelector("#btn-download-data");
+    if (downloadDataBtn) {
+      downloadDataBtn.addEventListener("click", () => {
         if (this.chartData) {
           const csvContent = this.analysisLogic.generateCSV(
             this.chartData.labels,
@@ -277,10 +302,12 @@ class AnalysisComponent {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+          URL.revokeObjectURL(url);
         } else {
-          alert("No data available to download.");
+          this.modal.alert("No data available to download.", "Download Error");
         }
       });
+    }
   }
 
   handleTypeChange(typeTag, isChecked) {
@@ -542,6 +569,16 @@ class AnalysisComponent {
     }
 
     this.updateViewVisibility();
+  }
+
+  destroy() {
+    this.unsubscribeHandlers.forEach((handler) => handler.unsubscribe());
+    this.unsubscribeHandlers = [];
+    this.timeouts.forEach((timeout) => clearTimeout(timeout));
+    this.timeouts = [];
+    if (this.chartComponent) {
+      this.chartComponent.destroy();
+    }
   }
 }
 

@@ -173,4 +173,11 @@ export default class AnalysisChart {
     if (!this.chartInstance) return null;
     return this.chartInstance.toBase64Image();
   }
+
+  destroy() {
+    if (this.chartInstance) {
+      this.chartInstance.destroy();
+      this.chartInstance = null;
+    }
+  }
 }
