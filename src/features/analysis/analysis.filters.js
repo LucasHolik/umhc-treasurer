@@ -215,11 +215,7 @@ export default class AnalysisFilters {
             else selectionSet.delete(tag);
           }
 
-          if (statusMap) {
-            if (onItemChange) onItemChange(tag, e.target.checked);
-          } else {
-            if (onItemChange) onItemChange(tag, e.target.checked);
-          }
+          if (onItemChange) onItemChange(tag, e.target.checked);
         });
 
         if (this.callbacks.onFilterChange) {
