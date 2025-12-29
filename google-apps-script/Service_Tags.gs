@@ -8,6 +8,9 @@ var Service_Tags = {
   },
 
   deleteTag: function (e) {
+    if (!e || !e.parameter) {
+      return { success: false, message: "Invalid request parameters" };
+    }
     const type = e.parameter.type;
     const value = e.parameter.value;
     const deleteResult = _deleteTag(type, value);
@@ -15,6 +18,9 @@ var Service_Tags = {
   },
 
   renameTag: function (e) {
+    if (!e || !e.parameter) {
+      return { success: false, message: "Invalid request parameters" };
+    }
     const type = e.parameter.type;
     const oldValue = e.parameter.oldValue;
     const newValue = e.parameter.newValue;
@@ -22,6 +28,9 @@ var Service_Tags = {
   },
 
   processTagOperations: function (e) {
+    if (!e || !e.parameter) {
+      return { success: false, message: "Invalid request parameters" };
+    }
     try {
       const operationsParam = e.parameter.operations;
       if (!operationsParam) {
@@ -364,6 +373,10 @@ function _updateTripType(tripName, typeName) {
   const tagSheet = _getTagSheet();
   const lastRow = tagSheet.getLastRow();
 
+  if (lastRow < 2) {
+    return { success: false, message: "No trips/events found." };
+  }
+
   // Find the Trip/Event in Col A
   const tripRange = tagSheet.getRange(2, 1, lastRow - 1, 1);
   const trips = tripRange.getValues().flat().map(String);
@@ -381,6 +394,10 @@ function _updateTripType(tripName, typeName) {
 function _updateTripStatus(tripName, status) {
   const tagSheet = _getTagSheet();
   const lastRow = tagSheet.getLastRow();
+
+  if (lastRow < 2) {
+    return { success: false, message: "No trips/events found." };
+  }
 
   const tripRange = tagSheet.getRange(2, 1, lastRow - 1, 1);
   const trips = tripRange.getValues().flat().map(String);
