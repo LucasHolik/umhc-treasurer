@@ -88,8 +88,9 @@ var Service_Sheet = {
         for (let i = 0; i < CONFIG.HEADERS.length; i++) {
           obj[CONFIG.HEADERS[i]] = row[i];
         }
+        const tz = financeSheet.getParent().getSpreadsheetTimeZone();
         if (obj["Date"] instanceof Date) {
-          obj["Date"] = Utilities.formatDate(obj["Date"], "UTC", "yyyy-MM-dd");
+          obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
         } else if (typeof obj["Date"] === "string" && obj["Date"]) {
           // Date is already a string.
           // If it matches YYYY-MM-DD, we leave it alone to preserve exact value (avoiding timezone shifts).
@@ -371,19 +372,28 @@ function _sortSheetByDate() {
   const values = range.getValues();
 
   const dataWithDateObjects = values.map((row) => {
-    const dateString = row[2]; // Date is in the 3rd column (index 2)
+    let dateVal = row[2];
+
+    // Normalize Date objects to YYYY-MM-DD strings to ensure consistency and prevent timezone shifts
+    if (dateVal instanceof Date) {
+      const tz = financeSheet.getParent().getSpreadsheetTimeZone();
+      dateVal = Utilities.formatDate(dateVal, tz, "yyyy-MM-dd");
+      row[2] = dateVal; // Update row data so it's saved back as a string
+    }
+
     let dateObject;
-    if (typeof dateString === "string" && dateString) {
-      const parts = dateString.split("-");
+    if (typeof dateVal === "string" && dateVal) {
+      const parts = dateVal.split("-");
       if (parts.length === 3) {
-        dateObject = new Date(parts[0], parts[1] - 1, parts[2]);
+        // Use Date.UTC to ensure sorting is consistent with getData and ignore local timezone/DST
+        dateObject = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
       } else {
-        console.warn("Invalid date format:", dateString);
-        dateObject = new Date(0); // Fallback to epoch
+        console.warn("Invalid date format:", dateVal);
+        dateObject = new Date(0);
       }
     } else {
-      console.warn("Invalid date value:", dateString);
-      dateObject = new Date(0); // Fallback to epoch
+      console.warn("Invalid date value:", dateVal);
+      dateObject = new Date(0);
     }
     return {
       rowData: row,

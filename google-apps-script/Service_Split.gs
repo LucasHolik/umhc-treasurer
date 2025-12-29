@@ -276,7 +276,8 @@ var Service_Split = {
         });
 
         if (obj["Date"] instanceof Date) {
-          obj["Date"] = Utilities.formatDate(obj["Date"], "UTC", "yyyy-MM-dd");
+          const tz = splitSheet.getParent().getSpreadsheetTimeZone();
+          obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
         }
 
         if (row[typeIndex] === "SOURCE") {
@@ -350,7 +351,8 @@ var Service_Split = {
       if (dateIndex !== -1) obj["Split Date"] = row[dateIndex];
 
       if (obj["Date"] instanceof Date) {
-        obj["Date"] = Utilities.formatDate(obj["Date"], "UTC", "yyyy-MM-dd");
+        const tz = splitSheet.getParent().getSpreadsheetTimeZone();
+        obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
       }
 
       data.push(obj);
@@ -408,7 +410,8 @@ var Service_Split = {
       if (dateIndex !== -1) obj["Split Date"] = row[dateIndex];
 
       if (obj["Date"] instanceof Date) {
-        obj["Date"] = Utilities.formatDate(obj["Date"], "UTC", "yyyy-MM-dd");
+        const tz = splitSheet.getParent().getSpreadsheetTimeZone();
+        obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
       }
 
       data.push(obj);
