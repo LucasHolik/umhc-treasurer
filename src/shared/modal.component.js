@@ -9,7 +9,7 @@ class ModalComponent {
       const link = document.createElement("link");
       link.id = "modal-styles";
       link.rel = "stylesheet";
-      link.href = "src/shared/modal.css";
+      link.href = new URL("./modal.css", import.meta.url).href;
       document.head.appendChild(link);
     }
   }
@@ -68,7 +68,23 @@ class ModalComponent {
         return;
       }
       if (existing) {
-        existing.addEventListener("load", () => resolve(), { once: true });
+        const timeout = setTimeout(() => resolve(), 2000); // 2s timeout fallback
+        existing.addEventListener(
+          "load",
+          () => {
+            clearTimeout(timeout);
+            resolve();
+          },
+          { once: true }
+        );
+        existing.addEventListener(
+          "error",
+          () => {
+            clearTimeout(timeout);
+            resolve(); // Resolve anyway to avoid hanging UI
+          },
+          { once: true }
+        );
       } else {
         resolve();
       }
@@ -82,7 +98,6 @@ class ModalComponent {
       if (options.type === "prompt") {
         inputEl = el("input", {
           type: "text",
-          id: "modal-input",
           "aria-label": "Value",
           value: options.defaultValue || "",
         });
@@ -92,7 +107,6 @@ class ModalComponent {
         "button",
         {
           className: "modal-btn modal-btn-confirm",
-          id: "modal-confirm",
         },
         options.confirmText || "OK"
       );
@@ -103,7 +117,6 @@ class ModalComponent {
               "button",
               {
                 className: "modal-btn modal-btn-cancel",
-                id: "modal-cancel",
               },
               options.cancelText || "Cancel"
             )
@@ -113,7 +126,6 @@ class ModalComponent {
         "button",
         {
           className: "modal-close",
-          id: "modal-close-x",
         },
         "×"
       );
