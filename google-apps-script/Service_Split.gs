@@ -12,8 +12,7 @@ var Service_Split = {
       const original = data.original;
       const splits = data.splits;
 
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const financeSheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+      const financeSheet = _getFinanceSheet();
       const splitSheet = _getSplitSheet();
 
       return _processSplitCore(financeSheet, splitSheet, original, splits);
@@ -29,101 +28,152 @@ var Service_Split = {
   },
 
   removeTagFromSplits: function (type, value) {
-    const splitSheet = _getSplitSheet();
-    const lastRow = splitSheet.getLastRow();
-    if (lastRow <= 1) return { success: true, message: "No splits to check." };
-
-    let colIndex; // 1-based column index
-    if (type === "Trip/Event") {
-      const idx = CONFIG.HEADERS.indexOf("Trip/Event");
-      if (idx === -1)
-        return { success: false, message: "Trip/Event column not found." };
-      colIndex = idx + 1;
-    } else if (type === "Category") {
-      const idx = CONFIG.HEADERS.indexOf("Category");
-      if (idx === -1)
-        return { success: false, message: "Category column not found." };
-      colIndex = idx + 1;
-    } else return { success: false, message: "Invalid tag type." };
-
-    const range = splitSheet.getRange(2, colIndex, lastRow - 1, 1);
-    const values = range.getValues();
-    let changed = false;
-
-    for (let i = 0; i < values.length; i++) {
-      if (values[i][0] === value) {
-        values[i][0] = "";
-        changed = true;
+    const lock = LockService.getScriptLock();
+    try {
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
       }
-    }
 
-    if (changed) {
-      range.setValues(values);
+      const splitSheet = _getSplitSheet();
+      const lastRow = splitSheet.getLastRow();
+      if (lastRow <= 1)
+        return { success: true, message: "No splits to check." };
+
+      let colIndex; // 1-based column index
+      if (type === "Trip/Event") {
+        const idx = CONFIG.HEADERS.indexOf("Trip/Event");
+        if (idx === -1)
+          return { success: false, message: "Trip/Event column not found." };
+        colIndex = idx + 1;
+      } else if (type === "Category") {
+        const idx = CONFIG.HEADERS.indexOf("Category");
+        if (idx === -1)
+          return { success: false, message: "Category column not found." };
+        colIndex = idx + 1;
+      } else return { success: false, message: "Invalid tag type." };
+
+      const range = splitSheet.getRange(2, colIndex, lastRow - 1, 1);
+      const values = range.getValues();
+      let changed = false;
+
+      for (let i = 0; i < values.length; i++) {
+        if (values[i][0] === value) {
+          values[i][0] = "";
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        range.setValues(values);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("Remove tag error", error);
+      return {
+        success: false,
+        message: "Error removing tag: " + error.message,
+      };
+    } finally {
+      lock.releaseLock();
     }
-    return { success: true };
   },
 
   updateTagInSplits: function (oldTag, newTag, type) {
-    const splitSheet = _getSplitSheet();
-    const lastRow = splitSheet.getLastRow();
-    if (lastRow <= 1) return { success: true, message: "No splits to check." };
-
-    let colIndex; // 1-based column index
-    if (type === "Trip/Event") {
-      const idx = CONFIG.HEADERS.indexOf("Trip/Event");
-      if (idx === -1)
-        return { success: false, message: "Trip/Event column not found." };
-      colIndex = idx + 1;
-    } else if (type === "Category") {
-      const idx = CONFIG.HEADERS.indexOf("Category");
-      if (idx === -1)
-        return { success: false, message: "Category column not found." };
-      colIndex = idx + 1;
-    } else return { success: false, message: "Invalid tag type." };
-
-    const range = splitSheet.getRange(2, colIndex, lastRow - 1, 1);
-    const values = range.getValues();
-    let changed = false;
-
-    for (let i = 0; i < values.length; i++) {
-      if (values[i][0] === oldTag) {
-        values[i][0] = newTag;
-        changed = true;
+    const lock = LockService.getScriptLock();
+    try {
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
       }
-    }
 
-    if (changed) {
-      range.setValues(values);
+      const splitSheet = _getSplitSheet();
+      const lastRow = splitSheet.getLastRow();
+      if (lastRow <= 1)
+        return { success: true, message: "No splits to check." };
+
+      let colIndex; // 1-based column index
+      if (type === "Trip/Event") {
+        const idx = CONFIG.HEADERS.indexOf("Trip/Event");
+        if (idx === -1)
+          return { success: false, message: "Trip/Event column not found." };
+        colIndex = idx + 1;
+      } else if (type === "Category") {
+        const idx = CONFIG.HEADERS.indexOf("Category");
+        if (idx === -1)
+          return { success: false, message: "Category column not found." };
+        colIndex = idx + 1;
+      } else return { success: false, message: "Invalid tag type." };
+
+      const range = splitSheet.getRange(2, colIndex, lastRow - 1, 1);
+      const values = range.getValues();
+      let changed = false;
+
+      for (let i = 0; i < values.length; i++) {
+        if (values[i][0] === oldTag) {
+          values[i][0] = newTag;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        range.setValues(values);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("Update tag error", error);
+      return {
+        success: false,
+        message: "Error updating tag: " + error.message,
+      };
+    } finally {
+      lock.releaseLock();
     }
-    return { success: true };
   },
 
   updateSplitRowTag: function (rowId, tripEvent, category) {
-    const splitSheet = _getSplitSheet();
+    const lock = LockService.getScriptLock();
+    try {
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
+      }
 
-    // rowId format: "S-<rowIndex>"
-    const rowIndex = parseInt(rowId.replace("S-", ""), 10);
+      const splitSheet = _getSplitSheet();
 
-    if (isNaN(rowIndex) || rowIndex < 2 || rowIndex > splitSheet.getLastRow()) {
-      return { success: false, message: "Invalid split row index." };
-    }
+      // rowId format: "S-<rowIndex>"
+      const rowIndex = parseInt(rowId.replace("S-", ""), 10);
 
-    const tripEventIndex = CONFIG.HEADERS.indexOf("Trip/Event");
-    const categoryIndex = CONFIG.HEADERS.indexOf("Category");
+      if (
+        isNaN(rowIndex) ||
+        rowIndex < 2 ||
+        rowIndex > splitSheet.getLastRow()
+      ) {
+        return { success: false, message: "Invalid split row index." };
+      }
 
-    if (tripEventIndex === -1 || categoryIndex === -1) {
+      const tripEventIndex = CONFIG.HEADERS.indexOf("Trip/Event");
+      const categoryIndex = CONFIG.HEADERS.indexOf("Category");
+
+      if (tripEventIndex === -1 || categoryIndex === -1) {
+        return {
+          success: false,
+          message:
+            "Configuration Error: Required columns missing in CONFIG.HEADERS.",
+        };
+      }
+
+      // Trip/Event is col tripEventIndex + 1, Category is col categoryIndex + 1
+      splitSheet.getRange(rowIndex, tripEventIndex + 1).setValue(tripEvent);
+      splitSheet.getRange(rowIndex, categoryIndex + 1).setValue(category);
+
+      return { success: true };
+    } catch (error) {
+      console.error("Update split row tag error", error);
       return {
         success: false,
-        message:
-          "Configuration Error: Required columns missing in CONFIG.HEADERS.",
+        message: "Error updating split row tag: " + error.message,
       };
+    } finally {
+      lock.releaseLock();
     }
-
-    // Trip/Event is col tripEventIndex + 1, Category is col categoryIndex + 1
-    splitSheet.getRange(rowIndex, tripEventIndex + 1).setValue(tripEvent);
-    splitSheet.getRange(rowIndex, categoryIndex + 1).setValue(category);
-
-    return { success: true };
   },
 
   revertSplit: function (e) {
@@ -135,8 +185,7 @@ var Service_Split = {
       const groupId = e.parameter.groupId;
       if (!groupId) return { success: false, message: "No Group ID provided." };
 
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const financeSheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+      const financeSheet = _getFinanceSheet();
       const splitSheet = _getSplitSheet();
 
       return _revertSplitCore(financeSheet, splitSheet, groupId);
@@ -161,8 +210,7 @@ var Service_Split = {
       const groupId = e.parameter.groupId;
 
       // 1. Resolve Finance Sheet Row Index
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const financeSheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+      const financeSheet = _getFinanceSheet();
       const idIndex = CONFIG.HEADERS.indexOf("Split Group ID");
 
       if (idIndex === -1) {
@@ -280,6 +328,17 @@ var Service_Split = {
           obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
         }
 
+        // Map split headers
+        if (typeIndex !== -1) obj["Split Type"] = row[typeIndex];
+        if (dateIndex !== -1) {
+          let sDate = row[dateIndex];
+          if (sDate instanceof Date) {
+            const tz = splitSheet.getParent().getSpreadsheetTimeZone();
+            sDate = Utilities.formatDate(sDate, tz, "yyyy-MM-dd HH:mm:ss");
+          }
+          obj["Split Date"] = sDate;
+        }
+
         if (row[typeIndex] === "SOURCE") {
           source = obj;
         } else if (row[typeIndex] === "CHILD") {
@@ -348,7 +407,14 @@ var Service_Split = {
 
       // Map split headers
       if (typeIndex !== -1) obj["Split Type"] = row[typeIndex];
-      if (dateIndex !== -1) obj["Split Date"] = row[dateIndex];
+      if (dateIndex !== -1) {
+        let sDate = row[dateIndex];
+        if (sDate instanceof Date) {
+          const tz = splitSheet.getParent().getSpreadsheetTimeZone();
+          sDate = Utilities.formatDate(sDate, tz, "yyyy-MM-dd HH:mm:ss");
+        }
+        obj["Split Date"] = sDate;
+      }
 
       if (obj["Date"] instanceof Date) {
         const tz = splitSheet.getParent().getSpreadsheetTimeZone();
@@ -407,7 +473,14 @@ var Service_Split = {
 
       // Map split headers
       if (typeIndex !== -1) obj["Split Type"] = row[typeIndex];
-      if (dateIndex !== -1) obj["Split Date"] = row[dateIndex];
+      if (dateIndex !== -1) {
+        let sDate = row[dateIndex];
+        if (sDate instanceof Date) {
+          const tz = splitSheet.getParent().getSpreadsheetTimeZone();
+          sDate = Utilities.formatDate(sDate, tz, "yyyy-MM-dd HH:mm:ss");
+        }
+        obj["Split Date"] = sDate;
+      }
 
       if (obj["Date"] instanceof Date) {
         const tz = splitSheet.getParent().getSpreadsheetTimeZone();
@@ -478,8 +551,23 @@ function _getSplitSheet() {
 // --- HELPER FUNCTIONS (Internal) ---
 
 function _validateSplitRequest(original, splits) {
-  if (!original || !splits || splits.length < 2) {
+  if (!original || !splits || !Array.isArray(splits) || splits.length < 2) {
     return { success: false, message: "Invalid split data." };
+  }
+
+  for (let i = 0; i < splits.length; i++) {
+    const split = splits[i];
+    if (
+      !split.Description ||
+      split.Amount === undefined ||
+      split.Amount === null ||
+      split.Amount === ""
+    ) {
+      return {
+        success: false,
+        message: "Each split must have a description and amount.",
+      };
+    }
   }
 
   const rowIndex = parseInt(original.row);
@@ -598,8 +686,8 @@ function _processSplitCore(financeSheet, splitSheet, original, splits) {
     if (split.Category !== undefined) childRow[categoryIndex] = split.Category;
 
     const isIncome =
-      originalRowValues[incomeIndex] !== "" &&
-      originalRowValues[incomeIndex] !== null;
+      originalRowValues[incomeIndex] != null &&
+      originalRowValues[incomeIndex] !== "";
     if (isIncome) {
       childRow[incomeIndex] = split.Amount;
       childRow[expenseIndex] = "";
