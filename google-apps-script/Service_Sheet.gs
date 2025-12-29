@@ -93,17 +93,23 @@ var Service_Sheet = {
           obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
         } else if (typeof obj["Date"] === "string" && obj["Date"]) {
           // Date is already a string.
-          // If it matches YYYY-MM-DD, we leave it alone to preserve exact value (avoiding timezone shifts).
-          // If it's in another format (e.g. DD-MM-YYYY manually entered), we parse it safely as UTC.
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(obj["Date"])) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(obj["Date"])) {
+            // If it matches YYYY-MM-DD, we leave it alone to preserve exact value (avoiding timezone shifts).
+          } else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(obj["Date"])) {
+            // If it matches DD-MM-YYYY (or D-M-YYYY), parse it safely as UTC.
             const parts = obj["Date"].split("-");
-            if (parts.length === 3) {
-              // Parse as UTC to prevent script timezone (e.g. BST) from shifting the date back by 1 day
-              const dateObj = new Date(
-                Date.UTC(parts[0], parts[1] - 1, parts[2])
-              );
-              obj["Date"] = Utilities.formatDate(dateObj, "UTC", "yyyy-MM-dd");
-            }
+            // Parse as UTC: parts[0] is Day, parts[1] is Month, parts[2] is Year
+            const dateObj = new Date(
+              Date.UTC(parts[2], parts[1] - 1, parts[0])
+            );
+            obj["Date"] = Utilities.formatDate(dateObj, "UTC", "yyyy-MM-dd");
+          } else {
+            console.warn(
+              "Non-standard date format found:",
+              obj["Date"],
+              "at row",
+              obj.row
+            );
           }
         }
         return obj;
@@ -383,10 +389,20 @@ function _sortSheetByDate() {
 
     let dateObject;
     if (typeof dateVal === "string" && dateVal) {
-      const parts = dateVal.split("-");
-      if (parts.length === 3) {
-        // Use Date.UTC to ensure sorting is consistent with getData and ignore local timezone/DST
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+        const parts = dateVal.split("-");
         dateObject = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+      } else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateVal)) {
+        const parts = dateVal.split("-");
+        // Normalize to YYYY-MM-DD for consistency
+        dateObject = new Date(Date.UTC(parts[2], parts[1] - 1, parts[0]));
+        const normalizedDate = Utilities.formatDate(
+          dateObject,
+          "UTC",
+          "yyyy-MM-dd"
+        );
+        row[2] = normalizedDate; // Update row data so it's saved back as a normalized string
+        dateVal = normalizedDate;
       } else {
         console.warn("Invalid date format:", dateVal);
         dateObject = new Date(0);
