@@ -8,6 +8,11 @@ function normalizeDateString(dateValue) {
     return "";
   }
 
+  // Handle JavaScript Date objects
+  if (dateValue instanceof Date) {
+    return dateValue.toISOString().split("T")[0];
+  }
+
   // Convert to string and trim
   let dateString = String(dateValue).trim();
 
@@ -100,13 +105,31 @@ function parseAndCleanData(rows) {
       (h.includes("cash") || h.includes("amount") || h.includes("debit"))
   );
 
+  if (dateCol === -1 || descriptionCol === -1) {
+    throw new Error(
+      "Required columns (date, description) not found in header row."
+    );
+  }
+
   let currentTransaction = null;
+
+  const pushCurrentTransaction = () => {
+    if (currentTransaction) {
+      transactions.push({
+        date: currentTransaction.date,
+        document: currentTransaction.documentParts.join("\n"),
+        description: currentTransaction.descriptionParts.join(" "),
+        cashIn: currentTransaction.cashIn,
+        cashOut: currentTransaction.cashOut,
+      });
+    }
+  };
 
   for (let i = headerIndex + 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row || row.length === 0) continue;
 
-    const rowText = row.join("").toLowerCase();
+    const rowText = row.join(" ").toLowerCase();
     if (
       rowText.includes("please note recent transactions may not be included") ||
       rowText.includes("pending transactions")
@@ -117,37 +140,33 @@ function parseAndCleanData(rows) {
     const date = row[dateCol];
 
     if (date) {
-      if (currentTransaction) {
-        transactions.push(currentTransaction);
-      }
+      pushCurrentTransaction();
       currentTransaction = {
         date: normalizeDateString(date),
-        document: row[documentCol] || "",
-        description: row[descriptionCol] || "",
+        documentParts: row[documentCol] ? [String(row[documentCol])] : [],
+        descriptionParts: row[descriptionCol]
+          ? [String(row[descriptionCol])]
+          : [],
         cashIn: row[cashInCol] !== undefined ? row[cashInCol] : null,
         cashOut: row[cashOutCol] !== undefined ? row[cashOutCol] : null,
       };
     } else if (currentTransaction) {
-      if (
-        row[documentCol] &&
-        !String(currentTransaction.document).includes(String(row[documentCol]))
-      ) {
-        currentTransaction.document += "\n" + row[documentCol];
+      if (row[documentCol]) {
+        const val = String(row[documentCol]);
+        if (!currentTransaction.documentParts.includes(val)) {
+          currentTransaction.documentParts.push(val);
+        }
       }
-      if (
-        row[descriptionCol] &&
-        !String(currentTransaction.description).includes(
-          String(row[descriptionCol])
-        )
-      ) {
-        currentTransaction.description += " " + row[descriptionCol];
+      if (row[descriptionCol]) {
+        const val = String(row[descriptionCol]);
+        if (!currentTransaction.descriptionParts.includes(val)) {
+          currentTransaction.descriptionParts.push(val);
+        }
       }
     }
   }
 
-  if (currentTransaction) {
-    transactions.push(currentTransaction);
-  }
+  pushCurrentTransaction();
 
   return transactions;
 }
