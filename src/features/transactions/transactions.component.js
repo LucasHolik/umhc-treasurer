@@ -776,11 +776,15 @@ class TransactionsComponent {
 
   async openSplitModal(transaction) {
     if (this.selectionMode) return; // Don't split in bulk mode
+    if (store.getState("savingSplitTransaction")) {
+      return; // Prevent concurrent split operations
+    }
 
     const modal = new SplitTransactionModal();
     const splits = await modal.open(transaction);
 
     if (splits) {
+      if (store.getState("savingSplitTransaction")) return;
       store.setState("savingSplitTransaction", true);
       try {
         // Use skipLoading: true to manage our own state/UI
@@ -800,6 +804,9 @@ class TransactionsComponent {
 
   async openEditSplitModal(groupId) {
     if (this.selectionMode) return;
+    if (store.getState("savingSplitTransaction")) {
+      return;
+    }
 
     let source = null;
     let children = [];
@@ -843,6 +850,7 @@ class TransactionsComponent {
       const editPayload = await modal.open(source, children, groupId);
 
       if (editPayload && editPayload.action === "edit") {
+        if (store.getState("savingSplitTransaction")) return;
         store.setState("savingSplitTransaction", true);
         try {
           await ApiService.editSplit(
@@ -858,6 +866,7 @@ class TransactionsComponent {
           store.setState("savingSplitTransaction", false);
         }
       } else if (editPayload && editPayload.action === "revert") {
+        if (store.getState("savingSplitTransaction")) return;
         store.setState("savingSplitTransaction", true);
         try {
           await ApiService.revertSplit(editPayload.groupId, {
@@ -1208,7 +1217,7 @@ class TransactionsComponent {
           newCategory !== currentCategory
         ) {
           changesList.push({
-            row: rowId,
+            row: original.row,
             tripEvent: newTripEvent,
             category: newCategory,
           });
