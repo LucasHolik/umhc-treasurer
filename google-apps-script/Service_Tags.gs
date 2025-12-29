@@ -273,7 +273,8 @@ function _deleteTag(type, value) {
         lastRow - deleteRow,
         1
       );
-      rangeToMove.moveTo(tagSheet.getRange(deleteRow, column));
+      rangeToMove.copyTo(tagSheet.getRange(deleteRow, column));
+      tagSheet.getRange(lastRow, column).clearContent();
     } else {
       tagSheet.getRange(deleteRow, column).clearContent();
     }
@@ -377,6 +378,22 @@ function _updateTripType(tripName, typeName) {
     return { success: false, message: "No trips/events found." };
   }
 
+  // Validate typeName exists in Type List (Col 5) if not empty
+  if (typeName && typeName !== "") {
+    const existingTypes = tagSheet
+      .getRange(2, 5, lastRow - 1, 1)
+      .getValues()
+      .flat()
+      .map(String)
+      .filter((t) => t !== "");
+    if (!existingTypes.includes(typeName)) {
+      return {
+        success: false,
+        message: "Invalid type: " + typeName + " not found in Type List",
+      };
+    }
+  }
+
   // Find the Trip/Event in Col A
   const tripRange = tagSheet.getRange(2, 1, lastRow - 1, 1);
   const trips = tripRange.getValues().flat().map(String);
@@ -397,6 +414,15 @@ function _updateTripStatus(tripName, status) {
 
   if (lastRow < 2) {
     return { success: false, message: "No trips/events found." };
+  }
+
+  // Validate status value
+  const validStatuses = ["Active", "Completed", "Investment"];
+  if (!validStatuses.includes(status)) {
+    return {
+      success: false,
+      message: "Invalid status. Must be one of: " + validStatuses.join(", "),
+    };
   }
 
   const tripRange = tagSheet.getRange(2, 1, lastRow - 1, 1);
