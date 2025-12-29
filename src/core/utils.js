@@ -14,10 +14,6 @@ export function formatCurrency(amount) {
   }
 
   const num = parseAmount(amount);
-
-  if (isNaN(num)) {
-    return amount.toString(); // Return original if not a valid number
-  }
   return num.toFixed(2);
 }
 
@@ -65,6 +61,10 @@ export function getPastDaysRange(days) {
 export function getPastMonthsRange(months) {
   const now = new Date();
   const start = new Date();
+  // Set to the 1st of the month to avoid overflow issues on the 29th-31st.
+  // e.g. March 31st - 1 month would otherwise overflow to March 2nd/3rd (skipping Feb).
+  // This results in a range starting from the beginning of the month 'months' ago.
+  start.setDate(1);
   start.setMonth(now.getMonth() - months);
   return { start, end: now };
 }

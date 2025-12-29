@@ -1,3 +1,5 @@
+import { parseAmount, parseDate } from "../../core/utils.js";
+
 export const filterData = (
   data,
   { selectedCategories, selectedTrips, descriptionSearch }
@@ -39,16 +41,16 @@ export const sortData = (data, field, ascending) => {
     let valB = b[field] || "";
 
     if (field === "Net") {
-      const incomeA = parseFloat(a["Income"]) || 0;
-      const expenseA = parseFloat(a["Expense"]) || 0;
+      const incomeA = parseAmount(a["Income"]);
+      const expenseA = parseAmount(a["Expense"]);
       valA = incomeA - expenseA;
 
-      const incomeB = parseFloat(b["Income"]) || 0;
-      const expenseB = parseFloat(b["Expense"]) || 0;
+      const incomeB = parseAmount(b["Income"]);
+      const expenseB = parseAmount(b["Expense"]);
       valB = incomeB - expenseB;
     } else if (field === "Income" || field === "Expense") {
-      const numA = parseFloat(valA) || 0;
-      const numB = parseFloat(valB) || 0;
+      const numA = parseAmount(valA);
+      const numB = parseAmount(valB);
 
       const isPosA = numA > 0;
       const isPosB = numB > 0;
@@ -61,12 +63,12 @@ export const sortData = (data, field, ascending) => {
         valB = numB;
       } else {
         const otherField = field === "Income" ? "Expense" : "Income";
-        valA = parseFloat(a[otherField]) || 0;
-        valB = parseFloat(b[otherField]) || 0;
+        valA = parseAmount(a[otherField]);
+        valB = parseAmount(b[otherField]);
       }
     } else if (field === "Date") {
-      valA = new Date(valA);
-      valB = new Date(valB);
+      valA = parseDate(valA) || new Date(0);
+      valB = parseDate(valB) || new Date(0);
     }
 
     if (valA < valB) return ascending ? -1 : 1;

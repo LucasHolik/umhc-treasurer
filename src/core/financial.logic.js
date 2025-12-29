@@ -1,3 +1,5 @@
+import { parseAmount } from "./utils.js";
+
 /**
  * Calculates the manual offset, adjusted opening balance, and current balance.
  * Manual transactions are used to adjust the opening balance (e.g. historical data).
@@ -17,14 +19,8 @@ export function calculateFinancials(openingBalance, transactions) {
   const safeTransactions = transactions || [];
 
   safeTransactions.forEach((item) => {
-    const inc = item.Income
-      ? parseFloat(String(item.Income).replace(/,/g, ""))
-      : 0;
-    const exp = item.Expense
-      ? parseFloat(String(item.Expense).replace(/,/g, ""))
-      : 0;
-    const safeInc = isNaN(inc) ? 0 : inc;
-    const safeExp = isNaN(exp) ? 0 : exp;
+    const safeInc = parseAmount(item.Income);
+    const safeExp = parseAmount(item.Expense);
 
     if (item.Type === "Manual") {
       manualIncome += safeInc;

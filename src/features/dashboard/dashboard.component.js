@@ -4,6 +4,7 @@ import SortableTable from "../../shared/sortable-table.component.js";
 import {
   formatCurrency,
   filterTransactionsByTimeframe,
+  parseAmount,
 } from "../../core/utils.js";
 import { calculateFinancials } from "../../core/financial.logic.js";
 import { el, replace } from "../../core/dom.js";
@@ -146,30 +147,12 @@ class DashboardComponent {
             label: "Amount (£)",
             type: "custom",
             sortValue: (item) => {
-              const income = item.Income
-                ? parseFloat(String(item.Income).replace(/,/g, ""))
-                : 0;
-              const expense = item.Expense
-                ? parseFloat(String(item.Expense).replace(/,/g, ""))
-                : 0;
-              const safeIncome = isNaN(income) ? 0 : income;
-              const safeExpense = isNaN(expense) ? 0 : expense;
-              return safeIncome - safeExpense;
+              const income = parseAmount(item.Income);
+              const expense = parseAmount(item.Expense);
+              return income - expense;
             },
             render: (item) => {
-              // Parse values safely, treating null/undefined/empty string as 0
-              const income = item.Income
-                ? parseFloat(String(item.Income).replace(/,/g, ""))
-                : 0;
-              const expense = item.Expense
-                ? parseFloat(String(item.Expense).replace(/,/g, ""))
-                : 0;
-
-              // Use 0 if parsing fails (NaN)
-              const safeIncome = isNaN(income) ? 0 : income;
-              const safeExpense = isNaN(expense) ? 0 : expense;
-
-              const net = safeIncome - safeExpense;
+              const net = parseAmount(item.Income) - parseAmount(item.Expense);
 
               const classType =
                 net > 0 ? "positive" : net < 0 ? "negative" : "";
@@ -214,12 +197,8 @@ class DashboardComponent {
     let totalExpenses = 0;
 
     filteredData.forEach((item) => {
-      if (item.Income && !isNaN(parseFloat(item.Income))) {
-        totalIncome += parseFloat(item.Income);
-      }
-      if (item.Expense && !isNaN(parseFloat(item.Expense))) {
-        totalExpenses += parseFloat(item.Expense);
-      }
+      totalIncome += parseAmount(item.Income);
+      totalExpenses += parseAmount(item.Expense);
     });
 
     const netChange = totalIncome - totalExpenses;
