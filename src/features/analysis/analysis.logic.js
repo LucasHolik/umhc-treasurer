@@ -5,6 +5,7 @@ import {
   getDateRange,
   formatDateForInput,
   parseAmount,
+  parseDate,
 } from "../../core/utils.js";
 import { calculateFinancials } from "../../core/financial.logic.js";
 
@@ -17,7 +18,7 @@ class AnalysisLogic {
   /**
    * Calculates the start and end dates based on a given timeframe string.
    * @param {string} timeframe - The predefined timeframe (e.g., 'current_month', 'past_30_days', 'all_time').
-   * @param {string[]} expenses - The full list of expense items from the store.
+   * @param {Array<Object>} expenses - The full list of expense items from the store.
    * @returns {{start: Date, end: Date}|null} An object with start and end Date objects, or null if custom.
    */
   calculateDateRange(timeframe, expenses) {
@@ -29,8 +30,8 @@ class AnalysisLogic {
         let earliest = new Date();
         let found = false;
         expenses.forEach((item) => {
-          const d = new Date(item.Date);
-          if (!isNaN(d.getTime())) {
+          const d = parseDate(item.Date);
+          if (d) {
             if (!found || d < earliest) {
               earliest = d;
               found = true;
@@ -101,8 +102,8 @@ class AnalysisLogic {
     end.setHours(23, 59, 59, 999); // Include the whole end day
 
     return expenses.filter((item) => {
-      const date = new Date(item.Date);
-      if (isNaN(date.getTime())) return false;
+      const date = parseDate(item.Date);
+      if (!date) return false;
       if (date < start || date > end) return false;
 
       // Category Filter (AND logic)
@@ -159,7 +160,8 @@ class AnalysisLogic {
 
     const getKey = (item, type) => {
       if (type === "date") {
-        const date = new Date(item.Date);
+        const date = parseDate(item.Date);
+        if (!date) return "Unknown";
         if (timeUnit === "day") return formatDateForInput(date);
         if (timeUnit === "week") {
           // Adjust date to the start of the week (Monday)
@@ -223,10 +225,9 @@ class AnalysisLogic {
 
       // Pre-calculate balance for transactions *before* the current analysis window
       allExpenses.forEach((item) => {
-        const itemDate = new Date(item.Date);
-        if (!isNaN(itemDate.getTime()) && itemDate < calculationStart) {
-          balance +=
-            parseFloat(item.Income || 0) - parseFloat(item.Expense || 0);
+        const itemDate = parseDate(item.Date);
+        if (itemDate && itemDate < calculationStart) {
+          balance += parseAmount(item.Income) - parseAmount(item.Expense);
         }
       });
 
@@ -466,39 +467,49 @@ class AnalysisLogic {
   generateCSV(labels, datasets, options) {
     const { primaryGroup, secondaryGroup, metric, timeUnit } = options;
 
+    const escapeCSV = (value) => {
+      const str = String(value);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
     // Header Row
     let header =
       primaryGroup === "date"
         ? `Date (${timeUnit})`
         : primaryGroup.charAt(0).toUpperCase() + primaryGroup.slice(1);
 
+    header = escapeCSV(header);
+
     if (secondaryGroup !== "none") {
       const secondaryKeys = datasets.map((d) => d.label);
-      header += "," + secondaryKeys.join(",") + ",Total";
+      header += "," + secondaryKeys.map(escapeCSV).join(",") + ",Total";
     } else {
-      header += "," + (metric.charAt(0).toUpperCase() + metric.slice(1));
+      header +=
+        "," + escapeCSV(metric.charAt(0).toUpperCase() + metric.slice(1));
     }
     header += "\n";
 
     // Data Rows
     const rows = labels
       .map((label) => {
-        // Escape label if it contains commas
-        let rowStr = label.includes(",") ? `"${label}"` : label;
+        let rowStr = escapeCSV(label);
 
         if (secondaryGroup !== "none") {
           let rowTotal = 0;
           datasets.forEach((dataset) => {
             const dataIndex = labels.indexOf(label);
             const value = dataset.data[dataIndex] || 0;
-            rowStr += `,${value}`;
+            rowStr += `,${escapeCSV(value)}`;
             rowTotal += value;
           });
-          rowStr += `,${rowTotal}`;
+          rowStr += `,${escapeCSV(rowTotal)}`;
         } else {
           const dataIndex = labels.indexOf(label);
           const value = datasets[0].data[dataIndex] || 0;
-          rowStr += `,${value}`;
+          rowStr += `,${escapeCSV(value)}`;
         }
         return rowStr;
       })
