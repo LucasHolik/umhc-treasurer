@@ -23,6 +23,7 @@ class TransactionsComponent {
     // State
     this.selectionMode = false;
     this.selectedRows = new Set();
+    this.activeTimeouts = [];
 
     this.pendingChanges = new Map(); // rowId -> { 'Trip/Event': val, 'Category': val }
     this.tagSelector = new TagSelector();
@@ -89,6 +90,10 @@ class TransactionsComponent {
       this.subscriptions.forEach((sub) => sub.unsubscribe());
       this.subscriptions = [];
     }
+    if (this.activeTimeouts) {
+      this.activeTimeouts.forEach((id) => clearTimeout(id));
+      this.activeTimeouts = [];
+    }
   }
 
   handleGlobalClick(e) {
@@ -107,6 +112,7 @@ class TransactionsComponent {
     if (target.classList.contains("remove-btn")) {
       e.stopPropagation();
       const pill = target.closest(".tag-pill");
+      if (!pill) return;
       const rowId = pill.dataset.row;
       const type = pill.dataset.type;
       this.updatePendingChange(rowId, type, "");
@@ -155,6 +161,7 @@ class TransactionsComponent {
         e.preventDefault(); // Prevent scrolling for Space
         e.stopPropagation();
         const pill = target.closest(".tag-pill");
+        if (!pill) return;
         const rowId = pill.dataset.row;
         const type = pill.dataset.type;
         this.updatePendingChange(rowId, type, "");
@@ -562,10 +569,10 @@ class TransactionsComponent {
     });
 
     // Attach listener for description search
-    descSearchInput.addEventListener("input", (e) => {
+    descSearchInput.oninput = (e) => {
       this.descriptionSearchTerm = e.target.value;
       this.applyFilters();
-    });
+    };
 
     const descSearchContainer = el(
       "div",
@@ -798,6 +805,14 @@ class TransactionsComponent {
         console.error("Split failed:", error);
         alert("Failed to split transaction: " + error.message);
         store.setState("savingSplitTransaction", false);
+      } finally {
+        const timeoutId = setTimeout(() => {
+          if (store.getState("savingSplitTransaction")) {
+            console.warn("Force clearing savingSplitTransaction flag");
+            store.setState("savingSplitTransaction", false);
+          }
+        }, 5000);
+        this.activeTimeouts.push(timeoutId);
       }
     }
   }
@@ -864,6 +879,14 @@ class TransactionsComponent {
           console.error("Failed to update split:", error);
           alert("Failed to update split: " + error.message);
           store.setState("savingSplitTransaction", false);
+        } finally {
+          const timeoutId = setTimeout(() => {
+            if (store.getState("savingSplitTransaction")) {
+              console.warn("Force clearing savingSplitTransaction flag");
+              store.setState("savingSplitTransaction", false);
+            }
+          }, 5000);
+          this.activeTimeouts.push(timeoutId);
         }
       } else if (editPayload && editPayload.action === "revert") {
         if (store.getState("savingSplitTransaction")) return;
@@ -877,6 +900,14 @@ class TransactionsComponent {
           console.error("Failed to revert split:", error);
           alert("Failed to revert split: " + error.message);
           store.setState("savingSplitTransaction", false);
+        } finally {
+          const timeoutId = setTimeout(() => {
+            if (store.getState("savingSplitTransaction")) {
+              console.warn("Force clearing savingSplitTransaction flag");
+              store.setState("savingSplitTransaction", false);
+            }
+          }, 5000);
+          this.activeTimeouts.push(timeoutId);
         }
       }
     } catch (error) {
@@ -972,6 +1003,15 @@ class TransactionsComponent {
 
       // Update the Save Button UI to reflect the cleanup
       this.updateSaveButtonState();
+    }
+
+    // If we were tagging, turn it off now that data has reloaded
+    if (
+      store.getState("isTagging") &&
+      store.getState("taggingSource") === "transactions"
+    ) {
+      store.setState("isTagging", false);
+      store.setState("taggingSource", null);
     }
 
     // If we were saving a split, turn it off now that data has reloaded
@@ -1162,20 +1202,19 @@ class TransactionsComponent {
       }
 
       store.setState("taggingProgress", "Saved successfully!");
-      this.pendingChanges.clear();
 
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         document.dispatchEvent(new CustomEvent("dataUploaded"));
-        store.setState("isTagging", false);
-        store.setState("taggingSource", null);
       }, 1000);
+      this.activeTimeouts.push(timeoutId);
     } catch (error) {
       console.error("Save changes failed:", error);
       store.setState("taggingProgress", `Error: ${error.message}`);
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         store.setState("isTagging", false);
         store.setState("taggingSource", null);
       }, 3000);
+      this.activeTimeouts.push(timeoutId);
     }
   }
 
@@ -1252,18 +1291,18 @@ class TransactionsComponent {
       this.toggleSelectionMode(false);
       store.setState("taggingProgress", "Completed!");
 
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         document.dispatchEvent(new CustomEvent("dataUploaded"));
-        store.setState("isTagging", false);
-        store.setState("taggingSource", null);
       }, 1000);
+      this.activeTimeouts.push(timeoutId);
     } catch (error) {
       console.error("Bulk tagging failed:", error);
       store.setState("taggingProgress", `Error: ${error.message}`);
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         store.setState("isTagging", false);
         store.setState("taggingSource", null);
       }, 3000);
+      this.activeTimeouts.push(timeoutId);
     }
   }
 
