@@ -1,10 +1,10 @@
 import store from "../../core/state.js";
-import ApiService from "../../services/api.service.js";
 import SortableTable from "../../shared/sortable-table.component.js";
-import TagSelector from "../../shared/tag-selector.component.js";
 import { el, replace } from "../../core/dom.js";
 
 export default class TagsAddTrip {
+  static NO_TYPE = "__NO_TYPE__";
+
   constructor(element, callbacks) {
     this.element = element;
     this.callbacks = callbacks; // { onBack, onSave }
@@ -189,15 +189,11 @@ export default class TagsAddTrip {
     this.renderTable();
   }
 
-  bindEvents() {
-    // Obsolete
-  }
-
   renderFilters() {
     const container = this.element.querySelector("#type-filter-list");
     if (!container) return;
 
-    const NO_TYPE = "__NO_TYPE__";
+    const NO_TYPE = TagsAddTrip.NO_TYPE;
     const children = [];
 
     // 1. No Type Option
@@ -299,7 +295,7 @@ export default class TagsAddTrip {
     if (this.typeFilterSet.size > 0) {
       filtered = filtered.filter((trip) => {
         const type = this.tripTypeMap[trip];
-        if (!type) return this.typeFilterSet.has("__NO_TYPE__");
+        if (!type) return this.typeFilterSet.has(TagsAddTrip.NO_TYPE);
         return this.typeFilterSet.has(type);
       });
     }
