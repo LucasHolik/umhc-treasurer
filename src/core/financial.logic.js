@@ -1,16 +1,27 @@
 import { parseAmount } from "./utils.js";
 
 /**
- * Calculates the manual offset, adjusted opening balance, and current balance.
- * Manual transactions are used to adjust the opening balance (e.g. historical data).
- * Adjusted Opening Balance = Configured Opening Balance + (Manual Expenses - Manual Income)
- * Current Balance = Adjusted Opening Balance + Total Income - Total Expenses
+ * Calculates financial totals and balances, accounting for "Manual" transactions as historical adjustments.
  *
- * @param {number} openingBalance - The configured initial balance.
+ * Logic:
+ * - "Manual" transactions represent activity that occurred prior to the configured Opening Balance.
+ * - They are INCLUDED in `totalIncome` and `totalExpenses` so they appear in reports and charts.
+ * - To prevent these historical amounts from double-counting against the start balance, the
+ *   Opening Balance is adjusted inversely:
+ *     - Manual Expense: Increases Adjusted Opening Balance.
+ *     - Manual Income: Decreases Adjusted Opening Balance.
+ *
+ * This ensures:
+ *   Current Balance = Adjusted Opening Balance + Total Income - Total Expenses
+ *   (Where the net effect of manual transactions on the Current Balance is zero).
+ *
+ * @param {number|string} openingBalance - The configured initial balance.
  * @param {Array} transactions - List of all transactions.
  * @returns {object} - { manualOffset, adjustedOpeningBalance, currentBalance, totalIncome, totalExpenses }
  */
 export function calculateFinancials(openingBalance, transactions) {
+  const safeOpeningBalance = parseFloat(openingBalance) || 0;
+
   let manualIncome = 0;
   let manualExpense = 0;
   let totalIncome = 0;
@@ -27,16 +38,14 @@ export function calculateFinancials(openingBalance, transactions) {
       manualExpense += safeExp;
     }
 
+    // Totals include EVERYTHING (Regular + Manual)
     totalIncome += safeInc;
     totalExpenses += safeExp;
   });
 
-  // Manual Offset: If we manually added income, we subtract it from the running total calculation
-  // because it's technically "pre-existing" money or an adjustment, not "new" income.
-  // However, the formula observed was: Offset = ManualExpense - ManualIncome.
-  // And Balance = Opening + Offset + TotalIncome - TotalExpense.
+  // Adjust opening balance inversely to neutralize the effect of historical manual transactions on the current balance.
   const manualOffset = manualExpense - manualIncome;
-  const adjustedOpeningBalance = openingBalance + manualOffset;
+  const adjustedOpeningBalance = safeOpeningBalance + manualOffset;
   const currentBalance = adjustedOpeningBalance + totalIncome - totalExpenses;
 
   return {
