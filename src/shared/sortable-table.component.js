@@ -148,6 +148,10 @@ export default class SortableTable {
             const newState = !this.selectedRows.has(item[this.rowIdField]);
             checkbox.checked = newState;
             this.handleRowSelect(item[this.rowIdField], newState);
+
+            if (this.onRowClick) {
+              this.onRowClick(item, e);
+            }
           };
         }
 
@@ -191,9 +195,9 @@ export default class SortableTable {
   sortData() {
     if (!this.sortField) return;
 
-    this.data.sort((a, b) => {
-      const colDef = this.columns.find((c) => c.key === this.sortField);
+    const colDef = this.columns.find((c) => c.key === this.sortField);
 
+    this.data.sort((a, b) => {
       let valA, valB;
 
       if (colDef && colDef.sortValue) {
@@ -259,8 +263,16 @@ export default class SortableTable {
     else this.selectedRows.delete(id);
     if (this.onSelectionChange)
       this.onSelectionChange(Array.from(this.selectedRows));
-    // No need to re-render full table, just update checkbox if needed?
-    // But native checkbox updates itself.
+
+    // Update header checkbox state
+    const headerCheckbox = this.container.querySelector(
+      'thead input[type="checkbox"]'
+    );
+    if (headerCheckbox) {
+      headerCheckbox.checked =
+        this.data.length > 0 &&
+        this.data.every((item) => this.selectedRows.has(item[this.rowIdField]));
+    }
   }
 
   getSelectedRows() {
