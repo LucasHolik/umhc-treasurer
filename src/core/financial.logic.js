@@ -1,5 +1,3 @@
-import { formatCurrency } from "./utils.js";
-
 /**
  * Calculates the manual offset, adjusted opening balance, and current balance.
  * Manual transactions are used to adjust the opening balance (e.g. historical data).
