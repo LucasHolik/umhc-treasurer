@@ -33,6 +33,9 @@ class SettingsComponent {
   destroy() {
     this.unsubscribers.forEach((sub) => sub.unsubscribe());
     this.unsubscribers = [];
+    if (this.modal && this.modal.destroy) {
+      this.modal.destroy();
+    }
   }
 
   render() {
@@ -50,10 +53,17 @@ class SettingsComponent {
     const expenses = store.getState("expenses") || [];
 
     // Calculate offset from manual transactions
-    const { manualOffset, adjustedOpeningBalance } = calculateFinancials(
-      currentBalance,
-      expenses
-    );
+    let manualOffset = 0;
+    let adjustedOpeningBalance = currentBalance;
+    try {
+      ({ manualOffset, adjustedOpeningBalance } = calculateFinancials(
+        currentBalance,
+        expenses
+      ));
+    } catch (error) {
+      console.error("Error calculating financials:", error);
+      this.displayStatus("Error loading financial calculations", "error");
+    }
 
     this.editButton = el(
       "button",
@@ -259,15 +269,23 @@ class SettingsComponent {
             ),
             el(
               "div",
-              { style: { color: "#aaa", fontSize: "0.9em" } },
+              {
+                id: "accessibility-description",
+                style: { color: "#aaa", fontSize: "0.9em" },
+              },
               "Add symbols (▲/▼) to positive/negative values for better visibility."
             )
           ),
           el(
             "label",
-            { className: "switch" },
+            {
+              className: "switch",
+              "aria-label": "Toggle Accessibility Mode",
+            },
             el("input", {
               type: "checkbox",
+              id: "accessibility-toggle",
+              "aria-describedby": "accessibility-description",
               checked: store.getState("accessibilityMode"),
               onchange: (e) =>
                 store.setState("accessibilityMode", e.target.checked),
@@ -326,9 +344,16 @@ class SettingsComponent {
 
     if (newBalanceStr === null) return; // Cancelled
 
-    const newBalance = parseFloat(newBalanceStr);
-    if (isNaN(newBalance)) {
+    const trimmed = newBalanceStr.trim();
+    const newBalance = Number(trimmed);
+
+    if (trimmed === "" || isNaN(newBalance)) {
       await this.modal.alert("Please enter a valid number.");
+      return;
+    }
+
+    if (newBalance < 0) {
+      await this.modal.alert("Balance cannot be negative.");
       return;
     }
 
@@ -350,9 +375,15 @@ class SettingsComponent {
     } catch (error) {
       console.error("Settings save failed:", error);
       store.setState("settingsSyncing", false);
-      // Re-render ensures UI is ready, and status is stable from constructor
-      this.render();
-      this.displayStatus(`Error: ${error.message}`, "error");
+      try {
+        // Re-render ensures UI is ready, and status is stable from constructor
+        this.render();
+        this.displayStatus(`Error: ${error.message}`, "error");
+      } catch (renderError) {
+        console.error("Failed to render error state:", renderError);
+        // Fallback: at least try to show status
+        this.displayStatus(`Error: ${error.message}`, "error");
+      }
     }
   }
 
