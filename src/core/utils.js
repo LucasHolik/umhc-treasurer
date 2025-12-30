@@ -47,7 +47,15 @@ export function parseDate(dateString) {
 export function getCurrentMonthRange() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const end = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999
+  );
   return { start, end };
 }
 
@@ -125,7 +133,9 @@ export function formatDateForInput(date) {
  * @returns {string}
  */
 export function escapeHtml(str) {
-  if (typeof str !== "string") return str;
+  if (typeof str !== "string") {
+    str = String(str);
+  }
   const matchHtmlRegExp = /["'&<>]/;
   const match = matchHtmlRegExp.exec(str);
 
