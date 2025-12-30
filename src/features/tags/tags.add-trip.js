@@ -163,7 +163,9 @@ export default class TagsAddTrip {
     });
     tableSearchInput.addEventListener("input", (e) => {
       this.tripSearchTerm = e.target.value;
-      this.tableComponent.update(this.getFilteredData());
+      if (this.tableComponent) {
+        this.tableComponent.update(this.getFilteredData());
+      }
     });
 
     const tableSearchDiv = el(
@@ -185,8 +187,8 @@ export default class TagsAddTrip {
 
     replace(this.element, section);
 
-    this.renderFilters();
     this.renderTable();
+    this.renderFilters();
   }
 
   renderFilters() {
@@ -203,7 +205,9 @@ export default class TagsAddTrip {
     noTypeCb.addEventListener("change", (e) => {
       if (e.target.checked) this.typeFilterSet.add(NO_TYPE);
       else this.typeFilterSet.delete(NO_TYPE);
-      this.tableComponent.update(this.getFilteredData());
+      if (this.tableComponent) {
+        this.tableComponent.update(this.getFilteredData());
+      }
     });
 
     const noTypeDiv = el(
@@ -244,7 +248,9 @@ export default class TagsAddTrip {
           visibleTypes.forEach((t) => this.typeFilterSet.delete(t));
         }
         this.renderFilters(); // Update checkboxes
-        this.tableComponent.update(this.getFilteredData());
+        if (this.tableComponent) {
+          this.tableComponent.update(this.getFilteredData());
+        }
       });
 
       const selectAllDiv = el(
@@ -267,7 +273,9 @@ export default class TagsAddTrip {
       checkbox.addEventListener("change", (e) => {
         if (e.target.checked) this.typeFilterSet.add(type);
         else this.typeFilterSet.delete(type);
-        this.tableComponent.update(this.getFilteredData());
+        if (this.tableComponent) {
+          this.tableComponent.update(this.getFilteredData());
+        }
       });
 
       const div = el(
