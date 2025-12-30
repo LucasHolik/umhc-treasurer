@@ -249,6 +249,12 @@ var Service_Split = {
         return { success: false, message: "Invalid JSON data." };
       }
 
+      // Pre-validation: Ensure new data is valid before destroying old data
+      const validation = _validateSplitRequest(data.original, data.splits);
+      if (!validation.success) {
+        return validation;
+      }
+
       // 3. Perform Revert (Clean up old split artifacts)
       const splitSheet = _getSplitSheet();
       const revertRes = _revertSplitCore(
@@ -299,6 +305,7 @@ var Service_Split = {
     const headers = data[0];
     const idIndex = headers.indexOf("Split Group ID");
     const typeIndex = headers.indexOf("Split Type");
+    const dateIndex = headers.indexOf("Split Date");
 
     if (idIndex === -1 || typeIndex === -1) {
       return {
@@ -573,6 +580,24 @@ function _validateSplitRequest(original, splits) {
   const rowIndex = parseInt(original.row);
   if (isNaN(rowIndex) || rowIndex < 2) {
     return { success: false, message: "Invalid row index." };
+  }
+
+  // Validate split amounts sum to original
+  const originalAmount =
+    parseFloat(original.Income || 0) || parseFloat(original.Expense || 0) || 0;
+  const splitSum = splits.reduce(
+    (sum, split) => sum + parseFloat(split.Amount || 0),
+    0
+  );
+  const tolerance = 0.01; // Allow for rounding errors
+
+  if (Math.abs(originalAmount - splitSum) > tolerance) {
+    return {
+      success: false,
+      message: `Split amounts (${splitSum.toFixed(
+        2
+      )}) must sum to original amount (${originalAmount.toFixed(2)}).`,
+    };
   }
 
   const idIndex = CONFIG.HEADERS.indexOf("Split Group ID");
