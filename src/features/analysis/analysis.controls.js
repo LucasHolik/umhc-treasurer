@@ -280,15 +280,25 @@ export default class AnalysisControls {
         ];
       }
 
+      // Validate chartType against available options, default to first valid option
+      const validValues = options.map((opt) => opt.value);
+      const chartTypeValue = validValues.includes(state.chartType)
+        ? state.chartType
+        : options[0].value;
+
       // Re-populate options
       chartTypeSelect.innerHTML = "";
-      const optionEls = this.createOptions(options, state.chartType);
+      const optionEls = this.createOptions(options, chartTypeValue);
       optionEls.forEach((opt) => chartTypeSelect.appendChild(opt));
-    }
 
-    // Ensure value is set (it might have been reset if option is missing,
-    // but createOptions handles selection attribute. setVal redundancy ensures it)
-    setVal("#analysis-chart-type-select", state.chartType);
+      // Update state to reflect the actual valid value
+      if (
+        chartTypeValue !== state.chartType &&
+        this.callbacks.onChartTypeChange
+      ) {
+        this.callbacks.onChartTypeChange(chartTypeValue);
+      }
+    }
 
     setVal("#analysis-primary-group-select", state.primaryGroup);
     setVal("#analysis-secondary-group-select", state.secondaryGroup);
