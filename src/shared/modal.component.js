@@ -3,7 +3,13 @@
 import { el } from "../core/dom.js";
 
 class ModalComponent {
+  static _idCounter = 0;
+
   constructor() {
+    this._injectStyles();
+  }
+
+  _injectStyles() {
     // Inject styles if not already present
     if (!document.getElementById("modal-styles")) {
       const link = document.createElement("link");
@@ -62,13 +68,24 @@ class ModalComponent {
 
   _ensureStylesLoaded() {
     return new Promise((resolve) => {
-      const existing = document.getElementById("modal-styles");
+      let existing = document.getElementById("modal-styles");
+
+      if (!existing) {
+        console.warn("Modal stylesheet element not found, re-injecting...");
+        this._injectStyles();
+        existing = document.getElementById("modal-styles");
+      }
+
       if (existing && existing.sheet) {
         resolve();
         return;
       }
+
       if (existing) {
-        const timeout = setTimeout(() => resolve(), 2000); // 2s timeout fallback
+        const timeout = setTimeout(() => {
+          console.warn("Modal stylesheet load timed out");
+          resolve();
+        }, 2000); // 2s timeout fallback
         existing.addEventListener(
           "load",
           () => {
@@ -81,11 +98,13 @@ class ModalComponent {
           "error",
           () => {
             clearTimeout(timeout);
+            console.error("Failed to load modal stylesheet");
             resolve(); // Resolve anyway to avoid hanging UI
           },
           { once: true }
         );
       } else {
+        // Should be unreachable now
         resolve();
       }
     });
@@ -93,6 +112,8 @@ class ModalComponent {
 
   async _show(options) {
     await this._ensureStylesLoaded();
+    const modalId = ++ModalComponent._idCounter;
+
     return new Promise((resolve) => {
       let inputEl;
       if (options.type === "prompt") {
@@ -130,8 +151,8 @@ class ModalComponent {
         "×"
       );
 
-      const titleId = `modal-title-${Date.now()}`;
-      const bodyId = `modal-body-${Date.now()}`;
+      const titleId = `modal-title-${modalId}`;
+      const bodyId = `modal-body-${modalId}`;
 
       const modalContent = el(
         "div",
@@ -188,7 +209,7 @@ class ModalComponent {
       }
 
       const trapTabKey = (e) => {
-        if (e.key === "Tab") {
+        if (e.key === "Tab" && focusableElements.length > 0) {
           // SHIFT + TAB
           if (e.shiftKey) {
             if (document.activeElement === firstTabStop) {
