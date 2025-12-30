@@ -67,13 +67,21 @@ class TagsComponent {
 
     this.render();
 
+    this.subscriptions = [];
     // Subscribe to relevant state changes
-    store.subscribe("tags", () => {
-      if (!this.isEditMode && this.viewMode === "list") this.render();
-    });
-    store.subscribe("expenses", this.render);
-    store.subscribe("savingTags", this.render);
-    store.subscribe("isTagging", this.render);
+    this.subscriptions.push(
+      store.subscribe("tags", () => {
+        if (!this.isEditMode && this.viewMode === "list") this.render();
+      })
+    );
+    this.subscriptions.push(store.subscribe("expenses", this.render));
+    this.subscriptions.push(store.subscribe("savingTags", this.render));
+    this.subscriptions.push(store.subscribe("isTagging", this.render));
+  }
+
+  destroy() {
+    this.subscriptions.forEach((sub) => sub.unsubscribe());
+    this.subscriptions = [];
   }
 
   render() {
@@ -300,6 +308,10 @@ class TagsComponent {
 
   async handleTagAdd(type, value) {
     if (!value) return;
+    if (!this.localTags[type] || !Array.isArray(this.localTags[type])) {
+      await this.modal.alert(`Invalid tag type: ${type}`);
+      return;
+    }
     if (this.localTags[type].includes(value)) {
       await this.modal.alert("Tag already exists!");
       return;
@@ -369,6 +381,9 @@ class TagsComponent {
   handleUpdateTripType(tripName, newType) {
     // Update local state if in edit mode
     if (this.isEditMode && this.localTags) {
+      if (!this.localTags.TripTypeMap) {
+        this.localTags.TripTypeMap = {};
+      }
       this.localTags.TripTypeMap[tripName] = newType;
     }
 
@@ -434,6 +449,10 @@ class TagsComponent {
   }
 
   async handleSave() {
+    if (store.getState("savingTags")) {
+      return; // Save already in progress
+    }
+
     if (this.queue.length === 0) {
       this.isEditMode = false;
       this.render();
@@ -453,8 +472,10 @@ class TagsComponent {
     }
 
     try {
+      let processedCount = 0;
       for (const chunk of chunks) {
         await ApiService.processTagOperations(chunk, { skipLoading: true });
+        processedCount += chunk.length;
       }
 
       // Refresh data to ensure everything is synced
@@ -465,7 +486,12 @@ class TagsComponent {
       this.queue = [];
     } catch (error) {
       console.error("Failed to save tags:", error);
-      await this.modal.alert("Failed to save tags: " + error.message, "Error");
+      await this.modal.alert(
+        `Failed to save tags: ${error.message}\n\n` +
+          `${processedCount} of ${formattedOperations.length} operations were saved. ` +
+          `Please refresh the page to see the current state and retry.`,
+        "Error"
+      );
     } finally {
       store.setState("savingTags", false);
     }
