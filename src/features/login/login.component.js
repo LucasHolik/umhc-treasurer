@@ -13,8 +13,19 @@ class LoginComponent {
     this.isEditingUrl = false;
     this.render();
 
-    store.subscribe("error", this.handleError.bind(this));
-    store.subscribe("isLoading", this.handleLoading.bind(this));
+    this.errorUnsubscribe = store.subscribe(
+      "error",
+      this.handleError.bind(this)
+    );
+    this.loadingUnsubscribe = store.subscribe(
+      "isLoading",
+      this.handleLoading.bind(this)
+    );
+  }
+
+  destroy() {
+    if (this.errorUnsubscribe) this.errorUnsubscribe.unsubscribe();
+    if (this.loadingUnsubscribe) this.loadingUnsubscribe.unsubscribe();
   }
 
   render() {
@@ -186,7 +197,14 @@ class LoginComponent {
       store.setState("error", "Please enter an API key.");
       return;
     }
-    await AuthService.login(apiKey);
+    try {
+      await AuthService.login(apiKey);
+    } catch (error) {
+      store.setState(
+        "error",
+        error.message || "Login failed. Please try again."
+      );
+    }
   }
 
   handleError(error) {
