@@ -10,53 +10,46 @@ export default class AnalysisChart {
   }
 
   loadLib() {
-    if (window.Chart) {
+    if (this.libLoaded || window.Chart) {
       this.libLoaded = true;
       return;
     }
 
-    // Check if script is already present to prevent duplicates
-    if (document.querySelector('script[src="src/lib/chart.umd.min.js"]')) {
-      // Wait for it to load
-      const existingScript = document.querySelector(
-        'script[src="src/lib/chart.umd.min.js"]'
-      );
+    const scriptSrc = "src/lib/chart.umd.min.js";
+    let script = document.querySelector(`script[src="${scriptSrc}"]`);
 
-      const handleLoad = () => {
-        this.libLoaded = true;
-        if (this.pendingRender) {
-          this.render(this.pendingRender.data, this.pendingRender.options);
-          this.pendingRender = null;
-        }
-      };
-
-      if (window.Chart) {
-        handleLoad();
-      } else {
-        existingScript.addEventListener("load", handleLoad);
-        existingScript.addEventListener("error", () => {
-          console.error("Failed to load Chart.js");
-          this.pendingRender = null;
-        });
-      }
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "src/lib/chart.umd.min.js";
-    script.addEventListener("load", () => {
+    const handleLoad = () => {
+      if (this.libLoaded) return;
       this.libLoaded = true;
       console.log("Chart.js loaded");
       if (this.pendingRender) {
         this.render(this.pendingRender.data, this.pendingRender.options);
         this.pendingRender = null;
       }
-    });
-    script.addEventListener("error", () => {
+    };
+
+    const handleError = () => {
       console.error("Failed to load Chart.js");
       this.pendingRender = null;
-    });
-    document.head.appendChild(script);
+    };
+
+    if (script) {
+      script.addEventListener("load", handleLoad);
+      script.addEventListener("error", handleError);
+
+      // Race condition fix: Check if it finished loading while we were attaching listeners
+      if (window.Chart) {
+        script.removeEventListener("load", handleLoad);
+        script.removeEventListener("error", handleError);
+        handleLoad();
+      }
+    } else {
+      script = document.createElement("script");
+      script.src = scriptSrc;
+      script.addEventListener("load", handleLoad);
+      script.addEventListener("error", handleError);
+      document.head.appendChild(script);
+    }
   }
 
   render(data, options) {
@@ -71,6 +64,10 @@ export default class AnalysisChart {
     }
 
     const ctx = this.element.getContext("2d");
+    if (!ctx) {
+      console.error("Failed to get 2D context from canvas element");
+      return;
+    }
     const { labels, datasets } = data;
     const { type, metric, primaryGroup, secondaryGroup } = options;
 
