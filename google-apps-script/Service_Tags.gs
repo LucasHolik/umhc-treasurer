@@ -48,6 +48,13 @@ var Service_Tags = {
   },
 };
 
+// --- CONSTANTS ---
+const COL_TRIP_EVENT = 1;
+const COL_TYPE = 2;
+const COL_STATUS = 3;
+const COL_CATEGORY = 4;
+const COL_TYPE_LIST = 5;
+
 function _getTagSheet() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   let tagSheet = spreadsheet.getSheetByName("Tags");
@@ -83,7 +90,7 @@ function _getTags() {
   }
 
   // Get all data at once (Cols A to E) -> 5 columns now
-  const data = tagSheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  const data = tagSheet.getRange(2, 1, lastRow - 1, COL_TYPE_LIST).getValues();
 
   const tripEventTags = [];
   const tripTypeMap = {};
@@ -93,29 +100,29 @@ function _getTags() {
 
   data.forEach((row) => {
     // Col A: Trip/Event
-    if (row[0]) {
-      const tripName = String(row[0]);
+    if (row[COL_TRIP_EVENT - 1]) {
+      const tripName = String(row[COL_TRIP_EVENT - 1]);
       tripEventTags.push(tripName);
       // Col B: Type
-      if (row[1]) {
-        tripTypeMap[tripName] = String(row[1]);
+      if (row[COL_TYPE - 1]) {
+        tripTypeMap[tripName] = String(row[COL_TYPE - 1]);
       }
       // Col C: Status
-      if (row[2]) {
-        tripStatusMap[tripName] = String(row[2]);
+      if (row[COL_STATUS - 1]) {
+        tripStatusMap[tripName] = String(row[COL_STATUS - 1]);
       } else {
         tripStatusMap[tripName] = "Active"; // Default
       }
     }
 
     // Col D: Category (was C)
-    if (row[3]) {
-      categoryTags.push(String(row[3]));
+    if (row[COL_CATEGORY - 1]) {
+      categoryTags.push(String(row[COL_CATEGORY - 1]));
     }
 
     // Col E: Type List (was D)
-    if (row[4]) {
-      typeTags.push(String(row[4]));
+    if (row[COL_TYPE_LIST - 1]) {
+      typeTags.push(String(row[COL_TYPE_LIST - 1]));
     }
   });
 
@@ -134,11 +141,11 @@ function _addTag(type, value, skipSort, extraData) {
   let column;
 
   if (type === "Trip/Event") {
-    column = 1;
+    column = COL_TRIP_EVENT;
   } else if (type === "Category") {
-    column = 4; // Moved from 3
+    column = COL_CATEGORY; // Moved from 3
   } else if (type === "Type") {
-    column = 5; // Moved from 4
+    column = COL_TYPE_LIST; // Moved from 4
   } else {
     return { success: false, message: "Invalid tag type." };
   }
@@ -176,9 +183,16 @@ function _addTag(type, value, skipSort, extraData) {
     const typeValue = extraData || "";
 
     // Validate typeValue exists in Type List (Col 5)
-    if (typeValue && lastRow > 1) {
+    if (typeValue) {
+      if (lastRow < 2) {
+        return {
+          success: false,
+          message:
+            "Cannot set type: Type List is empty. Please add types first.",
+        };
+      }
       const existingTypes = tagSheet
-        .getRange(2, 5, lastRow - 1, 1)
+        .getRange(2, COL_TYPE_LIST, lastRow - 1, 1)
         .getValues()
         .flat()
         .map(String)
@@ -191,8 +205,8 @@ function _addTag(type, value, skipSort, extraData) {
       }
     }
 
-    tagSheet.getRange(nextEmptyRow, 2).setValue(typeValue);
-    tagSheet.getRange(nextEmptyRow, 3).setValue("Active"); // Default status
+    tagSheet.getRange(nextEmptyRow, COL_TYPE).setValue(typeValue);
+    tagSheet.getRange(nextEmptyRow, COL_STATUS).setValue("Active"); // Default status
   }
 
   if (!skipSort) {
@@ -208,11 +222,11 @@ function _deleteTag(type, value) {
   let column;
 
   if (type === "Trip/Event") {
-    column = 1;
+    column = COL_TRIP_EVENT;
   } else if (type === "Category") {
-    column = 4;
+    column = COL_CATEGORY;
   } else if (type === "Type") {
-    column = 5;
+    column = COL_TYPE_LIST;
   } else {
     return { success: false, message: "Invalid tag type." };
   }
@@ -229,11 +243,44 @@ function _deleteTag(type, value) {
     return { success: false, message: "Tag not found." };
   }
 
+  // --- Step 1: External Updates (Safe First) ---
+  // We remove the tag from expenses/splits BEFORE deleting it from the master list.
+  // This prevents the "Ghost Tag" issue where a tag is deleted but still referenced.
+  // If this fails, we abort, leaving the tag in the master list (safe state).
+
+  if (type === "Trip/Event" || type === "Category") {
+    try {
+      const expenseResult = Service_Sheet.removeTagFromExpenses(type, value);
+      if (!expenseResult.success) {
+        throw new Error("Expenses update failed: " + expenseResult.message);
+      }
+
+      const splitResult = Service_Split.removeTagFromSplits(type, value);
+      if (!splitResult.success) {
+        throw new Error("Splits update failed: " + splitResult.message);
+      }
+    } catch (error) {
+      console.error(
+        "Aborting tag deletion due to external update failure:",
+        error
+      );
+      return {
+        success: false,
+        message:
+          "Failed to remove tag usages from expenses/splits. Tag NOT deleted. Error: " +
+          error.message,
+      };
+    }
+  }
+
+  // --- Step 2: Internal Sheet Updates ---
+  // Now safe to modify the Tags sheet.
+
   const deleteRow = tagIndex + 2;
 
   // If deleting a "Type" (master list), we should clear this type from all Trip/Events (Col B)
   if (type === "Type") {
-    const tripTypesRange = tagSheet.getRange(2, 2, lastRow - 1, 1);
+    const tripTypesRange = tagSheet.getRange(2, COL_TYPE, lastRow - 1, 1);
     const tripTypes = tripTypesRange.getValues();
     let updated = false;
     const newTripTypes = tripTypes.map((r) => {
@@ -280,20 +327,6 @@ function _deleteTag(type, value) {
     }
   }
 
-  try {
-    Service_Sheet.removeTagFromExpenses(type, value);
-    Service_Split.removeTagFromSplits(type, value);
-  } catch (error) {
-    console.error("Error updating related data after tag deletion:", error);
-    return {
-      success: false,
-      message:
-        "Tag deleted from Tags sheet, but failed to update related expenses/splits: " +
-        error.message,
-      partial: true,
-    };
-  }
-
   return { success: true, message: "Tag deleted successfully." };
 }
 
@@ -303,11 +336,11 @@ function _renameTag(type, oldValue, newValue, skipSort) {
   let column;
 
   if (type === "Trip/Event") {
-    column = 1;
+    column = COL_TRIP_EVENT;
   } else if (type === "Category") {
-    column = 4;
+    column = COL_CATEGORY;
   } else if (type === "Type") {
-    column = 5;
+    column = COL_TYPE_LIST;
   } else {
     return { success: false, message: "Invalid tag type." };
   }
@@ -328,14 +361,19 @@ function _renameTag(type, oldValue, newValue, skipSort) {
   }
 
   const updateRow = tagIndex + 2;
+
+  // --- Step 1: Optimistic Update (Master) ---
   tagSheet.getRange(updateRow, column).setValue(newValue);
 
   // If renaming a "Type" (master list), update all Trip/Events (Col B) that use this type
+  let typeRollbackNeeded = false;
+  let originalTripTypes = null;
+
   if (type === "Type") {
-    const tripTypesRange = tagSheet.getRange(2, 2, lastRow - 1, 1);
-    const tripTypes = tripTypesRange.getValues();
+    const tripTypesRange = tagSheet.getRange(2, COL_TYPE, lastRow - 1, 1);
+    originalTripTypes = tripTypesRange.getValues(); // Snapshot for rollback
     let updated = false;
-    const newTripTypes = tripTypes.map((r) => {
+    const newTripTypes = originalTripTypes.map((r) => {
       if (r[0] === oldValue) {
         updated = true;
         return [newValue];
@@ -344,23 +382,52 @@ function _renameTag(type, oldValue, newValue, skipSort) {
     });
     if (updated) {
       tripTypesRange.setValues(newTripTypes);
+      typeRollbackNeeded = true;
     }
   }
 
-  // Renaming Trip/Event doesn't need to check "CompletedList" anymore since it's on the same row
+  // --- Step 2: External Updates with Rollback ---
+  if (type === "Trip/Event" || type === "Category") {
+    try {
+      const expenseResult = Service_Sheet.updateExpensesWithTag(
+        oldValue,
+        newValue,
+        type
+      );
+      if (!expenseResult.success) {
+        throw new Error("Expenses update failed: " + expenseResult.message);
+      }
 
-  try {
-    Service_Sheet.updateExpensesWithTag(oldValue, newValue, type);
-    Service_Split.updateTagInSplits(oldValue, newValue, type);
-  } catch (error) {
-    console.error("Error updating related data after tag rename:", error);
-    return {
-      success: false,
-      message:
-        "Tag renamed in Tags sheet, but failed to update related data: " +
-        error.message,
-      partial: true,
-    };
+      const splitResult = Service_Split.updateTagInSplits(
+        oldValue,
+        newValue,
+        type
+      );
+      if (!splitResult.success) {
+        throw new Error("Splits update failed: " + splitResult.message);
+      }
+    } catch (error) {
+      console.error(
+        "Error updating related data after tag rename. Rolling back...",
+        error
+      );
+
+      // --- ROLLBACK ---
+      tagSheet.getRange(updateRow, column).setValue(oldValue);
+
+      if (typeRollbackNeeded && originalTripTypes) {
+        tagSheet
+          .getRange(2, COL_TYPE, lastRow - 1, 1)
+          .setValues(originalTripTypes);
+      }
+
+      return {
+        success: false,
+        message:
+          "Tag rename failed during dependent updates. Changes reverted. Error: " +
+          error.message,
+      };
+    }
   }
 
   if (!skipSort) {
@@ -381,7 +448,7 @@ function _updateTripType(tripName, typeName) {
   // Validate typeName exists in Type List (Col 5) if not empty
   if (typeName && typeName !== "") {
     const existingTypes = tagSheet
-      .getRange(2, 5, lastRow - 1, 1)
+      .getRange(2, COL_TYPE_LIST, lastRow - 1, 1)
       .getValues()
       .flat()
       .map(String)
@@ -395,7 +462,7 @@ function _updateTripType(tripName, typeName) {
   }
 
   // Find the Trip/Event in Col A
-  const tripRange = tagSheet.getRange(2, 1, lastRow - 1, 1);
+  const tripRange = tagSheet.getRange(2, COL_TRIP_EVENT, lastRow - 1, 1);
   const trips = tripRange.getValues().flat().map(String);
   const index = trips.indexOf(tripName);
 
@@ -404,7 +471,7 @@ function _updateTripType(tripName, typeName) {
   }
 
   // Update Col B at row index+2
-  tagSheet.getRange(index + 2, 2).setValue(typeName);
+  tagSheet.getRange(index + 2, COL_TYPE).setValue(typeName);
   return { success: true, message: "Trip type updated." };
 }
 
@@ -425,7 +492,7 @@ function _updateTripStatus(tripName, status) {
     };
   }
 
-  const tripRange = tagSheet.getRange(2, 1, lastRow - 1, 1);
+  const tripRange = tagSheet.getRange(2, COL_TRIP_EVENT, lastRow - 1, 1);
   const trips = tripRange.getValues().flat().map(String);
   const index = trips.indexOf(tripName);
 
@@ -434,7 +501,7 @@ function _updateTripStatus(tripName, status) {
   }
 
   // Update Col C at row index+2
-  tagSheet.getRange(index + 2, 3).setValue(status);
+  tagSheet.getRange(index + 2, COL_STATUS).setValue(status);
   return { success: true, message: "Trip status updated." };
 }
 
@@ -513,11 +580,11 @@ function _sortTags(type) {
 
   let column;
   if (type === "Trip/Event") {
-    column = 1;
+    column = COL_TRIP_EVENT;
   } else if (type === "Category") {
-    column = 4;
+    column = COL_CATEGORY;
   } else if (type === "Type") {
-    column = 5;
+    column = COL_TYPE_LIST;
   } else {
     return;
   }
