@@ -33,7 +33,7 @@ const request = (action, params = {}, options = {}) => {
     return Promise.reject(new Error("Script URL is not configured."));
   }
 
-  const apiKey = store.getState("apiKey");
+  const apiKey = options.apiKey || store.getState("apiKey");
   if (!apiKey) {
     return Promise.reject(new Error("API key is not set."));
   }
@@ -119,7 +119,7 @@ const request = (action, params = {}, options = {}) => {
 };
 
 const ApiService = {
-  login: () => request("login"),
+  login: (apiKey) => request("login", {}, { apiKey }),
   getAppData: () => request("getAppData"),
   getData: () => request("getData"),
   saveData: (data, options = {}) =>
