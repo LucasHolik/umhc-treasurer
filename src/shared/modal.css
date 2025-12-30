@@ -72,9 +72,9 @@
 }
 
 .modal-body input:focus {
-  outline: none;
+  outline: 2px solid #f0ad4e;
+  outline-offset: 1px;
   border-color: #f0ad4e;
-  box-shadow: 0 0 0 2px rgba(240, 173, 78, 0.2);
 }
 
 .modal-footer {

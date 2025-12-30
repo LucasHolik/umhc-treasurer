@@ -80,6 +80,30 @@
   margin-left: 5px;
 }
 
+/* Accessibility Toggle Button */
+.accessibility-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-color: #f0ad4e;
+  color: #f0ad4e;
+}
+
+.accessibility-toggle.active {
+  border-color: #5cb85c;
+  color: #5cb85c;
+}
+
+.accessibility-toggle:hover {
+  border-color: #5cb85c;
+  color: #5cb85c;
+}
+
+.accessibility-toggle:focus {
+  outline: 2px solid #5cb85c;
+  outline-offset: 2px;
+}
+
 /* Loading spinner helpers */
 .dashboard-loader {
   display: flex;

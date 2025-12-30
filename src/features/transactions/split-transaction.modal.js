@@ -178,13 +178,17 @@ export default class SplitTransactionModal {
                 alignItems: "center",
               },
             },
-            el("span", { style: { color: "#ddd" } }, this.transaction.Date ?? ""),
+            el(
+              "span",
+              { style: { color: "#ddd" } },
+              this.transaction.Date ?? ""
+            ),
             el(
               "span",
               {
+                className: this.isIncome ? "positive" : "negative",
                 style: {
                   fontSize: "1.2em",
-                  color: this.isIncome ? "#5cb85c" : "#d9534f",
                 },
               },
               amountDisplay
@@ -367,11 +371,13 @@ export default class SplitTransactionModal {
     const isValid = Math.abs(remaining) < 0.01;
 
     if (isValid) {
-      this.remainingDisplay.style.color = "#5cb85c";
+      this.remainingDisplay.className = "positive";
+      this.remainingDisplay.style.color = ""; // Clear inline style if any
       this.saveBtn.disabled = false;
       this.saveBtn.style.opacity = "1";
     } else {
-      this.remainingDisplay.style.color = "#d9534f";
+      this.remainingDisplay.className = "negative";
+      this.remainingDisplay.style.color = ""; // Clear inline style if any
       this.saveBtn.disabled = true;
       this.saveBtn.style.opacity = "0.5";
     }

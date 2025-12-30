@@ -14,21 +14,28 @@ class DashboardComponent {
     this.element = element;
     this.timeframe = "past_30_days"; // Default timeframe
     this.render();
-    this.attachEventListeners();
     store.subscribe("expenses", () => this.calculateAndDisplayStats());
     store.subscribe("openingBalance", () => this.calculateAndDisplayStats());
+    store.subscribe("accessibilityMode", () => this.render());
   }
 
   render() {
     // Timeframe selector options
     const options = [
       { value: "current_month", text: "Current Month" },
-      { value: "past_30_days", text: "Past 30 Days", selected: true },
+      { value: "past_30_days", text: "Past 30 Days" },
       { value: "past_3_months", text: "Past 3 Months" },
       { value: "past_6_months", text: "Past 6 Months" },
       { value: "past_year", text: "Past Year" },
       { value: "all_time", text: "All Time" },
     ];
+
+    // Mark selected option based on current state
+    options.forEach((opt) => {
+      if (opt.value === this.timeframe) {
+        opt.selected = true;
+      }
+    });
 
     this.timeframeSelect = el(
       "select",
@@ -37,6 +44,13 @@ class DashboardComponent {
         el("option", { value: opt.value, selected: opt.selected }, opt.text)
       )
     );
+
+    // Attach listener immediately
+    this.timeframeSelect.addEventListener("change", (e) => {
+      this.timeframe = e.target.value;
+      this.calculateAndDisplayStats();
+      this.updateTitle();
+    });
 
     this.currentBalanceEl = el(
       "p",
@@ -120,9 +134,27 @@ class DashboardComponent {
           style: {
             display: "flex",
             justifyContent: "flex-end",
+            alignItems: "center",
             marginBottom: "15px",
+            gap: "15px",
           },
         },
+        el(
+          "button",
+          {
+            className: `secondary-btn accessibility-toggle ${
+              store.getState("accessibilityMode") ? "active" : ""
+            }`,
+            title: "Toggle Accessibility Mode (Symbols for +/-)",
+            onclick: () => {
+              const current = store.getState("accessibilityMode");
+              store.setState("accessibilityMode", !current);
+            },
+          },
+          `👁️ Colourblind Access: ${
+            store.getState("accessibilityMode") ? "On" : "Off"
+          }`
+        ),
         el(
           "div",
           { className: "timeframe-selector" },
@@ -167,14 +199,9 @@ class DashboardComponent {
         initialSortAsc: false,
       }
     );
-  }
 
-  attachEventListeners() {
-    this.timeframeSelect.addEventListener("change", (e) => {
-      this.timeframe = e.target.value;
-      this.calculateAndDisplayStats();
-      this.updateTitle();
-    });
+    // Re-calculate stats to populate the new elements
+    this.calculateAndDisplayStats();
   }
 
   updateTitle() {

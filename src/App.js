@@ -48,6 +48,19 @@ class App {
       store.subscribe("settingsSyncing", () => this.handleLoadingState())
     );
 
+    // Accessibility Mode
+    const savedAccessibilityMode =
+      localStorage.getItem("accessibilityMode") === "true";
+    store.setState("accessibilityMode", savedAccessibilityMode);
+    this.updateAccessibilityMode(savedAccessibilityMode);
+
+    this.subscriptions.push(
+      store.subscribe("accessibilityMode", (enabled) => {
+        this.updateAccessibilityMode(enabled);
+        localStorage.setItem("accessibilityMode", enabled);
+      })
+    );
+
     // Reactive Transaction Processing
     const updateProcessedTransactions = () => {
       const raw = store.getState("rawExpenses") || [];
@@ -342,6 +355,14 @@ class App {
     // Initial check
     const initialTab = window.location.hash.slice(1) || "dashboard";
     this.updateActiveTab(initialTab);
+  }
+
+  updateAccessibilityMode(enabled) {
+    if (enabled) {
+      document.body.classList.add("accessibility-mode");
+    } else {
+      document.body.classList.remove("accessibility-mode");
+    }
   }
 
   updateActiveTab(tabName) {

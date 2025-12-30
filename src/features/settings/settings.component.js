@@ -25,6 +25,9 @@ class SettingsComponent {
     this.unsubscribers.push(
       store.subscribe("expenses", this.render.bind(this))
     );
+    this.unsubscribers.push(
+      store.subscribe("accessibilityMode", this.render.bind(this))
+    );
   }
 
   destroy() {
@@ -154,9 +157,9 @@ class SettingsComponent {
             el(
               "div",
               {
+                className: manualOffset >= 0 ? "positive" : "negative",
                 style: {
                   fontSize: "1.2em",
-                  color: manualOffset >= 0 ? "#5cb85c" : "#d9534f",
                 },
               },
               `${manualOffset >= 0 ? "+" : ""}£${formatCurrency(
@@ -210,6 +213,66 @@ class SettingsComponent {
               { style: { color: "#aaa", fontSize: "0.9em" } },
               "Actual starting point for calculations."
             )
+          )
+        )
+      ),
+
+      el(
+        "div",
+        {
+          className: "section",
+          style: {
+            marginTop: "30px",
+          },
+        },
+        el(
+          "div",
+          { className: "transactions-header" },
+          el("h2", {}, "Preferences")
+        ),
+        el(
+          "div",
+          {
+            style: {
+              padding: "20px",
+              backgroundColor: "rgba(255, 255, 255, 0.05)",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              gap: "20px",
+            },
+          },
+          el(
+            "div",
+            { style: { flex: "1" } },
+            el(
+              "div",
+              {
+                style: {
+                  display: "block",
+                  color: "#fff",
+                  fontWeight: "bold",
+                  marginBottom: "5px",
+                },
+              },
+              "Accessibility Mode"
+            ),
+            el(
+              "div",
+              { style: { color: "#aaa", fontSize: "0.9em" } },
+              "Add symbols (▲/▼) to positive/negative values for better visibility."
+            )
+          ),
+          el(
+            "label",
+            { className: "switch" },
+            el("input", {
+              type: "checkbox",
+              checked: store.getState("accessibilityMode"),
+              onchange: (e) =>
+                store.setState("accessibilityMode", e.target.checked),
+            }),
+            el("span", { className: "slider" })
           )
         )
       ),

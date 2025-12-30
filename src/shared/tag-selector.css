@@ -109,7 +109,8 @@
 }
 
 .tag-selector-search:focus {
-  outline: none;
+  outline: 2px solid #f0ad4e;
+  outline-offset: 1px;
   border-color: #f0ad4e;
 }
 
@@ -144,11 +145,5 @@
 }
 
 .tag-selector-item.empty:hover {
-  background-color: transparent;
-}
-
-.tag-selector-item.empty:focus,
-.tag-selector-item.empty:focus-visible {
-  outline: none;
   background-color: transparent;
 }
