@@ -1,13 +1,13 @@
 // Main entry point
 function doGet(e) {
   try {
-    const action = e.parameter.action || "login";
-    const providedKey = e.parameter.apiKey;
+    const action = e?.parameter?.action || "login";
+    const providedKey = e?.parameter?.apiKey;
 
     if (providedKey !== Service_Auth.getApiKey()) {
       return createJsonResponse(
         { success: false, message: "Invalid key" },
-        e.parameter.callback
+        e?.parameter?.callback
       );
     }
 
@@ -65,13 +65,12 @@ function doGet(e) {
         response = { success: false, message: "Invalid action" };
     }
 
-    return createJsonResponse(response, e.parameter.callback);
+    return createJsonResponse(response, e?.parameter?.callback);
   } catch (error) {
+    Logger.log("Server error in doGet: " + error.toString());
     return createJsonResponse(
-      { success: false, message: "Server Error: " + error.toString() },
-      e && e.parameter && e.parameter.callback
-        ? e.parameter.callback
-        : "callback"
+      { success: false, message: "Server Error" },
+      e?.parameter?.callback ? e.parameter.callback : "callback"
     );
   }
 }
@@ -132,9 +131,10 @@ function getAppData() {
       },
     };
   } catch (error) {
+    console.error("Error in getAppData: " + error.toString());
     return {
       success: false,
-      message: "Error loading app data: " + error.toString(),
+      message: "Error loading app data",
     };
   }
 }
