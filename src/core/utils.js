@@ -179,3 +179,18 @@ export function escapeHtml(str) {
 
   return lastIndex !== index ? html + str.substring(lastIndex, index) : html;
 }
+
+/**
+ * Sanitizes a string for use in an HTML ID.
+ * @param {string} str
+ * @returns {string}
+ */
+export function sanitizeForId(str) {
+  if (typeof str !== "string") {
+    str = String(str || "");
+  }
+  return str
+    .replace(/[^a-z0-9]/gi, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}

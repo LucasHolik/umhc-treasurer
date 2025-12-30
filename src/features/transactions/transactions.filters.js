@@ -1,4 +1,5 @@
 import { el, replace } from "../../core/dom.js";
+import { sanitizeForId } from "../../core/utils.js";
 
 export default class TransactionsFilters {
   constructor(element, callbacks) {
@@ -58,7 +59,7 @@ export default class TransactionsFilters {
     const NO_TAG_VALUE = "__NO_TAG__";
 
     // 1. "No Tag" Option
-    const noTagUid = `tx-notag-${type.replace("/", "-")}`;
+    const noTagUid = `tx-notag-${sanitizeForId(type)}`;
     const noTagCheckbox = el("input", { type: "checkbox", id: noTagUid });
     noTagCheckbox.checked = selectionSet.has(NO_TAG_VALUE);
     noTagCheckbox.addEventListener("change", (e) => {
@@ -91,12 +92,12 @@ export default class TransactionsFilters {
 
     const sortedTags = [...tagsArray].sort();
     const visibleTags = sortedTags.filter((tag) =>
-      tag.toLowerCase().includes(searchTerm)
+      tag.toLowerCase().includes((searchTerm || "").toLowerCase())
     );
 
     // 2. Select All
     if (visibleTags.length > 0) {
-      const selectAllUid = `tx-all-${type.replace("/", "-")}`;
+      const selectAllUid = `tx-all-${sanitizeForId(type)}`;
       const allVisibleSelected = visibleTags.every((t) => selectionSet.has(t));
 
       const selectAllCheckbox = el("input", {
@@ -128,9 +129,9 @@ export default class TransactionsFilters {
     }
 
     // 3. Tags
-    visibleTags.forEach((tag) => {
+    visibleTags.forEach((tag, index) => {
       const isChecked = selectionSet.has(tag);
-      const uid = `tx-${type.replace("/", "-")}-${tag.replace(/\s+/g, "-")}`;
+      const uid = `tx-${sanitizeForId(type)}-${sanitizeForId(tag)}-${index}`;
 
       const tagCheckbox = el("input", {
         type: "checkbox",

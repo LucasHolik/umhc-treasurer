@@ -1,4 +1,5 @@
 import { el, replace } from "../../core/dom.js";
+import { sanitizeForId } from "../../core/utils.js";
 
 export default class AnalysisFilters {
   constructor(element, callbacks) {
@@ -194,7 +195,7 @@ export default class AnalysisFilters {
 
     // "Select All" Option
     if (visibleTags.length > 0) {
-      const uid = `analysis-all-${type.replace("/", "-")}`;
+      const uid = `analysis-all-${sanitizeForId(type)}`;
 
       let allVisibleSelected = false;
       if (statusMap) {
@@ -240,7 +241,7 @@ export default class AnalysisFilters {
       );
     }
 
-    visibleTags.forEach((tag) => {
+    visibleTags.forEach((tag, index) => {
       let isChecked = false;
       let isIndeterminate = false;
 
@@ -252,10 +253,9 @@ export default class AnalysisFilters {
         isChecked = selectionSet.has(tag);
       }
 
-      const uid = `analysis-${type.replace("/", "-")}-${tag.replace(
-        /\s+/g,
-        "-"
-      )}`;
+      const uid = `analysis-${sanitizeForId(type)}-${sanitizeForId(
+        tag
+      )}-${index}`;
 
       const input = el("input", {
         type: "checkbox",
