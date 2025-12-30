@@ -8,10 +8,14 @@ export default class TransactionsSplitHistory {
   constructor() {}
 
   async open(data) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.resolvePromise = resolve;
       this.data = data;
-      this.render();
+      try {
+        this.render();
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
@@ -40,6 +44,10 @@ export default class TransactionsSplitHistory {
   }
 
   render() {
+    if (this.overlay) {
+      this.overlay.remove();
+    }
+
     const overlay = el("div", { className: "modal-overlay" });
 
     const groupedData = this.groupData(this.data);
@@ -78,6 +86,11 @@ export default class TransactionsSplitHistory {
         else if (source.Expense)
           amount = -parseFloat(String(source.Expense).replace(/,/g, ""));
 
+        if (isNaN(amount)) {
+          console.warn("Invalid amount parsed for source:", source);
+          amount = 0;
+        }
+
         const amountClass = amount >= 0 ? "positive" : "negative";
         const statusLabel = isReverted
           ? el(
@@ -101,6 +114,11 @@ export default class TransactionsSplitHistory {
             rAmount = parseFloat(String(row.Income).replace(/,/g, ""));
           else if (row.Expense)
             rAmount = -parseFloat(String(row.Expense).replace(/,/g, ""));
+
+          if (isNaN(rAmount)) {
+            console.warn("Invalid amount parsed for row:", row);
+            rAmount = 0;
+          }
           const rAmountClass = rAmount >= 0 ? "positive" : "negative";
 
           // Styling based on type
