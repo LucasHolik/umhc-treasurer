@@ -1,14 +1,26 @@
 var Service_Split = {
   SPLIT_SHEET_NAME: "Split Transactions",
 
+  /**
+   * Processes a split transaction by archiving the original and creating child entries.
+   * @param {Object} e - Event object with parameter.data containing JSON payload
+   * @param {Object} e.parameter.data.original - Original transaction with row index
+   * @param {Array} e.parameter.data.splits - Array of split transactions
+   * @returns {Object} Response object with success, message, and optional splitGroupId
+   */
   processSplit: function (e) {
     const lock = LockService.getScriptLock();
+    let lockAcquired = false;
     try {
       if (!lock.tryLock(30000)) {
         return { success: false, message: "System is busy. Please try again." };
       }
+      lockAcquired = true;
 
       const data = JSON.parse(e.parameter.data);
+      if (!data || !data.original || !data.splits) {
+        return { success: false, message: "Invalid data structure." };
+      }
       const original = data.original;
       const splits = data.splits;
 
@@ -23,21 +35,43 @@ var Service_Split = {
         message: "Error splitting transaction: " + error.message,
       };
     } finally {
-      lock.releaseLock();
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
   },
 
+  /**
+   * Removes a specific tag from all split transactions.
+   * @param {string} type - Type of tag ("Trip/Event" or "Category")
+   * @param {string} value - Value of the tag to remove
+   * @returns {Object} Response object with success and message
+   */
   removeTagFromSplits: function (type, value) {
     const lock = LockService.getScriptLock();
+    let lockAcquired = false;
     try {
       if (!lock.tryLock(30000)) {
         return { success: false, message: "System is busy. Please try again." };
       }
+      lockAcquired = true;
 
       const splitSheet = _getSplitSheet();
       const lastRow = splitSheet.getLastRow();
       if (lastRow <= 1)
         return { success: true, message: "No splits to check." };
+
+      if (
+        typeof CONFIG === "undefined" ||
+        !CONFIG ||
+        !CONFIG.HEADERS ||
+        !Array.isArray(CONFIG.HEADERS)
+      ) {
+        return {
+          success: false,
+          message: "Configuration error: CONFIG.HEADERS not defined.",
+        };
+      }
 
       let colIndex; // 1-based column index
       if (type === "Trip/Event") {
@@ -74,21 +108,44 @@ var Service_Split = {
         message: "Error removing tag: " + error.message,
       };
     } finally {
-      lock.releaseLock();
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
   },
 
+  /**
+   * Updates a specific tag in all split transactions.
+   * @param {string} oldTag - The old tag value to be replaced
+   * @param {string} newTag - The new tag value
+   * @param {string} type - Type of tag ("Trip/Event" or "Category")
+   * @returns {Object} Response object with success and message
+   */
   updateTagInSplits: function (oldTag, newTag, type) {
     const lock = LockService.getScriptLock();
+    let lockAcquired = false;
     try {
       if (!lock.tryLock(30000)) {
         return { success: false, message: "System is busy. Please try again." };
       }
+      lockAcquired = true;
 
       const splitSheet = _getSplitSheet();
       const lastRow = splitSheet.getLastRow();
       if (lastRow <= 1)
         return { success: true, message: "No splits to check." };
+
+      if (
+        typeof CONFIG === "undefined" ||
+        !CONFIG ||
+        !CONFIG.HEADERS ||
+        !Array.isArray(CONFIG.HEADERS)
+      ) {
+        return {
+          success: false,
+          message: "Configuration error: CONFIG.HEADERS not defined.",
+        };
+      }
 
       let colIndex; // 1-based column index
       if (type === "Trip/Event") {
@@ -125,16 +182,27 @@ var Service_Split = {
         message: "Error updating tag: " + error.message,
       };
     } finally {
-      lock.releaseLock();
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
   },
 
+  /**
+   * Updates tags for a specific split transaction row.
+   * @param {string} rowId - The unique identifier for the split row (e.g., "S-2")
+   * @param {string} tripEvent - The new Trip/Event tag value
+   * @param {string} category - The new Category tag value
+   * @returns {Object} Response object with success and message
+   */
   updateSplitRowTag: function (rowId, tripEvent, category) {
     const lock = LockService.getScriptLock();
+    let lockAcquired = false;
     try {
       if (!lock.tryLock(30000)) {
         return { success: false, message: "System is busy. Please try again." };
       }
+      lockAcquired = true;
 
       const splitSheet = _getSplitSheet();
 
@@ -147,6 +215,18 @@ var Service_Split = {
         rowIndex > splitSheet.getLastRow()
       ) {
         return { success: false, message: "Invalid split row index." };
+      }
+
+      if (
+        typeof CONFIG === "undefined" ||
+        !CONFIG ||
+        !CONFIG.HEADERS ||
+        !Array.isArray(CONFIG.HEADERS)
+      ) {
+        return {
+          success: false,
+          message: "Configuration error: CONFIG.HEADERS not defined.",
+        };
       }
 
       const tripEventIndex = CONFIG.HEADERS.indexOf("Trip/Event");
@@ -172,16 +252,25 @@ var Service_Split = {
         message: "Error updating split row tag: " + error.message,
       };
     } finally {
-      lock.releaseLock();
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
   },
 
+  /**
+   * Reverts a split transaction, removing child entries and clearing the split ID from the original.
+   * @param {Object} e - Event object with parameter.groupId containing the split group ID
+   * @returns {Object} Response object with success and message
+   */
   revertSplit: function (e) {
     const lock = LockService.getScriptLock();
+    let lockAcquired = false;
     try {
       if (!lock.tryLock(30000)) {
         return { success: false, message: "System is busy. Please try again." };
       }
+      lockAcquired = true;
       const groupId = e.parameter.groupId;
       if (!groupId) return { success: false, message: "No Group ID provided." };
 
@@ -196,21 +285,41 @@ var Service_Split = {
         message: "Error reverting split: " + error.message,
       };
     } finally {
-      lock.releaseLock();
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
   },
 
+  /**
+   * Edits an existing split transaction by reverting the old one and processing the new one.
+   * @param {Object} e - Event object with parameter.groupId and parameter.data (new split data)
+   * @returns {Object} Response object with success, message, and optional splitGroupId
+   */
   editSplit: function (e) {
     const lock = LockService.getScriptLock();
+    let lockAcquired = false;
     try {
       if (!lock.tryLock(30000)) {
         return { success: false, message: "System is busy. Please try again." };
       }
+      lockAcquired = true;
 
       const groupId = e.parameter.groupId;
 
       // 1. Resolve Finance Sheet Row Index
       const financeSheet = _getFinanceSheet();
+      if (
+        typeof CONFIG === "undefined" ||
+        !CONFIG ||
+        !CONFIG.HEADERS ||
+        !Array.isArray(CONFIG.HEADERS)
+      ) {
+        return {
+          success: false,
+          message: "Configuration error: CONFIG.HEADERS not defined.",
+        };
+      }
       const idIndex = CONFIG.HEADERS.indexOf("Split Group ID");
 
       if (idIndex === -1) {
@@ -249,14 +358,21 @@ var Service_Split = {
         return { success: false, message: "Invalid JSON data." };
       }
 
-      // Pre-validation: Ensure new data is valid before destroying old data
-      const validation = _validateSplitRequest(data.original, data.splits);
-      if (!validation.success) {
-        return validation;
+      // 3. Prepare New Split Data (VALIDATION & PREPARATION)
+      // This step ensures we can successfully generate the new split data BEFORE destroying the old data.
+      const splitSheet = _getSplitSheet();
+      const preparation = _prepareSplitData(
+        financeSheet,
+        data.original,
+        data.splits
+      );
+
+      if (!preparation.success) {
+        return preparation;
       }
 
-      // 3. Perform Revert (Clean up old split artifacts)
-      const splitSheet = _getSplitSheet();
+      // 4. Perform Revert (Clean up old split artifacts)
+      // Now that preparation succeeded, we can safely remove the old data.
       const revertRes = _revertSplitCore(
         financeSheet,
         splitSheet,
@@ -265,21 +381,18 @@ var Service_Split = {
       );
       if (!revertRes.success) return revertRes;
 
-      // 4. Perform Process (New Split)
-      const processRes = _processSplitCore(
-        financeSheet,
-        splitSheet,
-        data.original,
-        data.splits
-      );
-      if (processRes.success) {
+      // 5. Perform Process (Write New Split)
+      // Writing the prepared data.
+      const writeRes = _writeSplitData(financeSheet, splitSheet, preparation);
+
+      if (writeRes.success) {
         return {
           success: true,
           message: "Transaction split edited successfully.",
-          splitGroupId: processRes.splitGroupId,
+          splitGroupId: writeRes.splitGroupId,
         };
       } else {
-        return processRes;
+        return writeRes;
       }
     } catch (error) {
       console.error("Edit split error", error);
@@ -288,51 +401,191 @@ var Service_Split = {
         message: "Error editing split: " + error.message,
       };
     } finally {
-      lock.releaseLock();
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
   },
 
+  /**
+   * Retrieves a split group (source transaction and child splits) by ID.
+   * @param {Object} e - Event object with parameter.groupId
+   * @returns {Object} Response object with success and data {source, children}
+   */
   getSplitGroup: function (e) {
-    // Returns Source + Children for a specific Group ID from the Split Sheet
-    const groupId = e.parameter.groupId;
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const splitSheet = _getSplitSheet(); // Use helper function
+    const lock = LockService.getScriptLock();
+    let lockAcquired = false;
+    try {
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
+      }
+      lockAcquired = true;
 
-    const data = splitSheet.getDataRange().getValues();
-    if (data.length < 2)
-      return { success: false, message: "Split group not found." };
+      // Returns Source + Children for a specific Group ID from the Split Sheet
+      const groupId = e.parameter.groupId;
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const splitSheet = _getSplitSheet(); // Use helper function
 
-    const headers = data[0];
-    const idIndex = headers.indexOf("Split Group ID");
-    const typeIndex = headers.indexOf("Split Type");
-    const dateIndex = headers.indexOf("Split Date");
+      const data = splitSheet.getDataRange().getValues();
+      if (data.length < 2)
+        return { success: false, message: "Split group not found." };
 
-    if (idIndex === -1 || typeIndex === -1) {
+      if (
+        typeof CONFIG === "undefined" ||
+        !CONFIG ||
+        !CONFIG.HEADERS ||
+        !Array.isArray(CONFIG.HEADERS)
+      ) {
+        return {
+          success: false,
+          message: "Configuration error: CONFIG.HEADERS not defined.",
+        };
+      }
+
+      const headers = data[0];
+      const idIndex = headers.indexOf("Split Group ID");
+      const typeIndex = headers.indexOf("Split Type");
+      const dateIndex = headers.indexOf("Split Date");
+
+      if (idIndex === -1 || typeIndex === -1) {
+        return {
+          success: false,
+          message: "Split sheet corrupted: missing headers.",
+        };
+      }
+
+      let source = null;
+      const children = [];
+
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][idIndex] === groupId) {
+          const row = data[i];
+          const obj = {};
+
+          // Map based on CONFIG.HEADERS if present in sheet headers
+          CONFIG.HEADERS.forEach((header) => {
+            const hIndex = headers.indexOf(header);
+            if (hIndex !== -1) {
+              obj[header] = row[hIndex];
+            }
+          });
+
+          if (obj["Date"] instanceof Date) {
+            const tz = splitSheet.getParent().getSpreadsheetTimeZone();
+            obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
+          }
+
+          // Map split headers
+          if (typeIndex !== -1) obj["Split Type"] = row[typeIndex];
+          if (dateIndex !== -1) {
+            let sDate = row[dateIndex];
+            if (sDate instanceof Date) {
+              const tz = splitSheet.getParent().getSpreadsheetTimeZone();
+              sDate = Utilities.formatDate(sDate, tz, "yyyy-MM-dd HH:mm:ss");
+            }
+            obj["Split Date"] = sDate;
+          }
+
+          if (row[typeIndex] === "SOURCE") {
+            source = obj;
+          } else if (row[typeIndex] === "CHILD") {
+            children.push(obj);
+          }
+        }
+      }
+
+      if (!source) return { success: false, message: "Split group not found." };
+
+      return { success: true, data: { source, children } };
+    } catch (error) {
+      console.error("Get split group error", error);
       return {
         success: false,
-        message: "Split sheet corrupted: missing headers.",
+        message: "Error fetching split group: " + error.message,
       };
+    } finally {
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
+  },
 
-    let source = null;
-    const children = [];
+  /**
+   * Retrieves a paginated history of split transactions.
+   * @param {Object} e - Event object with parameter.page and parameter.pageSize
+   * @returns {Object} Response object with success, data array, pagination info
+   */
+  getSplitHistory: function (e) {
+    const lock = LockService.getScriptLock();
+    let lockAcquired = false;
+    try {
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
+      }
+      lockAcquired = true;
 
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][idIndex] === groupId) {
-        const row = data[i];
+      const page = parseInt(e.parameter.page) || 1;
+      const pageSize = parseInt(e.parameter.pageSize) || 500; // Default chunk size
+
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const splitSheet = _getSplitSheet(); // Use helper function
+
+      const lastRow = splitSheet.getLastRow();
+      if (lastRow <= 1) {
+        // Check if there's any data beyond headers
+        return { success: true, data: [], hasMore: false, total: 0 };
+      }
+
+      const totalRows = lastRow - 1; // Exclude header
+
+      // Calculate indices
+      // 1-based rows. Data starts at row 2.
+      // Page 1: start 2, end 2 + 500 - 1
+      const startRowIndex = (page - 1) * pageSize + 2;
+      const numRows = Math.min(pageSize, lastRow - startRowIndex + 1);
+
+      if (numRows <= 0) {
+        return { success: true, data: [], hasMore: false, total: totalRows };
+      }
+
+      if (
+        typeof CONFIG === "undefined" ||
+        !CONFIG ||
+        !CONFIG.HEADERS ||
+        !Array.isArray(CONFIG.HEADERS)
+      ) {
+        return {
+          success: false,
+          message: "Configuration error: CONFIG.HEADERS not defined.",
+        };
+      }
+
+      // Get Headers first to map correctly
+      const headers = splitSheet
+        .getRange(1, 1, 1, splitSheet.getLastColumn())
+        .getValues()[0];
+      const values = splitSheet
+        .getRange(startRowIndex, 1, numRows, splitSheet.getLastColumn())
+        .getValues();
+      const data = [];
+
+      const typeIndex = headers.indexOf("Split Type");
+      const dateIndex = headers.indexOf("Split Date");
+
+      for (let i = 0; i < values.length; i++) {
+        const row = values[i];
         const obj = {};
+        const currentRowIndex = startRowIndex + i;
 
-        // Map based on CONFIG.HEADERS if present in sheet headers
-        CONFIG.HEADERS.forEach((header) => {
-          const hIndex = headers.indexOf(header);
-          if (hIndex !== -1) {
-            obj[header] = row[hIndex];
+        obj.row = "S-" + currentRowIndex; // Add unique Split Row ID
+
+        // Map standard headers
+        for (let h = 0; h < CONFIG.HEADERS.length; h++) {
+          const headerName = CONFIG.HEADERS[h];
+          const colIndex = headers.indexOf(headerName);
+          if (colIndex !== -1) {
+            obj[headerName] = row[colIndex];
           }
-        });
-
-        if (obj["Date"] instanceof Date) {
-          const tz = splitSheet.getParent().getSpreadsheetTimeZone();
-          obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
         }
 
         // Map split headers
@@ -346,162 +599,139 @@ var Service_Split = {
           obj["Split Date"] = sDate;
         }
 
-        if (row[typeIndex] === "SOURCE") {
-          source = obj;
-        } else if (row[typeIndex] === "CHILD") {
-          children.push(obj);
-        }
-      }
-    }
-
-    if (!source) return { success: false, message: "Split group not found." };
-
-    return { success: true, data: { source, children } };
-  },
-
-  getSplitHistory: function (e) {
-    const page = parseInt(e.parameter.page) || 1;
-    const pageSize = parseInt(e.parameter.pageSize) || 500; // Default chunk size
-
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const splitSheet = _getSplitSheet(); // Use helper function
-
-    const lastRow = splitSheet.getLastRow();
-    if (lastRow <= 1) {
-      // Check if there's any data beyond headers
-      return { success: true, data: [], hasMore: false, total: 0 };
-    }
-
-    const totalRows = lastRow - 1; // Exclude header
-
-    // Calculate indices
-    // 1-based rows. Data starts at row 2.
-    // Page 1: start 2, end 2 + 500 - 1
-    const startRowIndex = (page - 1) * pageSize + 2;
-    const numRows = Math.min(pageSize, lastRow - startRowIndex + 1);
-
-    if (numRows <= 0) {
-      return { success: true, data: [], hasMore: false, total: totalRows };
-    }
-
-    // Get Headers first to map correctly
-    const headers = splitSheet
-      .getRange(1, 1, 1, splitSheet.getLastColumn())
-      .getValues()[0];
-    const values = splitSheet
-      .getRange(startRowIndex, 1, numRows, splitSheet.getLastColumn())
-      .getValues();
-    const data = [];
-
-    const typeIndex = headers.indexOf("Split Type");
-    const dateIndex = headers.indexOf("Split Date");
-
-    for (let i = 0; i < values.length; i++) {
-      const row = values[i];
-      const obj = {};
-      const currentRowIndex = startRowIndex + i;
-
-      obj.row = "S-" + currentRowIndex; // Add unique Split Row ID
-
-      // Map standard headers
-      for (let h = 0; h < CONFIG.HEADERS.length; h++) {
-        const headerName = CONFIG.HEADERS[h];
-        const colIndex = headers.indexOf(headerName);
-        if (colIndex !== -1) {
-          obj[headerName] = row[colIndex];
-        }
-      }
-
-      // Map split headers
-      if (typeIndex !== -1) obj["Split Type"] = row[typeIndex];
-      if (dateIndex !== -1) {
-        let sDate = row[dateIndex];
-        if (sDate instanceof Date) {
+        if (obj["Date"] instanceof Date) {
           const tz = splitSheet.getParent().getSpreadsheetTimeZone();
-          sDate = Utilities.formatDate(sDate, tz, "yyyy-MM-dd HH:mm:ss");
+          obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
         }
-        obj["Split Date"] = sDate;
+
+        data.push(obj);
       }
 
-      if (obj["Date"] instanceof Date) {
-        const tz = splitSheet.getParent().getSpreadsheetTimeZone();
-        obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
-      }
+      const hasMore = startRowIndex + numRows - 1 < lastRow;
 
-      data.push(obj);
+      return {
+        success: true,
+        data: data,
+        hasMore: hasMore,
+        total: totalRows,
+        page: page,
+      };
+    } catch (error) {
+      console.error("Get split history error", error);
+      return {
+        success: false,
+        message: "Error fetching split history: " + error.message,
+      };
+    } finally {
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
-
-    const hasMore = startRowIndex + numRows - 1 < lastRow;
-
-    return {
-      success: true,
-      data: data,
-      hasMore: hasMore,
-      total: totalRows,
-      page: page,
-    };
   },
 
+  /**
+   * Retrieves the complete history of all split transactions.
+   * @returns {Object} Response object with success and data array
+   */
   getAllSplitHistory: function () {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const splitSheet = _getSplitSheet();
+    const lock = LockService.getScriptLock();
+    let lockAcquired = false;
+    try {
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
+      }
+      lockAcquired = true;
 
-    const lastRow = splitSheet.getLastRow();
-    if (lastRow <= 1) {
-      return { success: true, data: [] };
-    }
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const splitSheet = _getSplitSheet();
 
-    const headers = splitSheet
-      .getRange(1, 1, 1, splitSheet.getLastColumn())
-      .getValues()[0];
-    const values = splitSheet
-      .getRange(2, 1, lastRow - 1, splitSheet.getLastColumn())
-      .getValues();
-    const data = [];
-
-    const typeIndex = headers.indexOf("Split Type");
-    const dateIndex = headers.indexOf("Split Date");
-
-    for (let i = 0; i < values.length; i++) {
-      const row = values[i];
-      const obj = {};
-      const currentRowIndex = i + 2; // Data starts at row 2, so add 2
-
-      obj.row = "S-" + currentRowIndex; // Add unique Split Row ID
-
-      // Map standard headers
-      for (let h = 0; h < CONFIG.HEADERS.length; h++) {
-        const headerName = CONFIG.HEADERS[h];
-        const colIndex = headers.indexOf(headerName);
-        if (colIndex !== -1) {
-          obj[headerName] = row[colIndex];
-        }
+      const lastRow = splitSheet.getLastRow();
+      if (lastRow <= 1) {
+        return { success: true, data: [] };
       }
 
-      // Map split headers
-      if (typeIndex !== -1) obj["Split Type"] = row[typeIndex];
-      if (dateIndex !== -1) {
-        let sDate = row[dateIndex];
-        if (sDate instanceof Date) {
+      if (
+        typeof CONFIG === "undefined" ||
+        !CONFIG ||
+        !CONFIG.HEADERS ||
+        !Array.isArray(CONFIG.HEADERS)
+      ) {
+        return {
+          success: false,
+          message: "Configuration error: CONFIG.HEADERS not defined.",
+        };
+      }
+
+      const headers = splitSheet
+        .getRange(1, 1, 1, splitSheet.getLastColumn())
+        .getValues()[0];
+      const values = splitSheet
+        .getRange(2, 1, lastRow - 1, splitSheet.getLastColumn())
+        .getValues();
+      const data = [];
+
+      const typeIndex = headers.indexOf("Split Type");
+      const dateIndex = headers.indexOf("Split Date");
+
+      for (let i = 0; i < values.length; i++) {
+        const row = values[i];
+        const obj = {};
+        const currentRowIndex = i + 2; // Data starts at row 2, so add 2
+
+        obj.row = "S-" + currentRowIndex; // Add unique Split Row ID
+
+        // Map standard headers
+        for (let h = 0; h < CONFIG.HEADERS.length; h++) {
+          const headerName = CONFIG.HEADERS[h];
+          const colIndex = headers.indexOf(headerName);
+          if (colIndex !== -1) {
+            obj[headerName] = row[colIndex];
+          }
+        }
+
+        // Map split headers
+        if (typeIndex !== -1) obj["Split Type"] = row[typeIndex];
+        if (dateIndex !== -1) {
+          let sDate = row[dateIndex];
+          if (sDate instanceof Date) {
+            const tz = splitSheet.getParent().getSpreadsheetTimeZone();
+            sDate = Utilities.formatDate(sDate, tz, "yyyy-MM-dd HH:mm:ss");
+          }
+          obj["Split Date"] = sDate;
+        }
+
+        if (obj["Date"] instanceof Date) {
           const tz = splitSheet.getParent().getSpreadsheetTimeZone();
-          sDate = Utilities.formatDate(sDate, tz, "yyyy-MM-dd HH:mm:ss");
+          obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
         }
-        obj["Split Date"] = sDate;
+
+        data.push(obj);
       }
 
-      if (obj["Date"] instanceof Date) {
-        const tz = splitSheet.getParent().getSpreadsheetTimeZone();
-        obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
+      return { success: true, data: data };
+    } catch (error) {
+      console.error("Get all split history error", error);
+      return {
+        success: false,
+        message: "Error fetching all split history: " + error.message,
+      };
+    } finally {
+      if (lockAcquired) {
+        lock.releaseLock();
       }
-
-      data.push(obj);
     }
-
-    return { success: true, data: data };
   },
 };
 
 function _getSplitSheet() {
+  if (
+    typeof CONFIG === "undefined" ||
+    !CONFIG ||
+    !CONFIG.HEADERS ||
+    !Array.isArray(CONFIG.HEADERS)
+  ) {
+    throw new Error("Configuration error: CONFIG.HEADERS not defined.");
+  }
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   let splitSheet = spreadsheet.getSheetByName(Service_Split.SPLIT_SHEET_NAME);
   const expectedHeaders = [...CONFIG.HEADERS, "Split Type", "Split Date"];
@@ -558,6 +788,18 @@ function _getSplitSheet() {
 // --- HELPER FUNCTIONS (Internal) ---
 
 function _validateSplitRequest(original, splits) {
+  if (
+    typeof CONFIG === "undefined" ||
+    !CONFIG ||
+    !CONFIG.HEADERS ||
+    !Array.isArray(CONFIG.HEADERS)
+  ) {
+    return {
+      success: false,
+      message: "Configuration error: CONFIG.HEADERS not defined.",
+    };
+  }
+
   if (!original || !splits || !Array.isArray(splits) || splits.length < 2) {
     return { success: false, message: "Invalid split data." };
   }
@@ -626,6 +868,17 @@ function _validateSplitRequest(original, splits) {
 }
 
 function _revertSplitCore(financeSheet, splitSheet, groupId, financeRowIndex) {
+  if (
+    typeof CONFIG === "undefined" ||
+    !CONFIG ||
+    !CONFIG.HEADERS ||
+    !Array.isArray(CONFIG.HEADERS)
+  ) {
+    return {
+      success: false,
+      message: "Configuration error: CONFIG.HEADERS not defined.",
+    };
+  }
   const idIndex = CONFIG.HEADERS.indexOf("Split Group ID");
   if (idIndex === -1) {
     return {
@@ -672,6 +925,15 @@ function _revertSplitCore(financeSheet, splitSheet, groupId, financeRowIndex) {
 }
 
 function _processSplitCore(financeSheet, splitSheet, original, splits) {
+  // 1. Prepare Data
+  const preparation = _prepareSplitData(financeSheet, original, splits);
+  if (!preparation.success) return preparation;
+
+  // 2. Write Data
+  return _writeSplitData(financeSheet, splitSheet, preparation);
+}
+
+function _prepareSplitData(financeSheet, original, splits) {
   const validation = _validateSplitRequest(original, splits);
   if (!validation.success) return validation;
 
@@ -686,10 +948,7 @@ function _processSplitCore(financeSheet, splitSheet, original, splits) {
   const incomeIndex = CONFIG.HEADERS.indexOf("Income");
   const expenseIndex = CONFIG.HEADERS.indexOf("Expense");
 
-  // Update Finance Sheet with new ID
-  financeSheet.getRange(rowIndex, idIndex + 1).setValue(splitGroupId);
-
-  // Prepare Archive Rows
+  // Get Finance Sheet Row Data
   const originalRowRange = financeSheet.getRange(
     rowIndex,
     1,
@@ -698,6 +957,7 @@ function _processSplitCore(financeSheet, splitSheet, original, splits) {
   );
   const originalRowValues = originalRowRange.getValues()[0];
 
+  // Update ID in the in-memory array for archive rows
   originalRowValues[idIndex] = splitGroupId;
 
   const archiveRows = [];
@@ -723,16 +983,39 @@ function _processSplitCore(financeSheet, splitSheet, original, splits) {
     archiveRows.push([...childRow, "CHILD", splitDate]);
   });
 
-  if (archiveRows.length > 0) {
-    const startRow = splitSheet.getLastRow() + 1;
-    splitSheet
-      .getRange(startRow, 1, archiveRows.length, archiveRows[0].length)
-      .setValues(archiveRows);
-  }
-
   return {
     success: true,
-    message: "Transaction split successfully.",
     splitGroupId: splitGroupId,
+    rowIndex: rowIndex,
+    archiveRows: archiveRows,
+    idIndex: idIndex,
   };
+}
+
+function _writeSplitData(financeSheet, splitSheet, preparation) {
+  try {
+    const { splitGroupId, rowIndex, archiveRows, idIndex } = preparation;
+
+    // Update Finance Sheet with new ID
+    financeSheet.getRange(rowIndex, idIndex + 1).setValue(splitGroupId);
+
+    if (archiveRows.length > 0) {
+      const startRow = splitSheet.getLastRow() + 1;
+      splitSheet
+        .getRange(startRow, 1, archiveRows.length, archiveRows[0].length)
+        .setValues(archiveRows);
+    }
+
+    return {
+      success: true,
+      message: "Transaction split successfully.",
+      splitGroupId: splitGroupId,
+    };
+  } catch (error) {
+    console.error("Write split data error", error);
+    return {
+      success: false,
+      message: "Error writing split data: " + error.message,
+    };
+  }
 }
