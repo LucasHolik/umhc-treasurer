@@ -35,7 +35,7 @@ class AnalysisComponent {
       typeSearchTerm: "",
 
       metric: "balance", // income, expense, net, balance
-      chartType: "bar",
+      chartType: "line",
       primaryGroup: "date",
       secondaryGroup: "none",
       timeUnit: "day",
@@ -188,6 +188,10 @@ class AnalysisComponent {
       },
       onMetricChange: (val) => {
         this.state.metric = val;
+        if (val === "balance") {
+          this.state.chartType = "line";
+        }
+        this.controlsComponent.update(this.state);
         this.generateChart();
       },
       onChartTypeChange: (val) => {

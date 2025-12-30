@@ -8,22 +8,22 @@ export default class AnalysisControls {
     this.render();
   }
 
-  render() {
-    // Helper to create options
-    const createOptions = (options, selectedValue) =>
-      options.map((opt) =>
-        el(
-          "option",
-          { value: opt.value, selected: opt.value === selectedValue },
-          opt.label
-        )
-      );
+  createOptions(options, selectedValue) {
+    return options.map((opt) =>
+      el(
+        "option",
+        { value: opt.value, selected: opt.value === selectedValue },
+        opt.label
+      )
+    );
+  }
 
+  render() {
     // 1. Scope Section
     const timeframeSelect = el(
       "select",
       { id: "analysis-timeframe-select", className: "control-input" },
-      ...createOptions([
+      ...this.createOptions([
         { value: "current_month", label: "Current Month" },
         { value: "past_30_days", label: "Past 30 Days" },
         { value: "past_3_months", label: "Past 3 Months" },
@@ -41,7 +41,7 @@ export default class AnalysisControls {
     const statusSelect = el(
       "select",
       { id: "analysis-trip-status-select", className: "control-input" },
-      ...createOptions([
+      ...this.createOptions([
         { value: "All", label: "All" },
         { value: "Active", label: "Active Only" },
         { value: "Completed", label: "Completed Only" },
@@ -134,7 +134,7 @@ export default class AnalysisControls {
     const metricSelect = el(
       "select",
       { id: "analysis-metric-select", className: "control-input" },
-      ...createOptions([
+      ...this.createOptions([
         { value: "balance", label: "Cumulative Balance" },
         { value: "income", label: "Income" },
         { value: "expense", label: "Expenses" },
@@ -149,7 +149,7 @@ export default class AnalysisControls {
     const chartTypeSelect = el(
       "select",
       { id: "analysis-chart-type-select", className: "control-input" },
-      ...createOptions([
+      ...this.createOptions([
         { value: "bar", label: "Bar" },
         { value: "line", label: "Line" },
         { value: "pie", label: "Pie" },
@@ -164,7 +164,7 @@ export default class AnalysisControls {
     const primaryGroupSelect = el(
       "select",
       { id: "analysis-primary-group-select", className: "control-input" },
-      ...createOptions([
+      ...this.createOptions([
         { value: "date", label: "Date" },
         { value: "category", label: "Category" },
         { value: "trip", label: "Trip/Event" },
@@ -178,7 +178,7 @@ export default class AnalysisControls {
     const secondaryGroupSelect = el(
       "select",
       { id: "analysis-secondary-group-select", className: "control-input" },
-      ...createOptions([
+      ...this.createOptions([
         { value: "none", label: "None" },
         { value: "category", label: "Category" },
         { value: "trip", label: "Trip/Event" },
@@ -192,7 +192,7 @@ export default class AnalysisControls {
     const timeUnitSelect = el(
       "select",
       { id: "analysis-time-unit-select", className: "control-input" },
-      ...createOptions([
+      ...this.createOptions([
         { value: "day", label: "Daily" },
         { value: "week", label: "Weekly" },
         { value: "month", label: "Monthly" },
@@ -262,7 +262,34 @@ export default class AnalysisControls {
     setVal("#analysis-start-date", state.startDate);
     setVal("#analysis-end-date", state.endDate);
     setVal("#analysis-metric-select", state.metric);
+
+    // Update Chart Type Options based on Metric
+    const chartTypeSelect = this.element.querySelector(
+      "#analysis-chart-type-select"
+    );
+    if (chartTypeSelect) {
+      let options = [];
+      if (state.metric === "balance") {
+        options = [{ value: "line", label: "Line" }];
+      } else {
+        options = [
+          { value: "bar", label: "Bar" },
+          { value: "line", label: "Line" },
+          { value: "pie", label: "Pie" },
+          { value: "doughnut", label: "Doughnut" },
+        ];
+      }
+
+      // Re-populate options
+      chartTypeSelect.innerHTML = "";
+      const optionEls = this.createOptions(options, state.chartType);
+      optionEls.forEach((opt) => chartTypeSelect.appendChild(opt));
+    }
+
+    // Ensure value is set (it might have been reset if option is missing,
+    // but createOptions handles selection attribute. setVal redundancy ensures it)
     setVal("#analysis-chart-type-select", state.chartType);
+
     setVal("#analysis-primary-group-select", state.primaryGroup);
     setVal("#analysis-secondary-group-select", state.secondaryGroup);
     setVal("#analysis-time-unit-select", state.timeUnit);
