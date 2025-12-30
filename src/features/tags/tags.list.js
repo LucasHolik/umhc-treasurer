@@ -215,15 +215,19 @@ export default class TagsList {
                 },
                 title: `Add new ${this.activeTab}`,
                 onclick: async (e) => {
-                  const type = e.currentTarget.dataset.type;
-                  const value = await this.modal.prompt(
-                    `Enter new name for ${type} tag:`,
-                    "",
-                    "Add Tag"
-                  );
-                  if (value && value.trim() !== "") {
-                    if (this.callbacks.onTagAdd)
-                      this.callbacks.onTagAdd(type, value.trim());
+                  try {
+                    const type = e.currentTarget.dataset.type;
+                    const value = await this.modal.prompt(
+                      `Enter new name for ${type} tag:`,
+                      "",
+                      "Add Tag"
+                    );
+                    if (value && value.trim() !== "") {
+                      if (this.callbacks.onTagAdd)
+                        this.callbacks.onTagAdd(type, value.trim());
+                    }
+                  } catch (err) {
+                    console.error("Failed to add tag:", err);
                   }
                 },
               },
@@ -292,7 +296,7 @@ export default class TagsList {
     );
 
     const data = visibleTags.map((tag) => {
-      const tagStats = this.stats[type][tag] || {
+      const tagStats = this.stats?.[type]?.[tag] || {
         count: 0,
         income: 0,
         expense: 0,
@@ -357,20 +361,17 @@ export default class TagsList {
                 color: s.color,
                 fontWeight: "bold",
                 fontSize: "1.2em",
-                cursor: "pointer",
+                cursor: this.isEditMode ? "not-allowed" : "pointer",
+                opacity: this.isEditMode ? "0.7" : "1",
               },
-              title: `${s.title} - Click to cycle`,
+              title: this.isEditMode ? s.title : `${s.title} - Click to cycle`,
               dataset: { tag: item.tag, status: status },
-              tabindex: "0",
+              tabIndex: this.isEditMode ? "-1" : "0",
               role: "button",
             },
             s.icon
           );
 
-          if (this.isEditMode) {
-            span.style.opacity = "0.7";
-            span.style.cursor = "not-allowed";
-          }
           return span;
         },
       });
@@ -387,8 +388,12 @@ export default class TagsList {
               {
                 className: "tag-pill",
                 dataset: { tag: item.tag, type: "Type" },
-                tabindex: "0",
+                tabIndex: this.isEditMode ? "-1" : "0",
                 role: "button",
+                style: {
+                  opacity: this.isEditMode ? "0.7" : "1",
+                  cursor: this.isEditMode ? "not-allowed" : "pointer",
+                },
               },
               el("span", { className: "tag-text" }, item.tripType),
               el(
@@ -396,8 +401,11 @@ export default class TagsList {
                 {
                   className: "remove-btn",
                   title: "Remove Type",
-                  tabindex: "0",
+                  tabIndex: this.isEditMode ? "-1" : "0",
                   role: "button",
+                  style: {
+                    cursor: this.isEditMode ? "not-allowed" : "pointer",
+                  },
                 },
                 "×"
               )
@@ -409,16 +417,17 @@ export default class TagsList {
                 className: "add-tag-placeholder",
                 dataset: { tag: item.tag, type: "Type" },
                 title: "Add Type",
-                tabindex: "0",
+                tabIndex: this.isEditMode ? "-1" : "0",
                 role: "button",
+                style: {
+                  opacity: this.isEditMode ? "0.7" : "1",
+                  cursor: this.isEditMode ? "not-allowed" : "pointer",
+                },
               },
               "+"
             );
           }
 
-          if (this.isEditMode) {
-            content.style.opacity = "0.7";
-          }
           return content;
         },
       });
@@ -638,7 +647,9 @@ export default class TagsList {
     // Remove Tag
     if (target.classList.contains("remove-btn")) {
       e.stopPropagation();
+      if (this.isEditMode) return;
       const pill = target.closest(".tag-pill");
+      if (!pill) return;
       const tag = pill.dataset.tag;
       if (this.callbacks.onUpdateTripType) {
         this.callbacks.onUpdateTripType(tag, ""); // Clear type
@@ -649,6 +660,7 @@ export default class TagsList {
     // Add Tag (+)
     if (target.classList.contains("add-tag-placeholder")) {
       e.stopPropagation();
+      if (this.isEditMode) return;
       const tag = target.dataset.tag;
       // Show selector
       const typeOptions = this.tagsData["Type"] || [];
@@ -669,8 +681,11 @@ export default class TagsList {
     const pill = target.closest(".tag-pill");
     if (pill) {
       e.stopPropagation();
+      if (this.isEditMode) return;
       const tag = pill.dataset.tag;
-      const currentVal = pill.querySelector(".tag-text").textContent;
+      const tagTextEl = pill.querySelector(".tag-text");
+      if (!tagTextEl) return;
+      const currentVal = tagTextEl.textContent;
       const typeOptions = this.tagsData["Type"] || [];
       this.tagSelector.show(
         pill.getBoundingClientRect(),
