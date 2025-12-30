@@ -2,11 +2,12 @@
 function doGet(e) {
   try {
     const action = e?.parameter?.action || "login";
-    const providedKey = e?.parameter?.apiKey;
+    const timestamp = e?.parameter?.timestamp;
+    const signature = e?.parameter?.signature;
 
-    if (providedKey !== Service_Auth.getApiKey()) {
+    if (!Service_Auth.verifyRequest(action, timestamp, signature)) {
       return createJsonResponse(
-        { success: false, message: "Invalid key" },
+        { success: false, message: "Unauthorized" },
         e?.parameter?.callback
       );
     }
@@ -17,7 +18,9 @@ function doGet(e) {
         response = Service_Auth.login();
         break;
       case "saveData":
-        response = Service_Sheet.saveData(e);
+        response = e?.parameter
+          ? Service_Sheet.saveData(e)
+          : { success: false, message: "Missing parameters" };
         break;
       case "getData":
         response = Service_Sheet.getData();
@@ -26,40 +29,64 @@ function doGet(e) {
         response = getAppData();
         break;
       case "addTag":
-        response = Service_Tags.addTag(e.parameter.type, e.parameter.value);
+        response = Service_Tags.addTag(
+          e?.parameter?.type,
+          e?.parameter?.value,
+          e?.parameter?.extraData
+        );
         break;
       case "updateExpenses":
-        response = Service_Sheet.updateExpenses(e);
+        response = e?.parameter
+          ? Service_Sheet.updateExpenses(e)
+          : { success: false, message: "Missing parameters" };
         break;
       case "deleteTag":
-        response = Service_Tags.deleteTag(e);
+        response = e?.parameter
+          ? Service_Tags.deleteTag(e)
+          : { success: false, message: "Missing parameters" };
         break;
       case "renameTag":
-        response = Service_Tags.renameTag(e);
+        response = e?.parameter
+          ? Service_Tags.renameTag(e)
+          : { success: false, message: "Missing parameters" };
         break;
       case "processTagOperations":
-        response = Service_Tags.processTagOperations(e);
+        response = e?.parameter
+          ? Service_Tags.processTagOperations(e)
+          : { success: false, message: "Missing parameters" };
         break;
       case "getOpeningBalance":
         response = Service_Sheet.getOpeningBalance();
         break;
       case "saveOpeningBalance":
-        response = Service_Sheet.saveOpeningBalance(e);
+        response = e?.parameter
+          ? Service_Sheet.saveOpeningBalance(e)
+          : { success: false, message: "Missing parameters" };
         break;
       case "splitTransaction":
-        response = Service_Split.processSplit(e);
+        response = e?.parameter
+          ? Service_Split.processSplit(e)
+          : { success: false, message: "Missing parameters" };
         break;
       case "revertSplit":
-        response = Service_Split.revertSplit(e);
+        response = e?.parameter
+          ? Service_Split.revertSplit(e)
+          : { success: false, message: "Missing parameters" };
         break;
       case "editSplit":
-        response = Service_Split.editSplit(e);
+        response = e?.parameter
+          ? Service_Split.editSplit(e)
+          : { success: false, message: "Missing parameters" };
         break;
       case "getSplitGroup":
-        response = Service_Split.getSplitGroup(e);
+        response = e?.parameter
+          ? Service_Split.getSplitGroup(e)
+          : { success: false, message: "Missing parameters" };
         break;
       case "getSplitHistory":
-        response = Service_Split.getSplitHistory(e);
+        response = e?.parameter
+          ? Service_Split.getSplitHistory(e)
+          : { success: false, message: "Missing parameters" };
         break;
       default:
         response = { success: false, message: "Invalid action" };
@@ -67,10 +94,10 @@ function doGet(e) {
 
     return createJsonResponse(response, e?.parameter?.callback);
   } catch (error) {
-    Logger.log("Server error in doGet: " + error.toString());
+    console.error("Server error in doGet: " + error.toString());
     return createJsonResponse(
       { success: false, message: "Server Error" },
-      e?.parameter?.callback ? e.parameter.callback : "callback"
+      e?.parameter?.callback
     );
   }
 }
@@ -141,19 +168,17 @@ function getAppData() {
 
 function createJsonResponse(data, callback) {
   // Validate callback to prevent XSS - only allow safe JavaScript identifiers
-  const safeCallback = callback || "callback";
+  let safeCallback = callback || "callback";
   const callbackRegex =
     /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/;
 
   if (!callbackRegex.test(safeCallback)) {
     // Log the attempt and use default callback
-    Logger.log("Invalid callback parameter detected: " + safeCallback);
-    callback = "callback";
-  } else {
-    callback = safeCallback;
+    console.warn("Invalid callback parameter detected: " + safeCallback);
+    safeCallback = "callback";
   }
 
-  const jsonp = callback + "(" + JSON.stringify(data) + ")";
+  const jsonp = safeCallback + "(" + JSON.stringify(data) + ")";
   return ContentService.createTextOutput(jsonp).setMimeType(
     ContentService.MimeType.JAVASCRIPT
   );

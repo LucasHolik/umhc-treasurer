@@ -55,64 +55,107 @@ const request = (action, params = {}, options = {}) => {
     loadingRequestCount++;
   }
 
-  const promise = new Promise((resolve, reject) => {
-    const url = new URL(SCRIPT_URL);
-    url.searchParams.append("action", action);
-    url.searchParams.append("apiKey", apiKey);
-    for (const key in sortedParams) {
-      url.searchParams.append(key, sortedParams[key]);
-    }
+  // --- SIGNING HELPER ---
+  async function signRequest(action, timestamp, apiKey) {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(apiKey);
+    const payload = encoder.encode(action + timestamp);
 
-    const callbackName = "jsonp_callback_" + Math.round(100000 * Math.random());
-    url.searchParams.append("callback", callbackName);
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      keyData,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
 
-    const script = document.createElement("script");
-    const timeout = 15000; // 15 seconds
-    let cleanedUp = false;
+    const signatureBuffer = await crypto.subtle.sign(
+      "HMAC",
+      cryptoKey,
+      payload
+    );
+    const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+    return signatureArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
 
-    const timeoutId = setTimeout(() => {
-      cleanup();
-      reject(new Error("Request timed out."));
-    }, timeout);
+  const promise = (async () => {
+    try {
+      const timestamp = Date.now().toString();
+      const signature = await signRequest(action, timestamp, apiKey);
 
-    const cleanup = () => {
-      if (cleanedUp) return;
-      cleanedUp = true;
+      return new Promise((resolve, reject) => {
+        const url = new URL(SCRIPT_URL);
+        url.searchParams.append("action", action);
+        // url.searchParams.append("apiKey", apiKey); // REMOVED for security
+        url.searchParams.append("timestamp", timestamp);
+        url.searchParams.append("signature", signature);
 
-      clearTimeout(timeoutId);
-      if (window[callbackName]) {
-        delete window[callbackName];
-      }
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-      activeRequests.delete(requestKey);
+        for (const key in sortedParams) {
+          url.searchParams.append(key, sortedParams[key]);
+        }
 
+        const callbackName =
+          "jsonp_callback_" + Math.round(100000 * Math.random());
+        url.searchParams.append("callback", callbackName);
+
+        const script = document.createElement("script");
+        const timeout = 15000; // 15 seconds
+        let cleanedUp = false;
+
+        const timeoutId = setTimeout(() => {
+          cleanup();
+          reject(new Error("Request timed out."));
+        }, timeout);
+
+        const cleanup = () => {
+          if (cleanedUp) return;
+          cleanedUp = true;
+
+          clearTimeout(timeoutId);
+          if (window[callbackName]) {
+            delete window[callbackName];
+          }
+          if (document.body.contains(script)) {
+            document.body.removeChild(script);
+          }
+          activeRequests.delete(requestKey);
+
+          if (!options.skipLoading) {
+            loadingRequestCount--;
+            if (loadingRequestCount === 0) {
+              store.setState("isLoading", false);
+            }
+          }
+        };
+
+        window[callbackName] = (data) => {
+          cleanup();
+          if (data.success) {
+            resolve(data);
+          } else {
+            reject(new Error(data.message || "API request failed."));
+          }
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error("Network error during API request."));
+        };
+
+        script.src = url.toString();
+        document.body.appendChild(script);
+      });
+    } catch (err) {
+      // Handle signing errors or other prep errors
       if (!options.skipLoading) {
         loadingRequestCount--;
         if (loadingRequestCount === 0) {
           store.setState("isLoading", false);
         }
       }
-    };
-
-    window[callbackName] = (data) => {
-      cleanup();
-      if (data.success) {
-        resolve(data);
-      } else {
-        reject(new Error(data.message || "API request failed."));
-      }
-    };
-
-    script.onerror = () => {
-      cleanup();
-      reject(new Error("Network error during API request."));
-    };
-
-    script.src = url.toString();
-    document.body.appendChild(script);
-  });
+      throw err;
+    }
+  })();
 
   activeRequests.set(requestKey, promise);
   return promise;
