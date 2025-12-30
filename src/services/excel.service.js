@@ -17,6 +17,7 @@ function normalizeDateString(dateValue) {
   let dateString = String(dateValue).trim();
 
   // Handle DD/MM/YYYY format from Excel
+  // Note: Assumes DD/MM/YYYY format. For MM/DD/YYYY, adjust the logic below.
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateString)) {
     try {
       const parts = dateString.split("/");
@@ -26,7 +27,20 @@ function normalizeDateString(dateValue) {
         const month = parts[1];
         const year = parts[2];
         // Format to YYYY-MM-DD with leading zeros
-        return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        const normalized = `${year}-${month.padStart(2, "0")}-${day.padStart(
+          2,
+          "0"
+        )}`;
+
+        // Validate the date is valid (e.g., prevent 31/02/2024)
+        const dateObj = new Date(normalized);
+        if (
+          dateObj.toString() === "Invalid Date" ||
+          dateObj.toISOString().split("T")[0] !== normalized
+        ) {
+          return dateString; // Return original if invalid
+        }
+        return normalized;
       }
     } catch (e) {
       // If parsing fails, return the original string
@@ -63,23 +77,31 @@ function normalizeDateString(dateValue) {
   return dateString;
 }
 
+function parseExcelNumber(val) {
+  if (val === undefined || val === null || val === "") return null;
+  if (typeof val === "number") return val;
+  // Remove currency symbols and commas, then parse
+  const cleaned = String(val).replace(/[$,]/g, "");
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 function parseAndCleanData(rows) {
   const transactions = [];
   let headerIndex = -1;
 
-  // Find the header row index
-  for (let i = 0; i < Math.min(rows.length, 10); i++) {
-    if (rows[i] && rows[i].length > 3) {
-      const row = rows[i];
-      const dateHeader =
-        row[0] && String(row[0]).toLowerCase().includes("date");
-      const descriptionHeader =
-        row[3] && String(row[3]).toLowerCase().includes("description");
+  // Find the header row index (scanning first 20 rows for "date" and "description")
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const row = rows[i];
+    if (!row || row.length < 2) continue;
 
-      if (dateHeader && descriptionHeader) {
-        headerIndex = i;
-        break;
-      }
+    const rowStrings = row.map((cell) => String(cell || "").toLowerCase());
+    const hasDate = rowStrings.some((s) => s.includes("date"));
+    const hasDescription = rowStrings.some((s) => s.includes("description"));
+
+    if (hasDate && hasDescription) {
+      headerIndex = i;
+      break;
     }
   }
 
@@ -94,20 +116,30 @@ function parseAndCleanData(rows) {
     (h) => h.includes("document") || h.includes("ref")
   );
   const descriptionCol = headers.findIndex((h) => h.includes("description"));
+
+  // Robust matching for In/Out columns
   const cashInCol = headers.findIndex(
     (h) =>
-      h.includes("in") &&
-      (h.includes("cash") || h.includes("amount") || h.includes("credit"))
+      (h.includes("in") && (h.includes("cash") || h.includes("amount"))) ||
+      h.includes("credit") ||
+      h.includes("deposit")
   );
   const cashOutCol = headers.findIndex(
     (h) =>
-      h.includes("out") &&
-      (h.includes("cash") || h.includes("amount") || h.includes("debit"))
+      (h.includes("out") && (h.includes("cash") || h.includes("amount"))) ||
+      h.includes("debit") ||
+      h.includes("withdrawal")
   );
 
   if (dateCol === -1 || descriptionCol === -1) {
     throw new Error(
       "Required columns (date, description) not found in header row."
+    );
+  }
+
+  if (cashInCol === -1 && cashOutCol === -1) {
+    throw new Error(
+      "Neither 'cash in' nor 'cash out' columns found in header row."
     );
   }
 
@@ -129,7 +161,11 @@ function parseAndCleanData(rows) {
     const row = rows[i];
     if (!row || row.length === 0) continue;
 
-    const rowText = row.join(" ").toLowerCase();
+    // Convert row to text safely for footer detection
+    const rowText = row
+      .map((cell) => String(cell || ""))
+      .join(" ")
+      .toLowerCase();
     if (
       rowText.includes("please note recent transactions may not be included") ||
       rowText.includes("pending transactions")
@@ -147,8 +183,8 @@ function parseAndCleanData(rows) {
         descriptionParts: row[descriptionCol]
           ? [String(row[descriptionCol])]
           : [],
-        cashIn: row[cashInCol] !== undefined ? row[cashInCol] : null,
-        cashOut: row[cashOutCol] !== undefined ? row[cashOutCol] : null,
+        cashIn: parseExcelNumber(row[cashInCol]),
+        cashOut: parseExcelNumber(row[cashOutCol]),
       };
     } else if (currentTransaction) {
       if (row[documentCol]) {
