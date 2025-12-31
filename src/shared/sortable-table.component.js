@@ -14,6 +14,7 @@ export default class SortableTable {
    *     render: (row) => string, // Optional custom renderer
    *     class: string            // Optional CSS class (e.g., 'text-right')
    *   }
+   *   Note: Elements with class 'no-sort' inside sortable headers will not trigger sorting.
    * @param {Function} config.onRowClick - (row, event) => void
    * @param {boolean} config.enableSelection - Default false
    * @param {Function} config.onSelectionChange - (selectedIds) => void
@@ -37,6 +38,15 @@ export default class SortableTable {
 
   update(data) {
     this.data = [...data];
+
+    // Remove selections for rows that no longer exist in the data
+    const currentIds = new Set(this.data.map((item) => item[this.rowIdField]));
+    this.selectedRows.forEach((id) => {
+      if (!currentIds.has(id)) {
+        this.selectedRows.delete(id);
+      }
+    });
+
     this.sortData();
     this.render();
   }
@@ -143,14 +153,27 @@ export default class SortableTable {
           row.appendChild(el("td", {}, checkbox));
 
           row.style.cursor = "pointer";
-          row.onclick = (e) => {
-            if (e.target.type === "checkbox") return;
+          row.setAttribute("tabindex", "0");
+
+          const toggleRow = (e) => {
             const newState = !this.selectedRows.has(item[this.rowIdField]);
             checkbox.checked = newState;
             this.handleRowSelect(item[this.rowIdField], newState);
 
             if (this.onRowClick) {
               this.onRowClick(item, e);
+            }
+          };
+
+          row.onclick = (e) => {
+            if (e.target.type === "checkbox") return;
+            toggleRow(e);
+          };
+
+          row.onkeydown = (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              toggleRow(e);
             }
           };
         }
