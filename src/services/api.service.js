@@ -60,7 +60,7 @@ const request = (action, params = {}, options = {}) => {
   async function signRequest(action, timestamp, apiKey) {
     const encoder = new TextEncoder();
     const keyData = encoder.encode(apiKey);
-    const payload = encoder.encode(action + timestamp);
+    const payload = encoder.encode(action + "|" + timestamp);
 
     const cryptoKey = await crypto.subtle.importKey(
       "raw",

@@ -50,8 +50,9 @@ var Service_Auth = {
       }
 
       // 2. Reconstruct Payload
-      // Must match client-side construction: action + timestamp
-      const payload = action + timestamp;
+      // Use delimiter to prevent collision attacks
+      // Must match client-side construction: action + "|" + timestamp
+      const payload = action + "|" + timestamp;
 
       // 3. Compute Expected Signature
       const signatureBytes = Utilities.computeHmacSha256Signature(
@@ -65,10 +66,21 @@ var Service_Auth = {
         return str + (v.length == 1 ? "0" + v : v);
       }, "");
 
-      // 4. Compare (case-insensitive)
-      return (
-        signature && expectedSignature.toLowerCase() === signature.toLowerCase()
-      );
+      // 4. Compare (constant-time, case-insensitive)
+      if (!signature) return false;
+
+      const expected = expectedSignature.toLowerCase();
+      const provided = signature.toLowerCase();
+
+      // Ensure same length to prevent timing leaks
+      if (expected.length !== provided.length) return false;
+
+      // Constant-time comparison
+      let mismatch = 0;
+      for (let i = 0; i < expected.length; i++) {
+        mismatch |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
+      }
+      return mismatch === 0;
     } catch (e) {
       console.error("Error in verifyRequest: " + e.message);
       return false;
