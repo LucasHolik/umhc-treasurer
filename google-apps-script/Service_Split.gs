@@ -423,7 +423,6 @@ var Service_Split = {
 
       // Returns Source + Children for a specific Group ID from the Split Sheet
       const groupId = e.parameter.groupId;
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
       const splitSheet = _getSplitSheet(); // Use helper function
 
       const data = splitSheet.getDataRange().getValues();
@@ -527,7 +526,6 @@ var Service_Split = {
       const page = parseInt(e.parameter.page) || 1;
       const pageSize = parseInt(e.parameter.pageSize) || 500; // Default chunk size
 
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
       const splitSheet = _getSplitSheet(); // Use helper function
 
       const lastRow = splitSheet.getLastRow();
@@ -642,7 +640,6 @@ var Service_Split = {
       }
       lockAcquired = true;
 
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
       const splitSheet = _getSplitSheet();
 
       const lastRow = splitSheet.getLastRow();
@@ -996,15 +993,15 @@ function _writeSplitData(financeSheet, splitSheet, preparation) {
   try {
     const { splitGroupId, rowIndex, archiveRows, idIndex } = preparation;
 
-    // Update Finance Sheet with new ID
-    financeSheet.getRange(rowIndex, idIndex + 1).setValue(splitGroupId);
-
     if (archiveRows.length > 0) {
       const startRow = splitSheet.getLastRow() + 1;
       splitSheet
         .getRange(startRow, 1, archiveRows.length, archiveRows[0].length)
         .setValues(archiveRows);
     }
+
+    // Update Finance Sheet with new ID (after split sheet succeeds)
+    financeSheet.getRange(rowIndex, idIndex + 1).setValue(splitGroupId);
 
     return {
       success: true,
