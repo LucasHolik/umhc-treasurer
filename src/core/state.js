@@ -14,6 +14,9 @@ const createStore = (initialState = {}) => {
    * @returns {object} - An object with an `unsubscribe` method.
    */
   const subscribe = (key, callback) => {
+    if (typeof callback !== "function") {
+      throw new TypeError("Callback must be a function");
+    }
     if (!subscribers[key]) {
       subscribers[key] = [];
     }
@@ -33,7 +36,16 @@ const createStore = (initialState = {}) => {
    */
   const notify = (key) => {
     if (subscribers[key]) {
-      subscribers[key].forEach((callback) => callback(state[key]));
+      subscribers[key].forEach((callback) => {
+        try {
+          callback(state[key]);
+        } catch (error) {
+          console.error(
+            `Error in subscriber callback for key "${key}":`,
+            error
+          );
+        }
+      });
     }
   };
 
@@ -43,6 +55,7 @@ const createStore = (initialState = {}) => {
    * @param {*} value - The new value.
    */
   const setState = (key, value) => {
+    if (state[key] === value) return;
     state[key] = value;
     notify(key);
   };
