@@ -4,6 +4,12 @@ var Service_Tags = {
   },
 
   addTag: function (type, value, extraData) {
+    if (!type || !value) {
+      return {
+        success: false,
+        message: "Invalid parameters: type and value are required",
+      };
+    }
     return _addTag(type, value, false, extraData);
   },
 
@@ -13,8 +19,13 @@ var Service_Tags = {
     }
     const type = e.parameter.type;
     const value = e.parameter.value;
-    const deleteResult = _deleteTag(type, value);
-    return deleteResult;
+    if (!type || !value) {
+      return {
+        success: false,
+        message: "Missing required parameters: type and value",
+      };
+    }
+    return _deleteTag(type, value);
   },
 
   renameTag: function (e) {
@@ -24,6 +35,12 @@ var Service_Tags = {
     const type = e.parameter.type;
     const oldValue = e.parameter.oldValue;
     const newValue = e.parameter.newValue;
+    if (!type || !oldValue || !newValue) {
+      return {
+        success: false,
+        message: "Missing required parameters: type, oldValue, and newValue",
+      };
+    }
     return _renameTag(type, oldValue, newValue);
   },
 
@@ -247,6 +264,11 @@ function _deleteTag(type, value) {
   // We remove the tag from expenses/splits BEFORE deleting it from the master list.
   // This prevents the "Ghost Tag" issue where a tag is deleted but still referenced.
   // If this fails, we abort, leaving the tag in the master list (safe state).
+  //
+  // LIMITATION: This operation is not fully atomic across services.
+  // If removeTagFromExpenses succeeds but removeTagFromSplits fails,
+  // the tag will remain in the master list (aborting delete), but will have been
+  // removed from the Expenses sheet. Manual reconciliation may be required in this edge case.
 
   if (type === "Trip/Event" || type === "Category") {
     try {
@@ -388,6 +410,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
 
   // --- Step 2: External Updates with Rollback ---
   if (type === "Trip/Event" || type === "Category") {
+    let expensesUpdated = false;
     try {
       const expenseResult = Service_Sheet.updateExpensesWithTag(
         oldValue,
@@ -397,6 +420,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       if (!expenseResult.success) {
         throw new Error("Expenses update failed: " + expenseResult.message);
       }
+      expensesUpdated = true;
 
       const splitResult = Service_Split.updateTagInSplits(
         oldValue,
@@ -413,12 +437,37 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       );
 
       // --- ROLLBACK ---
+      // 1. Revert Master Sheet (Optimistic Update)
       tagSheet.getRange(updateRow, column).setValue(oldValue);
 
       if (typeRollbackNeeded && originalTripTypes) {
         tagSheet
           .getRange(2, COL_TYPE, lastRow - 1, 1)
           .setValues(originalTripTypes);
+      }
+
+      // 2. Revert Expenses Sheet (Compensating Transaction)
+      if (expensesUpdated) {
+        try {
+          const revertResult = Service_Sheet.updateExpensesWithTag(
+            newValue,
+            oldValue,
+            type
+          );
+          if (!revertResult.success) {
+            console.error(
+              "CRITICAL: Failed to rollback Expenses sheet during rename failure.",
+              revertResult
+            );
+            error.message += " (Also failed to revert Expenses sheet)";
+          }
+        } catch (rollbackError) {
+          console.error(
+            "CRITICAL: Exception during Expenses rollback.",
+            rollbackError
+          );
+          error.message += " (Exception during Expenses rollback)";
+        }
       }
 
       return {
@@ -511,13 +560,18 @@ function _processTagOperations(operations) {
   }
 
   const modifiedTypes = new Set();
+  const appliedOperations = [];
 
   for (let i = 0; i < operations.length; i++) {
     const operation = operations[i];
     // [oldValue, newValue, operationType, tagType]
 
     if (!Array.isArray(operation) || operation.length !== 4) {
-      return { success: false, message: `Invalid operation at index ${i}` };
+      return {
+        success: false,
+        message: `Invalid operation at index ${i}`,
+        appliedOperations: appliedOperations,
+      };
     }
 
     const [rawOldValue, rawNewValue, operationType, tagType] = operation;
@@ -549,6 +603,7 @@ function _processTagOperations(operations) {
         return {
           success: false,
           message: `Unknown operation type: ${operationType}`,
+          appliedOperations: appliedOperations,
         };
     }
 
@@ -557,8 +612,10 @@ function _processTagOperations(operations) {
         success: false,
         message: `Operation failed at index ${i}: ${result.message}`,
         failedOperation: { index: i, operation: operation },
+        appliedOperations: appliedOperations,
       };
     }
+    appliedOperations.push({ index: i, operation: operation });
   }
 
   // Sort modified types after batch processing
