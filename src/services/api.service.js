@@ -4,6 +4,7 @@ import store from "../core/state.js";
 
 const activeRequests = new Map();
 let loadingRequestCount = 0;
+let callbackCounter = 0;
 
 const getScriptUrl = () => localStorage.getItem("script_url");
 
@@ -94,8 +95,7 @@ const request = (action, params = {}, options = {}) => {
           url.searchParams.append(key, sortedParams[key]);
         }
 
-        const callbackName =
-          "jsonp_callback_" + Math.round(100000 * Math.random());
+        const callbackName = `jsonp_callback_${Date.now()}_${callbackCounter++}`;
         url.searchParams.append("callback", callbackName);
 
         const script = document.createElement("script");
@@ -147,6 +147,7 @@ const request = (action, params = {}, options = {}) => {
       });
     } catch (err) {
       // Handle signing errors or other prep errors
+      activeRequests.delete(requestKey);
       if (!options.skipLoading) {
         loadingRequestCount--;
         if (loadingRequestCount === 0) {
@@ -200,7 +201,7 @@ const ApiService = {
   editSplit: async (groupId, splits, original, options = {}) => {
     const res = await request(
       "editSplit",
-      { groupId, data: JSON.stringify({ groupId, original, splits }) },
+      { groupId, data: JSON.stringify({ original, splits }) },
       options
     );
     store.setState("splitTransactions", null); // Invalidate cache
