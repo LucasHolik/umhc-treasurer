@@ -160,10 +160,22 @@ var Service_Sheet = {
           );
         } else if (typeof row === "number" && row > 1) {
           // Handle Standard Row (numeric)
-          if (tripEventCol > 0)
+          if (tripEventCol > 0) {
             financeSheet.getRange(row, tripEventCol).setValue(update.tripEvent);
-          if (categoryCol > 0)
+          } else {
+            console.warn(
+              "Trip/Event column not found, skipping update for row:",
+              row
+            );
+          }
+          if (categoryCol > 0) {
             financeSheet.getRange(row, categoryCol).setValue(update.category);
+          } else {
+            console.warn(
+              "Category column not found, skipping update for row:",
+              row
+            );
+          }
         } else if (row) {
           console.error("Invalid row identifier:", row);
         }
@@ -363,6 +375,10 @@ function _sortSheetByDate() {
   const values = range.getValues();
 
   const dateIndex = CONFIG.HEADERS.indexOf("Date");
+  if (dateIndex < 0) {
+    console.warn("Date column not found in headers, skipping sort");
+    return;
+  }
   const dataWithDateObjects = values.map((row) => {
     let dateVal = row[dateIndex];
 
