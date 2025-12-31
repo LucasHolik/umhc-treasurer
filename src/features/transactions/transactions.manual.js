@@ -10,7 +10,8 @@ export default class TransactionsManualModal {
   open() {
     // Close any existing modal first
     if (this.overlay) {
-      this.close(null);
+      this.overlay.remove();
+      this.overlay = null;
     }
 
     return new Promise((resolve) => {
@@ -172,11 +173,6 @@ export default class TransactionsManualModal {
       "div",
       {
         className: "modal-overlay",
-        onkeydown: (e) => {
-          if (e.key === "Escape") {
-            this.close(null);
-          }
-        },
       },
       modalContent
     );
@@ -184,11 +180,24 @@ export default class TransactionsManualModal {
     document.body.appendChild(overlay);
     this.overlay = overlay;
 
+    // Handle Escape key
+    this.handleEscapeKey = (e) => {
+      if (e.key === "Escape") {
+        this.close(null);
+      }
+    };
+    document.addEventListener("keydown", this.handleEscapeKey);
+
     // Focus the first input
     setTimeout(() => this.dateInput.focus(), 0);
   }
 
   close(data) {
+    if (this.handleEscapeKey) {
+      document.removeEventListener("keydown", this.handleEscapeKey);
+      this.handleEscapeKey = null;
+    }
+
     if (this.overlay) {
       this.overlay.style.opacity = "0";
       setTimeout(() => {
