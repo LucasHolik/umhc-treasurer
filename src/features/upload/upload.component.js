@@ -376,7 +376,8 @@ class UploadComponent {
 
   _formatNumberForComparison(value) {
     if (value === null || value === undefined || value === "") return "";
-    return String(value).trim().replace(/,/g, "");
+    const num = parseFloat(String(value).trim().replace(/,/g, ""));
+    return isNaN(num) ? "" : num.toFixed(2);
   }
 }
 

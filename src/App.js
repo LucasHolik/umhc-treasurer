@@ -389,19 +389,9 @@ class App {
 
   async loadInitialData() {
     try {
-      console.log("Fetching initial data...");
-
       const appData = await ApiService.getAppData();
-      console.log("API Response:", appData);
 
       if (appData.success) {
-        console.log(
-          "Expenses loaded:",
-          appData.data.expenses ? appData.data.expenses.length : 0
-        );
-        if (appData.data.expenses && appData.data.expenses.length > 0) {
-          console.log("First expense sample:", appData.data.expenses[0]);
-        }
         // Store raw expenses. This triggers the subscription in constructor to process and update 'expenses'
         store.setState("rawExpenses", appData.data.expenses);
         store.setState("tags", appData.data.tags);

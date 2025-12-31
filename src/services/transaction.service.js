@@ -40,13 +40,17 @@ const TransactionService = {
       const gid = row["Split Group ID"];
 
       // If this row is part of a split group
-      if (gid && (sourceGroupIds.has(gid) || splitMap.has(gid))) {
+      if (gid && sourceGroupIds.has(gid)) {
         // If we haven't processed this group yet
         if (!processedGroupIds.has(gid)) {
           // If we have children for this group, add them
           if (splitMap.has(gid)) {
             const children = splitMap.get(gid);
             processedList.push(...children);
+          } else {
+            console.error(
+              `SOURCE group ${gid} has no CHILD entries. Transaction will be lost.`
+            );
           }
           // Mark group as processed so we don't add children multiple times
           // (In case multiple rows map to same group, which shouldn't happen for Source, but safety first)

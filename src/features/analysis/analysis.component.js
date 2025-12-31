@@ -17,6 +17,7 @@ class AnalysisComponent {
     this.analysisLogic = AnalysisLogic;
     this.unsubscribeHandlers = [];
     this.timeouts = [];
+    this.eventListeners = [];
 
     // Default State
     this.state = {
@@ -253,15 +254,17 @@ class AnalysisComponent {
   initializeActionButtons() {
     const toggleBtn = this.element.querySelector("#btn-toggle-view");
     if (toggleBtn) {
-      toggleBtn.addEventListener("click", () => {
+      const handler = () => {
         this.state.showDataTable = !this.state.showDataTable;
         this.updateViewVisibility();
-      });
+      };
+      toggleBtn.addEventListener("click", handler);
+      this.eventListeners.push({ element: toggleBtn, type: "click", handler });
     }
 
     const downloadImgBtn = this.element.querySelector("#btn-download-image");
     if (downloadImgBtn) {
-      downloadImgBtn.addEventListener("click", () => {
+      const handler = () => {
         if (this.chartComponent) {
           const base64 = this.chartComponent.toBase64Image();
           if (base64) {
@@ -275,12 +278,18 @@ class AnalysisComponent {
             this.modal.alert("Chart not ready.", "Download Error");
           }
         }
+      };
+      downloadImgBtn.addEventListener("click", handler);
+      this.eventListeners.push({
+        element: downloadImgBtn,
+        type: "click",
+        handler,
       });
     }
 
     const downloadDataBtn = this.element.querySelector("#btn-download-data");
     if (downloadDataBtn) {
-      downloadDataBtn.addEventListener("click", () => {
+      const handler = () => {
         if (this.chartData) {
           const csvContent = this.analysisLogic.generateCSV(
             this.chartData.labels,
@@ -310,6 +319,12 @@ class AnalysisComponent {
         } else {
           this.modal.alert("No data available to download.", "Download Error");
         }
+      };
+      downloadDataBtn.addEventListener("click", handler);
+      this.eventListeners.push({
+        element: downloadDataBtn,
+        type: "click",
+        handler,
       });
     }
   }
@@ -580,6 +595,10 @@ class AnalysisComponent {
     this.unsubscribeHandlers = [];
     this.timeouts.forEach((timeout) => clearTimeout(timeout));
     this.timeouts = [];
+    this.eventListeners.forEach(({ element, type, handler }) => {
+      element.removeEventListener(type, handler);
+    });
+    this.eventListeners = [];
     if (this.chartComponent) {
       this.chartComponent.destroy();
     }

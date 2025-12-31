@@ -315,7 +315,8 @@ export default class SplitTransactionModal {
             cursor: "pointer",
             fontSize: "1.2em",
           },
-          onclick: (e) => this.removeSplit(parseInt(e.target.dataset.index)),
+          onclick: (e) =>
+            this.removeSplit(parseInt(e.currentTarget.dataset.index)),
         },
         "×"
       );

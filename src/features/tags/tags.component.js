@@ -471,8 +471,8 @@ class TagsComponent {
       chunks.push(formattedOperations.slice(i, i + chunkSize));
     }
 
+    let processedCount = 0;
     try {
-      let processedCount = 0;
       for (const chunk of chunks) {
         await ApiService.processTagOperations(chunk, { skipLoading: true });
         processedCount += chunk.length;

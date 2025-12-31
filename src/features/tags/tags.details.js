@@ -23,7 +23,7 @@ export default class TagsDetails {
     // Filter transactions based on tag type
     if (tagType === "Type") {
       // For "Type" tags, we need to find all expenses that have a Trip/Event which is of this Type.
-      const tripTypeMap = store.getState("tags").TripTypeMap || {};
+      const tripTypeMap = store.getState("tags")?.TripTypeMap || {};
       this.transactionsData = allExpenses.filter((item) => {
         const trip = item["Trip/Event"];
         return trip && tripTypeMap[trip] === tagName;

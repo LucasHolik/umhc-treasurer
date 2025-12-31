@@ -17,7 +17,7 @@ export const filterData = (
 
     // Category Filter
     let categoryMatch = true;
-    if (selectedCategories.size > 0) {
+    if (selectedCategories && selectedCategories.size > 0) {
       const itemCat = item["Category"];
       const hasNoTag = selectedCategories.has(NO_TAG);
       categoryMatch = selectedCategories.has(itemCat) || (hasNoTag && !itemCat);
@@ -25,7 +25,7 @@ export const filterData = (
 
     // Trip Filter
     let tripMatch = true;
-    if (selectedTrips.size > 0) {
+    if (selectedTrips && selectedTrips.size > 0) {
       const itemTrip = item["Trip/Event"];
       const hasNoTag = selectedTrips.has(NO_TAG);
       tripMatch = selectedTrips.has(itemTrip) || (hasNoTag && !itemTrip);

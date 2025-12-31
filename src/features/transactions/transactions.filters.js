@@ -85,7 +85,17 @@ export default class TransactionsFilters {
     const children = [noTagDiv];
 
     if (tagsArray.length === 0) {
-      children.push(el("div", { style: { padding: "5px" } }, "No tags found"));
+      children.push(
+        el(
+          "div",
+          {
+            style: { padding: "5px" },
+            role: "status",
+            "aria-live": "polite",
+          },
+          "No tags found"
+        )
+      );
       replace(container, ...children);
       return;
     }
@@ -122,7 +132,11 @@ export default class TransactionsFilters {
       children.push(
         el(
           "div",
-          { style: { padding: "5px", color: "#ccc" } },
+          {
+            style: { padding: "5px", color: "#ccc" },
+            role: "status",
+            "aria-live": "polite",
+          },
           "No matches found"
         )
       );
