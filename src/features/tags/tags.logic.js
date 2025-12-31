@@ -21,7 +21,7 @@ export const getVirtualTripTypeMap = (originalMap, queue) => {
         virtualMap[op.oldValue] = op.newValue;
       }
     }
-    // Handle renames/deletes for Type Map
+    // Handle renames/deletes for Trip names in the Map
     if (op.type === "rename" && op.tagType === "Trip/Event") {
       if (virtualMap[op.oldValue]) {
         virtualMap[op.newValue] = virtualMap[op.oldValue];
@@ -31,9 +31,52 @@ export const getVirtualTripTypeMap = (originalMap, queue) => {
     if (op.type === "delete" && op.tagType === "Trip/Event") {
       delete virtualMap[op.value];
     }
+
+    // Handle renames/deletes for the Types themselves (affects the map values)
+    if (op.type === "rename" && op.tagType === "Type") {
+      Object.keys(virtualMap).forEach((key) => {
+        if (virtualMap[key] === op.oldValue) {
+          virtualMap[key] = op.newValue;
+        }
+      });
+    }
+    if (op.type === "delete" && op.tagType === "Type") {
+      Object.keys(virtualMap).forEach((key) => {
+        if (virtualMap[key] === op.value) {
+          delete virtualMap[key];
+        }
+      });
+    }
   });
 
   return virtualMap;
+};
+
+/**
+ * Calculates a virtual list of tags (Category, Type, etc) based on pending operations.
+ * @param {Array} originalList
+ * @param {Array} queue
+ * @param {string} tagType
+ * @returns {Array}
+ */
+export const getVirtualTagList = (originalList, queue, tagType) => {
+  let virtualList = [...(originalList || [])];
+  if (!queue || queue.length === 0) return virtualList;
+
+  queue.forEach((op) => {
+    if (op.tagType === tagType) {
+      if (op.type === "add") {
+        if (!virtualList.includes(op.value)) virtualList.push(op.value);
+      } else if (op.type === "delete") {
+        virtualList = virtualList.filter((v) => v !== op.value);
+      } else if (op.type === "rename") {
+        virtualList = virtualList.map((v) =>
+          v === op.oldValue ? op.newValue : v
+        );
+      }
+    }
+  });
+  return virtualList;
 };
 
 /**
@@ -78,7 +121,13 @@ export const getVirtualTripStatusMap = (originalMap, queue) => {
 const parseAmount = (val) => {
   if (!val) return 0;
   if (typeof val === "number") return val;
-  return parseFloat(val.toString().replace(/,/g, "")) || 0;
+  const cleaned = val.toString().replace(/[$,]/g, "");
+  const parsed = parseFloat(cleaned);
+  if (isNaN(parsed)) {
+    console.warn(`Invalid amount format: "${val}"`);
+    return 0;
+  }
+  return parsed;
 };
 
 /**
@@ -139,36 +188,15 @@ export const calculateTagStats = (
     }
   });
 
-  // 2. Calculate Type stats by aggregating Trip/Event stats based on TripTypeMap
-  // Use virtualTripTypeMap to reflect pending changes
-  const tripTypeMap = getVirtualTripTypeMap(tagsData.TripTypeMap, queue);
-
-  // Also get virtual status map for return (component might use it)
-  const tripStatusMap = getVirtualTripStatusMap(tagsData.TripStatusMap, queue);
-
-  Object.entries(stats["Trip/Event"]).forEach(([tripName, tripStats]) => {
-    const type = tripTypeMap[tripName];
-    if (type) {
-      if (!stats["Type"][type])
-        stats["Type"][type] = { count: 0, income: 0, expense: 0 };
-      stats["Type"][type].count += tripStats.count;
-      stats["Type"][type].income += tripStats.income;
-      stats["Type"][type].expense += tripStats.expense;
-    }
-  });
-
-  // Ensure all "Types" exist in stats even if count is 0
-  const types = tagsData["Type"] || [];
-  types.forEach((t) => {
-    if (!stats["Type"][t])
-      stats["Type"][t] = { count: 0, income: 0, expense: 0 };
-  });
-
-  // 3. Handle Queue (Virtual Updates) - specific for renames/deletes in edit mode that affect stats display
+  // 2. Handle Queue for Trip/Event and Category (Virtual Updates)
+  // We do this BEFORE Type aggregation so Type stats are correct for renamed trips.
   if (isEditMode && queue && queue.length > 0) {
     queue.forEach((op) => {
-      if (op.type === "rename") {
-        const type = op.tagType; // "Trip/Event", "Category", "Type"
+      if (
+        op.type === "rename" &&
+        (op.tagType === "Trip/Event" || op.tagType === "Category")
+      ) {
+        const type = op.tagType;
         if (stats[type]) {
           const oldStats = stats[type][op.oldValue] || {
             count: 0,
@@ -184,13 +212,175 @@ export const calculateTagStats = (
           }
           delete stats[type][op.oldValue];
         }
-      } else if (op.type === "delete") {
+      } else if (
+        op.type === "delete" &&
+        (op.tagType === "Trip/Event" || op.tagType === "Category")
+      ) {
         if (stats[op.tagType]) delete stats[op.tagType][op.value];
       }
     });
   }
 
+  // 3. Calculate Type stats by aggregating Trip/Event stats based on TripTypeMap
+  const tripTypeMap = getVirtualTripTypeMap(tagsData.TripTypeMap, queue);
+  const tripStatusMap = getVirtualTripStatusMap(tagsData.TripStatusMap, queue);
+
+  Object.entries(stats["Trip/Event"]).forEach(([tripName, tripStats]) => {
+    const type = tripTypeMap[tripName];
+    if (type) {
+      if (!stats["Type"][type])
+        stats["Type"][type] = { count: 0, income: 0, expense: 0 };
+      stats["Type"][type].count += tripStats.count;
+      stats["Type"][type].income += tripStats.income;
+      stats["Type"][type].expense += tripStats.expense;
+    }
+  });
+
+  // 4. Handle Queue for Type renames (Virtual Updates)
+  if (isEditMode && queue && queue.length > 0) {
+    queue.forEach((op) => {
+      if (op.type === "rename" && op.tagType === "Type") {
+        if (stats["Type"]) {
+          const oldStats = stats["Type"][op.oldValue] || {
+            count: 0,
+            income: 0,
+            expense: 0,
+          };
+          if (stats["Type"][op.newValue]) {
+            stats["Type"][op.newValue].count += oldStats.count;
+            stats["Type"][op.newValue].income += oldStats.income;
+            stats["Type"][op.newValue].expense += oldStats.expense;
+          } else {
+            stats["Type"][op.newValue] = { ...oldStats };
+          }
+          delete stats["Type"][op.oldValue];
+        }
+      } else if (op.type === "delete" && op.tagType === "Type") {
+        if (stats["Type"]) delete stats["Type"][op.value];
+      }
+    });
+  }
+
+  // 5. Ensure all "Types" from virtual list exist in stats even if count is 0
+  const virtualTypes = getVirtualTagList(tagsData["Type"], queue, "Type");
+  virtualTypes.forEach((t) => {
+    if (!stats["Type"][t])
+      stats["Type"][t] = { count: 0, income: 0, expense: 0 };
+  });
+
   return { stats, tripTypeMap, tripStatusMap };
+};
+
+/**
+ * Optimizes the operation queue by removing redundant or cancelled operations.
+ * e.g. Add A -> Delete A => []
+ *      Rename A->B -> Rename B->C => Rename A->C
+ *
+ * @param {Array} queue
+ * @returns {Array} Optimized queue
+ */
+export const optimizeQueue = (queue) => {
+  if (!queue || queue.length === 0) return [];
+
+  const optimized = [];
+
+  for (const op of queue) {
+    let merged = false;
+
+    // Handle "add" followed by "delete"
+    if (op.type === "delete") {
+      const addIndex = optimized.findIndex(
+        (o) =>
+          o.type === "add" && o.value === op.value && o.tagType === op.tagType
+      );
+      if (addIndex !== -1) {
+        // Found corresponding add. Remove it.
+        optimized.splice(addIndex, 1);
+        merged = true;
+      } else {
+        // Check for Rename X -> A (where A is now being deleted)
+        const renameIndex = optimized.findIndex(
+          (o) =>
+            o.type === "rename" &&
+            o.newValue === op.value &&
+            o.tagType === op.tagType
+        );
+        if (renameIndex !== -1) {
+          const prevOp = optimized[renameIndex];
+          // Replace "Rename X -> A" + "Delete A" with "Delete X"
+          optimized[renameIndex] = {
+            ...op,
+            value: prevOp.oldValue,
+            type: "delete",
+          };
+          merged = true;
+        }
+      }
+    }
+    // Handle chained renames
+    else if (op.type === "rename") {
+      // Check if there was an Add A
+      const addIndex = optimized.findIndex(
+        (o) =>
+          o.type === "add" &&
+          o.value === op.oldValue &&
+          o.tagType === op.tagType
+      );
+      if (addIndex !== -1) {
+        // "Add A" + "Rename A->B" = "Add B"
+        optimized[addIndex] = { ...optimized[addIndex], value: op.newValue };
+        merged = true;
+      } else {
+        // Check for previous rename X -> A
+        const renameIndex = optimized.findIndex(
+          (o) =>
+            o.type === "rename" &&
+            o.newValue === op.oldValue &&
+            o.tagType === op.tagType
+        );
+        if (renameIndex !== -1) {
+          // "Rename X->A" + "Rename A->B" = "Rename X->B"
+          const prevOp = optimized[renameIndex];
+          // If X == B, then it's a circular rename back to start? Rename X->A->X.
+          if (prevOp.oldValue === op.newValue) {
+            optimized.splice(renameIndex, 1); // Remove both
+          } else {
+            optimized[renameIndex] = { ...prevOp, newValue: op.newValue };
+          }
+          merged = true;
+        }
+      }
+    }
+    // Handle multiple updates to same Trip
+    else if (op.type === "updateTripType") {
+      const existingIndex = optimized.findIndex(
+        (o) =>
+          o.type === "updateTripType" &&
+          o.oldValue === op.oldValue &&
+          o.tagType === op.tagType
+      );
+      if (existingIndex !== -1) {
+        optimized[existingIndex] = op;
+        merged = true;
+      }
+    }
+    // Handle multiple updates to same Trip Status
+    else if (op.type === "updateTripStatus") {
+      const existingIndex = optimized.findIndex(
+        (o) => o.type === "updateTripStatus" && o.oldValue === op.oldValue
+      );
+      if (existingIndex !== -1) {
+        optimized[existingIndex] = op;
+        merged = true;
+      }
+    }
+
+    if (!merged) {
+      optimized.push(op);
+    }
+  }
+
+  return optimized;
 };
 
 /**
@@ -200,14 +390,20 @@ export const calculateTagStats = (
  * @returns {Array} Array of operations for the API
  */
 export const formatOperationsForApi = (queue) => {
-  return queue
+  const optimizedQueue = optimizeQueue(queue);
+  return optimizedQueue
     .map((op) => {
       if (op.type === "add") return [null, op.value, "add", op.tagType];
       if (op.type === "delete") return [op.value, null, "delete", op.tagType];
       if (op.type === "rename")
         return [op.oldValue, op.newValue, "rename", op.tagType];
       if (op.type === "updateTripType")
-        return [op.oldValue, op.newValue, "updateTripType", op.tagType];
+        return [
+          op.oldValue,
+          op.newValue,
+          "updateTripType",
+          op.tagType || "Trip/Event",
+        ];
       if (op.type === "updateTripStatus")
         return [op.oldValue, op.newValue, "updateTripStatus", "Trip/Event"];
       return null;
