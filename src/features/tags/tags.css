@@ -58,6 +58,7 @@
 .tags-column {
   display: flex;
   flex-direction: column;
+  flex: 1;
 }
 
 .tags-column h3 {
@@ -125,7 +126,6 @@
 
 .tags-table-num {
   text-align: right;
-  /* font-family: monospace; removed */
 }
 
 .tags-table-num.positive {
@@ -133,43 +133,6 @@
 }
 .tags-table-num.negative {
   color: #d9534f;
-}
-
-#edit-tags-button {
-  background-color: transparent;
-  border: 1px solid #f0ad4e;
-  color: #f0ad4e;
-  padding: 8px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-#edit-tags-button:hover {
-  background-color: #f0ad4e;
-  color: #fff;
-}
-
-#tags-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-
-#tags-table th,
-#tags-table td {
-  padding: 10px;
-  text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-#tags-table th {
-  background-color: rgba(240, 173, 78, 0.2);
-  color: #fff;
-}
-
-#tags-table tr:hover {
-  background-color: rgba(255, 255, 255, 0.05);
 }
 
 /* Tags Editing Mode */
@@ -317,27 +280,6 @@
   color: #fff;
 }
 
-.button-group {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-
-.button-group #save-tags-changes {
-  background-color: #f0ad4e;
-  border: 1px solid #f0ad4e;
-  color: #fff;
-  padding: 8px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.button-group #save-tags-changes:hover {
-  background-color: #ec971f;
-  border-color: #ec971f;
-}
-
 .add-tag-input {
   flex: 1;
   padding: 8px 12px;
@@ -361,10 +303,6 @@
   gap: 20px;
   overflow-x: auto;
   align-items: flex-start;
-}
-.tags-column {
-  flex: 1;
-  /* Removed min-width: 480px; */
 }
 @media (max-width: 768px) {
   .tags-container {
