@@ -277,6 +277,12 @@ function _deleteTag(type, value) {
         throw new Error("Expenses update failed: " + expenseResult.message);
       }
 
+      if (
+        typeof Service_Split === "undefined" ||
+        !Service_Split.removeTagFromSplits
+      ) {
+        throw new Error("Service_Split dependency not found");
+      }
       const splitResult = Service_Split.removeTagFromSplits(type, value);
       if (!splitResult.success) {
         throw new Error("Splits update failed: " + splitResult.message);
@@ -422,6 +428,12 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       }
       expensesUpdated = true;
 
+      if (
+        typeof Service_Split === "undefined" ||
+        !Service_Split.updateTagInSplits
+      ) {
+        throw new Error("Service_Split dependency not found");
+      }
       const splitResult = Service_Split.updateTagInSplits(
         oldValue,
         newValue,

@@ -35,14 +35,17 @@ var Service_Sheet = {
       ]);
 
       if (recordsToAdd.length > 0) {
-        // Format date column (Column 3 / C)
-        const dateColumnRange = financeSheet.getRange(
-          startRow,
-          3,
-          recordsToAdd.length,
-          1
-        );
-        dateColumnRange.setNumberFormat("@");
+        // Format date column
+        const dateCol = CONFIG.HEADERS.indexOf("Date") + 1;
+        if (dateCol > 0) {
+          const dateColumnRange = financeSheet.getRange(
+            startRow,
+            dateCol,
+            recordsToAdd.length,
+            1
+          );
+          dateColumnRange.setNumberFormat("@");
+        }
 
         // Set values for all columns
         financeSheet
@@ -133,11 +136,23 @@ var Service_Sheet = {
       }
 
       const financeSheet = _getFinanceSheet();
+      const tripEventCol = CONFIG.HEADERS.indexOf("Trip/Event") + 1;
+      const categoryCol = CONFIG.HEADERS.indexOf("Category") + 1;
 
-      updates.forEach((update) => {
+      for (const update of updates) {
         const row = update.row;
         if (typeof row === "string" && row.startsWith("S-")) {
           // Handle Split Transaction Row
+          if (
+            typeof Service_Split === "undefined" ||
+            !Service_Split.updateSplitRowTag
+          ) {
+            console.error("Service_Split is not available");
+            return {
+              success: false,
+              message: "Service_Split dependency not found",
+            };
+          }
           Service_Split.updateSplitRowTag(
             row,
             update.tripEvent,
@@ -145,12 +160,14 @@ var Service_Sheet = {
           );
         } else if (typeof row === "number" && row > 1) {
           // Handle Standard Row (numeric)
-          financeSheet.getRange(row, 5).setValue(update.tripEvent); // Column 5 is Trip/Event
-          financeSheet.getRange(row, 6).setValue(update.category); // Column 6 is Category
+          if (tripEventCol > 0)
+            financeSheet.getRange(row, tripEventCol).setValue(update.tripEvent);
+          if (categoryCol > 0)
+            financeSheet.getRange(row, categoryCol).setValue(update.category);
         } else if (row) {
           console.error("Invalid row identifier:", row);
         }
-      });
+      }
 
       return { success: true, message: "Expenses updated successfully." };
     } catch (error) {
@@ -164,22 +181,7 @@ var Service_Sheet = {
 
   getOpeningBalance: function () {
     try {
-      let configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
-        CONFIG.CONFIG_SHEET
-      );
-      if (!configSheet) {
-        configSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(
-          CONFIG.CONFIG_SHEET
-        );
-      }
-
-      // Ensure titles are correct
-      configSheet
-        .getRange(CONFIG.API_KEY_TITLE_CELL)
-        .setValue(CONFIG.API_KEY_TITLE);
-      configSheet
-        .getRange(CONFIG.OPENING_BALANCE_TITLE_CELL)
-        .setValue(CONFIG.OPENING_BALANCE_TITLE);
+      const configSheet = _getConfigSheet();
 
       const balanceCell = configSheet.getRange(CONFIG.OPENING_BALANCE_CELL);
       let balance = balanceCell.getValue();
@@ -206,23 +208,8 @@ var Service_Sheet = {
         return { success: false, message: "Invalid balance value" };
       }
 
-      let configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
-        CONFIG.CONFIG_SHEET
-      );
-      if (!configSheet) {
-        configSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(
-          CONFIG.CONFIG_SHEET
-        );
-      }
-
-      // Ensure titles are correct
-      configSheet
-        .getRange(CONFIG.API_KEY_TITLE_CELL)
-        .setValue(CONFIG.API_KEY_TITLE);
+      const configSheet = _getConfigSheet();
       configSheet.getRange(CONFIG.OPENING_BALANCE_CELL).setValue(balance);
-      configSheet
-        .getRange(CONFIG.OPENING_BALANCE_TITLE_CELL)
-        .setValue(CONFIG.OPENING_BALANCE_TITLE);
 
       return { success: true, message: "Opening balance saved successfully" };
     } catch (error) {
@@ -242,13 +229,12 @@ var Service_Sheet = {
         return { success: true, message: "No expenses to update." };
       }
 
-      let column;
-      if (type === "Trip/Event") {
-        column = 5; // Column E
-      } else if (type === "Category") {
-        column = 6; // Column F
-      } else {
-        return { success: false, message: "Invalid type parameter." };
+      const column = CONFIG.HEADERS.indexOf(type) + 1;
+      if (column <= 0) {
+        return {
+          success: false,
+          message: "Invalid type parameter or column not found.",
+        };
       }
 
       const range = financeSheet.getRange(2, column, lastRow - 1, 1);
@@ -280,13 +266,12 @@ var Service_Sheet = {
         return { success: true, message: "No expenses to update." };
       }
 
-      let column;
-      if (type === "Trip/Event") {
-        column = 5; // Column E
-      } else if (type === "Category") {
-        column = 6; // Column F
-      } else {
-        return { success: false, message: "Invalid type parameter." };
+      const column = CONFIG.HEADERS.indexOf(type) + 1;
+      if (column <= 0) {
+        return {
+          success: false,
+          message: "Invalid type parameter or column not found.",
+        };
       }
 
       const range = financeSheet.getRange(2, column, lastRow - 1, 1);
@@ -377,14 +362,15 @@ function _sortSheetByDate() {
   const range = financeSheet.getRange(2, 1, lastRow - 1, CONFIG.HEADERS.length);
   const values = range.getValues();
 
+  const dateIndex = CONFIG.HEADERS.indexOf("Date");
   const dataWithDateObjects = values.map((row) => {
-    let dateVal = row[2];
+    let dateVal = row[dateIndex];
 
     // Normalize Date objects to YYYY-MM-DD strings to ensure consistency and prevent timezone shifts
     if (dateVal instanceof Date) {
       const tz = financeSheet.getParent().getSpreadsheetTimeZone();
       dateVal = Utilities.formatDate(dateVal, tz, "yyyy-MM-dd");
-      row[2] = dateVal; // Update row data so it's saved back as a string
+      row[dateIndex] = dateVal; // Update row data so it's saved back as a string
     }
 
     let dateObject;
@@ -401,7 +387,7 @@ function _sortSheetByDate() {
           "UTC",
           "yyyy-MM-dd"
         );
-        row[2] = normalizedDate; // Update row data so it's saved back as a normalized string
+        row[dateIndex] = normalizedDate; // Update row data so it's saved back as a normalized string
         dateVal = normalizedDate;
       } else {
         console.warn("Invalid date format:", dateVal);
@@ -429,5 +415,26 @@ function _sortSheetByDate() {
     CONFIG.HEADERS.length
   );
   newRange.setValues(sortedValues);
-  newRange.offset(0, 2, sortedValues.length, 1).setNumberFormat("@");
+  newRange.offset(0, dateIndex, sortedValues.length, 1).setNumberFormat("@");
+}
+
+function _getConfigSheet() {
+  let configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
+    CONFIG.CONFIG_SHEET
+  );
+  if (!configSheet) {
+    configSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(
+      CONFIG.CONFIG_SHEET
+    );
+  }
+
+  // Ensure titles are correct
+  configSheet
+    .getRange(CONFIG.API_KEY_TITLE_CELL)
+    .setValue(CONFIG.API_KEY_TITLE);
+  configSheet
+    .getRange(CONFIG.OPENING_BALANCE_TITLE_CELL)
+    .setValue(CONFIG.OPENING_BALANCE_TITLE);
+
+  return configSheet;
 }
