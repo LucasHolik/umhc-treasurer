@@ -1,4 +1,3 @@
-import store from "../../core/state.js";
 import { el } from "../../core/dom.js";
 import { formatDateForInput } from "../../core/utils.js";
 import ModalComponent from "../../shared/modal.component.js";
@@ -8,7 +7,12 @@ export default class TransactionsManualModal {
     this.modalService = new ModalComponent();
   }
 
-  async open() {
+  open() {
+    // Close any existing modal first
+    if (this.overlay) {
+      this.close(null);
+    }
+
     return new Promise((resolve) => {
       this.resolvePromise = resolve;
       this.render();
@@ -64,12 +68,18 @@ export default class TransactionsManualModal {
     // Modal Content
     const modalContent = el(
       "div",
-      { className: "modal-content", style: { maxWidth: "500px" } },
+      {
+        className: "modal-content",
+        style: { maxWidth: "500px" },
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-labelledby": "modal-title",
+      },
       // Header
       el(
         "div",
         { className: "modal-header" },
-        el("h3", {}, "Add Manual Transaction"),
+        el("h3", { id: "modal-title" }, "Add Manual Transaction"),
         el(
           "button",
           { className: "modal-close", onclick: () => this.close(null) },
@@ -158,10 +168,24 @@ export default class TransactionsManualModal {
       )
     );
 
-    const overlay = el("div", { className: "modal-overlay" }, modalContent);
+    const overlay = el(
+      "div",
+      {
+        className: "modal-overlay",
+        onkeydown: (e) => {
+          if (e.key === "Escape") {
+            this.close(null);
+          }
+        },
+      },
+      modalContent
+    );
 
     document.body.appendChild(overlay);
     this.overlay = overlay;
+
+    // Focus the first input
+    setTimeout(() => this.dateInput.focus(), 0);
   }
 
   close(data) {
