@@ -349,12 +349,6 @@ export default class TagsAddTrip {
     }
     if (saveButton) {
       saveButton.disabled = this.selectedTrips.size === 0;
-      // Add/remove a class for visual feedback on disabled state
-      if (saveButton.disabled) {
-        saveButton.classList.add("disabled-btn");
-      } else {
-        saveButton.classList.remove("disabled-btn");
-      }
     }
   }
 

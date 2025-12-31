@@ -51,7 +51,7 @@
 /* Shared Table Styling (Explicit class) */
 .section-table {
   width: 100%;
-  table-layout: fixed; /* Added to ensure table respects 100% width and prevents overflow */
+  table-layout: fixed; /* Forces consistent column widths for layout stability */
   border-collapse: collapse;
   margin-top: 15px;
 }
@@ -61,6 +61,8 @@
   padding: 10px;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .section-table th {
@@ -89,9 +91,12 @@
 }
 
 /* Disabled button style */
-.disabled-btn {
+button:disabled,
+.secondary-btn:disabled,
+.view-toggle-btn:disabled {
   opacity: 0.6;
-  cursor: not-allowed !important;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* View toggle buttons */
