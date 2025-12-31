@@ -115,6 +115,9 @@ class TransactionsComponent {
       if (!pill) return;
       const rowId = pill.dataset.row;
       const type = pill.dataset.type;
+
+      if (!rowId || !type) return;
+
       this.updatePendingChange(rowId, type, "");
       return;
     }
@@ -124,6 +127,8 @@ class TransactionsComponent {
       e.stopPropagation();
       const rowId = target.dataset.row;
       const type = target.dataset.type;
+
+      if (!rowId || !type) return;
 
       const rect = target.getBoundingClientRect();
       this.tagSelector.show(rect, type, "", (newVal) => {
@@ -138,6 +143,9 @@ class TransactionsComponent {
       e.stopPropagation();
       const rowId = pill.dataset.row;
       const type = pill.dataset.type;
+
+      if (!rowId || !type) return;
+
       const tagTextEl = pill.querySelector(".tag-text");
       const currentVal = tagTextEl ? tagTextEl.textContent : "";
 
@@ -164,6 +172,9 @@ class TransactionsComponent {
         if (!pill) return;
         const rowId = pill.dataset.row;
         const type = pill.dataset.type;
+
+        if (!rowId || !type) return;
+
         this.updatePendingChange(rowId, type, "");
         return;
       }
@@ -177,6 +188,8 @@ class TransactionsComponent {
         e.stopPropagation();
         const rowId = target.dataset.row;
         const type = target.dataset.type;
+
+        if (!rowId || !type) return;
 
         let currentVal = "";
         if (target.classList.contains("tag-pill")) {
