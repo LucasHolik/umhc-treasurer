@@ -20,7 +20,7 @@ const AuthService = {
    */
   init: function () {
     // SECURITY RISK: XSS vulnerability - see file header
-    const apiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+    const apiKey = sessionStorage.getItem(API_KEY_STORAGE_KEY);
     if (apiKey) {
       store.setState("apiKey", apiKey);
     }
@@ -40,7 +40,7 @@ const AuthService = {
       const response = await ApiService.login(apiKey);
       if (response.success) {
         // SECURITY RISK: XSS vulnerability - see file header
-        localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+        sessionStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
         store.setState("apiKey", apiKey); // Now definitively set
         store.setState("currentUser", { loggedIn: true });
         return true;
@@ -59,7 +59,7 @@ const AuthService = {
    */
   logout: function () {
     // SECURITY RISK: XSS vulnerability - see file header
-    localStorage.removeItem(API_KEY_STORAGE_KEY);
+    sessionStorage.removeItem(API_KEY_STORAGE_KEY);
     store.setState("apiKey", null);
     store.setState("currentUser", null);
   },
