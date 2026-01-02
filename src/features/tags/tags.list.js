@@ -506,10 +506,19 @@ export default class TagsList {
       });
     }
 
+    let initialSortField = "tag";
+    let initialSortAsc = true;
+
+    // Preserve sort state if table already exists
+    if (this.tables[type]) {
+      initialSortField = this.tables[type].sortField;
+      initialSortAsc = this.tables[type].sortAsc;
+    }
+
     const table = new SortableTable(container, {
       columns: columns,
-      initialSortField: "tag",
-      initialSortAsc: true,
+      initialSortField: initialSortField,
+      initialSortAsc: initialSortAsc,
       onRowClick: (item, event) => {
         // Check if the click originated from an interactive element within the row
         const target = event.target;
