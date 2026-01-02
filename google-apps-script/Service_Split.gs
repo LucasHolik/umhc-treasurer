@@ -990,14 +990,22 @@ function _prepareSplitData(financeSheet, original, splits) {
 }
 
 function _writeSplitData(financeSheet, splitSheet, preparation) {
+  let rowsWritten = false;
+  let startRow = 0;
+  let numRows = 0;
+
   try {
     const { splitGroupId, rowIndex, archiveRows, idIndex } = preparation;
 
     if (archiveRows.length > 0) {
-      const startRow = splitSheet.getLastRow() + 1;
+      startRow = splitSheet.getLastRow() + 1;
+      numRows = archiveRows.length;
+
       splitSheet
-        .getRange(startRow, 1, archiveRows.length, archiveRows[0].length)
+        .getRange(startRow, 1, numRows, archiveRows[0].length)
         .setValues(archiveRows);
+
+      rowsWritten = true;
     }
 
     // Update Finance Sheet with new ID (after split sheet succeeds)
@@ -1010,6 +1018,27 @@ function _writeSplitData(financeSheet, splitSheet, preparation) {
     };
   } catch (error) {
     console.error("Write split data error", error);
+
+    // Rollback: Remove orphaned rows from split sheet if they were written
+    if (rowsWritten && numRows > 0) {
+      try {
+        console.warn(
+          `Rolling back split sheet write. Deleting ${numRows} rows starting at ${startRow}.`
+        );
+        splitSheet.deleteRows(startRow, numRows);
+      } catch (rollbackError) {
+        console.error("Rollback failed:", rollbackError);
+        return {
+          success: false,
+          message:
+            "Error writing split data: " +
+            error.message +
+            ". CRITICAL: Rollback also failed: " +
+            rollbackError.message,
+        };
+      }
+    }
+
     return {
       success: false,
       message: "Error writing split data: " + error.message,

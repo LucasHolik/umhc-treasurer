@@ -147,11 +147,11 @@ var Service_Sheet = {
             typeof Service_Split === "undefined" ||
             !Service_Split.updateSplitRowTag
           ) {
-            console.error("Service_Split is not available");
-            return {
-              success: false,
-              message: "Service_Split dependency not found",
-            };
+            console.warn(
+              "Skipping split row update due to missing Service_Split:",
+              row
+            );
+            continue;
           }
           Service_Split.updateSplitRowTag(
             row,
