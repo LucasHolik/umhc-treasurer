@@ -35,6 +35,12 @@ var Service_Auth = {
 
   verifyRequest: function (action, timestamp, signature) {
     try {
+      // Allow 'login' action to bypass verification if signature/timestamp are missing
+      // This solves the circular dependency issue while still allowing signed logins to be verified
+      if (action === "login" && (!timestamp || !signature)) {
+        return true;
+      }
+
       const apiKey = this.getApiKey();
       if (!apiKey) return false;
 

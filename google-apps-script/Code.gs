@@ -18,9 +18,14 @@ function doGet(e) {
         response = Service_Auth.login();
         break;
       case "saveData":
-        response = e?.parameter
-          ? Service_Sheet.saveData(e)
-          : { success: false, message: "Missing parameters" };
+        if (!e?.parameter?.data) {
+          response = {
+            success: false,
+            message: "Missing required parameter: data",
+          };
+        } else {
+          response = Service_Sheet.saveData(e);
+        }
         break;
       case "getData":
         response = Service_Sheet.getData();
@@ -29,64 +34,127 @@ function doGet(e) {
         response = getAppData();
         break;
       case "addTag":
-        response = Service_Tags.addTag(
-          e?.parameter?.type,
-          e?.parameter?.value,
-          e?.parameter?.extraData
-        );
+        if (!e?.parameter?.type || !e?.parameter?.value) {
+          response = {
+            success: false,
+            message: "Missing required parameters: type, value",
+          };
+        } else {
+          response = Service_Tags.addTag(
+            e?.parameter?.type,
+            e?.parameter?.value,
+            e?.parameter?.extraData
+          );
+        }
         break;
       case "updateExpenses":
-        response = e?.parameter
-          ? Service_Sheet.updateExpenses(e)
-          : { success: false, message: "Missing parameters" };
+        if (!e?.parameter?.data) {
+          response = {
+            success: false,
+            message: "Missing required parameter: data",
+          };
+        } else {
+          response = Service_Sheet.updateExpenses(e);
+        }
         break;
       case "deleteTag":
-        response = e?.parameter
-          ? Service_Tags.deleteTag(e)
-          : { success: false, message: "Missing parameters" };
+        if (!e?.parameter?.type || !e?.parameter?.value) {
+          response = {
+            success: false,
+            message: "Missing required parameters: type, value",
+          };
+        } else {
+          response = Service_Tags.deleteTag(e);
+        }
         break;
       case "renameTag":
-        response = e?.parameter
-          ? Service_Tags.renameTag(e)
-          : { success: false, message: "Missing parameters" };
+        if (
+          !e?.parameter?.type ||
+          !e?.parameter?.oldValue ||
+          !e?.parameter?.newValue
+        ) {
+          response = {
+            success: false,
+            message: "Missing required parameters: type, oldValue, newValue",
+          };
+        } else {
+          response = Service_Tags.renameTag(e);
+        }
         break;
       case "processTagOperations":
-        response = e?.parameter
-          ? Service_Tags.processTagOperations(e)
-          : { success: false, message: "Missing parameters" };
+        if (!e?.parameter?.operations) {
+          response = {
+            success: false,
+            message: "Missing required parameter: operations",
+          };
+        } else {
+          response = Service_Tags.processTagOperations(e);
+        }
         break;
       case "getOpeningBalance":
         response = Service_Sheet.getOpeningBalance();
         break;
       case "saveOpeningBalance":
-        response = e?.parameter
-          ? Service_Sheet.saveOpeningBalance(e)
-          : { success: false, message: "Missing parameters" };
+        if (!e?.parameter?.balance) {
+          response = {
+            success: false,
+            message: "Missing required parameter: balance",
+          };
+        } else {
+          response = Service_Sheet.saveOpeningBalance(e);
+        }
         break;
       case "splitTransaction":
-        response = e?.parameter
-          ? Service_Split.processSplit(e)
-          : { success: false, message: "Missing parameters" };
+        if (!e?.parameter?.data) {
+          response = {
+            success: false,
+            message: "Missing required parameter: data",
+          };
+        } else {
+          response = Service_Split.processSplit(e);
+        }
         break;
       case "revertSplit":
-        response = e?.parameter
-          ? Service_Split.revertSplit(e)
-          : { success: false, message: "Missing parameters" };
+        if (!e?.parameter?.groupId) {
+          response = {
+            success: false,
+            message: "Missing required parameter: groupId",
+          };
+        } else {
+          response = Service_Split.revertSplit(e);
+        }
         break;
       case "editSplit":
-        response = e?.parameter
-          ? Service_Split.editSplit(e)
-          : { success: false, message: "Missing parameters" };
+        if (!e?.parameter?.groupId || !e?.parameter?.data) {
+          response = {
+            success: false,
+            message: "Missing required parameters: groupId, data",
+          };
+        } else {
+          response = Service_Split.editSplit(e);
+        }
         break;
       case "getSplitGroup":
-        response = e?.parameter
-          ? Service_Split.getSplitGroup(e)
-          : { success: false, message: "Missing parameters" };
+        if (!e?.parameter?.groupId) {
+          response = {
+            success: false,
+            message: "Missing required parameter: groupId",
+          };
+        } else {
+          response = Service_Split.getSplitGroup(e);
+        }
         break;
       case "getSplitHistory":
-        response = e?.parameter
-          ? Service_Split.getSplitHistory(e)
-          : { success: false, message: "Missing parameters" };
+        // page and pageSize are optional (have defaults in service), so strictly checking them might break default behavior.
+        // However, checking that parameters object exists is still good practice if we expect at least empty params.
+        // But since the original check was just 'e?.parameter', and we want to be specific...
+        // If no required params, we can skip check or check for existence of known optionals?
+        // Let's assume the client always sends page.
+        if (!e?.parameter) {
+          response = { success: false, message: "Missing parameters" };
+        } else {
+          response = Service_Split.getSplitHistory(e);
+        }
         break;
       default:
         response = { success: false, message: "Invalid action" };
