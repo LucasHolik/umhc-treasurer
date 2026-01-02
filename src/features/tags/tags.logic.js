@@ -73,9 +73,9 @@ export const getVirtualTagList = (originalList, queue, tagType) => {
       } else if (op.type === "delete") {
         virtualList = virtualList.filter((v) => v !== op.value);
       } else if (op.type === "rename") {
-        virtualList = virtualList.map((v) =>
-          v === op.oldValue ? op.newValue : v
-        );
+        virtualList = virtualList
+          .map((v) => (v === op.oldValue ? op.newValue : v))
+          .filter((v, i, arr) => arr.indexOf(v) === i);
       }
     }
   });

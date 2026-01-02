@@ -138,7 +138,7 @@ class AnalysisLogic {
    * @param {Array<Object>} data - The filtered list of expense objects.
    * @param {Object} aggregationState - State controlling aggregation (primaryGroup, secondaryGroup, metric, timeUnit, startDate).
    * @param {Array<Object>} allExpenses - All expenses (needed for balance calculation).
-   * @param {number} openingBalance - The opening balance (needed for balance calculation).
+   * @param {string|number} openingBalance - The opening balance (needed for balance calculation).
    * @returns {{labels: Array<string>, datasets: Array<Object>}} Data structured for Chart.js.
    */
   aggregateData(data, aggregationState, allExpenses = [], openingBalance = 0) {

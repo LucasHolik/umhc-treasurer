@@ -63,32 +63,116 @@ class SettingsComponent {
     } catch (error) {
       console.error("Error calculating financials:", error);
 
-      replace(
-        this.element,
+      this.editButton = el(
+        "button",
+        {
+          id: "edit-opening-balance",
+          className: "secondary-btn",
+          title: "Edit Opening Balance",
+          onclick: () => this.handleEdit(),
+        },
+        "✏️ Edit"
+      );
+
+      const errorSection = el(
+        "div",
+        {
+          style: {
+            padding: "20px",
+            backgroundColor: "rgba(217, 83, 79, 0.1)",
+            borderRadius: "8px",
+            textAlign: "center",
+          },
+        },
+        el("div", { style: { fontSize: "2em", marginBottom: "10px" } }, "⚠️"),
+        el(
+          "p",
+          { style: { color: "#d9534f" } },
+          "Unable to calculate financial data."
+        ),
+        this.editButton
+      );
+
+      const container = el(
+        "div",
+        { className: "section" },
+        el(
+          "div",
+          { className: "transactions-header" },
+          el("h2", {}, "Settings")
+        ),
+        errorSection,
         el(
           "div",
           {
             className: "section",
-            style: { textAlign: "center", padding: "40px" },
+            style: {
+              marginTop: "30px",
+            },
           },
-          el("div", { style: { fontSize: "3em", marginBottom: "20px" } }, "⚠️"),
           el(
-            "h3",
-            { style: { color: "#d9534f", marginBottom: "10px" } },
-            "Calculation Error"
+            "div",
+            { className: "transactions-header" },
+            el("h2", {}, "Preferences")
           ),
           el(
-            "p",
-            { style: { color: "#aaa" } },
-            "Unable to calculate financial data."
-          ),
-          el(
-            "p",
-            { style: { color: "#aaa", fontSize: "0.9em", marginTop: "10px" } },
-            "Please try refreshing the page or contact support if the issue persists."
+            "div",
+            {
+              style: {
+                padding: "20px",
+                backgroundColor: "rgba(255, 255, 255, 0.05)",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "20px",
+              },
+            },
+            el(
+              "div",
+              { style: { flex: "1" } },
+              el(
+                "div",
+                {
+                  style: {
+                    display: "block",
+                    color: "#fff",
+                    fontWeight: "bold",
+                    marginBottom: "5px",
+                  },
+                },
+                "Accessibility Mode"
+              ),
+              el(
+                "div",
+                {
+                  id: "accessibility-description",
+                  style: { color: "#aaa", fontSize: "0.9em" },
+                },
+                "Add symbols (▲/▼) to positive/negative values for better visibility."
+              )
+            ),
+            el(
+              "label",
+              {
+                className: "switch",
+                "aria-label": "Toggle Accessibility Mode",
+              },
+              el("input", {
+                type: "checkbox",
+                id: "accessibility-toggle",
+                "aria-describedby": "accessibility-description",
+                checked: store.getState("accessibilityMode"),
+                onchange: (e) =>
+                  store.setState("accessibilityMode", e.target.checked),
+              }),
+              el("span", { className: "slider" })
+            )
           )
-        )
+        ),
+        this.status
       );
+
+      replace(this.element, container);
       return;
     }
 
@@ -402,20 +486,13 @@ class SettingsComponent {
     } catch (error) {
       console.error("Settings save failed:", error);
       store.setState("settingsSyncing", false);
+      // Always show save error via modal since render state is unpredictable
+      await this.modal.alert("Failed to save settings. Please try again.");
+      // Attempt to re-render to recover UI state
       try {
-        // Re-render ensures UI is ready, and status is stable from constructor
         this.render();
-        this.displayStatus(
-          "Failed to save settings. Please try again.",
-          "error"
-        );
       } catch (renderError) {
-        console.error("Failed to render error state:", renderError);
-        // Fallback: at least try to show status
-        this.displayStatus(
-          "Failed to save settings. Please try again.",
-          "error"
-        );
+        console.error("Failed to render after save error:", renderError);
       }
     }
   }
