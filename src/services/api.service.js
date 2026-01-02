@@ -41,7 +41,7 @@ const request = (action, params = {}, options = {}) => {
 
   const sortedParams = Object.keys(params)
     .sort()
-    .reduce((acc, key) => ({ ...acc, [key]: params[key] }), {});
+    .reduce((acc, key) => ({ ...acc, [key]: String(params[key]) }), {});
 
   const requestKey = `${action}-${JSON.stringify(sortedParams)}`;
 
@@ -57,10 +57,12 @@ const request = (action, params = {}, options = {}) => {
   }
 
   // --- SIGNING HELPER ---
-  async function signRequest(action, timestamp, apiKey) {
+  async function signRequest(action, timestamp, apiKey, params) {
     const encoder = new TextEncoder();
     const keyData = encoder.encode(apiKey);
-    const payload = encoder.encode(action + "|" + timestamp);
+    const payload = encoder.encode(
+      action + "|" + timestamp + JSON.stringify(params)
+    );
 
     const cryptoKey = await crypto.subtle.importKey(
       "raw",
@@ -82,7 +84,12 @@ const request = (action, params = {}, options = {}) => {
   const promise = (async () => {
     try {
       const timestamp = Date.now().toString();
-      const signature = await signRequest(action, timestamp, apiKey);
+      const signature = await signRequest(
+        action,
+        timestamp,
+        apiKey,
+        sortedParams
+      );
 
       return new Promise((resolve, reject) => {
         const url = new URL(SCRIPT_URL);

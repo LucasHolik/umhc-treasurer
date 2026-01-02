@@ -33,7 +33,7 @@ var Service_Auth = {
     return { success: true };
   },
 
-  verifyRequest: function (action, timestamp, signature) {
+  verifyRequest: function (action, timestamp, signature, allParams) {
     try {
       // Allow 'login' action to bypass verification if signature/timestamp are missing
       // This solves the circular dependency issue while still allowing signed logins to be verified
@@ -56,9 +56,18 @@ var Service_Auth = {
       }
 
       // 2. Reconstruct Payload
-      // Use delimiter to prevent collision attacks
-      // Must match client-side construction: action + "|" + timestamp
-      const payload = action + "|" + timestamp;
+      // Filter out control params to match client's sortedParams
+      const ignoredKeys = ["action", "timestamp", "signature", "callback"];
+      const paramKeys = Object.keys(allParams || {}).filter(
+        (k) => !ignoredKeys.includes(k)
+      );
+      paramKeys.sort();
+
+      const sortedParams = {};
+      paramKeys.forEach((k) => (sortedParams[k] = allParams[k]));
+
+      // Must match client-side construction: action + "|" + timestamp + JSON.stringify(sortedParams)
+      const payload = action + "|" + timestamp + JSON.stringify(sortedParams);
 
       // 3. Compute Expected Signature
       const signatureBytes = Utilities.computeHmacSha256Signature(

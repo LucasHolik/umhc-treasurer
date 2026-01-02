@@ -5,7 +5,9 @@ function doGet(e) {
     const timestamp = e?.parameter?.timestamp;
     const signature = e?.parameter?.signature;
 
-    if (!Service_Auth.verifyRequest(action, timestamp, signature)) {
+    if (
+      !Service_Auth.verifyRequest(action, timestamp, signature, e?.parameter)
+    ) {
       return createJsonResponse(
         { success: false, message: "Unauthorized" },
         e?.parameter?.callback
