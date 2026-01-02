@@ -14,6 +14,11 @@ export default class TransactionsSplitHistory {
       try {
         this.render();
       } catch (error) {
+        // Clean up any partially created overlay
+        if (this.overlay) {
+          this.overlay.remove();
+          this.overlay = null;
+        }
         reject(error);
       }
     });
@@ -45,10 +50,16 @@ export default class TransactionsSplitHistory {
 
   render() {
     if (this.overlay) {
+      // Resolve the previous promise before removing the overlay
+      if (this.resolvePromise) {
+        this.resolvePromise(false);
+      }
       this.overlay.remove();
+      this.overlay = null;
     }
 
     const overlay = el("div", { className: "modal-overlay" });
+    this.overlay = overlay;
 
     const groupedData = this.groupData(this.data);
     const groupIds = Object.keys(groupedData);
@@ -325,7 +336,6 @@ export default class TransactionsSplitHistory {
 
     overlay.appendChild(modalContent);
     document.body.appendChild(overlay);
-    this.overlay = overlay;
   }
 
   async handleRowClick(groupId) {
