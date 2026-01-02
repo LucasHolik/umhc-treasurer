@@ -17,6 +17,10 @@ var Service_Split = {
       }
       lockAcquired = true;
 
+      if (!e || !e.parameter || !e.parameter.data) {
+        return { success: false, message: "Missing request data." };
+      }
+
       const data = JSON.parse(e.parameter.data);
       if (!data || !data.original || !data.splits) {
         return { success: false, message: "Invalid data structure." };
@@ -350,6 +354,10 @@ var Service_Split = {
       }
 
       // 2. Inject Row Index into Data Payload
+      if (!e || !e.parameter || !e.parameter.data) {
+        return { success: false, message: "Missing request data." };
+      }
+
       let data;
       try {
         data = JSON.parse(e.parameter.data);

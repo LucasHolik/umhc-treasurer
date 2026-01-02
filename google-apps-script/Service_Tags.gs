@@ -399,14 +399,11 @@ function _renameTag(type, oldValue, newValue, skipSort) {
   tagSheet.getRange(updateRow, column).setValue(newValue);
 
   // If renaming a "Type" (master list), update all Trip/Events (Col B) that use this type
-  let typeRollbackNeeded = false;
-  let originalTripTypes = null;
-
   if (type === "Type") {
     const tripTypesRange = tagSheet.getRange(2, COL_TYPE, lastRow - 1, 1);
-    originalTripTypes = tripTypesRange.getValues(); // Snapshot for rollback
+    const tripTypes = tripTypesRange.getValues();
     let updated = false;
-    const newTripTypes = originalTripTypes.map((r) => {
+    const newTripTypes = tripTypes.map((r) => {
       if (r[0] === oldValue) {
         updated = true;
         return [newValue];
@@ -415,7 +412,6 @@ function _renameTag(type, oldValue, newValue, skipSort) {
     });
     if (updated) {
       tripTypesRange.setValues(newTripTypes);
-      typeRollbackNeeded = true;
     }
   }
 
@@ -428,11 +424,6 @@ function _renameTag(type, oldValue, newValue, skipSort) {
     ) {
       // ROLLBACK Step 1
       tagSheet.getRange(updateRow, column).setValue(oldValue);
-      if (typeRollbackNeeded && originalTripTypes) {
-        tagSheet
-          .getRange(2, COL_TYPE, lastRow - 1, 1)
-          .setValues(originalTripTypes);
-      }
       return {
         success: false,
         message: "Service_Split dependency not available. Tag NOT renamed.",
@@ -468,12 +459,6 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       // --- ROLLBACK ---
       // 1. Revert Master Sheet (Optimistic Update)
       tagSheet.getRange(updateRow, column).setValue(oldValue);
-
-      if (typeRollbackNeeded && originalTripTypes) {
-        tagSheet
-          .getRange(2, COL_TYPE, lastRow - 1, 1)
-          .setValues(originalTripTypes);
-      }
 
       // 2. Revert Expenses Sheet (Compensating Transaction)
       if (expensesUpdated) {

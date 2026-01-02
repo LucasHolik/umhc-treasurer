@@ -1,4 +1,7 @@
-import { filterTransactionsByTimeframe } from "../../core/utils.js";
+import {
+  filterTransactionsByTimeframe,
+  parseAmount,
+} from "../../core/utils.js";
 
 /**
  * Calculates a "virtual" TripTypeMap by applying pending queue operations
@@ -114,21 +117,8 @@ export const getVirtualTripStatusMap = (originalMap, queue) => {
 };
 
 /**
- * Parses a currency string or number into a float.
- * @param {string|number} val
- * @returns {number}
- */
-const parseAmount = (val) => {
-  if (!val) return 0;
-  if (typeof val === "number") return val;
-  const cleaned = val.toString().replace(/[$,]/g, "");
-  const parsed = parseFloat(cleaned);
-  if (isNaN(parsed)) {
-    console.warn(`Invalid amount format: "${val}"`);
-    return 0;
-  }
-  return parsed;
-};
+ * Calculates a virtual list of tags (Category, Type, etc) based on pending operations.
+
 
 /**
  * Calculates count, income, and expense stats for a list of transactions.
