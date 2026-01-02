@@ -347,7 +347,7 @@ class SettingsComponent {
     const trimmed = newBalanceStr.trim();
     const newBalance = Number(trimmed);
 
-    if (trimmed === "" || isNaN(newBalance)) {
+    if (trimmed === "" || isNaN(newBalance) || !isFinite(newBalance)) {
       await this.modal.alert("Please enter a valid number.");
       return;
     }

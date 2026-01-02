@@ -291,12 +291,9 @@ export default class AnalysisControls {
       const optionEls = this.createOptions(options, chartTypeValue);
       optionEls.forEach((opt) => chartTypeSelect.appendChild(opt));
 
-      // Update state to reflect the actual valid value
-      if (
-        chartTypeValue !== state.chartType &&
-        this.callbacks.onChartTypeChange
-      ) {
-        this.callbacks.onChartTypeChange(chartTypeValue);
+      // Return adjusted value if it changed, let caller handle state update
+      if (chartTypeValue !== state.chartType) {
+        return { chartType: chartTypeValue };
       }
     }
 

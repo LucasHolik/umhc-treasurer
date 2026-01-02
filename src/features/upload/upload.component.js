@@ -377,7 +377,10 @@ class UploadComponent {
   _formatNumberForComparison(value) {
     if (value === null || value === undefined || value === "") return "";
     const num = parseFloat(String(value).trim().replace(/,/g, ""));
-    return isNaN(num) ? "" : num.toFixed(2);
+    if (isNaN(num)) return "";
+    // Use integer cents to avoid floating-point precision issues
+    const cents = Math.round(num * 100);
+    return String(cents);
   }
 }
 

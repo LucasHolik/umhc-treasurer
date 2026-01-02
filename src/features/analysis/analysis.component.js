@@ -184,7 +184,7 @@ class AnalysisComponent {
         if (type === "start") this.state.startDate = val;
         else this.state.endDate = val;
         this.state.timeframe = "custom";
-        this.controlsComponent.update(this.state);
+        this.updateControls();
         this.generateChart();
       },
       onMetricChange: (val) => {
@@ -192,7 +192,7 @@ class AnalysisComponent {
         if (val === "balance") {
           this.state.chartType = "line";
         }
-        this.controlsComponent.update(this.state);
+        this.updateControls();
         this.generateChart();
       },
       onChartTypeChange: (val) => {
@@ -202,7 +202,7 @@ class AnalysisComponent {
       onGroupChange: (type, val) => this.handleGroupChange(type, val),
       onPresetClick: (preset) => this.applyPreset(preset),
     });
-    this.controlsComponent.update(this.state);
+    this.updateControls();
 
     // 2. Filters
     const filtersContainer = this.element.querySelector(
@@ -358,6 +358,13 @@ class AnalysisComponent {
     // Update UI is handled by onFilterChange callback
   }
 
+  updateControls() {
+    const adjustments = this.controlsComponent.update(this.state);
+    if (adjustments && adjustments.chartType) {
+      this.state.chartType = adjustments.chartType;
+    }
+  }
+
   handleTimeframeChange(newTimeframe) {
     this.state.timeframe = newTimeframe;
     if (newTimeframe !== "custom") {
@@ -371,7 +378,7 @@ class AnalysisComponent {
         this.state.endDate = formatDateForInput(range.end);
       }
     }
-    this.controlsComponent.update(this.state);
+    this.updateControls();
     this.generateChart();
   }
 
@@ -396,7 +403,7 @@ class AnalysisComponent {
     } else if (type === "timeUnit") {
       this.state.timeUnit = val;
     }
-    this.controlsComponent.update(this.state);
+    this.updateControls();
     this.generateChart();
   }
 
@@ -414,7 +421,7 @@ class AnalysisComponent {
       this.state.startDate = formatDateForInput(range.start);
       this.state.endDate = formatDateForInput(range.end);
     }
-    this.controlsComponent.update(this.state);
+    this.updateControls();
     this.updateTagSelectors();
     this.generateChart();
   }

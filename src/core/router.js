@@ -34,9 +34,16 @@ const createRouter = () => {
 
   const handleHashChange = () => {
     let hash = window.location.hash.slice(1);
+    const registeredRoutes = Object.keys(routes);
+
+    if (registeredRoutes.length === 0) {
+      console.warn("Router.handleHashChange: no routes registered");
+      return;
+    }
+
     if (!hash || !routes[hash]) {
       // Fall back to first registered route
-      hash = Object.keys(routes)[0] || "dashboard";
+      hash = registeredRoutes[0];
     }
     navigate(hash);
   };
