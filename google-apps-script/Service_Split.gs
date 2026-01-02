@@ -69,17 +69,8 @@ var Service_Split = {
       if (lastRow <= 1)
         return { success: true, message: "No splits to check." };
 
-      if (
-        typeof CONFIG === "undefined" ||
-        !CONFIG ||
-        !CONFIG.HEADERS ||
-        !Array.isArray(CONFIG.HEADERS)
-      ) {
-        return {
-          success: false,
-          message: "Configuration error: CONFIG.HEADERS not defined.",
-        };
-      }
+      const configValidation = _validateConfig();
+      if (!configValidation.success) return configValidation;
 
       let colIndex; // 1-based column index
       if (type === "Trip/Event") {
@@ -145,17 +136,8 @@ var Service_Split = {
       if (lastRow <= 1)
         return { success: true, message: "No splits to check." };
 
-      if (
-        typeof CONFIG === "undefined" ||
-        !CONFIG ||
-        !CONFIG.HEADERS ||
-        !Array.isArray(CONFIG.HEADERS)
-      ) {
-        return {
-          success: false,
-          message: "Configuration error: CONFIG.HEADERS not defined.",
-        };
-      }
+      const configValidation = _validateConfig();
+      if (!configValidation.success) return configValidation;
 
       let colIndex; // 1-based column index
       if (type === "Trip/Event") {
@@ -229,17 +211,8 @@ var Service_Split = {
         return { success: false, message: "Invalid split row index." };
       }
 
-      if (
-        typeof CONFIG === "undefined" ||
-        !CONFIG ||
-        !CONFIG.HEADERS ||
-        !Array.isArray(CONFIG.HEADERS)
-      ) {
-        return {
-          success: false,
-          message: "Configuration error: CONFIG.HEADERS not defined.",
-        };
-      }
+      const configValidation = _validateConfig();
+      if (!configValidation.success) return configValidation;
 
       const tripEventIndex = CONFIG.HEADERS.indexOf("Trip/Event");
       const categoryIndex = CONFIG.HEADERS.indexOf("Category");
@@ -323,17 +296,8 @@ var Service_Split = {
 
       // 1. Resolve Finance Sheet Row Index
       const financeSheet = _getFinanceSheet();
-      if (
-        typeof CONFIG === "undefined" ||
-        !CONFIG ||
-        !CONFIG.HEADERS ||
-        !Array.isArray(CONFIG.HEADERS)
-      ) {
-        return {
-          success: false,
-          message: "Configuration error: CONFIG.HEADERS not defined.",
-        };
-      }
+      const configValidation = _validateConfig();
+      if (!configValidation.success) return configValidation;
       const idIndex = CONFIG.HEADERS.indexOf("Split Group ID");
 
       if (idIndex === -1) {
@@ -452,17 +416,8 @@ var Service_Split = {
       if (data.length < 2)
         return { success: false, message: "Split group not found." };
 
-      if (
-        typeof CONFIG === "undefined" ||
-        !CONFIG ||
-        !CONFIG.HEADERS ||
-        !Array.isArray(CONFIG.HEADERS)
-      ) {
-        return {
-          success: false,
-          message: "Configuration error: CONFIG.HEADERS not defined.",
-        };
-      }
+      const configValidation = _validateConfig();
+      if (!configValidation.success) return configValidation;
 
       const headers = data[0];
       const idIndex = headers.indexOf("Split Group ID");
@@ -571,17 +526,8 @@ var Service_Split = {
         return { success: true, data: [], hasMore: false, total: totalRows };
       }
 
-      if (
-        typeof CONFIG === "undefined" ||
-        !CONFIG ||
-        !CONFIG.HEADERS ||
-        !Array.isArray(CONFIG.HEADERS)
-      ) {
-        return {
-          success: false,
-          message: "Configuration error: CONFIG.HEADERS not defined.",
-        };
-      }
+      const configValidation = _validateConfig();
+      if (!configValidation.success) return configValidation;
 
       // Get Headers first to map correctly
       const headers = splitSheet
@@ -674,17 +620,8 @@ var Service_Split = {
         return { success: true, data: [] };
       }
 
-      if (
-        typeof CONFIG === "undefined" ||
-        !CONFIG ||
-        !CONFIG.HEADERS ||
-        !Array.isArray(CONFIG.HEADERS)
-      ) {
-        return {
-          success: false,
-          message: "Configuration error: CONFIG.HEADERS not defined.",
-        };
-      }
+      const configValidation = _validateConfig();
+      if (!configValidation.success) return configValidation;
 
       const headers = splitSheet
         .getRange(1, 1, 1, splitSheet.getLastColumn())
@@ -747,7 +684,9 @@ var Service_Split = {
   },
 };
 
-function _getSplitSheet() {
+// --- HELPER FUNCTIONS (Internal) ---
+
+function _validateConfig() {
   if (
     typeof CONFIG === "undefined" ||
     !CONFIG ||
@@ -759,6 +698,12 @@ function _getSplitSheet() {
       message: "Configuration error: CONFIG.HEADERS not defined.",
     };
   }
+  return { success: true };
+}
+
+function _getSplitSheet() {
+  const configValidation = _validateConfig();
+  if (!configValidation.success) return configValidation;
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   let splitSheet = spreadsheet.getSheetByName(Service_Split.SPLIT_SHEET_NAME);
   const expectedHeaders = [...CONFIG.HEADERS, "Split Type", "Split Date"];
@@ -815,17 +760,8 @@ function _getSplitSheet() {
 // --- HELPER FUNCTIONS (Internal) ---
 
 function _validateSplitRequest(original, splits) {
-  if (
-    typeof CONFIG === "undefined" ||
-    !CONFIG ||
-    !CONFIG.HEADERS ||
-    !Array.isArray(CONFIG.HEADERS)
-  ) {
-    return {
-      success: false,
-      message: "Configuration error: CONFIG.HEADERS not defined.",
-    };
-  }
+  const configValidation = _validateConfig();
+  if (!configValidation.success) return configValidation;
 
   if (!original || !splits || !Array.isArray(splits) || splits.length < 2) {
     return { success: false, message: "Invalid split data." };
@@ -895,17 +831,8 @@ function _validateSplitRequest(original, splits) {
 }
 
 function _revertSplitCore(financeSheet, splitSheet, groupId, financeRowIndex) {
-  if (
-    typeof CONFIG === "undefined" ||
-    !CONFIG ||
-    !CONFIG.HEADERS ||
-    !Array.isArray(CONFIG.HEADERS)
-  ) {
-    return {
-      success: false,
-      message: "Configuration error: CONFIG.HEADERS not defined.",
-    };
-  }
+  const configValidation = _validateConfig();
+  if (!configValidation.success) return configValidation;
   const idIndex = CONFIG.HEADERS.indexOf("Split Group ID");
   if (idIndex === -1) {
     return {
