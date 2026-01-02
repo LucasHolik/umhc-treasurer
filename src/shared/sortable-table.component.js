@@ -172,6 +172,7 @@ export default class SortableTable {
 
           row.onkeydown = (e) => {
             if (e.key === "Enter" || e.key === " ") {
+              if (e.target.type === "checkbox") return;
               e.preventDefault();
               toggleRow(e);
             }

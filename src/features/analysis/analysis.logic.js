@@ -217,14 +217,19 @@ class AnalysisLogic {
       // This accounts for Manual transactions (which adjust the start)
       // while the loop below accounts for their timeline effect.
       // Result: Correct running balance at any point in time.
-      let adjustedOpeningBalance = parseFloat(openingBalance) || 0;
+      const parsedOpeningBalance = parseFloat(openingBalance) || 0;
+      let adjustedOpeningBalance = parsedOpeningBalance;
       try {
         ({ adjustedOpeningBalance } = calculateFinancials(
-          openingBalance,
+          parsedOpeningBalance,
           allExpenses
         ));
       } catch (error) {
-        console.error("AnalysisLogic: Error calculating financials", error);
+        console.error(
+          "AnalysisLogic: Error calculating financials. Using unadjusted opening balance.",
+          { openingBalance: parsedOpeningBalance, error }
+        );
+        // TODO: Consider surfacing this error to the UI
       }
       let balance = adjustedOpeningBalance;
 

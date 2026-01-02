@@ -158,7 +158,7 @@ class AnalysisComponent {
     this.initializeActionButtons();
 
     // Initial Updates
-    this.updateStatsDOM();
+    this.updateStatsDOM(false);
     this.timeouts.push(setTimeout(() => this.updateTagSelectors(), 0));
     this.timeouts.push(setTimeout(() => this.generateChart(), 0));
   }
@@ -456,7 +456,7 @@ class AnalysisComponent {
     );
   }
 
-  updateStatsDOM() {
+  updateStatsDOM(hasBalanceError = false) {
     const stats = this.state.summaryStats;
     const container = this.element.querySelector("#analysis-summary-cards");
     if (!container) return;
@@ -479,8 +479,13 @@ class AnalysisComponent {
       },
       {
         title: "Effective Balance",
-        value: formatCurrency(stats.effectiveBalance),
+        value: hasBalanceError
+          ? "⚠️ Error"
+          : formatCurrency(stats.effectiveBalance),
         class: "",
+        tooltip: hasBalanceError
+          ? "Failed to calculate manual adjustments"
+          : "",
       },
       { title: "Transactions", value: stats.transactionCount, class: "" },
     ];
@@ -488,7 +493,7 @@ class AnalysisComponent {
     const cardElements = cards.map((card) =>
       el(
         "div",
-        { className: "summary-card" },
+        { className: "summary-card", title: card.tooltip || "" },
         el("h3", {}, card.title),
         el("p", { className: card.class }, card.value)
       )
@@ -563,10 +568,12 @@ class AnalysisComponent {
     const openingBalance = store.getState("openingBalance") || 0;
 
     let currentBalance = 0;
+    let hasBalanceError = false;
     try {
       ({ currentBalance } = calculateFinancials(openingBalance, allExpenses));
     } catch (error) {
       console.error("Analysis: Error calculating financials", error);
+      hasBalanceError = true;
     }
 
     this.state.summaryStats.effectiveBalance =
@@ -576,7 +583,7 @@ class AnalysisComponent {
         tripStatusMap
       );
 
-    this.updateStatsDOM();
+    this.updateStatsDOM(hasBalanceError);
 
     this.chartData = this.analysisLogic.aggregateData(
       filteredData,

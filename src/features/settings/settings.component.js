@@ -62,7 +62,6 @@ class SettingsComponent {
       ));
     } catch (error) {
       console.error("Error calculating financials:", error);
-      this.displayStatus("Error loading financial calculations", "error");
 
       replace(
         this.element,
@@ -86,7 +85,7 @@ class SettingsComponent {
           el(
             "p",
             { style: { color: "#aaa", fontSize: "0.9em", marginTop: "10px" } },
-            error.message
+            "Please try refreshing the page or contact support if the issue persists."
           )
         )
       );
@@ -406,11 +405,17 @@ class SettingsComponent {
       try {
         // Re-render ensures UI is ready, and status is stable from constructor
         this.render();
-        this.displayStatus(`Error: ${error.message}`, "error");
+        this.displayStatus(
+          "Failed to save settings. Please try again.",
+          "error"
+        );
       } catch (renderError) {
         console.error("Failed to render error state:", renderError);
         // Fallback: at least try to show status
-        this.displayStatus(`Error: ${error.message}`, "error");
+        this.displayStatus(
+          "Failed to save settings. Please try again.",
+          "error"
+        );
       }
     }
   }

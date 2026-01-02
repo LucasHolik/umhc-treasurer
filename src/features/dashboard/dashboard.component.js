@@ -219,10 +219,12 @@ class DashboardComponent {
     const filteredData = filterTransactionsByTimeframe(data, this.timeframe);
 
     let currentBalance = 0;
+    let hasBalanceError = false;
     try {
       ({ currentBalance } = calculateFinancials(openingBalance, data));
     } catch (error) {
       console.error("Dashboard: Error calculating financials", error);
+      hasBalanceError = true;
     }
 
     let totalIncome = 0;
@@ -235,7 +237,13 @@ class DashboardComponent {
 
     const netChange = totalIncome - totalExpenses;
 
-    this.currentBalanceEl.textContent = `£${formatCurrency(currentBalance)}`;
+    if (hasBalanceError) {
+      this.currentBalanceEl.textContent = "⚠️ Error";
+      this.currentBalanceEl.title = "Failed to calculate manual adjustments";
+    } else {
+      this.currentBalanceEl.textContent = `£${formatCurrency(currentBalance)}`;
+      this.currentBalanceEl.removeAttribute("title");
+    }
     this.totalIncomeEl.textContent = `£${formatCurrency(totalIncome)}`;
     this.totalExpensesEl.textContent = `£${formatCurrency(totalExpenses)}`;
     this.netChangeEl.textContent = `£${formatCurrency(netChange)}`;
