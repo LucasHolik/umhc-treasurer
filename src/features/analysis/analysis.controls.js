@@ -267,6 +267,7 @@ export default class AnalysisControls {
     const chartTypeSelect = this.element.querySelector(
       "#analysis-chart-type-select"
     );
+    let stateAdjustment = null;
     if (chartTypeSelect) {
       let options = [];
       if (state.metric === "balance") {
@@ -291,9 +292,9 @@ export default class AnalysisControls {
       const optionEls = this.createOptions(options, chartTypeValue);
       optionEls.forEach((opt) => chartTypeSelect.appendChild(opt));
 
-      // Return adjusted value if it changed, let caller handle state update
+      // Store adjusted value if it changed, let caller handle state update
       if (chartTypeValue !== state.chartType) {
-        return { chartType: chartTypeValue };
+        stateAdjustment = { chartType: chartTypeValue };
       }
     }
 
@@ -308,5 +309,7 @@ export default class AnalysisControls {
       timeUnitContainer.style.display =
         state.primaryGroup === "date" ? "flex" : "none";
     }
+
+    return stateAdjustment;
   }
 }

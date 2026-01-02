@@ -359,6 +359,7 @@ class AnalysisComponent {
   }
 
   updateControls() {
+    if (!this.controlsComponent) return;
     const adjustments = this.controlsComponent.update(this.state);
     if (adjustments && adjustments.chartType) {
       this.state.chartType = adjustments.chartType;
