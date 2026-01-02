@@ -561,7 +561,13 @@ class AnalysisComponent {
 
     const allExpenses = store.getState("expenses") || [];
     const openingBalance = store.getState("openingBalance") || 0;
-    const { currentBalance } = calculateFinancials(openingBalance, allExpenses);
+
+    let currentBalance = 0;
+    try {
+      ({ currentBalance } = calculateFinancials(openingBalance, allExpenses));
+    } catch (error) {
+      console.error("Analysis: Error calculating financials", error);
+    }
 
     this.state.summaryStats.effectiveBalance =
       this.analysisLogic.calculateEffectiveBalance(

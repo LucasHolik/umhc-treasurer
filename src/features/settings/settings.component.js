@@ -63,6 +63,34 @@ class SettingsComponent {
     } catch (error) {
       console.error("Error calculating financials:", error);
       this.displayStatus("Error loading financial calculations", "error");
+
+      replace(
+        this.element,
+        el(
+          "div",
+          {
+            className: "section",
+            style: { textAlign: "center", padding: "40px" },
+          },
+          el("div", { style: { fontSize: "3em", marginBottom: "20px" } }, "⚠️"),
+          el(
+            "h3",
+            { style: { color: "#d9534f", marginBottom: "10px" } },
+            "Calculation Error"
+          ),
+          el(
+            "p",
+            { style: { color: "#aaa" } },
+            "Unable to calculate financial data."
+          ),
+          el(
+            "p",
+            { style: { color: "#aaa", fontSize: "0.9em", marginTop: "10px" } },
+            error.message
+          )
+        )
+      );
+      return;
     }
 
     this.editButton = el(

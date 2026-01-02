@@ -217,10 +217,15 @@ class AnalysisLogic {
       // This accounts for Manual transactions (which adjust the start)
       // while the loop below accounts for their timeline effect.
       // Result: Correct running balance at any point in time.
-      const { adjustedOpeningBalance } = calculateFinancials(
-        openingBalance,
-        allExpenses
-      );
+      let adjustedOpeningBalance = parseFloat(openingBalance) || 0;
+      try {
+        ({ adjustedOpeningBalance } = calculateFinancials(
+          openingBalance,
+          allExpenses
+        ));
+      } catch (error) {
+        console.error("AnalysisLogic: Error calculating financials", error);
+      }
       let balance = adjustedOpeningBalance;
 
       // Pre-calculate balance for transactions *before* the current analysis window

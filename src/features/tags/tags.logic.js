@@ -357,7 +357,7 @@ export const optimizeQueue = (queue) => {
         (o) =>
           o.type === "updateTripType" &&
           o.oldValue === op.oldValue &&
-          o.tagType === op.tagType
+          (o.tagType || "Trip/Event") === (op.tagType || "Trip/Event")
       );
       if (existingIndex !== -1) {
         optimized[existingIndex] = op;

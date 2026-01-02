@@ -271,18 +271,23 @@ function _deleteTag(type, value) {
   // removed from the Expenses sheet. Manual reconciliation may be required in this edge case.
 
   if (type === "Trip/Event" || type === "Category") {
+    // Pre-flight dependency checks
+    if (
+      typeof Service_Split === "undefined" ||
+      !Service_Split.removeTagFromSplits
+    ) {
+      return {
+        success: false,
+        message: "Service_Split dependency not available. Tag NOT deleted.",
+      };
+    }
+
     try {
       const expenseResult = Service_Sheet.removeTagFromExpenses(type, value);
       if (!expenseResult.success) {
         throw new Error("Expenses update failed: " + expenseResult.message);
       }
 
-      if (
-        typeof Service_Split === "undefined" ||
-        !Service_Split.removeTagFromSplits
-      ) {
-        throw new Error("Service_Split dependency not found");
-      }
       const splitResult = Service_Split.removeTagFromSplits(type, value);
       if (!splitResult.success) {
         throw new Error("Splits update failed: " + splitResult.message);
@@ -416,6 +421,24 @@ function _renameTag(type, oldValue, newValue, skipSort) {
 
   // --- Step 2: External Updates with Rollback ---
   if (type === "Trip/Event" || type === "Category") {
+    // Pre-flight dependency checks
+    if (
+      typeof Service_Split === "undefined" ||
+      !Service_Split.updateTagInSplits
+    ) {
+      // ROLLBACK Step 1
+      tagSheet.getRange(updateRow, column).setValue(oldValue);
+      if (typeRollbackNeeded && originalTripTypes) {
+        tagSheet
+          .getRange(2, COL_TYPE, lastRow - 1, 1)
+          .setValues(originalTripTypes);
+      }
+      return {
+        success: false,
+        message: "Service_Split dependency not available. Tag NOT renamed.",
+      };
+    }
+
     let expensesUpdated = false;
     try {
       const expenseResult = Service_Sheet.updateExpensesWithTag(
@@ -428,12 +451,6 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       }
       expensesUpdated = true;
 
-      if (
-        typeof Service_Split === "undefined" ||
-        !Service_Split.updateTagInSplits
-      ) {
-        throw new Error("Service_Split dependency not found");
-      }
       const splitResult = Service_Split.updateTagInSplits(
         oldValue,
         newValue,

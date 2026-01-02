@@ -218,7 +218,12 @@ class DashboardComponent {
     const openingBalance = store.getState("openingBalance") || 0;
     const filteredData = filterTransactionsByTimeframe(data, this.timeframe);
 
-    const { currentBalance } = calculateFinancials(openingBalance, data);
+    let currentBalance = 0;
+    try {
+      ({ currentBalance } = calculateFinancials(openingBalance, data));
+    } catch (error) {
+      console.error("Dashboard: Error calculating financials", error);
+    }
 
     let totalIncome = 0;
     let totalExpenses = 0;

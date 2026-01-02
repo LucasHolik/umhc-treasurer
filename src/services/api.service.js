@@ -108,11 +108,7 @@ const request = (action, params = {}, options = {}) => {
         const script = document.createElement("script");
         const timeout = 15000; // 15 seconds
         let cleanedUp = false;
-
-        const timeoutId = setTimeout(() => {
-          cleanup();
-          reject(new Error("Request timed out."));
-        }, timeout);
+        let timeoutId;
 
         const cleanup = () => {
           if (cleanedUp) return;
@@ -134,6 +130,11 @@ const request = (action, params = {}, options = {}) => {
             }
           }
         };
+
+        timeoutId = setTimeout(() => {
+          cleanup();
+          reject(new Error("Request timed out."));
+        }, timeout);
 
         window[callbackName] = (data) => {
           cleanup();
