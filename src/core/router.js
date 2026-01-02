@@ -13,14 +13,16 @@ const createRouter = () => {
   };
 
   const navigate = (hash) => {
+    // Remove active class from current route before any validation
+    if (currentRoute && routes[currentRoute]) {
+      routes[currentRoute].classList.remove("active");
+    }
+
     // Early exit if route doesn't exist
     if (!routes[hash]) {
       console.warn(`Router.navigate: route "${hash}" is not registered`);
+      currentRoute = null;
       return;
-    }
-
-    if (currentRoute && routes[currentRoute]) {
-      routes[currentRoute].classList.remove("active");
     }
 
     routes[hash].classList.add("active");

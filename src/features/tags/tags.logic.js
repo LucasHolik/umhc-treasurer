@@ -117,10 +117,6 @@ export const getVirtualTripStatusMap = (originalMap, queue) => {
 };
 
 /**
- * Calculates a virtual list of tags (Category, Type, etc) based on pending operations.
-
-
-/**
  * Calculates count, income, and expense stats for a list of transactions.
  * Used by TagsDetails.
  *
@@ -180,7 +176,7 @@ export const calculateTagStats = (
 
   // 2. Handle Queue for Trip/Event and Category (Virtual Updates)
   // We do this BEFORE Type aggregation so Type stats are correct for renamed trips.
-  if (isEditMode && queue && queue.length > 0) {
+  if (queue && queue.length > 0) {
     queue.forEach((op) => {
       if (
         op.type === "rename" &&
@@ -227,7 +223,7 @@ export const calculateTagStats = (
   });
 
   // 4. Handle Queue for Type renames (Virtual Updates)
-  if (isEditMode && queue && queue.length > 0) {
+  if (queue && queue.length > 0) {
     queue.forEach((op) => {
       if (op.type === "rename" && op.tagType === "Type") {
         if (stats["Type"]) {

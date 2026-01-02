@@ -126,7 +126,9 @@ class TagsComponent {
       const { stats, tripTypeMap, tripStatusMap } = calculateTagStats(
         expenses,
         tagsData,
-        this.timeframe
+        this.timeframe,
+        this.queue,
+        this.isEditMode
       );
       this.tagsSubList.render(
         this.selectedTag.name,
