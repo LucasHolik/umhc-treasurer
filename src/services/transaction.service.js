@@ -48,9 +48,10 @@ const TransactionService = {
             const children = splitMap.get(gid);
             processedList.push(...children);
           } else {
-            console.error(
-              `SOURCE group ${gid} has no CHILD entries. Transaction will be lost.`
+            console.warn(
+              `SOURCE group ${gid} has no CHILD entries. Keeping original transaction.`
             );
+            processedList.push(row);
           }
           // Mark group as processed so we don't add children multiple times
           // (In case multiple rows map to same group, which shouldn't happen for Source, but safety first)
