@@ -29,7 +29,9 @@ var Service_Split = {
       const splits = data.splits;
 
       const financeSheet = _getFinanceSheet();
-      const splitSheet = _getSplitSheet();
+      const splitSheetRes = _getSplitSheet();
+      if (!splitSheetRes.success) return splitSheetRes;
+      const splitSheet = splitSheetRes.sheet;
 
       return _processSplitCore(financeSheet, splitSheet, original, splits);
     } catch (error) {
@@ -60,7 +62,9 @@ var Service_Split = {
       }
       lockAcquired = true;
 
-      const splitSheet = _getSplitSheet();
+      const splitSheetRes = _getSplitSheet();
+      if (!splitSheetRes.success) return splitSheetRes;
+      const splitSheet = splitSheetRes.sheet;
       const lastRow = splitSheet.getLastRow();
       if (lastRow <= 1)
         return { success: true, message: "No splits to check." };
@@ -134,7 +138,9 @@ var Service_Split = {
       }
       lockAcquired = true;
 
-      const splitSheet = _getSplitSheet();
+      const splitSheetRes = _getSplitSheet();
+      if (!splitSheetRes.success) return splitSheetRes;
+      const splitSheet = splitSheetRes.sheet;
       const lastRow = splitSheet.getLastRow();
       if (lastRow <= 1)
         return { success: true, message: "No splits to check." };
@@ -208,7 +214,9 @@ var Service_Split = {
       }
       lockAcquired = true;
 
-      const splitSheet = _getSplitSheet();
+      const splitSheetRes = _getSplitSheet();
+      if (!splitSheetRes.success) return splitSheetRes;
+      const splitSheet = splitSheetRes.sheet;
 
       // rowId format: "S-<rowIndex>"
       const rowIndex = parseInt(rowId.replace("S-", ""), 10);
@@ -279,7 +287,9 @@ var Service_Split = {
       if (!groupId) return { success: false, message: "No Group ID provided." };
 
       const financeSheet = _getFinanceSheet();
-      const splitSheet = _getSplitSheet();
+      const splitSheetRes = _getSplitSheet();
+      if (!splitSheetRes.success) return splitSheetRes;
+      const splitSheet = splitSheetRes.sheet;
 
       return _revertSplitCore(financeSheet, splitSheet, groupId);
     } catch (error) {
@@ -368,7 +378,10 @@ var Service_Split = {
 
       // 3. Prepare New Split Data (VALIDATION & PREPARATION)
       // This step ensures we can successfully generate the new split data BEFORE destroying the old data.
-      const splitSheet = _getSplitSheet();
+      const splitSheetRes = _getSplitSheet();
+      if (!splitSheetRes.success) return splitSheetRes;
+      const splitSheet = splitSheetRes.sheet;
+
       const preparation = _prepareSplitData(
         financeSheet,
         data.original,
@@ -431,7 +444,9 @@ var Service_Split = {
 
       // Returns Source + Children for a specific Group ID from the Split Sheet
       const groupId = e.parameter.groupId;
-      const splitSheet = _getSplitSheet(); // Use helper function
+      const splitSheetRes = _getSplitSheet(); // Use helper function
+      if (!splitSheetRes.success) return splitSheetRes;
+      const splitSheet = splitSheetRes.sheet;
 
       const data = splitSheet.getDataRange().getValues();
       if (data.length < 2)
@@ -534,7 +549,9 @@ var Service_Split = {
       const page = parseInt(e.parameter.page) || 1;
       const pageSize = parseInt(e.parameter.pageSize) || 500; // Default chunk size
 
-      const splitSheet = _getSplitSheet(); // Use helper function
+      const splitSheetRes = _getSplitSheet(); // Use helper function
+      if (!splitSheetRes.success) return splitSheetRes;
+      const splitSheet = splitSheetRes.sheet;
 
       const lastRow = splitSheet.getLastRow();
       if (lastRow <= 1) {
@@ -648,7 +665,9 @@ var Service_Split = {
       }
       lockAcquired = true;
 
-      const splitSheet = _getSplitSheet();
+      const splitSheetRes = _getSplitSheet();
+      if (!splitSheetRes.success) return splitSheetRes;
+      const splitSheet = splitSheetRes.sheet;
 
       const lastRow = splitSheet.getLastRow();
       if (lastRow <= 1) {
@@ -735,7 +754,10 @@ function _getSplitSheet() {
     !CONFIG.HEADERS ||
     !Array.isArray(CONFIG.HEADERS)
   ) {
-    throw new Error("Configuration error: CONFIG.HEADERS not defined.");
+    return {
+      success: false,
+      message: "Configuration error: CONFIG.HEADERS not defined.",
+    };
   }
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   let splitSheet = spreadsheet.getSheetByName(Service_Split.SPLIT_SHEET_NAME);
@@ -787,7 +809,7 @@ function _getSplitSheet() {
       }
     }
   }
-  return splitSheet;
+  return { success: true, sheet: splitSheet };
 }
 
 // --- HELPER FUNCTIONS (Internal) ---

@@ -69,7 +69,8 @@ export default class AnalysisChart {
       return;
     }
     const { labels, datasets } = data;
-    const { type, metric, primaryGroup, secondaryGroup } = options;
+    const { type, metric, primaryGroup, secondaryGroup, hasBalanceError } =
+      options;
 
     if (this.chartInstance) {
       this.chartInstance.destroy();
@@ -88,6 +89,15 @@ export default class AnalysisChart {
       chartType = "line";
     }
 
+    const titleText = `Analysis: ${metric.toUpperCase()} by ${primaryGroup}${
+      secondaryGroup !== "none" ? " & " + secondaryGroup : ""
+    }${hasBalanceError && metric === "balance" ? " (⚠️ CALCULATION ERROR)" : ""}`;
+
+    const subtitleText =
+      hasBalanceError && metric === "balance"
+        ? "Warning: Manual adjustments failed. Chart may be inaccurate."
+        : undefined;
+
     const config = {
       type: chartType,
       data: {
@@ -104,11 +114,17 @@ export default class AnalysisChart {
           },
           title: {
             display: true,
-            text: `Analysis: ${metric.toUpperCase()} by ${primaryGroup}${
-              secondaryGroup !== "none" ? " & " + secondaryGroup : ""
-            }`,
-            color: "#f0ad4e",
+            text: titleText,
+            color:
+              hasBalanceError && metric === "balance" ? "#ff4444" : "#f0ad4e",
             font: { size: 16 },
+          },
+          subtitle: {
+            display: !!subtitleText,
+            text: subtitleText,
+            color: "#ff4444",
+            font: { size: 12, style: "italic" },
+            padding: { bottom: 10 },
           },
           tooltip: {
             mode: "index",

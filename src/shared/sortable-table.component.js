@@ -41,11 +41,19 @@ export default class SortableTable {
 
     // Remove selections for rows that no longer exist in the data
     const currentIds = new Set(this.data.map((item) => item[this.rowIdField]));
+    const initialSelectionSize = this.selectedRows.size;
     this.selectedRows.forEach((id) => {
       if (!currentIds.has(id)) {
         this.selectedRows.delete(id);
       }
     });
+
+    if (
+      initialSelectionSize !== this.selectedRows.size &&
+      this.onSelectionChange
+    ) {
+      this.onSelectionChange(Array.from(this.selectedRows));
+    }
 
     this.sortData();
     this.render();

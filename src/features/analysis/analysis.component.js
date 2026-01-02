@@ -605,6 +605,7 @@ class AnalysisComponent {
         metric: this.state.metric,
         primaryGroup: this.state.primaryGroup,
         secondaryGroup: this.state.secondaryGroup,
+        hasBalanceError: hasBalanceError,
       });
     }
 

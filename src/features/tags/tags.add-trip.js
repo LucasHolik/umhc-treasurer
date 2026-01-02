@@ -262,8 +262,8 @@ export default class TagsAddTrip {
       children.push(selectAllDiv);
     }
 
-    visibleTypes.forEach((type, index) => {
-      const uid = `filter-type-${index}`;
+    visibleTypes.forEach((type) => {
+      const uid = `filter-type-${type.replace(/[^a-zA-Z0-9]/g, "-")}`;
       const isChecked = this.typeFilterSet.has(type);
 
       const checkbox = el("input", { type: "checkbox", id: uid, value: type });

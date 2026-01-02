@@ -8,8 +8,21 @@ export default class TransactionsSplitHistory {
   constructor() {}
 
   async open(data) {
+    // Prevent opening multiple overlays concurrently
+    if (this.resolvePromise) {
+      this.resolvePromise(false);
+      this.resolvePromise = null;
+      this.rejectPromise = null;
+    }
+
+    if (this.overlay) {
+      this.overlay.remove();
+      this.overlay = null;
+    }
+
     return new Promise((resolve, reject) => {
       this.resolvePromise = resolve;
+      this.rejectPromise = reject;
       this.data = data;
       try {
         this.render();
@@ -19,6 +32,8 @@ export default class TransactionsSplitHistory {
           this.overlay.remove();
           this.overlay = null;
         }
+        this.resolvePromise = null;
+        this.rejectPromise = null;
         reject(error);
       }
     });
@@ -53,6 +68,8 @@ export default class TransactionsSplitHistory {
       // Resolve the previous promise before removing the overlay
       if (this.resolvePromise) {
         this.resolvePromise(false);
+        this.resolvePromise = null;
+        this.rejectPromise = null;
       }
       this.overlay.remove();
       this.overlay = null;
@@ -273,7 +290,12 @@ export default class TransactionsSplitHistory {
 
     const close = () => {
       overlay.remove();
-      this.resolvePromise();
+      this.overlay = null;
+      if (this.resolvePromise) {
+        this.resolvePromise();
+        this.resolvePromise = null;
+        this.rejectPromise = null;
+      }
     };
 
     const modalContent = el(
@@ -362,7 +384,10 @@ export default class TransactionsSplitHistory {
       const action = await modal.open(source, children, groupId);
 
       if (action && action.action === "edit") {
-        this.overlay.remove();
+        if (this.overlay) {
+          this.overlay.remove();
+          this.overlay = null;
+        }
 
         store.setState("savingSplitTransaction", true);
         try {
@@ -379,9 +404,17 @@ export default class TransactionsSplitHistory {
         } finally {
           store.setState("savingSplitTransaction", false);
         }
-        this.resolvePromise(true);
+
+        if (this.resolvePromise) {
+          this.resolvePromise(true);
+          this.resolvePromise = null;
+          this.rejectPromise = null;
+        }
       } else if (action && action.action === "revert") {
-        this.overlay.remove();
+        if (this.overlay) {
+          this.overlay.remove();
+          this.overlay = null;
+        }
 
         store.setState("savingSplitTransaction", true);
         try {
@@ -394,11 +427,22 @@ export default class TransactionsSplitHistory {
           store.setState("savingSplitTransaction", false);
         }
 
-        this.resolvePromise(true);
+        if (this.resolvePromise) {
+          this.resolvePromise(true);
+          this.resolvePromise = null;
+          this.rejectPromise = null;
+        }
       } else if (action) {
         // This handles if a split was created, which won't happen here
-        this.overlay.remove();
-        this.resolvePromise(true);
+        if (this.overlay) {
+          this.overlay.remove();
+          this.overlay = null;
+        }
+        if (this.resolvePromise) {
+          this.resolvePromise(true);
+          this.resolvePromise = null;
+          this.rejectPromise = null;
+        }
       }
     } catch (error) {
       console.error("Failed to open split modal:", error);

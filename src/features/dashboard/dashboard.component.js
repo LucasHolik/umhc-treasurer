@@ -239,7 +239,7 @@ class DashboardComponent {
 
     if (hasBalanceError) {
       this.currentBalanceEl.textContent = "⚠️ Error";
-      this.currentBalanceEl.title = "Failed to calculate manual adjustments";
+      this.currentBalanceEl.title = "Failed to calculate balance";
     } else {
       this.currentBalanceEl.textContent = `£${formatCurrency(currentBalance)}`;
       this.currentBalanceEl.removeAttribute("title");
