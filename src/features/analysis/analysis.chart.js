@@ -91,11 +91,13 @@ export default class AnalysisChart {
 
     const titleText = `Analysis: ${metric.toUpperCase()} by ${primaryGroup}${
       secondaryGroup !== "none" ? " & " + secondaryGroup : ""
-    }${hasBalanceError && metric === "balance" ? " (⚠️ CALCULATION ERROR)" : ""}`;
+    }${
+      hasBalanceError && metric === "balance" ? " (⚠️ CALCULATION ERROR)" : ""
+    }`;
 
     const subtitleText =
       hasBalanceError && metric === "balance"
-        ? "Warning: Manual adjustments failed. Chart may be inaccurate."
+        ? "Warning: Balance calculation failed. Chart may be inaccurate."
         : undefined;
 
     const config = {

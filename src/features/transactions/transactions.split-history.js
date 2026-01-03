@@ -292,7 +292,7 @@ export default class TransactionsSplitHistory {
       overlay.remove();
       this.overlay = null;
       if (this.resolvePromise) {
-        this.resolvePromise();
+        this.resolvePromise(false);
         this.resolvePromise = null;
         this.rejectPromise = null;
       }

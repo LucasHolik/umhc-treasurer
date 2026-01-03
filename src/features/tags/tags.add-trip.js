@@ -263,7 +263,10 @@ export default class TagsAddTrip {
     }
 
     visibleTypes.forEach((type) => {
-      const uid = `filter-type-${btoa(type).replace(/[^a-zA-Z0-9]/g, "")}`;
+      const uid = `filter-type-${btoa(encodeURIComponent(type)).replace(
+        /[^a-zA-Z0-9]/g,
+        ""
+      )}`;
       const isChecked = this.typeFilterSet.has(type);
 
       const checkbox = el("input", { type: "checkbox", id: uid, value: type });

@@ -483,9 +483,7 @@ class AnalysisComponent {
           ? "⚠️ Error"
           : formatCurrency(stats.effectiveBalance),
         class: "",
-        tooltip: hasBalanceError
-          ? "Failed to calculate manual adjustments"
-          : "",
+        tooltip: hasBalanceError ? "Failed to calculate balance" : "",
       },
       { title: "Transactions", value: stats.transactionCount, class: "" },
     ];

@@ -467,7 +467,10 @@ class TagsComponent {
     const chunks = [];
 
     // Use logic helper to format operations
-    const formattedOperations = formatOperationsForApi(this.queue);
+    const formattedOperations = formatOperationsForApi(
+      this.queue,
+      store.getState("tags")
+    );
 
     for (let i = 0; i < formattedOperations.length; i += chunkSize) {
       chunks.push(formattedOperations.slice(i, i + chunkSize));

@@ -263,9 +263,10 @@ export const calculateTagStats = (
  *      Rename A->B -> Rename B->C => Rename A->C
  *
  * @param {Array} queue
+ * @param {Object} originalTags - Optional. Map of existing tags to check for redundancy.
  * @returns {Array} Optimized queue
  */
-export const optimizeQueue = (queue) => {
+export const optimizeQueue = (queue, originalTags = null) => {
   if (!queue || queue.length === 0) return [];
 
   const optimized = [];
@@ -280,9 +281,28 @@ export const optimizeQueue = (queue) => {
           o.type === "add" && o.value === op.value && o.tagType === op.tagType
       );
       if (addIndex !== -1) {
-        // Found corresponding add. Remove it.
-        optimized.splice(addIndex, 1);
-        merged = true;
+        // Found corresponding add.
+
+        // Check if item existed originally (meaning Add was redundant)
+        let existedOriginally = false;
+        if (
+          originalTags &&
+          originalTags[op.tagType] &&
+          Array.isArray(originalTags[op.tagType])
+        ) {
+          existedOriginally = originalTags[op.tagType].includes(op.value);
+        }
+
+        if (existedOriginally) {
+          // Add was redundant (no-op), but Delete is real.
+          // Remove the Add, but do NOT set merged=true, so Delete is added to queue.
+          optimized.splice(addIndex, 1);
+          merged = false;
+        } else {
+          // Truly new item. Add + Delete = Cancel.
+          optimized.splice(addIndex, 1);
+          merged = true;
+        }
       } else {
         // Check for Rename X -> A (where A is now being deleted)
         const renameIndex = optimized.findIndex(
@@ -373,10 +393,11 @@ export const optimizeQueue = (queue) => {
  * Formats the edit queue into API operations.
  *
  * @param {Array} queue
+ * @param {Object} originalTags - Optional. Map of existing tags.
  * @returns {Array} Array of operations for the API
  */
-export const formatOperationsForApi = (queue) => {
-  const optimizedQueue = optimizeQueue(queue);
+export const formatOperationsForApi = (queue, originalTags = null) => {
+  const optimizedQueue = optimizeQueue(queue, originalTags);
   return optimizedQueue
     .map((op) => {
       if (op.type === "add") return [null, op.value, "add", op.tagType];

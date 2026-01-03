@@ -52,6 +52,18 @@ class SettingsComponent {
     const currentBalance = store.getState("openingBalance") || 0;
     const expenses = store.getState("expenses") || [];
 
+    const createEditButton = () =>
+      el(
+        "button",
+        {
+          id: "edit-opening-balance",
+          className: "secondary-btn",
+          title: "Edit Opening Balance",
+          onclick: () => this.handleEdit(),
+        },
+        "✏️ Edit"
+      );
+
     // Calculate offset from manual transactions
     let manualOffset = 0;
     let adjustedOpeningBalance = currentBalance;
@@ -62,17 +74,6 @@ class SettingsComponent {
       ));
     } catch (error) {
       console.error("Error calculating financials:", error);
-
-      this.editButton = el(
-        "button",
-        {
-          id: "edit-opening-balance",
-          className: "secondary-btn",
-          title: "Edit Opening Balance",
-          onclick: () => this.handleEdit(),
-        },
-        "✏️ Edit"
-      );
 
       const errorSection = el(
         "div",
@@ -90,7 +91,7 @@ class SettingsComponent {
           { style: { color: "#d9534f" } },
           "Unable to calculate financial data."
         ),
-        this.editButton
+        createEditButton()
       );
 
       const container = el(
@@ -102,90 +103,13 @@ class SettingsComponent {
           el("h2", {}, "Settings")
         ),
         errorSection,
-        el(
-          "div",
-          {
-            className: "section",
-            style: {
-              marginTop: "30px",
-            },
-          },
-          el(
-            "div",
-            { className: "transactions-header" },
-            el("h2", {}, "Preferences")
-          ),
-          el(
-            "div",
-            {
-              style: {
-                padding: "20px",
-                backgroundColor: "rgba(255, 255, 255, 0.05)",
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                gap: "20px",
-              },
-            },
-            el(
-              "div",
-              { style: { flex: "1" } },
-              el(
-                "div",
-                {
-                  style: {
-                    display: "block",
-                    color: "#fff",
-                    fontWeight: "bold",
-                    marginBottom: "5px",
-                  },
-                },
-                "Accessibility Mode"
-              ),
-              el(
-                "div",
-                {
-                  id: "accessibility-description",
-                  style: { color: "#aaa", fontSize: "0.9em" },
-                },
-                "Add symbols (▲/▼) to positive/negative values for better visibility."
-              )
-            ),
-            el(
-              "label",
-              {
-                className: "switch",
-                "aria-label": "Toggle Accessibility Mode",
-              },
-              el("input", {
-                type: "checkbox",
-                id: "accessibility-toggle",
-                "aria-describedby": "accessibility-description",
-                checked: store.getState("accessibilityMode"),
-                onchange: (e) =>
-                  store.setState("accessibilityMode", e.target.checked),
-              }),
-              el("span", { className: "slider" })
-            )
-          )
-        ),
+        this.renderPreferencesSection(),
         this.status
       );
 
       replace(this.element, container);
       return;
     }
-
-    this.editButton = el(
-      "button",
-      {
-        id: "edit-opening-balance",
-        className: "secondary-btn",
-        title: "Edit Opening Balance",
-        onclick: () => this.handleEdit(),
-      },
-      "✏️ Edit"
-    );
 
     const container = el(
       "div",
@@ -244,7 +168,7 @@ class SettingsComponent {
               "Set manually."
             )
           ),
-          this.editButton
+          createEditButton()
         ),
 
         // Manual Offset
@@ -338,78 +262,81 @@ class SettingsComponent {
         )
       ),
 
-      el(
-        "div",
-        {
-          className: "section",
-          style: {
-            marginTop: "30px",
-          },
-        },
-        el(
-          "div",
-          { className: "transactions-header" },
-          el("h2", {}, "Preferences")
-        ),
-        el(
-          "div",
-          {
-            style: {
-              padding: "20px",
-              backgroundColor: "rgba(255, 255, 255, 0.05)",
-              borderRadius: "8px",
-              display: "flex",
-              alignItems: "center",
-              gap: "20px",
-            },
-          },
-          el(
-            "div",
-            { style: { flex: "1" } },
-            el(
-              "div",
-              {
-                style: {
-                  display: "block",
-                  color: "#fff",
-                  fontWeight: "bold",
-                  marginBottom: "5px",
-                },
-              },
-              "Accessibility Mode"
-            ),
-            el(
-              "div",
-              {
-                id: "accessibility-description",
-                style: { color: "#aaa", fontSize: "0.9em" },
-              },
-              "Add symbols (▲/▼) to positive/negative values for better visibility."
-            )
-          ),
-          el(
-            "label",
-            {
-              className: "switch",
-              "aria-label": "Toggle Accessibility Mode",
-            },
-            el("input", {
-              type: "checkbox",
-              id: "accessibility-toggle",
-              "aria-describedby": "accessibility-description",
-              checked: store.getState("accessibilityMode"),
-              onchange: (e) =>
-                store.setState("accessibilityMode", e.target.checked),
-            }),
-            el("span", { className: "slider" })
-          )
-        )
-      ),
+      this.renderPreferencesSection(),
 
       this.status
     );
 
     replace(this.element, container);
+  }
+
+  renderPreferencesSection() {
+    return el(
+      "div",
+      {
+        style: {
+          marginTop: "30px",
+        },
+      },
+      el(
+        "div",
+        { className: "transactions-header" },
+        el("h2", {}, "Preferences")
+      ),
+      el(
+        "div",
+        {
+          style: {
+            padding: "20px",
+            backgroundColor: "rgba(255, 255, 255, 0.05)",
+            borderRadius: "8px",
+            display: "flex",
+            alignItems: "center",
+            gap: "20px",
+          },
+        },
+        el(
+          "div",
+          { style: { flex: "1" } },
+          el(
+            "div",
+            {
+              style: {
+                display: "block",
+                color: "#fff",
+                fontWeight: "bold",
+                marginBottom: "5px",
+              },
+            },
+            "Accessibility Mode"
+          ),
+          el(
+            "div",
+            {
+              id: "accessibility-description",
+              style: { color: "#aaa", fontSize: "0.9em" },
+            },
+            "Add symbols (▲/▼) to positive/negative values for better visibility."
+          )
+        ),
+        el(
+          "label",
+          {
+            className: "switch",
+            "aria-label": "Toggle Accessibility Mode",
+          },
+          el("input", {
+            type: "checkbox",
+            id: "accessibility-toggle",
+            "aria-describedby": "accessibility-description",
+            checked: store.getState("accessibilityMode"),
+            onchange: (e) =>
+              store.setState("accessibilityMode", e.target.checked),
+          }),
+          el("span", { className: "slider" })
+        )
+      )
+    );
   }
 
   renderSavingState() {
