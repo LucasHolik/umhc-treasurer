@@ -26,17 +26,40 @@ var Service_Auth = {
       return { success: false, message: "Server misconfigured" };
     }
 
-    // 2. Authentication Confirmation
-    // The request reached here only if verifyRequest() passed in the Controller.
-    // This confirms the client holds the valid API Key.
+    // 2. Create Session
+    const session = Service_Session.createSession(apiKey);
 
-    return { success: true };
+    return {
+      success: true,
+      sessionId: session.sessionId,
+      sessionKey: session.sessionKey,
+    };
   },
 
   verifyRequest: function (action, timestamp, signature, allParams) {
     try {
-      const apiKey = this.getApiKey();
-      if (!apiKey) return false;
+      let secretKey;
+
+      if (action === "login") {
+        // For login, we use the permanent API Key
+        secretKey = this.getApiKey();
+      } else {
+        // For all other requests, we use the Session Key
+        const sessionId = allParams ? allParams.sessionId : null;
+        if (!sessionId) {
+          console.warn("Request rejected: Missing sessionId");
+          return false;
+        }
+
+        const session = Service_Session.getSession(sessionId);
+        if (!session) {
+          console.warn("Request rejected: Invalid or expired session");
+          return false;
+        }
+        secretKey = session.sessionKey;
+      }
+
+      if (!secretKey) return false;
 
       // 1. Validate Timestamp (prevent replay attacks, allow 5 min drift)
       const now = Date.now();
@@ -51,6 +74,7 @@ var Service_Auth = {
 
       // 2. Reconstruct Payload
       // Filter out control params to match client's sortedParams
+      // callback is handled by GAS, but we filter it out just in case it's passed
       const ignoredKeys = ["action", "timestamp", "signature", "callback"];
       const paramKeys = Object.keys(allParams || {}).filter(
         (k) => !ignoredKeys.includes(k)
@@ -66,7 +90,7 @@ var Service_Auth = {
       // 3. Compute Expected Signature
       const signatureBytes = Utilities.computeHmacSha256Signature(
         payload,
-        apiKey
+        secretKey
       );
 
       // Convert bytes to hex string

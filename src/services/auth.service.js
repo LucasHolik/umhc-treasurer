@@ -2,27 +2,27 @@
 import store from "../core/state.js";
 import ApiService from "./api.service.js";
 
-const API_KEY_STORAGE_KEY = "umhc_treasurer_api_key";
-
 /**
- * SECURITY WARNING:
- * Storing the API key in localStorage is vulnerable to XSS attacks.
- * Any malicious script running on this page can access the key.
+ * AUTHENTICATION SERVICE
+ * Implements session-based authentication with short-lived tokens.
  *
- * Recommended improvements:
- * 1. Use HttpOnly cookies (requires server-side support).
- * 2. Implement short-lived tokens with rotation.
+ * Security Model:
+ * 1. User enters Passkey (API Key).
+ * 2. Passkey is sent to server ONCE to exchange for a Session.
+ * 3. Server returns { sessionId, sessionKey }.
+ * 4. We store sessionId/sessionKey in private variables in ApiService (via closure).
+ * 5. We discard the Passkey.
+ * 6. All subsequent requests are signed with sessionKey and include sessionId.
  */
 const AuthService = {
   /**
-   * Check if there is an API key in local storage and initialize the app state.
-   * NOTE: Access to the website requires both a valid Script URL and the correct API Key.
+   * Check if there is a session in local storage (via ApiService) and initialize the app state.
    */
   init: function () {
-    // SECURITY RISK: XSS vulnerability - see file header
-    const apiKey = sessionStorage.getItem(API_KEY_STORAGE_KEY);
-    if (apiKey) {
-      store.setState("apiKey", apiKey);
+    // ApiService initializes its session from sessionStorage automatically on import/load.
+    // We just need to check if it has a valid session.
+    if (ApiService.hasSession()) {
+      store.setState("currentUser", { loggedIn: true });
     }
   },
 
@@ -33,50 +33,44 @@ const AuthService = {
    */
   login: async function (apiKey) {
     store.setState("error", null);
-    // Note: We do NOT set the API key in the store yet to avoid a race condition
-    // where isLoggedIn() returns true before the key is validated.
 
     try {
+      // 1. Exchange API Key for Session
       const response = await ApiService.login(apiKey);
-      if (response.success) {
-        // SECURITY RISK: XSS vulnerability - see file header
-        sessionStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
-        store.setState("apiKey", apiKey); // Now definitively set
+
+      if (response.success && response.sessionId && response.sessionKey) {
+        // 2. Set Session Credentials in ApiService (private memory)
+        ApiService.setSession(response.sessionId, response.sessionKey);
+
+        // 3. Update State (Auth status only, no credentials in store)
         store.setState("currentUser", { loggedIn: true });
+
         return true;
       } else {
         throw new Error(response.message || "Login failed.");
       }
     } catch (error) {
-      this.logout(); // Clear invalid key
+      this.logout(); // Clear any partial state
       store.setState("error", error.message);
       return false;
     }
   },
 
   /**
-   * Log the user out by clearing the API key and user state.
+   * Log the user out by clearing session credentials and user state.
    */
   logout: function () {
-    // SECURITY RISK: XSS vulnerability - see file header
-    sessionStorage.removeItem(API_KEY_STORAGE_KEY);
-    store.setState("apiKey", null);
+    ApiService.clearSession();
     store.setState("currentUser", null);
   },
 
   /**
    * Check if the user is currently logged in.
-   *
-   * NOTE: This is a client-side only check based on the presence of
-   * local state (API Key and Current User). It does not validate
-   * the key with the server. If the key is revoked on the server,
-   * this method will still return true until an API call fails.
-   *
    * @returns {boolean}
    */
   isLoggedIn: function () {
     return (
-      !!store.getState("apiKey") &&
+      ApiService.hasSession() &&
       !!store.getState("currentUser") &&
       ApiService.hasScriptUrl()
     );

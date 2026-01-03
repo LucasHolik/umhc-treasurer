@@ -6,6 +6,13 @@ const activeRequests = new Map();
 let loadingRequestCount = 0;
 let callbackCounter = 0;
 
+const SESSION_ID_KEY = "umhc_treasurer_session_id";
+const SESSION_KEY_KEY = "umhc_treasurer_session_key";
+
+// Private variables to hold session credentials
+let _sessionId = null;
+let _sessionKey = null;
+
 const getScriptUrl = () => localStorage.getItem("script_url");
 
 const setScriptUrl = (url) => {
@@ -17,6 +24,37 @@ const setScriptUrl = (url) => {
 };
 
 const hasScriptUrl = () => !!getScriptUrl();
+
+/**
+ * Initialize session from storage.
+ * Should be called on app startup.
+ */
+const initSession = () => {
+  _sessionId = sessionStorage.getItem(SESSION_ID_KEY);
+  _sessionKey = sessionStorage.getItem(SESSION_KEY_KEY);
+};
+
+// Initialize immediately
+initSession();
+
+const setSession = (sessionId, sessionKey) => {
+  _sessionId = sessionId;
+  _sessionKey = sessionKey;
+  if (sessionId) sessionStorage.setItem(SESSION_ID_KEY, sessionId);
+  else sessionStorage.removeItem(SESSION_ID_KEY);
+
+  if (sessionKey) sessionStorage.setItem(SESSION_KEY_KEY, sessionKey);
+  else sessionStorage.removeItem(SESSION_KEY_KEY);
+};
+
+const clearSession = () => {
+  _sessionId = null;
+  _sessionKey = null;
+  sessionStorage.removeItem(SESSION_ID_KEY);
+  sessionStorage.removeItem(SESSION_KEY_KEY);
+};
+
+const hasSession = () => !!_sessionId && !!_sessionKey;
 
 /**
  * Performs a JSONP request to the Google Apps Script backend.
@@ -34,14 +72,30 @@ const request = (action, params = {}, options = {}) => {
     return Promise.reject(new Error("Script URL is not configured."));
   }
 
-  const apiKey = options.apiKey || store.getState("apiKey");
-  if (!apiKey) {
-    return Promise.reject(new Error("API key is not set."));
+  let signingKey;
+  // Use local variable instead of store
+  const sessionId = _sessionId;
+
+  if (action === "login") {
+    signingKey = options.apiKey;
+  } else {
+    // Use local variable instead of store
+    signingKey = _sessionKey;
   }
 
-  const sortedParams = Object.keys(params)
+  if (!signingKey) {
+    return Promise.reject(new Error("Authentication credentials not found."));
+  }
+
+  // Include sessionId in params if it exists and action is not login
+  const finalParams = { ...params };
+  if (action !== "login" && sessionId) {
+    finalParams.sessionId = sessionId;
+  }
+
+  const sortedParams = Object.keys(finalParams)
     .sort()
-    .reduce((acc, key) => ({ ...acc, [key]: String(params[key]) }), {});
+    .reduce((acc, key) => ({ ...acc, [key]: String(finalParams[key]) }), {});
 
   const requestKey = `${action}-${JSON.stringify(sortedParams)}`;
 
@@ -57,9 +111,9 @@ const request = (action, params = {}, options = {}) => {
   }
 
   // --- SIGNING HELPER ---
-  async function signRequest(action, timestamp, apiKey, params) {
+  async function signRequest(action, timestamp, secret, params) {
     const encoder = new TextEncoder();
-    const keyData = encoder.encode(apiKey);
+    const keyData = encoder.encode(secret);
     const payload = encoder.encode(
       action + "|" + timestamp + JSON.stringify(params)
     );
@@ -87,14 +141,16 @@ const request = (action, params = {}, options = {}) => {
       const signature = await signRequest(
         action,
         timestamp,
-        apiKey,
+        signingKey,
         sortedParams
       );
 
       return new Promise((resolve, reject) => {
         const url = new URL(SCRIPT_URL);
         url.searchParams.append("action", action);
-        // url.searchParams.append("apiKey", apiKey); // REMOVED for security
+
+        // sessionId is already in sortedParams, so it will be added in the loop below
+
         url.searchParams.append("timestamp", timestamp);
         url.searchParams.append("signature", signature);
 
@@ -287,6 +343,9 @@ const ApiService = {
   getScriptUrl,
   setScriptUrl,
   hasScriptUrl,
+  setSession,
+  clearSession,
+  hasSession,
 };
 
 export default ApiService;
