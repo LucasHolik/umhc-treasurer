@@ -18,6 +18,17 @@ class App {
   constructor(element) {
     this.element = element;
     this.subscriptions = [];
+
+    this.dataUploadedHandler = () => {
+      this.loadInitialData();
+    };
+    document.addEventListener("dataUploaded", this.dataUploadedHandler);
+
+    this.hashChangeHandler = () => {
+      const hash = window.location.hash.slice(1) || "dashboard";
+      this.updateActiveTab(hash);
+    };
+
     try {
       AuthService.init();
     } catch (error) {
@@ -76,16 +87,6 @@ class App {
     this.subscriptions.push(
       store.subscribe("splitTransactions", updateProcessedTransactions)
     );
-
-    this.dataUploadedHandler = () => {
-      this.loadInitialData();
-    };
-    document.addEventListener("dataUploaded", this.dataUploadedHandler);
-
-    this.hashChangeHandler = () => {
-      const hash = window.location.hash.slice(1) || "dashboard";
-      this.updateActiveTab(hash);
-    };
   }
 
   render() {
