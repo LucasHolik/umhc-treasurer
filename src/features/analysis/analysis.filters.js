@@ -290,6 +290,8 @@ export default class AnalysisFilters {
       children.push(div);
     });
 
+    const previousScrollTop = container.scrollTop;
     replace(container, ...children);
+    container.scrollTop = previousScrollTop;
   }
 }

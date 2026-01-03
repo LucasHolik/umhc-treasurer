@@ -170,6 +170,8 @@ export default class TransactionsFilters {
       children.push(div);
     });
 
+    const previousScrollTop = container.scrollTop;
     replace(container, ...children);
+    container.scrollTop = previousScrollTop;
   }
 }
