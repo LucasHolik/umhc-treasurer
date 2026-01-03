@@ -111,6 +111,7 @@ class App {
   }
 
   renderMainApp() {
+    store.setState("isLoading", true);
     this.cleanupMainApp();
     this.globalLoader = new LoaderComponent();
 
@@ -408,6 +409,7 @@ class App {
     } catch (error) {
       console.error("Load initial data error:", error);
       store.setState("error", error.message);
+      store.setState("isLoading", false);
     }
   }
 
