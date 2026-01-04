@@ -380,7 +380,7 @@ class UploadComponent {
     if (isNaN(num)) return "";
     // Use integer cents to avoid floating-point precision issues
     const cents = Math.round(num * 100);
-    return String(cents);
+    return cents === 0 ? "" : String(cents);
   }
 }
 

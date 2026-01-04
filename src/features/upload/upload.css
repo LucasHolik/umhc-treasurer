@@ -19,8 +19,14 @@
   background-color: #ec971f;
 }
 
+#upload-to-sheet-btn:focus,
+#upload-to-sheet-btn:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+}
+
 #upload-to-sheet-btn:disabled {
-  background-color: #8a6d3b; /* Darker orange/brown for disabled state */
+  background-color: #c89a5c; /* Lighter for better contrast with opacity */
   cursor: not-allowed;
   opacity: 0.7;
 }
@@ -44,6 +50,12 @@
 #file-upload::file-selector-button:hover {
   background-color: #f0ad4e;
   color: #fff;
+}
+
+#file-upload::file-selector-button:focus,
+#file-upload::file-selector-button:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
 }
 
 /* Extracted Table */
@@ -70,7 +82,15 @@
   font-weight: bold;
 }
 
+.status-duplicate::before {
+  content: "⚠ ";
+}
+
 .status-new {
   color: #38c172; /* Accessible green */
   font-weight: bold;
+}
+
+.status-new::before {
+  content: "✓ ";
 }
