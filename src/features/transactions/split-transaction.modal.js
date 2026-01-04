@@ -1,4 +1,4 @@
-import { formatCurrency } from "../../core/utils.js";
+import { formatCurrency, parseAmount } from "../../core/utils.js";
 import ModalComponent from "../../shared/modal.component.js";
 import { el, replace } from "../../core/dom.js";
 
@@ -17,20 +17,30 @@ export default class SplitTransactionModal {
    * @param {string} groupId - Optional. Required if in edit mode.
    */
   async open(transaction, existingSplits = null, groupId = null) {
+    // Clean up any existing modal
+    if (this.overlay) {
+      this.close(null);
+    }
+
     this.transaction = transaction;
 
     // Determine original amount (net)
-    const income = transaction.Income
-      ? parseFloat(String(transaction.Income).replace(/,/g, ""))
-      : 0;
-    const expense = transaction.Expense
-      ? parseFloat(String(transaction.Expense).replace(/,/g, ""))
-      : 0;
-    this.originalAmount = isNaN(income) ? 0 : income;
-    this.isIncome = income > 0;
+    const income = parseAmount(transaction.Income);
+    const expense = parseAmount(transaction.Expense);
+    // Determine amount and type (should have either income OR expense, not both)
+    if (income > 0 && expense > 0) {
+      console.warn(
+        "Transaction has both Income and Expense populated",
+        transaction
+      );
+    }
+
     if (expense > 0) {
       this.originalAmount = expense; // Treat as positive magnitude for splitting
       this.isIncome = false;
+    } else {
+      this.originalAmount = isNaN(income) ? 0 : income;
+      this.isIncome = income > 0;
     }
 
     if (existingSplits) {
@@ -38,21 +48,17 @@ export default class SplitTransactionModal {
       this.groupId = groupId;
       this.splits = existingSplits.map((s) => {
         let amt = 0;
-        if (s.Amount !== undefined) amt = s.Amount;
-        else if (s.amount !== undefined) amt = s.amount;
+        if (s.Amount !== undefined) amt = parseAmount(s.Amount);
+        else if (s.amount !== undefined) amt = parseAmount(s.amount);
         else {
-          const inc = s.Income
-            ? parseFloat(String(s.Income).replace(/,/g, ""))
-            : 0;
-          const exp = s.Expense
-            ? parseFloat(String(s.Expense).replace(/,/g, ""))
-            : 0;
+          const inc = parseAmount(s.Income);
+          const exp = parseAmount(s.Expense);
           amt = inc !== 0 ? inc : exp;
         }
 
         return {
           description: s.Description || s.description || "", // handle both cases
-          amount: parseFloat(amt || 0),
+          amount: amt,
         };
       });
     } else {
@@ -77,6 +83,11 @@ export default class SplitTransactionModal {
   }
 
   render() {
+    // Prevent duplicate modals
+    if (this.overlay && document.body.contains(this.overlay)) {
+      return;
+    }
+
     const overlay = el("div", { className: "modal-overlay" });
 
     const amountDisplay = formatCurrency(this.originalAmount);
@@ -437,12 +448,15 @@ export default class SplitTransactionModal {
   close(data) {
     if (this.handleEscape) {
       document.removeEventListener("keydown", this.handleEscape);
+      this.handleEscape = null;
     }
     if (this.overlay) {
       this.overlay.remove();
+      this.overlay = null;
     }
     if (this.resolvePromise) {
       this.resolvePromise(data);
+      this.resolvePromise = null;
     }
   }
 }
