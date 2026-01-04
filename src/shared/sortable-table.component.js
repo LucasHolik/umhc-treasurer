@@ -1,4 +1,4 @@
-import { formatCurrency } from "../core/utils.js";
+import { formatCurrency, parseDate } from "../core/utils.js";
 import { el, clear } from "../core/dom.js";
 
 export default class SortableTable {
@@ -242,10 +242,10 @@ export default class SortableTable {
 
       // Handle Dates
       if (colDef && colDef.type === "date") {
-        const dateA = new Date(valA);
-        const dateB = new Date(valB);
-        valA = isNaN(dateA.getTime()) ? Infinity : dateA.getTime();
-        valB = isNaN(dateB.getTime()) ? Infinity : dateB.getTime();
+        const dateA = parseDate(valA);
+        const dateB = parseDate(valB);
+        valA = !dateA || isNaN(dateA.getTime()) ? Infinity : dateA.getTime();
+        valB = !dateB || isNaN(dateB.getTime()) ? Infinity : dateB.getTime();
       } else if (
         colDef &&
         (colDef.type === "number" || colDef.type === "currency")

@@ -36,9 +36,16 @@ const createStore = (initialState = {}) => {
    */
   const notify = (key) => {
     if (subscribers[key]) {
+      const value = state[key];
+      // Pass a deep copy to subscribers to prevent them from mutating internal state
+      const valueToPass =
+        value && typeof value === "object"
+          ? JSON.parse(JSON.stringify(value))
+          : value;
+
       subscribers[key].forEach((callback) => {
         try {
-          callback(state[key]);
+          callback(valueToPass);
         } catch (error) {
           console.error(
             `Error in subscriber callback for key "${key}":`,
@@ -55,8 +62,20 @@ const createStore = (initialState = {}) => {
    * @param {*} value - The new value.
    */
   const setState = (key, value) => {
-    if (state[key] === value) return;
-    state[key] = value;
+    // Deep clone the incoming value to ensure internal state is not linked to external objects
+    const newValue =
+      value && typeof value === "object"
+        ? JSON.parse(JSON.stringify(value))
+        : value;
+
+    // Simple equality check for primitives, and stringified check for objects
+    if (typeof newValue === "object") {
+      if (JSON.stringify(state[key]) === JSON.stringify(newValue)) return;
+    } else {
+      if (state[key] === newValue) return;
+    }
+
+    state[key] = newValue;
     notify(key);
   };
 
@@ -66,7 +85,12 @@ const createStore = (initialState = {}) => {
    * @returns {*} - The current value of the state key.
    */
   const getState = (key) => {
-    return state[key];
+    const value = state[key];
+    // Return deep copy for objects/arrays to prevent direct mutation of internal state
+    if (value && typeof value === "object") {
+      return JSON.parse(JSON.stringify(value));
+    }
+    return value;
   };
 
   return {

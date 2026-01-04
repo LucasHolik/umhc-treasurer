@@ -197,6 +197,9 @@ const request = (action, params = {}, options = {}) => {
           if (data.success) {
             resolve(data);
           } else {
+            if (data.message === "Unauthorized") {
+              document.dispatchEvent(new CustomEvent("sessionExpired"));
+            }
             reject(new Error(data.message || "API request failed."));
           }
         };

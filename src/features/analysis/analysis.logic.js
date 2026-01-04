@@ -229,7 +229,10 @@ class AnalysisLogic {
           "AnalysisLogic: Error calculating financials. Using unadjusted opening balance.",
           { openingBalance: parsedOpeningBalance, error }
         );
-        // TODO: Consider surfacing this error to the UI
+        store.setState(
+          "error",
+          "Error calculating cumulative balance. Some metrics may be inaccurate."
+        );
       }
       let balance = adjustedOpeningBalance;
 

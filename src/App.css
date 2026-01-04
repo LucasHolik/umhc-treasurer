@@ -163,6 +163,39 @@
   overflow-y: auto;
 }
 
+/* Error Banner */
+.error-banner {
+  background-color: #d9534f;
+  color: #fff;
+  padding: 10px 20px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  animation: slideDown 0.3s ease;
+}
+
+.error-banner-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.5em;
+  cursor: pointer;
+  line-height: 1;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 /* Tab content styling */
 .tab-content {
   display: none;

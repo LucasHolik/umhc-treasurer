@@ -241,7 +241,11 @@ export default class AnalysisControls {
         ),
         el(
           "div",
-          { className: "control-group", id: "time-unit-container" },
+          {
+            className: "control-group",
+            id: "time-unit-container",
+            style: { display: "none" },
+          },
           el("label", { for: "analysis-time-unit-select" }, "Time Unit"),
           timeUnitSelect
         )

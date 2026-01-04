@@ -24,6 +24,12 @@ class App {
     };
     document.addEventListener("dataUploaded", this.dataUploadedHandler);
 
+    this.sessionExpiredHandler = () => {
+      AuthService.logout();
+      store.setState("error", "Session expired. Please log in again.");
+    };
+    document.addEventListener("sessionExpired", this.sessionExpiredHandler);
+
     this.hashChangeHandler = () => {
       const hash = window.location.hash.slice(1) || "dashboard";
       this.updateActiveTab(hash);
@@ -57,6 +63,9 @@ class App {
     );
     this.subscriptions.push(
       store.subscribe("settingsSyncing", () => this.handleLoadingState())
+    );
+    this.subscriptions.push(
+      store.subscribe("error", () => this.handleErrorState())
     );
 
     // Accessibility Mode
@@ -216,6 +225,7 @@ class App {
         el(
           "div",
           { className: "content-wrapper" },
+          el("div", { id: "error-banner-container" }),
           el("section", { id: "dashboard-content", className: "tab-content" }),
           el("section", {
             id: "transactions-content",
@@ -346,6 +356,32 @@ class App {
     }
   }
 
+  handleErrorState() {
+    const error = store.getState("error");
+    const container = this.element.querySelector("#error-banner-container");
+    if (!container) return;
+
+    if (error) {
+      const banner = el(
+        "div",
+        { className: "error-banner" },
+        el("span", { className: "error-banner-message" }, error),
+        el(
+          "button",
+          {
+            className: "error-banner-close",
+            onclick: () => store.setState("error", null),
+            "aria-label": "Dismiss error",
+          },
+          "×"
+        )
+      );
+      replace(container, banner);
+    } else {
+      cleanup(container);
+    }
+  }
+
   attachEventListeners() {
     const logoutBtn = this.element.querySelector("#logout-button");
     if (logoutBtn) {
@@ -436,6 +472,12 @@ class App {
 
     if (this.dataUploadedHandler) {
       document.removeEventListener("dataUploaded", this.dataUploadedHandler);
+    }
+    if (this.sessionExpiredHandler) {
+      document.removeEventListener(
+        "sessionExpired",
+        this.sessionExpiredHandler
+      );
     }
 
     this.subscriptions.forEach((sub) => sub.unsubscribe());

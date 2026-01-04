@@ -512,6 +512,19 @@ class AnalysisComponent {
     const downloadImgBtn = this.element.querySelector("#btn-download-image");
     const downloadDataBtn = this.element.querySelector("#btn-download-data");
 
+    if (
+      !chartContainer ||
+      !tableContainer ||
+      !toggleBtn ||
+      !downloadImgBtn ||
+      !downloadDataBtn
+    ) {
+      console.error(
+        "Analysis: Required elements not found in updateViewVisibility"
+      );
+      return;
+    }
+
     if (isTable) {
       chartContainer.style.display = "none";
       tableContainer.style.display = "block";

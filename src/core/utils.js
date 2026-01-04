@@ -14,6 +14,10 @@ export function formatCurrency(amount) {
   }
 
   const num = parseAmount(amount);
+  // If result is 0 but input was not '0', it's likely an invalid string
+  if (num === 0 && String(amount).replace(/,/g, "").trim() !== "0") {
+    return "";
+  }
   return num.toFixed(2);
 }
 
@@ -35,9 +39,20 @@ export function parseAmount(amount) {
 
 export function parseDate(dateString) {
   if (!dateString) return null;
+  if (dateString instanceof Date) return dateString;
+
+  // If it's a YYYY-MM-DD string, parse it as local time to avoid UTC shifts
+  if (
+    typeof dateString === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(dateString)
+  ) {
+    const [year, month, day] = dateString.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
   let date = new Date(dateString);
   if (isNaN(date.getTime())) {
-    const formattedDate = dateString.replace(/[-./]/g, "/");
+    const formattedDate = String(dateString).replace(/[-.]/g, "/");
     date = new Date(formattedDate);
   }
   if (isNaN(date.getTime())) return null;
