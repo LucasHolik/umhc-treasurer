@@ -9,16 +9,9 @@ export default class TransactionsSplitHistory {
 
   async open(data) {
     // Prevent opening multiple overlays concurrently
-    if (this.resolvePromise) {
-      this.resolvePromise(false);
-      this.resolvePromise = null;
-      this.rejectPromise = null;
-    }
+    this.resolveAndCleanup(false);
 
-    if (this.overlay) {
-      this.overlay.remove();
-      this.overlay = null;
-    }
+    this.closeOverlay();
 
     return new Promise((resolve, reject) => {
       this.resolvePromise = resolve;
@@ -28,15 +21,43 @@ export default class TransactionsSplitHistory {
         this.render();
       } catch (error) {
         // Clean up any partially created overlay
-        if (this.overlay) {
-          this.overlay.remove();
-          this.overlay = null;
-        }
+        this.closeOverlay();
         this.resolvePromise = null;
         this.rejectPromise = null;
         reject(error);
       }
     });
+  }
+
+  resolveAndCleanup(result = true) {
+    if (this.resolvePromise) {
+      this.resolvePromise(result);
+      this.resolvePromise = null;
+      this.rejectPromise = null;
+    }
+  }
+
+  closeOverlay() {
+    if (this.overlay) {
+      this.overlay.remove();
+      this.overlay = null;
+    }
+  }
+
+  parseTransactionAmount(row) {
+    let amount = 0;
+    if (row.Income) {
+      amount = parseFloat(String(row.Income).replace(/,/g, ""));
+    } else if (row.Expense) {
+      amount = -parseFloat(String(row.Expense).replace(/,/g, ""));
+    }
+
+    if (isNaN(amount)) {
+      console.warn("Invalid amount parsed for row:", row);
+      amount = 0;
+    }
+
+    return amount;
   }
 
   groupData(data) {
@@ -66,13 +87,8 @@ export default class TransactionsSplitHistory {
   render() {
     if (this.overlay) {
       // Resolve the previous promise before removing the overlay
-      if (this.resolvePromise) {
-        this.resolvePromise(false);
-        this.resolvePromise = null;
-        this.rejectPromise = null;
-      }
-      this.overlay.remove();
-      this.overlay = null;
+      this.resolveAndCleanup(false);
+      this.closeOverlay();
     }
 
     const overlay = el("div", { className: "modal-overlay" });
@@ -108,16 +124,7 @@ export default class TransactionsSplitHistory {
         const isReverted = rows.some((r) => r["Split Type"] === "REVERTED");
 
         // Calculate total from source
-        let amount = 0;
-        if (source.Income)
-          amount = parseFloat(String(source.Income).replace(/,/g, ""));
-        else if (source.Expense)
-          amount = -parseFloat(String(source.Expense).replace(/,/g, ""));
-
-        if (isNaN(amount)) {
-          console.warn("Invalid amount parsed for source:", source);
-          amount = 0;
-        }
+        const amount = this.parseTransactionAmount(source);
 
         const amountClass = amount >= 0 ? "positive" : "negative";
         const statusLabel = isReverted
@@ -137,16 +144,7 @@ export default class TransactionsSplitHistory {
           const rCat = row["Category"] || "";
           const tagsDisplay = [rTrip, rCat].filter(Boolean).join(" / ") || "-";
 
-          let rAmount = 0;
-          if (row.Income)
-            rAmount = parseFloat(String(row.Income).replace(/,/g, ""));
-          else if (row.Expense)
-            rAmount = -parseFloat(String(row.Expense).replace(/,/g, ""));
-
-          if (isNaN(rAmount)) {
-            console.warn("Invalid amount parsed for row:", row);
-            rAmount = 0;
-          }
+          const rAmount = this.parseTransactionAmount(row);
           const rAmountClass = rAmount >= 0 ? "positive" : "negative";
 
           // Styling based on type
@@ -289,13 +287,8 @@ export default class TransactionsSplitHistory {
     }
 
     const close = () => {
-      overlay.remove();
-      this.overlay = null;
-      if (this.resolvePromise) {
-        this.resolvePromise(false);
-        this.resolvePromise = null;
-        this.rejectPromise = null;
-      }
+      this.closeOverlay();
+      this.resolveAndCleanup(false);
     };
 
     const modalContent = el(
@@ -384,10 +377,7 @@ export default class TransactionsSplitHistory {
       const action = await modal.open(source, children, groupId);
 
       if (action && action.action === "edit") {
-        if (this.overlay) {
-          this.overlay.remove();
-          this.overlay = null;
-        }
+        this.closeOverlay();
 
         store.setState("savingSplitTransaction", true);
         try {
@@ -405,16 +395,9 @@ export default class TransactionsSplitHistory {
           store.setState("savingSplitTransaction", false);
         }
 
-        if (this.resolvePromise) {
-          this.resolvePromise(true);
-          this.resolvePromise = null;
-          this.rejectPromise = null;
-        }
+        this.resolveAndCleanup(true);
       } else if (action && action.action === "revert") {
-        if (this.overlay) {
-          this.overlay.remove();
-          this.overlay = null;
-        }
+        this.closeOverlay();
 
         store.setState("savingSplitTransaction", true);
         try {
@@ -427,22 +410,11 @@ export default class TransactionsSplitHistory {
           store.setState("savingSplitTransaction", false);
         }
 
-        if (this.resolvePromise) {
-          this.resolvePromise(true);
-          this.resolvePromise = null;
-          this.rejectPromise = null;
-        }
+        this.resolveAndCleanup(true);
       } else if (action) {
         // This handles if a split was created, which won't happen here
-        if (this.overlay) {
-          this.overlay.remove();
-          this.overlay = null;
-        }
-        if (this.resolvePromise) {
-          this.resolvePromise(true);
-          this.resolvePromise = null;
-          this.rejectPromise = null;
-        }
+        this.closeOverlay();
+        this.resolveAndCleanup(true);
       }
     } catch (error) {
       console.error("Failed to open split modal:", error);
