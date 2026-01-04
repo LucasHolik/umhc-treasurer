@@ -278,12 +278,22 @@ class App {
       return;
     }
 
-    this.components.dashboard = new DashboardComponent(dashboardEl);
-    this.components.transactions = new TransactionsComponent(transactionsEl);
-    this.components.upload = new UploadComponent(uploadEl);
-    this.components.tags = new TagsComponent(tagsEl);
-    this.components.analysis = new AnalysisComponent(analysisEl);
-    this.components.settings = new SettingsComponent(settingsEl);
+    try {
+      this.components.dashboard = new DashboardComponent(dashboardEl);
+      this.components.transactions = new TransactionsComponent(transactionsEl);
+      this.components.upload = new UploadComponent(uploadEl);
+      this.components.tags = new TagsComponent(tagsEl);
+      this.components.analysis = new AnalysisComponent(analysisEl);
+      this.components.settings = new SettingsComponent(settingsEl);
+    } catch (error) {
+      console.error("Failed to initialize components:", error);
+      store.setState(
+        "error",
+        "Component initialization failed. Please refresh the page."
+      );
+      store.setState("isLoading", false);
+      return;
+    }
 
     router.register("dashboard", dashboardEl);
     router.register("transactions", transactionsEl);
@@ -390,6 +400,10 @@ class App {
   }
 
   async loadInitialData() {
+    if (this._loadingData) return;
+    this._loadingData = true;
+    store.setState("isLoading", true);
+
     try {
       const appData = await ApiService.getAppData();
 
@@ -410,6 +424,8 @@ class App {
     } catch (error) {
       console.error("Load initial data error:", error);
       store.setState("error", error.message);
+    } finally {
+      this._loadingData = false;
       store.setState("isLoading", false);
     }
   }
