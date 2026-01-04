@@ -275,7 +275,7 @@ export default class SortableTable {
 
   parseNumber(val) {
     if (typeof val === "number") return val;
-    if (!val) return 0;
+    if (val === null || val === undefined || val === "") return -Infinity;
     return parseFloat(val.toString().replace(/,/g, "")) || 0;
   }
 
@@ -313,6 +313,9 @@ export default class SortableTable {
 
   clearSelection() {
     this.selectedRows.clear();
+    if (this.onSelectionChange) {
+      this.onSelectionChange(Array.from(this.selectedRows));
+    }
     this.render();
   }
 }
