@@ -16,7 +16,30 @@ class DashboardComponent {
     this.render();
     store.subscribe("expenses", () => this.calculateAndDisplayStats());
     store.subscribe("openingBalance", () => this.calculateAndDisplayStats());
-    store.subscribe("accessibilityMode", () => this.render());
+    store.subscribe("accessibilityMode", () =>
+      this.handleAccessibilityChange()
+    );
+  }
+
+  handleAccessibilityChange() {
+    const isAccessible = store.getState("accessibilityMode");
+
+    // Update button state without full re-render
+    const btn = this.element.querySelector(".accessibility-toggle");
+    if (btn) {
+      if (isAccessible) {
+        btn.classList.add("active");
+        btn.textContent = "👁️ Colourblind Access: On";
+      } else {
+        btn.classList.remove("active");
+        btn.textContent = "👁️ Colourblind Access: Off";
+      }
+    }
+
+    // Re-render table rows to update symbols, preserving sort state
+    if (this.transactionsTable) {
+      this.transactionsTable.render();
+    }
   }
 
   render() {
@@ -190,6 +213,7 @@ class DashboardComponent {
                 net > 0 ? "positive" : net < 0 ? "negative" : "";
               const span = document.createElement("span");
               if (classType) span.className = classType;
+
               span.textContent = formatCurrency(Math.abs(net));
               return span;
             },
