@@ -17,6 +17,16 @@ class ModalComponent {
       link.id = "modal-styles";
       link.rel = "stylesheet";
       link.href = new URL("./modal.css", import.meta.url).href;
+
+      // Mark as loaded when done
+      link.onload = () => {
+        ModalComponent._stylesLoaded = true;
+      };
+      link.onerror = () => {
+        console.warn("Modal stylesheet failed to load");
+        ModalComponent._stylesLoaded = true;
+      };
+
       document.head.appendChild(link);
     }
   }
@@ -70,22 +80,42 @@ class ModalComponent {
   _ensureStylesLoaded() {
     if (ModalComponent._stylesLoaded) return Promise.resolve();
 
-    return new Promise((resolve) => {
-      let existing = document.getElementById("modal-styles");
+    const existing = document.getElementById("modal-styles");
 
+    // Optimization: Check if stylesheet is already parsed (has a sheet property)
+    // This handles cases where the load event fired before we started listening.
+    if (existing && existing.sheet) {
+      ModalComponent._stylesLoaded = true;
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
       if (!existing) {
         console.warn("Modal stylesheet element not found, re-injecting...");
         this._injectStyles();
-        existing = document.getElementById("modal-styles");
+        // _injectStyles appends to head, so we can grab it now
+        // But we need to wait for it to load, which logic below handles if we fetched it again
+        // However, _injectStyles adds it to DOM, let's just fall through to the logic below
+        // assuming _injectStyles works synchronously to add the element.
       }
 
-      if (existing) {
+      const linkEl = document.getElementById("modal-styles");
+
+      if (linkEl) {
+        // If it's already loaded by the time we get here (race condition), check sheet again
+        if (linkEl.sheet) {
+          ModalComponent._stylesLoaded = true;
+          resolve();
+          return;
+        }
+
         const timeout = setTimeout(() => {
           console.warn("Modal stylesheet load timed out");
           ModalComponent._stylesLoaded = true; // Set to true anyway to avoid repeated delays
           resolve();
         }, 2000); // 2s timeout fallback
-        existing.addEventListener(
+
+        linkEl.addEventListener(
           "load",
           () => {
             clearTimeout(timeout);
@@ -94,7 +124,7 @@ class ModalComponent {
           },
           { once: true }
         );
-        existing.addEventListener(
+        linkEl.addEventListener(
           "error",
           () => {
             clearTimeout(timeout);
