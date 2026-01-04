@@ -356,7 +356,10 @@ var Service_Split = {
         return preparation;
       }
 
-      // 4. Perform Revert (Clean up old split artifacts)
+      // 4. Capture existing split data for potential rollback
+      const existingSplitData = _getSplitGroupData(splitSheet, groupId);
+
+      // 5. Perform Revert (Clean up old split artifacts)
       // Now that preparation succeeded, we can safely remove the old data.
       const revertRes = _revertSplitCore(
         financeSheet,
@@ -366,7 +369,7 @@ var Service_Split = {
       );
       if (!revertRes.success) return revertRes;
 
-      // 5. Perform Process (Write New Split)
+      // 6. Perform Process (Write New Split)
       // Writing the prepared data.
       const writeRes = _writeSplitData(financeSheet, splitSheet, preparation);
 
@@ -377,6 +380,21 @@ var Service_Split = {
           splitGroupId: writeRes.splitGroupId,
         };
       } else {
+        // Attempt to restore the old split data if write fails
+        try {
+          _restoreSplitData(
+            financeSheet,
+            splitSheet,
+            existingSplitData,
+            groupId,
+            financeRowIndex
+          );
+        } catch (restoreError) {
+          console.error(
+            "Failed to restore split data after write failure",
+            restoreError
+          );
+        }
         return writeRes;
       }
     } catch (error) {
@@ -788,8 +806,17 @@ function _validateSplitRequest(original, splits) {
   }
 
   // Validate split amounts sum to original
+  const incomeVal =
+    original.Income != null && original.Income !== ""
+      ? parseFloat(original.Income)
+      : null;
+  const expenseVal =
+    original.Expense != null && original.Expense !== ""
+      ? parseFloat(original.Expense)
+      : null;
   const originalAmount =
-    parseFloat(original.Income || 0) || parseFloat(original.Expense || 0) || 0;
+    incomeVal !== null ? incomeVal : expenseVal !== null ? expenseVal : 0;
+
   const splitSum = splits.reduce(
     (sum, split) => sum + parseFloat(split.Amount || 0),
     0
@@ -1000,5 +1027,63 @@ function _writeSplitData(financeSheet, splitSheet, preparation) {
       success: false,
       message: "Error writing split data: " + error.message,
     };
+  }
+}
+
+/**
+ * Retrieves raw row data for a split group from the Split Sheet.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} splitSheet
+ * @param {string} groupId
+ * @returns {Array<Array>} Array of row values
+ */
+function _getSplitGroupData(splitSheet, groupId) {
+  const data = splitSheet.getDataRange().getValues();
+  if (data.length < 2) return [];
+
+  const headers = data[0];
+  const idIndex = headers.indexOf("Split Group ID");
+  if (idIndex === -1) return [];
+
+  const groupRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][idIndex] === groupId) {
+      groupRows.push(data[i]);
+    }
+  }
+  return groupRows;
+}
+
+/**
+ * Restores split data from captured row values.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} financeSheet
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} splitSheet
+ * @param {Array<Array>} existingSplitData
+ * @param {string} groupId
+ * @param {number} financeRowIndex
+ */
+function _restoreSplitData(
+  financeSheet,
+  splitSheet,
+  existingSplitData,
+  groupId,
+  financeRowIndex
+) {
+  if (existingSplitData && existingSplitData.length > 0) {
+    const lastRow = splitSheet.getLastRow();
+    splitSheet
+      .getRange(
+        lastRow + 1,
+        1,
+        existingSplitData.length,
+        existingSplitData[0].length
+      )
+      .setValues(existingSplitData);
+  }
+
+  if (financeRowIndex && financeRowIndex !== -1) {
+    const idIndex = CONFIG.HEADERS.indexOf("Split Group ID");
+    if (idIndex !== -1) {
+      financeSheet.getRange(financeRowIndex, idIndex + 1).setValue(groupId);
+    }
   }
 }
