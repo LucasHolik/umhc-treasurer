@@ -80,6 +80,9 @@ class TagsComponent {
   }
 
   destroy() {
+    if (this.tagsList && this.tagsList.destroy) {
+      this.tagsList.destroy();
+    }
     this.subscriptions.forEach((sub) => sub.unsubscribe());
     this.subscriptions = [];
   }

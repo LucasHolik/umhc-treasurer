@@ -80,6 +80,9 @@ class TransactionsComponent {
   }
 
   destroy() {
+    if (this.tagSelector) {
+      this.tagSelector.destroy();
+    }
     if (this.boundGlobalClickHandler) {
       document.removeEventListener("click", this.boundGlobalClickHandler);
     }
@@ -130,8 +133,7 @@ class TransactionsComponent {
 
       if (!rowId || !type) return;
 
-      const rect = target.getBoundingClientRect();
-      this.tagSelector.show(rect, type, "", (newVal) => {
+      this.tagSelector.show(target, type, "", (newVal) => {
         this.updatePendingChange(rowId, type, newVal);
       });
       return;
@@ -149,8 +151,7 @@ class TransactionsComponent {
       const tagTextEl = pill.querySelector(".tag-text");
       const currentVal = tagTextEl ? tagTextEl.textContent : "";
 
-      const rect = pill.getBoundingClientRect();
-      this.tagSelector.show(rect, type, currentVal, (newVal) => {
+      this.tagSelector.show(pill, type, currentVal, (newVal) => {
         this.updatePendingChange(rowId, type, newVal);
       });
     }
@@ -197,8 +198,7 @@ class TransactionsComponent {
           currentVal = tagTextEl ? tagTextEl.textContent : "";
         }
 
-        const rect = target.getBoundingClientRect();
-        this.tagSelector.show(rect, type, currentVal, (newVal) => {
+        this.tagSelector.show(target, type, currentVal, (newVal) => {
           this.updatePendingChange(rowId, type, newVal);
         });
       }

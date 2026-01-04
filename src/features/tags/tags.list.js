@@ -45,6 +45,12 @@ export default class TagsList {
     });
   }
 
+  destroy() {
+    if (this.tagSelector) {
+      this.tagSelector.destroy();
+    }
+  }
+
   render(
     isEditMode,
     localTags,
@@ -674,7 +680,7 @@ export default class TagsList {
       // Show selector
       const typeOptions = this.tagsData["Type"] || [];
       this.tagSelector.show(
-        target.getBoundingClientRect(),
+        target,
         "Type",
         "",
         (newType) => {
@@ -697,7 +703,7 @@ export default class TagsList {
       const currentVal = tagTextEl.textContent;
       const typeOptions = this.tagsData["Type"] || [];
       this.tagSelector.show(
-        pill.getBoundingClientRect(),
+        pill,
         "Type",
         currentVal,
         (newType) => {

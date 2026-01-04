@@ -13,8 +13,7 @@ export default class TagSelector {
     });
     document.body.appendChild(this.element);
 
-    // Global click to close
-    document.addEventListener("click", (e) => {
+    this.globalClickHandler = (e) => {
       if (
         this.isOpen &&
         !this.element.contains(e.target) &&
@@ -24,7 +23,16 @@ export default class TagSelector {
       ) {
         this.close();
       }
-    });
+    };
+
+    this.repositionHandler = () => {
+      if (this.isOpen) {
+        this.updatePosition();
+      }
+    };
+
+    // Global click to close
+    document.addEventListener("click", this.globalClickHandler);
 
     // Render structure once
     this.searchInput = el("input", {
@@ -55,8 +63,9 @@ export default class TagSelector {
     });
   }
 
-  show(rect, type, currentVal, onSelect, customOptions = null) {
+  show(targetElement, type, currentVal, onSelect, customOptions = null) {
     this.currentConfig = { type, onSelect, currentVal, customOptions };
+    this.targetElement = targetElement;
     this.searchTerm = "";
     this.searchInput.value = "";
 
@@ -65,7 +74,19 @@ export default class TagSelector {
     this.element.style.display = "block";
     this.isOpen = true;
 
-    // Position
+    this.updatePosition();
+
+    this.searchInput.focus();
+
+    // Attach listeners for scrolling/resizing
+    window.addEventListener("scroll", this.repositionHandler, true); // Capture phase to catch all scrolls
+    window.addEventListener("resize", this.repositionHandler);
+  }
+
+  updatePosition() {
+    if (!this.targetElement) return;
+
+    const rect = this.targetElement.getBoundingClientRect();
     const scrollX = window.scrollX || window.pageXOffset;
     const scrollY = window.scrollY || window.pageYOffset;
 
@@ -80,14 +101,24 @@ export default class TagSelector {
 
     this.element.style.top = `${top}px`;
     this.element.style.left = `${left}px`;
-
-    this.searchInput.focus();
   }
 
   close() {
     this.isOpen = false;
     this.element.style.display = "none";
     this.currentConfig = null;
+    this.targetElement = null;
+
+    window.removeEventListener("scroll", this.repositionHandler, true);
+    window.removeEventListener("resize", this.repositionHandler);
+  }
+
+  destroy() {
+    this.close();
+    document.removeEventListener("click", this.globalClickHandler);
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
   }
 
   renderList() {
