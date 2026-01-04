@@ -33,6 +33,7 @@
   opacity: 0;
   transition: opacity 0.2s;
   line-height: 1;
+  cursor: pointer;
 }
 
 .tag-pill .remove-btn:focus,
@@ -97,15 +98,36 @@
   }
 }
 
-.tag-selector-search {
-  width: 100%;
-  padding: 6px 8px;
+.tag-search-wrapper {
+  display: flex;
+  align-items: center;
   margin-bottom: 8px;
+  gap: 5px;
+}
+
+.tag-selector-search {
+  flex: 1;
+  padding: 6px 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 3px;
   background-color: rgba(0, 0, 0, 0.2);
   color: #fff;
   box-sizing: border-box;
+}
+
+.tag-selector-close {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 1.5em;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.2s;
+}
+
+.tag-selector-close:hover {
+  color: #ff6b6b;
 }
 
 .tag-selector-search:focus {

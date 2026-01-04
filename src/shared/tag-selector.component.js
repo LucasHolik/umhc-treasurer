@@ -35,6 +35,8 @@ export default class TagSelector {
     document.addEventListener("click", this.globalClickHandler);
 
     // Render structure once
+    const searchWrapper = el("div", { className: "tag-search-wrapper" });
+
     this.searchInput = el("input", {
       type: "text",
       name: "tag-selector-search",
@@ -47,9 +49,26 @@ export default class TagSelector {
       },
     });
 
+    const closeBtn = el(
+      "button",
+      {
+        className: "tag-selector-close",
+        type: "button",
+        "aria-label": "Close",
+        onclick: (e) => {
+          e.stopPropagation();
+          this.close();
+        },
+      },
+      "×"
+    );
+
+    searchWrapper.appendChild(this.searchInput);
+    searchWrapper.appendChild(closeBtn);
+
     this.listContainer = el("div", { className: "tag-selector-list" });
 
-    this.element.appendChild(this.searchInput);
+    this.element.appendChild(searchWrapper);
     this.element.appendChild(this.listContainer);
 
     // Prevent closing when clicking inside
