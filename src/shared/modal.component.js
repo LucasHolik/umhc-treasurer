@@ -148,6 +148,7 @@ class ModalComponent {
         "button",
         {
           className: "modal-close",
+          "aria-label": "Close",
         },
         "×"
       );

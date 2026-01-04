@@ -54,6 +54,16 @@
   color: #fff;
 }
 
+.modal-close:focus {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+  color: #fff;
+}
+
+.modal-close:focus:not(:focus-visible) {
+  outline: none;
+}
+
 .modal-body {
   margin-bottom: 20px;
   color: #ddd;
@@ -103,14 +113,32 @@
   color: white;
 }
 
+.modal-btn-cancel:focus {
+  outline: 2px solid #d9534f;
+  outline-offset: 2px;
+}
+
+.modal-btn-cancel:focus:not(:focus-visible) {
+  outline: none;
+}
+
 .modal-btn-confirm {
   background-color: #f0ad4e;
-  color: white;
+  color: #2a4d25;
   border-color: #f0ad4e;
 }
 
 .modal-btn-confirm:hover {
   background-color: #eea236;
+}
+
+.modal-btn-confirm:focus {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+}
+
+.modal-btn-confirm:focus:not(:focus-visible) {
+  outline: none;
 }
 
 @keyframes fadeIn {
