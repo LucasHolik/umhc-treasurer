@@ -4,6 +4,7 @@ import { el } from "../core/dom.js";
 
 class ModalComponent {
   static _idCounter = 0;
+  static _stylesLoaded = false;
 
   constructor() {
     this._injectStyles();
@@ -67,6 +68,8 @@ class ModalComponent {
   }
 
   _ensureStylesLoaded() {
+    if (ModalComponent._stylesLoaded) return Promise.resolve();
+
     return new Promise((resolve) => {
       let existing = document.getElementById("modal-styles");
 
@@ -76,20 +79,17 @@ class ModalComponent {
         existing = document.getElementById("modal-styles");
       }
 
-      if (existing && existing.sheet) {
-        resolve();
-        return;
-      }
-
       if (existing) {
         const timeout = setTimeout(() => {
           console.warn("Modal stylesheet load timed out");
+          ModalComponent._stylesLoaded = true; // Set to true anyway to avoid repeated delays
           resolve();
         }, 2000); // 2s timeout fallback
         existing.addEventListener(
           "load",
           () => {
             clearTimeout(timeout);
+            ModalComponent._stylesLoaded = true;
             resolve();
           },
           { once: true }
@@ -99,7 +99,8 @@ class ModalComponent {
           () => {
             clearTimeout(timeout);
             console.error("Failed to load modal stylesheet");
-            resolve(); // Resolve anyway to avoid hanging UI
+            ModalComponent._stylesLoaded = true; // Resolve anyway to avoid hanging UI
+            resolve();
           },
           { once: true }
         );
@@ -184,7 +185,7 @@ class ModalComponent {
 
       // Focus Management and Keyboard Accessibility
       const focusableElementsString =
-        'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex="0"], [contenteditable]';
+        'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex]:not([tabindex="-1"]), [contenteditable], audio[controls], video[controls]';
       let focusableElements = modalContent.querySelectorAll(
         focusableElementsString
       );
@@ -195,7 +196,7 @@ class ModalComponent {
       if (inputEl) {
         inputEl.focus();
         inputEl.select();
-        inputEl.addEventListener("keypress", (e) => {
+        inputEl.addEventListener("keydown", (e) => {
           if (e.key === "Enter") confirmBtn.click();
         });
       } else {
@@ -209,7 +210,12 @@ class ModalComponent {
       }
 
       const trapTabKey = (e) => {
-        if (e.key === "Tab" && focusableElements.length > 0) {
+        if (
+          e.key === "Tab" &&
+          focusableElements.length > 0 &&
+          firstTabStop &&
+          lastTabStop
+        ) {
           // SHIFT + TAB
           if (e.shiftKey) {
             if (document.activeElement === firstTabStop) {
@@ -229,10 +235,10 @@ class ModalComponent {
         }
       };
 
-      document.addEventListener("keydown", trapTabKey);
+      overlay.addEventListener("keydown", trapTabKey);
 
       const close = (result) => {
-        document.removeEventListener("keydown", trapTabKey);
+        overlay.removeEventListener("keydown", trapTabKey);
         overlay.style.opacity = "0"; // Fade out
         setTimeout(() => {
           if (document.body.contains(overlay)) {
