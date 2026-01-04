@@ -183,17 +183,6 @@
   }
 }
 
-/* Rope weaving diagonal line border effects */
-.rope-weave-border {
-  position: relative;
-}
-
-.rope-weave-border::after {
-  content: "";
-  position: absolute;
-  pointer-events: none;
-}
-
 /* Responsive design */
 @media (max-width: 768px) {
   .main-menu-container {

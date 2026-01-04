@@ -423,7 +423,7 @@ function _sortSheetByDate() {
 
   const sortedValues = dataWithDateObjects.map((item) => item.rowData);
 
-  range.clearContent();
+  // Write sorted values directly (overwrites existing data atomically)
   const newRange = financeSheet.getRange(
     2,
     1,
@@ -432,6 +432,19 @@ function _sortSheetByDate() {
   );
   newRange.setValues(sortedValues);
   newRange.offset(0, dateIndex, sortedValues.length, 1).setNumberFormat("@");
+
+  // Clear any remaining rows if the data shrunk (shouldn't happen in sort, but good for robustness)
+  const remainingRows = lastRow - 1 - sortedValues.length;
+  if (remainingRows > 0) {
+    financeSheet
+      .getRange(
+        2 + sortedValues.length,
+        1,
+        remainingRows,
+        CONFIG.HEADERS.length
+      )
+      .clearContent();
+  }
 }
 
 function _getConfigSheet() {

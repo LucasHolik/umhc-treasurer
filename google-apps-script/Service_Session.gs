@@ -20,7 +20,6 @@ var Service_Session = {
     // We store a JSON object to allow for extensibility (e.g. user roles later)
     const sessionData = {
       sessionKey: sessionKey,
-      apiKey: apiKey, // Storing apiKey if needed for any specific logic, though mostly we use sessionKey for signing.
     };
 
     cache.put(sessionId, JSON.stringify(sessionData), 3600);
@@ -34,7 +33,7 @@ var Service_Session = {
   /**
    * Retrieves session data.
    * @param {string} sessionId
-   * @returns {object|null} - { sessionKey, apiKey } or null if invalid/expired.
+   * @returns {object|null} - { sessionKey } or null if invalid/expired.
    */
   getSession: function (sessionId) {
     if (!sessionId) return null;
