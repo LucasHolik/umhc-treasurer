@@ -228,6 +228,7 @@ const request = (action, params = {}, options = {}) => {
 
 const ApiService = {
   login: (apiKey) => request("login", {}, { apiKey }),
+  ping: () => request("ping", {}, { skipLoading: true }),
   getAppData: () => request("getAppData"),
   getData: () => request("getData"),
   saveData: (data, options = {}) =>

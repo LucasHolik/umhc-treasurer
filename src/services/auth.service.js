@@ -10,7 +10,7 @@ import ApiService from "./api.service.js";
  * 1. User enters Passkey (API Key).
  * 2. Passkey is sent to server ONCE to exchange for a Session.
  * 3. Server returns { sessionId, sessionKey }.
- * 4. We store sessionId/sessionKey in private variables in ApiService (via closure).
+ * 4. We store sessionId/sessionKey in private variables in ApiService AND sessionStorage for persistence.
  * 5. We discard the Passkey.
  * 6. All subsequent requests are signed with sessionKey and include sessionId.
  */
@@ -18,11 +18,18 @@ const AuthService = {
   /**
    * Check if there is a session in local storage (via ApiService) and initialize the app state.
    */
-  init: function () {
+  init: async function () {
     // ApiService initializes its session from sessionStorage automatically on import/load.
     // We just need to check if it has a valid session.
     if (ApiService.hasSession()) {
-      store.setState("currentUser", { loggedIn: true });
+      try {
+        // Validate session with server
+        await ApiService.ping();
+        store.setState("currentUser", { loggedIn: true });
+      } catch (error) {
+        console.warn("Session validation failed:", error);
+        this.logout();
+      }
     }
   },
 
@@ -39,7 +46,7 @@ const AuthService = {
       const response = await ApiService.login(apiKey);
 
       if (response.success && response.sessionId && response.sessionKey) {
-        // 2. Set Session Credentials in ApiService (private memory)
+        // 2. Set Session Credentials in ApiService (memory + sessionStorage)
         ApiService.setSession(response.sessionId, response.sessionKey);
 
         // 3. Update State (Auth status only, no credentials in store)

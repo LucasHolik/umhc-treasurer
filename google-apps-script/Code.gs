@@ -19,6 +19,9 @@ function doGet(e) {
       case "login":
         response = Service_Auth.login();
         break;
+      case "ping":
+        response = { success: true };
+        break;
       case "saveData":
         if (!e?.parameter?.data) {
           response = {
