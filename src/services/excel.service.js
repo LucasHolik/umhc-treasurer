@@ -34,9 +34,18 @@ function normalizeDateString(dateValue) {
 
         // Validate the date is valid (e.g., prevent 31/02/2024)
         const dateObj = new Date(normalized);
+
+        // Check if the components match after parsing to detect rollovers
+        const parsedDay = dateObj.getUTCDate();
+        const parsedMonth = dateObj.getUTCMonth() + 1;
+        const parsedYear = dateObj.getUTCFullYear();
+
         if (
           dateObj.toString() === "Invalid Date" ||
-          dateObj.toISOString().split("T")[0] !== normalized
+          dateObj.toISOString().split("T")[0] !== normalized ||
+          parsedDay !== parseInt(day, 10) ||
+          parsedMonth !== parseInt(month, 10) ||
+          parsedYear !== parseInt(year, 10)
         ) {
           return dateString; // Return original if invalid
         }
@@ -83,7 +92,7 @@ function parseExcelNumber(val) {
   // Remove currency symbols and commas, then parse
   const cleaned = String(val).replace(/[$,]/g, "");
   const parsed = parseFloat(cleaned);
-  return isNaN(parsed) ? 0 : parsed;
+  return isNaN(parsed) ? null : parsed;
 }
 
 function parseAndCleanData(rows) {
