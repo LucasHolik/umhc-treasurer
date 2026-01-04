@@ -104,6 +104,11 @@
   transform: translateY(-1px);
 }
 
+.quick-report-btn:focus {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+}
+
 /* Customization Section */
 .control-grid {
   display: grid;
@@ -237,6 +242,11 @@
   border-color: #f0ad4e;
 }
 
+.btn-action:focus {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+}
+
 /* Chart */
 .chart-container {
   background-color: rgba(255, 255, 255, 0.05);
@@ -248,8 +258,8 @@
 }
 
 canvas {
-  width: 100% !important;
-  height: 100% !important;
+  width: 100%;
+  height: auto;
   max-height: 600px;
 }
 
