@@ -343,10 +343,11 @@ class UploadComponent {
   }
 
   displayUploadStatus(message, type) {
-    replace(
-      this.uploadStatus,
-      el("div", { className: `status-message ${type}` }, message)
-    );
+    const props = { className: `status-message ${type}` };
+    if (type === "error") {
+      props.role = "alert";
+    }
+    replace(this.uploadStatus, el("div", props, message));
   }
 
   // Moved from data.js

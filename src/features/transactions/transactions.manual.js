@@ -10,8 +10,7 @@ export default class TransactionsManualModal {
   open() {
     // Close any existing modal first
     if (this.overlay) {
-      this.overlay.remove();
-      this.overlay = null;
+      this.close(null);
     }
 
     return new Promise((resolve) => {

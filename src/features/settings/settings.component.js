@@ -78,6 +78,7 @@ class SettingsComponent {
       const errorSection = el(
         "div",
         {
+          role: "alert",
           style: {
             padding: "20px",
             backgroundColor: "rgba(217, 83, 79, 0.1)",
@@ -427,22 +428,19 @@ class SettingsComponent {
   displayStatus(message, type) {
     if (this.status) {
       const color = type === "error" ? "#d9534f" : "#5cb85c";
-      replace(
-        this.status,
-        el(
-          "div",
-          {
-            style: {
-              color: color,
-              padding: "10px",
-              background: "rgba(0,0,0,0.2)",
-              borderRadius: "4px",
-              display: "inline-block",
-            },
-          },
-          message
-        )
-      );
+      const props = {
+        style: {
+          color: color,
+          padding: "10px",
+          background: "rgba(0,0,0,0.2)",
+          borderRadius: "4px",
+          display: "inline-block",
+        },
+      };
+      if (type === "error") {
+        props.role = "alert";
+      }
+      replace(this.status, el("div", props, message));
     }
   }
 }

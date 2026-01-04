@@ -1214,12 +1214,23 @@ class TransactionsComponent {
         await ApiService.updateExpenses(chunk, { skipLoading: true });
       }
 
-      store.setState("taggingProgress", "Saved successfully!");
-
       const timeoutId = setTimeout(() => {
         document.dispatchEvent(new CustomEvent("dataUploaded"));
       }, 1000);
       this.activeTimeouts.push(timeoutId);
+
+      // Safety timeout in case dataUploaded doesn't clear isTagging
+      const safetyTimeoutId = setTimeout(() => {
+        if (
+          store.getState("isTagging") &&
+          store.getState("taggingSource") === "transactions"
+        ) {
+          console.warn("Force clearing isTagging flag");
+          store.setState("isTagging", false);
+          store.setState("taggingSource", null);
+        }
+      }, 10000);
+      this.activeTimeouts.push(safetyTimeoutId);
     } catch (error) {
       console.error("Save changes failed:", error);
       store.setState("taggingProgress", `Error: ${error.message}`);
@@ -1308,6 +1319,19 @@ class TransactionsComponent {
         document.dispatchEvent(new CustomEvent("dataUploaded"));
       }, 1000);
       this.activeTimeouts.push(timeoutId);
+
+      // Safety timeout in case dataUploaded doesn't clear isTagging
+      const safetyTimeoutId = setTimeout(() => {
+        if (
+          store.getState("isTagging") &&
+          store.getState("taggingSource") === "transactions"
+        ) {
+          console.warn("Force clearing isTagging flag");
+          store.setState("isTagging", false);
+          store.setState("taggingSource", null);
+        }
+      }, 10000);
+      this.activeTimeouts.push(safetyTimeoutId);
     } catch (error) {
       console.error("Bulk tagging failed:", error);
       store.setState("taggingProgress", `Error: ${error.message}`);

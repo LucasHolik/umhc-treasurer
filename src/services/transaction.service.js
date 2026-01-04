@@ -40,7 +40,9 @@ const TransactionService = {
       const gid = row["Split Group ID"];
 
       // If this row is part of a split group
-      if (gid && sourceGroupIds.has(gid)) {
+      // Safe guard: check if row is explicitly a CHILD. If so, treat as normal transaction.
+      // (Note: rawExpenses typically lacks "Split Type", so undefined !== "CHILD" works for Source rows)
+      if (gid && sourceGroupIds.has(gid) && row["Split Type"] !== "CHILD") {
         // If we haven't processed this group yet
         if (!processedGroupIds.has(gid)) {
           // If we have children for this group, add them

@@ -55,8 +55,8 @@ export const sortData = (data, field, ascending) => {
       const isPosA = numA > 0;
       const isPosB = numB > 0;
 
-      if (isPosA && !isPosB) return -1;
-      if (!isPosA && isPosB) return 1;
+      if (isPosA && !isPosB) return ascending ? -1 : 1;
+      if (!isPosA && isPosB) return ascending ? 1 : -1;
 
       if (isPosA && isPosB) {
         valA = numA;

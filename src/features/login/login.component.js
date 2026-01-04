@@ -212,7 +212,7 @@ class LoginComponent {
       if (error) {
         replace(
           this.loginStatus,
-          el("div", { className: "status-message error" }, error)
+          el("div", { className: "status-message error", role: "alert" }, error)
         );
       } else {
         // Only clear if we are NOT loading

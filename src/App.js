@@ -364,7 +364,7 @@ class App {
     if (error) {
       const banner = el(
         "div",
-        { className: "error-banner" },
+        { className: "error-banner", role: "alert" },
         el("span", { className: "error-banner-message" }, error),
         el(
           "button",

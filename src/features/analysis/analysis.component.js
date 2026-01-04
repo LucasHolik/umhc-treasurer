@@ -488,14 +488,18 @@ class AnalysisComponent {
       { title: "Transactions", value: stats.transactionCount, class: "" },
     ];
 
-    const cardElements = cards.map((card) =>
-      el(
+    const cardElements = cards.map((card) => {
+      const props = { className: "summary-card", title: card.tooltip || "" };
+      if (card.title === "Effective Balance" && hasBalanceError) {
+        props.role = "alert";
+      }
+      return el(
         "div",
-        { className: "summary-card", title: card.tooltip || "" },
+        props,
         el("h3", {}, card.title),
         el("p", { className: card.class }, card.value)
-      )
-    );
+      );
+    });
 
     replace(container, ...cardElements);
   }

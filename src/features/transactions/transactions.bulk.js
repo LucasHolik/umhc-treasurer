@@ -112,9 +112,9 @@ export default class TransactionsBulk {
       if (catSearch) catSearch.value = "";
     }
 
-    if (!this.bulkToolbar || !this.mainControls) return;
-
     this.updateSelectionCount(selectedCount);
+
+    if (!this.bulkToolbar || !this.mainControls) return;
 
     if (active) {
       this.bulkToolbar.style.display = "block";
