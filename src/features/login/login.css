@@ -29,12 +29,6 @@
   display: flex;
   align-items: center;
   width: 100%;
-  margin-bottom: 0; /* Removed bottom margin as action area handles spacing now, or we keep it consistent */
-}
-
-/* We'll keep margin-bottom on input-group or add it to action-area? 
-   Let's keep input-group margin for spacing between input and actions */
-.input-group {
   margin-bottom: 15px;
 }
 
