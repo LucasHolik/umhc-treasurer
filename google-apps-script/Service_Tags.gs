@@ -10,6 +10,16 @@ var Service_Tags = {
         message: "Invalid parameters: type and value are required",
       };
     }
+    if (
+      extraData !== undefined &&
+      extraData !== null &&
+      typeof extraData !== "string"
+    ) {
+      return {
+        success: false,
+        message: "Invalid extraData: must be a string or null/undefined",
+      };
+    }
     return _addTag(type, value, false, extraData);
   },
 
@@ -180,15 +190,15 @@ function _addTag(type, value, skipSort, extraData) {
     }
   }
 
-  const columnValues = tagSheet
-    .getRange(1, column, Math.max(lastRow, 1), 1)
-    .getValues();
-  let nextEmptyRow = columnValues.length + 1;
+  // Start from row 2 (skip header)
+  const columnValues =
+    lastRow > 1 ? tagSheet.getRange(2, column, lastRow - 1, 1).getValues() : [];
+  let nextEmptyRow = lastRow + 1;
 
   // Find first empty cell in column
-  for (let i = 1; i <= columnValues.length; i++) {
-    if (!columnValues[i - 1][0]) {
-      nextEmptyRow = i;
+  for (let i = 0; i < columnValues.length; i++) {
+    if (!columnValues[i][0]) {
+      nextEmptyRow = i + 2; // +2 because we start from row 2
       break;
     }
   }
