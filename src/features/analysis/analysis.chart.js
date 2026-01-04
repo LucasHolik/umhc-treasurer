@@ -10,7 +10,10 @@ export default class AnalysisChart {
   }
 
   loadLib() {
-    if (this.libLoaded || window.Chart) {
+    if (
+      this.libLoaded ||
+      (window.Chart && typeof window.Chart === "function")
+    ) {
       this.libLoaded = true;
       return;
     }
@@ -31,14 +34,23 @@ export default class AnalysisChart {
     const handleError = () => {
       console.error("Failed to load Chart.js");
       this.pendingRender = null;
+      if (script) {
+        script.dataset.loadFailed = "true";
+      }
     };
 
     if (script) {
+      // Check if script previously failed
+      if (script.dataset.loadFailed === "true") {
+        handleError();
+        return;
+      }
+
       script.addEventListener("load", handleLoad);
       script.addEventListener("error", handleError);
 
       // Race condition fix: Check if it finished loading while we were attaching listeners
-      if (window.Chart) {
+      if (typeof window.Chart === "function") {
         script.removeEventListener("load", handleLoad);
         script.removeEventListener("error", handleError);
         handleLoad();
