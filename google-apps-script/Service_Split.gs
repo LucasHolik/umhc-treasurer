@@ -1,4 +1,4 @@
-var Service_Split = {
+const Service_Split = {
   SPLIT_SHEET_NAME: "Split Transactions",
 
   /**

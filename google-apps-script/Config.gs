@@ -1,6 +1,6 @@
 // google-apps-script/Config.gs
 
-var CONFIG = {
+const CONFIG = {
   SHEET_NAME: "Finances",
   CONFIG_SHEET: "Config",
   API_KEY_CELL: "A2",

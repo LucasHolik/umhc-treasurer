@@ -1,4 +1,4 @@
-var Service_Auth = {
+const Service_Auth = {
   getApiKey: function () {
     try {
       const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(

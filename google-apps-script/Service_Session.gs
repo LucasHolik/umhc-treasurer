@@ -1,4 +1,4 @@
-var Service_Session = {
+const Service_Session = {
   /**
    * Creates a new session for a validated user.
    * @param {string} apiKey - The permanent API key (used only to generate the session).
