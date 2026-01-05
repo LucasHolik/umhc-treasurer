@@ -5,6 +5,10 @@ function doGet(e) {
     const timestamp = e?.parameter?.timestamp;
     const signature = e?.parameter?.signature;
 
+    // Verify all requests, including 'login'.
+    // For 'login', the client signs with the user-provided API Key.
+    // The server verifies this signature against its stored API Key.
+    // This proves the user has the key without sending it, solving the auth bootstrap problem securely.
     if (
       !Service_Auth.verifyRequest(action, timestamp, signature, e?.parameter)
     ) {
@@ -29,7 +33,15 @@ function doGet(e) {
             message: "Missing required parameter: data",
           };
         } else {
-          response = Service_Sheet.saveData(e);
+          const validation = validateJsonParameter(e.parameter.data, "array");
+          if (!validation.valid) {
+            response = {
+              success: false,
+              message: "Invalid data parameter: " + validation.message,
+            };
+          } else {
+            response = Service_Sheet.saveData(e);
+          }
         }
         break;
       case "getData":
@@ -59,7 +71,15 @@ function doGet(e) {
             message: "Missing required parameter: data",
           };
         } else {
-          response = Service_Sheet.updateExpenses(e);
+          const validation = validateJsonParameter(e.parameter.data, "array");
+          if (!validation.valid) {
+            response = {
+              success: false,
+              message: "Invalid data parameter: " + validation.message,
+            };
+          } else {
+            response = Service_Sheet.updateExpenses(e);
+          }
         }
         break;
       case "deleteTag":
@@ -93,7 +113,18 @@ function doGet(e) {
             message: "Missing required parameter: operations",
           };
         } else {
-          response = Service_Tags.processTagOperations(e);
+          const validation = validateJsonParameter(
+            e.parameter.operations,
+            "array"
+          );
+          if (!validation.valid) {
+            response = {
+              success: false,
+              message: "Invalid operations parameter: " + validation.message,
+            };
+          } else {
+            response = Service_Tags.processTagOperations(e);
+          }
         }
         break;
       case "getOpeningBalance":
@@ -116,7 +147,15 @@ function doGet(e) {
             message: "Missing required parameter: data",
           };
         } else {
-          response = Service_Split.processSplit(e);
+          const validation = validateJsonParameter(e.parameter.data, "object");
+          if (!validation.valid) {
+            response = {
+              success: false,
+              message: "Invalid data parameter: " + validation.message,
+            };
+          } else {
+            response = Service_Split.processSplit(e);
+          }
         }
         break;
       case "revertSplit":
@@ -136,7 +175,15 @@ function doGet(e) {
             message: "Missing required parameters: groupId, data",
           };
         } else {
-          response = Service_Split.editSplit(e);
+          const validation = validateJsonParameter(e.parameter.data, "object");
+          if (!validation.valid) {
+            response = {
+              success: false,
+              message: "Invalid data parameter: " + validation.message,
+            };
+          } else {
+            response = Service_Split.editSplit(e);
+          }
         }
         break;
       case "getSplitGroup":
@@ -242,8 +289,7 @@ function getAppData() {
 function createJsonResponse(data, callback) {
   // Validate callback to prevent XSS - only allow safe JavaScript identifiers
   let safeCallback = callback || "callback";
-  const callbackRegex =
-    /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/;
+  const callbackRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
 
   if (!callbackRegex.test(safeCallback)) {
     // Log the attempt and use default callback
@@ -255,4 +301,23 @@ function createJsonResponse(data, callback) {
   return ContentService.createTextOutput(jsonp).setMimeType(
     ContentService.MimeType.JAVASCRIPT
   );
+}
+
+function validateJsonParameter(jsonString, expectedType) {
+  try {
+    if (!jsonString) return { valid: false, message: "Missing content" };
+    const parsed = JSON.parse(jsonString);
+    if (expectedType === "array" && !Array.isArray(parsed)) {
+      return { valid: false, message: "Expected array" };
+    }
+    if (
+      expectedType === "object" &&
+      (Array.isArray(parsed) || typeof parsed !== "object" || parsed === null)
+    ) {
+      return { valid: false, message: "Expected object" };
+    }
+    return { valid: true };
+  } catch (e) {
+    return { valid: false, message: "Invalid JSON format" };
+  }
 }
