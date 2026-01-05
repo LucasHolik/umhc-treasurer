@@ -57,7 +57,8 @@ const AuthService = {
         throw new Error(response.message || "Login failed.");
       }
     } catch (error) {
-      this.logout(); // Clear any partial state
+      // Only clear session if the login attempt actually created partial state
+      // Don't clear pre-existing valid sessions
       store.setState("error", error.message);
       return false;
     }
