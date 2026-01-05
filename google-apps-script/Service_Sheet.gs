@@ -20,19 +20,45 @@ var Service_Sheet = {
 
       const financeSheet = _getFinanceSheet();
 
+      // Validate required columns exist
+      const requiredColumns = [
+        "Document",
+        "Time-uploaded",
+        "Date",
+        "Description",
+        "Trip/Event",
+        "Category",
+        "Income",
+        "Expense",
+        "Type",
+        "Split Group ID",
+      ];
+      const missingColumns = requiredColumns.filter(
+        (col) => !CONFIG.HEADERS.includes(col)
+      );
+      if (missingColumns.length > 0) {
+        return {
+          success: false,
+          message: "Missing required columns: " + missingColumns.join(", "),
+        };
+      }
+
       const startRow = financeSheet.getLastRow() + 1;
-      const recordsToAdd = data.map((row) => [
-        row.document || "",
-        new Date(),
-        row.date || "",
-        row.description || "",
-        "",
-        "",
-        row.cashIn || "",
-        row.cashOut || "",
-        row.isManual ? "Manual" : row.isUploaded ? "Uploaded" : "",
-        "", // Split Group ID
-      ]);
+      const recordsToAdd = data.map((row) => {
+        const record = new Array(CONFIG.HEADERS.length).fill("");
+        record[CONFIG.HEADERS.indexOf("Document")] = row.document || "";
+        record[CONFIG.HEADERS.indexOf("Time-uploaded")] = new Date();
+        record[CONFIG.HEADERS.indexOf("Date")] = row.date || "";
+        record[CONFIG.HEADERS.indexOf("Description")] = row.description || "";
+        record[CONFIG.HEADERS.indexOf("Income")] = row.cashIn || "";
+        record[CONFIG.HEADERS.indexOf("Expense")] = row.cashOut || "";
+        record[CONFIG.HEADERS.indexOf("Type")] = row.isManual
+          ? "Manual"
+          : row.isUploaded
+          ? "Uploaded"
+          : "";
+        return record;
+      });
 
       if (recordsToAdd.length > 0) {
         // Format date column
@@ -96,23 +122,12 @@ var Service_Sheet = {
           obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
         } else if (typeof obj["Date"] === "string" && obj["Date"]) {
           // Date is already a string.
-          if (/^\d{4}-\d{2}-\d{2}$/.test(obj["Date"])) {
-            // If it matches YYYY-MM-DD, we leave it alone to preserve exact value (avoiding timezone shifts).
-          } else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(obj["Date"])) {
-            // If it matches DD-MM-YYYY (or D-M-YYYY), parse it safely as UTC.
-            const parts = obj["Date"].split("-");
-            // Parse as UTC: parts[0] is Day, parts[1] is Month, parts[2] is Year
-            const dateObj = new Date(
-              Date.UTC(parts[2], parts[1] - 1, parts[0])
-            );
-            obj["Date"] = Utilities.formatDate(dateObj, "UTC", "yyyy-MM-dd");
-          } else {
-            console.warn(
-              "Non-standard date format found:",
-              obj["Date"],
-              "at row",
-              obj.row
-            );
+          const result = _parseAndNormalizeDateString(
+            obj["Date"],
+            "row " + obj.row
+          );
+          if (result.normalized) {
+            obj["Date"] = result.normalized;
           }
         }
         return obj;
@@ -391,23 +406,11 @@ function _sortSheetByDate() {
 
     let dateObject;
     if (typeof dateVal === "string" && dateVal) {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
-        const parts = dateVal.split("-");
-        dateObject = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
-      } else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateVal)) {
-        const parts = dateVal.split("-");
-        // Normalize to YYYY-MM-DD for consistency
-        dateObject = new Date(Date.UTC(parts[2], parts[1] - 1, parts[0]));
-        const normalizedDate = Utilities.formatDate(
-          dateObject,
-          "UTC",
-          "yyyy-MM-dd"
-        );
-        row[dateIndex] = normalizedDate; // Update row data so it's saved back as a normalized string
-        dateVal = normalizedDate;
-      } else {
-        console.warn("Invalid date format:", dateVal);
-        dateObject = new Date(0);
+      const result = _parseAndNormalizeDateString(dateVal, "sort");
+      dateObject = result.dateObject;
+      if (result.normalized) {
+        row[dateIndex] = result.normalized;
+        dateVal = result.normalized;
       }
     } else {
       console.warn("Invalid date value:", dateVal);
@@ -466,4 +469,31 @@ function _getConfigSheet() {
     .setValue(CONFIG.OPENING_BALANCE_TITLE);
 
   return configSheet;
+}
+
+function _parseAndNormalizeDateString(dateStr, rowIdentifier) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const parts = dateStr.split("-");
+    return {
+      dateObject: new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])),
+      normalized: dateStr,
+    };
+  } else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateStr)) {
+    const parts = dateStr.split("-");
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+
+    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900) {
+      console.warn("Invalid date components:", dateStr, "at", rowIdentifier);
+      return { dateObject: new Date(0), normalized: "" };
+    }
+
+    const dateObject = new Date(Date.UTC(year, month - 1, day));
+    const normalized = Utilities.formatDate(dateObject, "UTC", "yyyy-MM-dd");
+    return { dateObject, normalized };
+  } else {
+    console.warn("Invalid date format:", dateStr, "at", rowIdentifier);
+    return { dateObject: new Date(0), normalized: "" };
+  }
 }
