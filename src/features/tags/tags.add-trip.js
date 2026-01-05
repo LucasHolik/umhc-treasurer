@@ -1,5 +1,6 @@
 import store from "../../core/state.js";
 import SortableTable from "../../shared/sortable-table.component.js";
+import ModalComponent from "../../shared/modal.component.js";
 import { el, replace } from "../../core/dom.js";
 
 export default class TagsAddTrip {
@@ -40,7 +41,7 @@ export default class TagsAddTrip {
   }
 
   loadData() {
-    const tagsData = store.getState("tags");
+    const tagsData = store.getState("tags") || {};
     this.allTrips = tagsData["Trip/Event"] || [];
     this.tripTypeMap = tagsData["TripTypeMap"] || {};
     this.allTypes = tagsData["Type"] || [];
@@ -262,11 +263,8 @@ export default class TagsAddTrip {
       children.push(selectAllDiv);
     }
 
-    visibleTypes.forEach((type) => {
-      const uid = `filter-type-${btoa(encodeURIComponent(type)).replace(
-        /[^a-zA-Z0-9]/g,
-        ""
-      )}`;
+    visibleTypes.forEach((type, index) => {
+      const uid = `filter-type-${index}`;
       const isChecked = this.typeFilterSet.has(type);
 
       const checkbox = el("input", { type: "checkbox", id: uid, value: type });
@@ -356,7 +354,7 @@ export default class TagsAddTrip {
   handleSave() {
     const selected = Array.from(this.selectedTrips);
     if (selected.length === 0) {
-      alert("No trips selected.");
+      new ModalComponent().alert("No trips selected.");
       return;
     }
 
