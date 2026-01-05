@@ -22,6 +22,7 @@ export default class SortableTable {
    * @param {Function} config.onRowClick - (row, event) => void
    * @param {boolean} config.enableSelection - Default false
    * @param {Function} config.onSelectionChange - (selectedIds) => void
+   * @param {string} config.rowIdField - Property name for row ID (default: 'id')
    * @param {string} config.initialSortField
    * @param {boolean} config.initialSortAsc
    */
@@ -281,7 +282,7 @@ export default class SortableTable {
 
   parseNumber(val) {
     if (typeof val === "number") return val;
-    if (val === null || val === undefined || val === "") return -Infinity;
+    if (val === null || val === undefined || val === "") return Infinity;
     return parseFloat(val.toString().replace(/,/g, "")) || 0;
   }
 
