@@ -1,4 +1,4 @@
-import { formatCurrency, parseDate, escapeHtml } from "../../core/utils.js";
+import { formatCurrency, parseDate, parseAmount } from "../../core/utils.js";
 import ApiService from "../../services/api.service.js";
 import store from "../../core/state.js";
 import SplitTransactionModal from "./split-transaction.modal.js";
@@ -45,19 +45,9 @@ export default class TransactionsSplitHistory {
   }
 
   parseTransactionAmount(row) {
-    let amount = 0;
-    if (row.Income) {
-      amount = parseFloat(String(row.Income).replace(/,/g, ""));
-    } else if (row.Expense) {
-      amount = -parseFloat(String(row.Expense).replace(/,/g, ""));
-    }
-
-    if (isNaN(amount)) {
-      console.warn("Invalid amount parsed for row:", row);
-      amount = 0;
-    }
-
-    return amount;
+    const income = parseAmount(row.Income);
+    const expense = parseAmount(row.Expense);
+    return income - expense;
   }
 
   groupData(data) {
@@ -106,7 +96,7 @@ export default class TransactionsSplitHistory {
           el(
             "td",
             {
-              colspan: "6",
+              colSpan: "6",
               style: { textAlign: "center", padding: "20px", color: "#aaa" },
             },
             "No split history found."
@@ -210,7 +200,7 @@ export default class TransactionsSplitHistory {
           el(
             "td",
             { style: { fontFamily: "monospace", color: "#888" } },
-            groupId.substring(0, 8) + "..."
+            groupId.length > 8 ? groupId.substring(0, 8) + "..." : groupId
           )
         );
 
@@ -219,7 +209,7 @@ export default class TransactionsSplitHistory {
           { className: "split-group-details", id: `details-${groupId}` },
           el(
             "td",
-            { colspan: "5", style: { padding: "0" } },
+            { colSpan: "5", style: { padding: "0" } },
             el(
               "div",
               { style: { padding: "10px", background: "rgba(0,0,0,0.2)" } },

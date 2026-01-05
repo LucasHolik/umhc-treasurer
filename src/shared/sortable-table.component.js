@@ -133,7 +133,7 @@ export default class SortableTable {
           el(
             "td",
             {
-              colspan,
+              colSpan: colspan,
               style: { textAlign: "center", color: "#aaa" },
             },
             "No data available"

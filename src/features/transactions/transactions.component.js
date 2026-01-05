@@ -12,7 +12,7 @@ import TransactionsSplitHistory from "./transactions.split-history.js";
 import * as TransactionsLogic from "./transactions.logic.js";
 import TagSelector from "../../shared/tag-selector.component.js";
 import { el, replace } from "../../core/dom.js";
-import { formatCurrency, escapeHtml } from "../../core/utils.js";
+import { formatCurrency } from "../../core/utils.js";
 
 class TransactionsComponent {
   constructor(element) {
@@ -64,6 +64,11 @@ class TransactionsComponent {
         this.handleSplitsChange(splits)
       )
     );
+    this.subscriptions.push(
+      store.subscribe("isLoading", (isLoading) =>
+        this.handleLoadingChange(isLoading)
+      )
+    );
 
     // Global click listener to close dropdowns
     this.boundGlobalClickHandler = (e) => {
@@ -96,6 +101,21 @@ class TransactionsComponent {
     if (this.activeTimeouts) {
       this.activeTimeouts.forEach((id) => clearTimeout(id));
       this.activeTimeouts = [];
+    }
+  }
+
+  handleLoadingChange(isLoading) {
+    if (!isLoading) {
+      if (store.getState("savingSplitTransaction")) {
+        store.setState("savingSplitTransaction", false);
+      }
+      if (
+        store.getState("isTagging") &&
+        store.getState("taggingSource") === "transactions"
+      ) {
+        store.setState("isTagging", false);
+        store.setState("taggingSource", null);
+      }
     }
   }
 
@@ -818,14 +838,6 @@ class TransactionsComponent {
         console.error("Split failed:", error);
         alert("Failed to split transaction: " + error.message);
         store.setState("savingSplitTransaction", false);
-      } finally {
-        const timeoutId = setTimeout(() => {
-          if (store.getState("savingSplitTransaction")) {
-            console.warn("Force clearing savingSplitTransaction flag");
-            store.setState("savingSplitTransaction", false);
-          }
-        }, 5000);
-        this.activeTimeouts.push(timeoutId);
       }
     }
   }
@@ -892,14 +904,6 @@ class TransactionsComponent {
           console.error("Failed to update split:", error);
           alert("Failed to update split: " + error.message);
           store.setState("savingSplitTransaction", false);
-        } finally {
-          const timeoutId = setTimeout(() => {
-            if (store.getState("savingSplitTransaction")) {
-              console.warn("Force clearing savingSplitTransaction flag");
-              store.setState("savingSplitTransaction", false);
-            }
-          }, 5000);
-          this.activeTimeouts.push(timeoutId);
         }
       } else if (editPayload && editPayload.action === "revert") {
         if (store.getState("savingSplitTransaction")) return;
@@ -913,14 +917,6 @@ class TransactionsComponent {
           console.error("Failed to revert split:", error);
           alert("Failed to revert split: " + error.message);
           store.setState("savingSplitTransaction", false);
-        } finally {
-          const timeoutId = setTimeout(() => {
-            if (store.getState("savingSplitTransaction")) {
-              console.warn("Force clearing savingSplitTransaction flag");
-              store.setState("savingSplitTransaction", false);
-            }
-          }, 5000);
-          this.activeTimeouts.push(timeoutId);
         }
       }
     } catch (error) {
@@ -1214,23 +1210,7 @@ class TransactionsComponent {
         await ApiService.updateExpenses(chunk, { skipLoading: true });
       }
 
-      const timeoutId = setTimeout(() => {
-        document.dispatchEvent(new CustomEvent("dataUploaded"));
-      }, 1000);
-      this.activeTimeouts.push(timeoutId);
-
-      // Safety timeout in case dataUploaded doesn't clear isTagging
-      const safetyTimeoutId = setTimeout(() => {
-        if (
-          store.getState("isTagging") &&
-          store.getState("taggingSource") === "transactions"
-        ) {
-          console.warn("Force clearing isTagging flag");
-          store.setState("isTagging", false);
-          store.setState("taggingSource", null);
-        }
-      }, 10000);
-      this.activeTimeouts.push(safetyTimeoutId);
+      document.dispatchEvent(new CustomEvent("dataUploaded"));
     } catch (error) {
       console.error("Save changes failed:", error);
       store.setState("taggingProgress", `Error: ${error.message}`);
@@ -1315,23 +1295,7 @@ class TransactionsComponent {
       this.toggleSelectionMode(false);
       store.setState("taggingProgress", "Completed!");
 
-      const timeoutId = setTimeout(() => {
-        document.dispatchEvent(new CustomEvent("dataUploaded"));
-      }, 1000);
-      this.activeTimeouts.push(timeoutId);
-
-      // Safety timeout in case dataUploaded doesn't clear isTagging
-      const safetyTimeoutId = setTimeout(() => {
-        if (
-          store.getState("isTagging") &&
-          store.getState("taggingSource") === "transactions"
-        ) {
-          console.warn("Force clearing isTagging flag");
-          store.setState("isTagging", false);
-          store.setState("taggingSource", null);
-        }
-      }, 10000);
-      this.activeTimeouts.push(safetyTimeoutId);
+      document.dispatchEvent(new CustomEvent("dataUploaded"));
     } catch (error) {
       console.error("Bulk tagging failed:", error);
       store.setState("taggingProgress", `Error: ${error.message}`);
