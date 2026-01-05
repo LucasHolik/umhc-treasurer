@@ -1,10 +1,15 @@
+import { deepEqual, deepClone } from "./utils.js";
+
 // src/core/state.js
 
 /**
  * A simple Pub/Sub implementation for state management.
  */
 const createStore = (initialState = {}) => {
-  let state = initialState;
+  let state =
+    initialState && typeof initialState === "object"
+      ? deepClone(initialState)
+      : initialState;
   const subscribers = {};
 
   /**
@@ -39,9 +44,7 @@ const createStore = (initialState = {}) => {
       const value = state[key];
       // Pass a deep copy to subscribers to prevent them from mutating internal state
       const valueToPass =
-        value && typeof value === "object"
-          ? JSON.parse(JSON.stringify(value))
-          : value;
+        value && typeof value === "object" ? deepClone(value) : value;
 
       subscribers[key].forEach((callback) => {
         try {
@@ -64,16 +67,10 @@ const createStore = (initialState = {}) => {
   const setState = (key, value) => {
     // Deep clone the incoming value to ensure internal state is not linked to external objects
     const newValue =
-      value && typeof value === "object"
-        ? JSON.parse(JSON.stringify(value))
-        : value;
+      value && typeof value === "object" ? deepClone(value) : value;
 
-    // Simple equality check for primitives, and stringified check for objects
-    if (typeof newValue === "object") {
-      if (JSON.stringify(state[key]) === JSON.stringify(newValue)) return;
-    } else {
-      if (state[key] === newValue) return;
-    }
+    // Deep equality check
+    if (deepEqual(state[key], newValue)) return;
 
     state[key] = newValue;
     notify(key);
@@ -88,7 +85,7 @@ const createStore = (initialState = {}) => {
     const value = state[key];
     // Return deep copy for objects/arrays to prevent direct mutation of internal state
     if (value && typeof value === "object") {
-      return JSON.parse(JSON.stringify(value));
+      return deepClone(value);
     }
     return value;
   };

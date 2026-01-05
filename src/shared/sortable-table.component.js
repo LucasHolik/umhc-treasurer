@@ -1,4 +1,8 @@
-import { formatCurrency, parseDate } from "../core/utils.js";
+import {
+  formatCurrency,
+  parseDate,
+  formatDateForInput,
+} from "../core/utils.js";
 import { el, clear } from "../core/dom.js";
 
 export default class SortableTable {
@@ -201,6 +205,8 @@ export default class SortableTable {
             let val = item[col.key];
             if (col.type === "currency") {
               val = formatCurrency(val);
+            } else if (col.type === "date") {
+              val = val instanceof Date ? formatDateForInput(val) : val;
             }
             td.textContent = val !== undefined && val !== null ? val : "";
           }

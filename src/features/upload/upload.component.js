@@ -353,6 +353,16 @@ class UploadComponent {
   // Moved from data.js
   _normalizeDateString(dateValue) {
     if (!dateValue) return "";
+
+    // Handle Date objects explicitly
+    if (dateValue instanceof Date) {
+      if (isNaN(dateValue.getTime())) return "";
+      const year = dateValue.getFullYear();
+      const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+      const day = String(dateValue.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
     let dateString = String(dateValue).trim();
     if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateString)) {
       const parts = dateString.split("/");

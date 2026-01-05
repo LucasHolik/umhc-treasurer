@@ -209,3 +209,75 @@ export function sanitizeForId(str) {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 }
+
+/**
+ * Performs a deep comparison between two values to determine if they are equivalent.
+ * @param {*} x
+ * @param {*} y
+ * @returns {boolean}
+ */
+export function deepEqual(x, y) {
+  if (x === y) return true;
+
+  if (x === null || x === undefined || y === null || y === undefined)
+    return x === y;
+
+  if (x.constructor !== y.constructor) return false;
+
+  if (x instanceof Function) {
+    return x === y;
+  }
+
+  if (x instanceof RegExp) {
+    return x === y;
+  }
+
+  if (x === y || x.valueOf() === y.valueOf()) return true;
+
+  if (Array.isArray(x) && x.length !== y.length) return false;
+
+  if (x instanceof Date) return false;
+
+  if (!(x instanceof Object)) return false;
+  if (!(y instanceof Object)) return false;
+
+  const p = Object.keys(x);
+  return (
+    Object.keys(y).every((i) => p.indexOf(i) !== -1) &&
+    p.every((i) => deepEqual(x[i], y[i]))
+  );
+}
+
+/**
+ * Creates a deep copy of a value.
+ * Uses structuredClone if available, otherwise falls back to a custom implementation.
+ * @param {*} obj
+ * @returns {*}
+ */
+export function deepClone(obj) {
+  if (typeof structuredClone === "function") {
+    return structuredClone(obj);
+  }
+
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
+
+  if (obj instanceof Date) {
+    return new Date(obj.getTime());
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => deepClone(item));
+  }
+
+  if (obj instanceof Object) {
+    const copy = {};
+    Object.keys(obj).forEach((key) => {
+      copy[key] = deepClone(obj[key]);
+    });
+    return copy;
+  }
+
+  throw new Error("Unable to copy object! Its type isn't supported.");
+}

@@ -1,4 +1,8 @@
-import { formatCurrency, parseAmount } from "../../core/utils.js";
+import {
+  formatCurrency,
+  parseAmount,
+  formatDateForInput,
+} from "../../core/utils.js";
 import ModalComponent from "../../shared/modal.component.js";
 import { el, replace } from "../../core/dom.js";
 
@@ -192,7 +196,9 @@ export default class SplitTransactionModal {
             el(
               "span",
               { style: { color: "#ddd" } },
-              this.transaction.Date ?? ""
+              this.transaction.Date instanceof Date
+                ? formatDateForInput(this.transaction.Date)
+                : this.transaction.Date ?? ""
             ),
             el(
               "span",
