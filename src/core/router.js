@@ -7,6 +7,7 @@
 const createRouter = () => {
   const routes = {};
   let currentRoute = null;
+  let isStarted = false;
 
   const register = (hash, element) => {
     routes[hash] = element;
@@ -50,8 +51,13 @@ const createRouter = () => {
   };
 
   const start = () => {
+    if (isStarted) {
+      console.warn("Router.start: router already started");
+      return;
+    }
     window.addEventListener("hashchange", handleHashChange);
     handleHashChange(); // Initial route
+    isStarted = true;
   };
 
   const reset = () => {
@@ -65,6 +71,7 @@ const createRouter = () => {
       delete routes[key];
     }
     currentRoute = null;
+    isStarted = false;
   };
 
   return {
