@@ -958,8 +958,10 @@ class TransactionsComponent {
   }
 
   async openManualModal() {
-    const modal = new TransactionsManualModal();
-    const data = await modal.open();
+    if (!this.manualModal) {
+      this.manualModal = new TransactionsManualModal();
+    }
+    const data = await this.manualModal.open();
     if (data) {
       this.handleManualAdd(data);
     }

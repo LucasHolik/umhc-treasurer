@@ -10,6 +10,9 @@ export default class TransactionsManualModal {
   open() {
     // Close any existing modal first
     if (this.overlay) {
+      if (this.resolvePromise) {
+        this.resolvePromise(null);
+      }
       this.close(null);
     }
 
@@ -204,6 +207,7 @@ export default class TransactionsManualModal {
           this.overlay.remove();
         }
       }, 200);
+      this.overlay = null;
     }
     if (this.resolvePromise) {
       this.resolvePromise(data);
