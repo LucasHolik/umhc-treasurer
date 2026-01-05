@@ -3,6 +3,7 @@
 import store from "../core/state.js";
 
 const activeRequests = new Map();
+const MAX_ACTIVE_REQUESTS = 100;
 let loadingRequestCount = 0;
 let callbackCounter = 0;
 
@@ -93,9 +94,12 @@ const request = (action, params = {}, options = {}) => {
     finalParams.sessionId = sessionId;
   }
 
-  const sortedParams = Object.keys(finalParams)
+  const sortedParams = {};
+  Object.keys(finalParams)
     .sort()
-    .reduce((acc, key) => ({ ...acc, [key]: String(finalParams[key]) }), {});
+    .forEach((key) => {
+      sortedParams[key] = String(finalParams[key]);
+    });
 
   const requestKey = `${action}-${JSON.stringify(sortedParams)}`;
 
@@ -198,6 +202,7 @@ const request = (action, params = {}, options = {}) => {
             resolve(data);
           } else {
             if (data.message === "Unauthorized") {
+              clearSession();
               document.dispatchEvent(new CustomEvent("sessionExpired"));
             }
             reject(new Error(data.message || "API request failed."));
@@ -224,6 +229,12 @@ const request = (action, params = {}, options = {}) => {
       throw err;
     }
   })();
+
+  // Safeguard against unbounded growth
+  if (activeRequests.size >= MAX_ACTIVE_REQUESTS) {
+    const firstKey = activeRequests.keys().next().value;
+    activeRequests.delete(firstKey);
+  }
 
   activeRequests.set(requestKey, promise);
   return promise;
@@ -295,9 +306,11 @@ const ApiService = {
     let allData = [];
     let page = 1;
     let hasMore = true;
+    let manuallyManagedLoading = false;
 
     if (loadingRequestCount === 0) {
       store.setState("isLoading", true);
+      manuallyManagedLoading = true;
     }
     loadingRequestCount++;
 
@@ -337,7 +350,7 @@ const ApiService = {
       return { success: true, data: allData };
     } finally {
       loadingRequestCount--;
-      if (loadingRequestCount === 0) {
+      if (manuallyManagedLoading && loadingRequestCount === 0) {
         store.setState("isLoading", false);
       }
       store.setState("taggingProgress", null);
