@@ -247,7 +247,7 @@ export default class TransactionsBulk {
     // Toggle Dropdown
     const triggerClickHandler = (e) => {
       e.stopPropagation();
-      e.preventDefault(); // Prevent default if it's a keypress
+      e.preventDefault(); // Prevent default for both click and keyboard events
       const state =
         type === "trip" ? this.bulkTripState : this.bulkCategoryState;
       if (state.isOpen) {
