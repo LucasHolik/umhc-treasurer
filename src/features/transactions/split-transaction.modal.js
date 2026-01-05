@@ -33,17 +33,17 @@ export default class SplitTransactionModal {
     const expense = parseAmount(transaction.Expense);
     // Determine amount and type (should have either income OR expense, not both)
     if (income > 0 && expense > 0) {
-      console.warn(
-        "Transaction has both Income and Expense populated",
-        transaction
+      await new ModalComponent().alert(
+        "Cannot split transactions with both Income and Expense. Please select a transaction with only one type."
       );
+      return null;
     }
 
     if (expense > 0) {
       this.originalAmount = expense; // Treat as positive magnitude for splitting
       this.isIncome = false;
     } else {
-      this.originalAmount = isNaN(income) ? 0 : income;
+      this.originalAmount = income;
       this.isIncome = income > 0;
     }
 
