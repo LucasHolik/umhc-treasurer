@@ -19,6 +19,12 @@ const createStore = (initialState = {}) => {
    * @returns {object} - An object with an `unsubscribe` method.
    */
   const subscribe = (key, callback) => {
+    if (typeof key !== "string" || key === "") {
+      throw new TypeError("Key must be a non-empty string");
+    }
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      throw new Error("Invalid key: reserved property name");
+    }
     if (typeof callback !== "function") {
       throw new TypeError("Callback must be a function");
     }
@@ -40,6 +46,12 @@ const createStore = (initialState = {}) => {
    * @param {string} key - The state key that has changed.
    */
   const notify = (key) => {
+    if (typeof key !== "string" || key === "") {
+      return; // Silently ignore invalid keys in notify
+    }
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      return; // Silently ignore reserved keys
+    }
     if (subscribers[key]) {
       const value = state[key];
       // Pass a deep copy to subscribers to prevent them from mutating internal state
@@ -65,6 +77,12 @@ const createStore = (initialState = {}) => {
    * @param {*} value - The new value.
    */
   const setState = (key, value) => {
+    if (typeof key !== "string" || key === "") {
+      throw new TypeError("Key must be a non-empty string");
+    }
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      throw new Error("Invalid key: reserved property name");
+    }
     // Deep clone the incoming value to ensure internal state is not linked to external objects
     const newValue =
       value && typeof value === "object" ? deepClone(value) : value;
@@ -82,6 +100,12 @@ const createStore = (initialState = {}) => {
    * @returns {*} - The current value of the state key.
    */
   const getState = (key) => {
+    if (typeof key !== "string" || key === "") {
+      throw new TypeError("Key must be a non-empty string");
+    }
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      throw new Error("Invalid key: reserved property name");
+    }
     const value = state[key];
     // Return deep copy for objects/arrays to prevent direct mutation of internal state
     if (value && typeof value === "object") {
