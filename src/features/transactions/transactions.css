@@ -322,3 +322,188 @@
 .split-group-expanded .split-toggle-icon {
   transform: rotate(90deg);
 }
+
+/* Split History Modal Styles - CSP Compliant */
+.split-history-empty {
+  text-align: center;
+  padding: 20px;
+  color: #aaa;
+}
+
+.split-reverted-label {
+  color: #aaa;
+  font-size: 0.8em;
+}
+
+.split-detail-row.split-row-source {
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.split-detail-row.split-row-child {
+  background: rgba(0, 255, 0, 0.05);
+}
+
+.split-detail-clickable {
+  cursor: pointer;
+}
+
+.split-cell-padding {
+  padding: 8px;
+}
+
+.split-header-toggle-cell {
+  width: 40px;
+  text-align: center;
+}
+
+.split-group-id {
+  font-family: monospace;
+  color: #888;
+}
+
+.split-details-container {
+  padding: 0;
+}
+
+.split-details-wrapper {
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.split-detail-header-row {
+  color: #aaa;
+  font-size: 0.85em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.split-detail-th {
+  text-align: left;
+  padding: 5px;
+}
+
+.split-modal-content {
+  width: 95%;
+  max-width: 1200px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.split-modal-body {
+  overflow-y: auto;
+  padding: 0;
+}
+
+.split-section-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Split Transaction Modal (Edit/Create) */
+.split-modal-revert-btn {
+  background-color: #d9534f;
+  margin-right: auto;
+}
+
+.split-edit-container {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 15px;
+}
+
+.split-save-btn {
+  transition: opacity 0.2s;
+}
+
+.split-save-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.split-summary-value {
+  font-weight: bold;
+}
+
+.split-edit-modal-content {
+  max-width: 600px;
+}
+
+.split-source-info-box {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.split-source-label {
+  font-size: 0.9em;
+  color: #aaa;
+}
+
+.split-source-desc {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.split-source-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.split-source-date {
+  color: #ddd;
+}
+
+.split-source-amount {
+  font-size: 1.2em;
+}
+
+.split-add-btn {
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+.split-summary-total-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.split-summary-remaining-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.split-summary-label {
+  color: #aaa;
+}
+
+.split-edit-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.split-input-desc {
+  flex: 2;
+}
+
+.split-input-amount {
+  flex: 1;
+}
+
+.split-remove-btn {
+  background: none;
+  border: none;
+  color: #d9534f;
+  cursor: pointer;
+  font-size: 1.2em;
+}

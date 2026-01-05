@@ -103,9 +103,8 @@ export default class SplitTransactionModal {
         ? el(
             "button",
             {
-              className: "modal-btn",
+              className: "modal-btn split-modal-revert-btn",
               id: "revert-split-btn",
-              style: { backgroundColor: "#d9534f", marginRight: "auto" },
               onclick: () => this.handleRevert(),
             },
             "Revert to Original"
@@ -114,16 +113,15 @@ export default class SplitTransactionModal {
 
     this.splitsContainer = el("div", {
       id: "splits-container",
-      style: { maxHeight: "300px", overflowY: "auto", marginBottom: "15px" },
+      className: "split-edit-container",
     });
 
     this.saveBtn = el(
       "button",
       {
-        className: "modal-btn modal-btn-confirm",
+        className: "modal-btn modal-btn-confirm split-save-btn disabled",
         id: "save-split-btn",
         disabled: true,
-        style: { opacity: "0.5" },
         onclick: () => this.handleSubmit(),
       },
       "Save Splits"
@@ -131,18 +129,18 @@ export default class SplitTransactionModal {
 
     this.totalDisplay = el(
       "span",
-      { id: "total-split-display", style: { fontWeight: "bold" } },
+      { id: "total-split-display", className: "split-summary-value" },
       "$0.00"
     );
     this.remainingDisplay = el(
       "span",
-      { id: "remaining-display", style: { fontWeight: "bold" } },
+      { id: "remaining-display", className: "split-summary-value" },
       "$0.00"
     );
 
     const modalContent = el(
       "div",
-      { className: "modal-content", style: { maxWidth: "600px" } },
+      { className: "modal-content split-edit-modal-content" },
       // Header
       el(
         "div",
@@ -161,41 +159,28 @@ export default class SplitTransactionModal {
         el(
           "div",
           {
-            style: {
-              background: "rgba(255,255,255,0.05)",
-              padding: "15px",
-              borderRadius: "8px",
-              marginBottom: "20px",
-            },
+            className: "split-source-info-box",
           },
           el(
             "div",
-            { style: { fontSize: "0.9em", color: "#aaa" } },
+            { className: "split-source-label" },
             "Original Transaction"
           ),
           el(
             "div",
             {
-              style: {
-                fontSize: "1.1em",
-                fontWeight: "bold",
-                marginBottom: "5px",
-              },
+              className: "split-source-desc",
             },
             this.transaction.Description ?? "No Description"
           ),
           el(
             "div",
             {
-              style: {
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              },
+              className: "split-source-row",
             },
             el(
               "span",
-              { style: { color: "#ddd" } },
+              { className: "split-source-date" },
               this.transaction.Date instanceof Date
                 ? formatDateForInput(this.transaction.Date)
                 : this.transaction.Date ?? ""
@@ -203,10 +188,9 @@ export default class SplitTransactionModal {
             el(
               "span",
               {
-                className: this.isIncome ? "positive" : "negative",
-                style: {
-                  fontSize: "1.2em",
-                },
+                className:
+                  (this.isIncome ? "positive" : "negative") +
+                  " split-source-amount",
               },
               amountDisplay
             )
@@ -217,8 +201,7 @@ export default class SplitTransactionModal {
           "button",
           {
             id: "add-split-btn",
-            className: "secondary-btn",
-            style: { width: "100%", marginBottom: "15px" },
+            className: "secondary-btn split-add-btn",
             onclick: () => this.addSplit(),
           },
           "+ Add Another Split"
@@ -226,28 +209,17 @@ export default class SplitTransactionModal {
         el(
           "div",
           {
-            style: {
-              borderTop: "1px solid rgba(255,255,255,0.1)",
-              paddingTop: "15px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            },
+            className: "split-summary-total-row",
           },
-          el("span", { style: { color: "#aaa" } }, "Total Split:"),
+          el("span", { className: "split-summary-label" }, "Total Split:"),
           this.totalDisplay
         ),
         el(
           "div",
           {
-            style: {
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: "5px",
-            },
+            className: "split-summary-remaining-row",
           },
-          el("span", { style: { color: "#aaa" } }, "Remaining:"),
+          el("span", { className: "split-summary-label" }, "Remaining:"),
           this.remainingDisplay
         )
       ),
@@ -291,11 +263,10 @@ export default class SplitTransactionModal {
         id: `split-desc-${index}`,
         name: `split-desc-${index}`,
         "aria-label": `Description for split ${index + 1}`,
-        className: "theme-input split-desc",
+        className: "theme-input split-desc split-input-desc",
         dataset: { index },
         value: split.description,
         placeholder: "Description",
-        style: { flex: "2" },
       });
       descInput.addEventListener("input", (e) => {
         this.splits[e.target.dataset.index].description = e.target.value;
@@ -306,12 +277,11 @@ export default class SplitTransactionModal {
         id: `split-amount-${index}`,
         name: `split-amount-${index}`,
         "aria-label": `Amount for split ${index + 1}`,
-        className: "theme-input split-amount",
+        className: "theme-input split-amount split-input-amount",
         dataset: { index },
         value: split.amount || "",
         placeholder: "0.00",
         step: "0.01",
-        style: { flex: "1" },
       });
       amountInput.addEventListener("input", (e) => {
         const val = parseFloat(e.target.value);
@@ -322,16 +292,9 @@ export default class SplitTransactionModal {
       const removeBtn = el(
         "button",
         {
-          className: "remove-split-btn",
+          className: "remove-split-btn split-remove-btn",
           "aria-label": `Remove split ${index + 1}`,
           dataset: { index },
-          style: {
-            background: "none",
-            border: "none",
-            color: "#d9534f",
-            cursor: "pointer",
-            fontSize: "1.2em",
-          },
           onclick: (e) =>
             this.removeSplit(parseInt(e.currentTarget.dataset.index)),
         },
@@ -341,13 +304,7 @@ export default class SplitTransactionModal {
       return el(
         "div",
         {
-          className: "split-row",
-          style: {
-            display: "flex",
-            gap: "10px",
-            marginBottom: "10px",
-            alignItems: "center",
-          },
+          className: "split-row split-edit-row",
         },
         descInput,
         amountInput,
@@ -389,15 +346,13 @@ export default class SplitTransactionModal {
     const isValid = Math.abs(remaining) < 0.01;
 
     if (isValid) {
-      this.remainingDisplay.className = "positive";
-      this.remainingDisplay.style.color = ""; // Clear inline style if any
+      this.remainingDisplay.className = "positive split-summary-value";
       this.saveBtn.disabled = false;
-      this.saveBtn.style.opacity = "1";
+      this.saveBtn.classList.remove("disabled");
     } else {
-      this.remainingDisplay.className = "negative";
-      this.remainingDisplay.style.color = ""; // Clear inline style if any
+      this.remainingDisplay.className = "negative split-summary-value";
       this.saveBtn.disabled = true;
-      this.saveBtn.style.opacity = "0.5";
+      this.saveBtn.classList.add("disabled");
     }
   }
 
@@ -409,7 +364,7 @@ export default class SplitTransactionModal {
 
     if (confirmed) {
       // Visually hide the current modal immediately so it feels like "closing"
-      if (this.overlay) this.overlay.style.display = "none";
+      if (this.overlay) this.overlay.classList.add("hidden");
 
       // Return action to caller to handle API
       this.close({ action: "revert", groupId: this.groupId });

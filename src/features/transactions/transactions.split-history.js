@@ -97,7 +97,7 @@ export default class TransactionsSplitHistory {
             "td",
             {
               colSpan: "6",
-              style: { textAlign: "center", padding: "20px", color: "#aaa" },
+              className: "split-history-empty",
             },
             "No split history found."
           )
@@ -118,11 +118,7 @@ export default class TransactionsSplitHistory {
 
         const amountClass = amount >= 0 ? "positive" : "negative";
         const statusLabel = isReverted
-          ? el(
-              "span",
-              { style: { color: "#aaa", fontSize: "0.8em" } },
-              "(REVERTED)"
-            )
+          ? el("span", { className: "split-reverted-label" }, "(REVERTED)")
           : null;
 
         // Build Detail Rows
@@ -138,21 +134,19 @@ export default class TransactionsSplitHistory {
           const rAmountClass = rAmount >= 0 ? "positive" : "negative";
 
           // Styling based on type
-          let rBg = "transparent";
-          if (rType === "SOURCE") rBg = "rgba(255, 0, 0, 0.1)";
-          if (rType === "CHILD") rBg = "rgba(0, 255, 0, 0.05)";
+          let rowTypeClass = "";
+          if (rType === "SOURCE") rowTypeClass = "split-row-source";
+          if (rType === "CHILD") rowTypeClass = "split-row-child";
 
           const clickableClass = !isReverted ? "split-detail-clickable" : "";
-          const cursorStyle = !isReverted ? "cursor: pointer;" : "";
 
           const rowEl = el(
             "tr",
             {
-              className: `split-detail-row ${clickableClass}`,
-              style: `background: ${rBg}; ${cursorStyle}`,
+              className: `split-detail-row ${clickableClass} ${rowTypeClass}`,
               dataset: { group: groupId },
             },
-            el("td", { style: { padding: "8px" } }, rType),
+            el("td", { className: "split-cell-padding" }, rType),
             el("td", {}, rDate),
             el("td", {}, rDesc),
             el("td", {}, tagsDisplay),
@@ -183,7 +177,7 @@ export default class TransactionsSplitHistory {
           { className: "split-group-header", dataset: { group: groupId } },
           el(
             "td",
-            { style: { width: "40px", textAlign: "center" } },
+            { className: "split-header-toggle-cell" },
             el("span", { className: "split-toggle-icon" }, "▶")
           ),
           el("td", {}, date),
@@ -199,7 +193,7 @@ export default class TransactionsSplitHistory {
           ),
           el(
             "td",
-            { style: { fontFamily: "monospace", color: "#888" } },
+            { className: "split-group-id" },
             groupId.length > 8 ? groupId.substring(0, 8) + "..." : groupId
           )
         );
@@ -209,10 +203,10 @@ export default class TransactionsSplitHistory {
           { className: "split-group-details", id: `details-${groupId}` },
           el(
             "td",
-            { colSpan: "5", style: { padding: "0" } },
+            { colSpan: "5", className: "split-details-container" },
             el(
               "div",
-              { style: { padding: "10px", background: "rgba(0,0,0,0.2)" } },
+              { className: "split-details-wrapper" },
               el(
                 "table",
                 { className: "split-detail-table" },
@@ -222,37 +216,13 @@ export default class TransactionsSplitHistory {
                   el(
                     "tr",
                     {
-                      style: {
-                        color: "#aaa",
-                        fontSize: "0.85em",
-                        borderBottom: "1px solid rgba(255,255,255,0.1)",
-                      },
+                      className: "split-detail-header-row",
                     },
-                    el(
-                      "th",
-                      { style: { textAlign: "left", padding: "5px" } },
-                      "Type"
-                    ),
-                    el(
-                      "th",
-                      { style: { textAlign: "left", padding: "5px" } },
-                      "Date"
-                    ),
-                    el(
-                      "th",
-                      { style: { textAlign: "left", padding: "5px" } },
-                      "Description"
-                    ),
-                    el(
-                      "th",
-                      { style: { textAlign: "left", padding: "5px" } },
-                      "Tags"
-                    ),
-                    el(
-                      "th",
-                      { style: { textAlign: "left", padding: "5px" } },
-                      "Amount"
-                    )
+                    el("th", { className: "split-detail-th" }, "Type"),
+                    el("th", { className: "split-detail-th" }, "Date"),
+                    el("th", { className: "split-detail-th" }, "Description"),
+                    el("th", { className: "split-detail-th" }, "Tags"),
+                    el("th", { className: "split-detail-th" }, "Amount")
                   )
                 ),
                 el("tbody", {}, ...detailRows)
@@ -284,14 +254,7 @@ export default class TransactionsSplitHistory {
     const modalContent = el(
       "div",
       {
-        className: "modal-content",
-        style: {
-          width: "95%",
-          maxWidth: "1200px",
-          maxHeight: "90vh",
-          display: "flex",
-          flexDirection: "column",
-        },
+        className: "modal-content split-modal-content",
       },
       el(
         "div",
@@ -301,16 +264,11 @@ export default class TransactionsSplitHistory {
       ),
       el(
         "div",
-        { className: "modal-body", style: { overflowY: "auto", padding: "0" } },
+        { className: "modal-body split-modal-body" },
         el(
           "table",
           {
-            className: "section-table",
-            style: {
-              width: "100%",
-              borderCollapse: "separate",
-              borderSpacing: "0",
-            },
+            className: "section-table split-section-table",
           },
           el(
             "thead",
