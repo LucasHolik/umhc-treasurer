@@ -283,6 +283,16 @@ function _deleteTag(type, value) {
   if (type === "Trip/Event" || type === "Category") {
     // Pre-flight dependency checks
     if (
+      typeof Service_Sheet === "undefined" ||
+      !Service_Sheet.removeTagFromExpenses
+    ) {
+      return {
+        success: false,
+        message: "Service_Sheet dependency not available. Tag NOT deleted.",
+      };
+    }
+
+    if (
       typeof Service_Split === "undefined" ||
       !Service_Split.removeTagFromSplits
     ) {
@@ -292,11 +302,13 @@ function _deleteTag(type, value) {
       };
     }
 
+    let expensesUpdated = false;
     try {
       const expenseResult = Service_Sheet.removeTagFromExpenses(type, value);
       if (!expenseResult.success) {
         throw new Error("Expenses update failed: " + expenseResult.message);
       }
+      expensesUpdated = true;
 
       const splitResult = Service_Split.removeTagFromSplits(type, value);
       if (!splitResult.success) {
@@ -307,11 +319,18 @@ function _deleteTag(type, value) {
         "Aborting tag deletion due to external update failure:",
         error
       );
+
+      let message =
+        "Failed to remove tag usages from expenses/splits. Tag NOT deleted. Error: " +
+        error.message;
+      if (expensesUpdated) {
+        message +=
+          " WARNING: Tag was removed from Expenses but failed to remove from Splits. Data may be inconsistent.";
+      }
+
       return {
         success: false,
-        message:
-          "Failed to remove tag usages from expenses/splits. Tag NOT deleted. Error: " +
-          error.message,
+        message: message,
       };
     }
   }
@@ -429,6 +448,18 @@ function _renameTag(type, oldValue, newValue, skipSort) {
   if (type === "Trip/Event" || type === "Category") {
     // Pre-flight dependency checks
     if (
+      typeof Service_Sheet === "undefined" ||
+      !Service_Sheet.updateExpensesWithTag
+    ) {
+      // ROLLBACK Step 1
+      tagSheet.getRange(updateRow, column).setValue(oldValue);
+      return {
+        success: false,
+        message: "Service_Sheet dependency not available. Tag NOT renamed.",
+      };
+    }
+
+    if (
       typeof Service_Split === "undefined" ||
       !Service_Split.updateTagInSplits
     ) {
@@ -483,14 +514,16 @@ function _renameTag(type, oldValue, newValue, skipSort) {
               "CRITICAL: Failed to rollback Expenses sheet during rename failure.",
               revertResult
             );
-            error.message += " (Also failed to revert Expenses sheet)";
+            error.message +=
+              " CRITICAL: Failed to revert Expenses sheet. Data is INCONSISTENT. Manual reconciliation required.";
           }
         } catch (rollbackError) {
           console.error(
             "CRITICAL: Exception during Expenses rollback.",
             rollbackError
           );
-          error.message += " (Exception during Expenses rollback)";
+          error.message +=
+            " CRITICAL: Exception during Expenses rollback. Data is INCONSISTENT. Manual reconciliation required.";
         }
       }
 
