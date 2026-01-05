@@ -102,6 +102,9 @@ class TransactionsComponent {
       this.activeTimeouts.forEach((id) => clearTimeout(id));
       this.activeTimeouts = [];
     }
+    if (this.bulkComponent) {
+      this.bulkComponent.destroy();
+    }
   }
 
   handleLoadingChange(isLoading) {
@@ -789,6 +792,11 @@ class TransactionsComponent {
         this.handleFilterSelectAll(type, tags, checked),
       onSearchChange: (type, term) => this.handleSearchChange(type, term),
     });
+
+    // Cleanup old bulk component
+    if (this.bulkComponent) {
+      this.bulkComponent.destroy();
+    }
 
     // Bulk
     this.bulkComponent = new TransactionsBulk(this.transactionsDisplay, {

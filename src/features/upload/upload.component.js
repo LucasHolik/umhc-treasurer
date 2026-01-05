@@ -10,10 +10,18 @@ class UploadComponent {
   constructor(element) {
     this.element = element;
     this.parsedData = [];
+    this.subscriptions = [];
     this.render();
     this.attachEventListeners();
-    store.subscribe("isUploading", this.handleUploadingState.bind(this));
+    this.subscriptions.push(
+      store.subscribe("isUploading", this.handleUploadingState.bind(this))
+    );
     this.handleUploadingState(store.getState("isUploading"));
+  }
+
+  destroy() {
+    this.subscriptions.forEach((sub) => sub.unsubscribe());
+    this.subscriptions = [];
   }
 
   render() {

@@ -14,11 +14,23 @@ class DashboardComponent {
     this.element = element;
     this.timeframe = "past_30_days"; // Default timeframe
     this.render();
-    store.subscribe("expenses", () => this.calculateAndDisplayStats());
-    store.subscribe("openingBalance", () => this.calculateAndDisplayStats());
-    store.subscribe("accessibilityMode", () =>
-      this.handleAccessibilityChange()
+    this.subscriptions = [];
+    this.subscriptions.push(
+      store.subscribe("expenses", () => this.calculateAndDisplayStats())
     );
+    this.subscriptions.push(
+      store.subscribe("openingBalance", () => this.calculateAndDisplayStats())
+    );
+    this.subscriptions.push(
+      store.subscribe("accessibilityMode", () =>
+        this.handleAccessibilityChange()
+      )
+    );
+  }
+
+  destroy() {
+    this.subscriptions.forEach((sub) => sub.unsubscribe());
+    this.subscriptions = [];
   }
 
   handleAccessibilityChange() {

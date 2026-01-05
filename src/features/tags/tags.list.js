@@ -24,11 +24,10 @@ export default class TagsList {
     this.tables = {};
 
     // Global delegation for interactive clicks inside this component
-    this.element.addEventListener("click", (e) =>
-      this.handleInteractiveClick(e)
-    );
+    this.clickHandler = (e) => this.handleInteractiveClick(e);
+    this.element.addEventListener("click", this.clickHandler);
 
-    this.element.addEventListener("keydown", (e) => {
+    this.keydownHandler = (e) => {
       if (e.key === "Enter" || e.key === " ") {
         // Only trigger if the target is interactive
         const target = e.target;
@@ -42,10 +41,17 @@ export default class TagsList {
           this.handleInteractiveClick(e);
         }
       }
-    });
+    };
+    this.element.addEventListener("keydown", this.keydownHandler);
   }
 
   destroy() {
+    if (this.clickHandler) {
+      this.element.removeEventListener("click", this.clickHandler);
+    }
+    if (this.keydownHandler) {
+      this.element.removeEventListener("keydown", this.keydownHandler);
+    }
     if (this.tagSelector) {
       this.tagSelector.destroy();
     }
