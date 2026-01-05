@@ -1,7 +1,7 @@
 // src/services/excel.service.js
 
-// This service depends on the 'read-excel-file' library, which is expected to be loaded globally.
-// Make sure to include <script src="path/to/read-excel-file.min.js"></script> in your index.html
+// This service depends on the 'read-excel-file' library.
+// The library code is located in src/lib.
 
 function normalizeDateString(dateValue) {
   if (dateValue === null || dateValue === undefined || dateValue === "") {
