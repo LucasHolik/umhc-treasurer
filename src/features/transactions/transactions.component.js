@@ -827,13 +827,18 @@ class TransactionsComponent {
     if (store.getState("savingSplitTransaction")) {
       return; // Prevent concurrent split operations
     }
+    store.setState("savingSplitTransaction", true);
 
     const modal = new SplitTransactionModal();
-    const splits = await modal.open(transaction);
+    let splits;
+    try {
+      splits = await modal.open(transaction);
+    } catch (error) {
+      store.setState("savingSplitTransaction", false);
+      throw error;
+    }
 
     if (splits) {
-      if (store.getState("savingSplitTransaction")) return;
-      store.setState("savingSplitTransaction", true);
       try {
         // Use skipLoading: true to manage our own state/UI
         await ApiService.splitTransaction(transaction, splits, {
@@ -847,6 +852,8 @@ class TransactionsComponent {
         alert("Failed to split transaction: " + error.message);
         store.setState("savingSplitTransaction", false);
       }
+    } else {
+      store.setState("savingSplitTransaction", false);
     }
   }
 
@@ -855,6 +862,7 @@ class TransactionsComponent {
     if (store.getState("savingSplitTransaction")) {
       return;
     }
+    store.setState("savingSplitTransaction", true);
 
     let source = null;
     let children = [];
@@ -888,6 +896,7 @@ class TransactionsComponent {
       } catch (error) {
         console.error("Edit Split failed:", error);
         alert("Failed to load split details: " + error.message);
+        store.setState("savingSplitTransaction", false);
         return;
       }
     }
@@ -898,8 +907,6 @@ class TransactionsComponent {
       const editPayload = await modal.open(source, children, groupId);
 
       if (editPayload && editPayload.action === "edit") {
-        if (store.getState("savingSplitTransaction")) return;
-        store.setState("savingSplitTransaction", true);
         try {
           await ApiService.editSplit(
             editPayload.groupId,
@@ -914,8 +921,6 @@ class TransactionsComponent {
           store.setState("savingSplitTransaction", false);
         }
       } else if (editPayload && editPayload.action === "revert") {
-        if (store.getState("savingSplitTransaction")) return;
-        store.setState("savingSplitTransaction", true);
         try {
           await ApiService.revertSplit(editPayload.groupId, {
             skipLoading: true,
@@ -926,9 +931,12 @@ class TransactionsComponent {
           alert("Failed to revert split: " + error.message);
           store.setState("savingSplitTransaction", false);
         }
+      } else {
+        store.setState("savingSplitTransaction", false);
       }
     } catch (error) {
       console.error("Error opening modal:", error);
+      store.setState("savingSplitTransaction", false);
     }
   }
 
