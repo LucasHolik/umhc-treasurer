@@ -269,9 +269,11 @@ class AnalysisComponent {
           const base64 = this.chartComponent.toBase64Image();
           if (base64) {
             const link = document.createElement("a");
-            link.download = `analysis-chart-${formatDateForInput(
-              new Date()
-            )}.png`;
+            const timestamp = new Date()
+              .toISOString()
+              .replace(/[:.]/g, "-")
+              .slice(0, -5);
+            link.download = `analysis-chart-${timestamp}.png`;
             link.href = base64;
             link.click();
           } else {
@@ -306,11 +308,12 @@ class AnalysisComponent {
           });
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
+          const timestamp = new Date()
+            .toISOString()
+            .replace(/[:.]/g, "-")
+            .slice(0, -5);
           link.setAttribute("href", url);
-          link.setAttribute(
-            "download",
-            `analysis-data-${formatDateForInput(new Date())}.csv`
-          );
+          link.setAttribute("download", `analysis-data-${timestamp}.csv`);
           link.style.visibility = "hidden";
           document.body.appendChild(link);
           link.click();
@@ -411,6 +414,16 @@ class AnalysisComponent {
   applyPreset(presetName) {
     const presetState = this.analysisLogic.getPresetState(presetName);
     Object.assign(this.state, presetState);
+
+    // Ensure Sets remain Sets after preset merge
+    if (!(this.state.selectedCategories instanceof Set)) {
+      this.state.selectedCategories = new Set(
+        this.state.selectedCategories || []
+      );
+    }
+    if (!(this.state.selectedTrips instanceof Set)) {
+      this.state.selectedTrips = new Set(this.state.selectedTrips || []);
+    }
 
     // Recalculate date range
     const expenses = store.getState("expenses") || [];
