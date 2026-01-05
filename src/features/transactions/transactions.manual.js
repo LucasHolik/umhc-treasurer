@@ -201,10 +201,11 @@ export default class TransactionsManualModal {
     }
 
     if (this.overlay) {
-      this.overlay.style.opacity = "0";
+      const overlayToRemove = this.overlay;
+      overlayToRemove.style.opacity = "0";
       setTimeout(() => {
-        if (this.overlay && this.overlay.parentNode) {
-          this.overlay.remove();
+        if (overlayToRemove && overlayToRemove.parentNode) {
+          overlayToRemove.remove();
         }
       }, 200);
       this.overlay = null;
