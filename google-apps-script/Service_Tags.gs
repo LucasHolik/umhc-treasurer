@@ -501,7 +501,20 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       // 1. Revert Master Sheet (Optimistic Update)
       tagSheet.getRange(updateRow, column).setValue(oldValue);
 
-      // 2. Revert Expenses Sheet (Compensating Transaction)
+      // 2. Revert Trip/Event Type references if we renamed a Type
+      if (type === "Type") {
+        const tripTypesRange = tagSheet.getRange(2, COL_TYPE, lastRow - 1, 1);
+        const tripTypes = tripTypesRange.getValues();
+        const revertedTripTypes = tripTypes.map((r) => {
+          if (r[0] === newValue) {
+            return [oldValue];
+          }
+          return r;
+        });
+        tripTypesRange.setValues(revertedTripTypes);
+      }
+
+      // 3. Revert Expenses Sheet (Compensating Transaction)
       if (expensesUpdated) {
         try {
           const revertResult = Service_Sheet.updateExpensesWithTag(
