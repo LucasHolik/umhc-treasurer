@@ -9,13 +9,14 @@
  * @returns {string}
  */
 export function formatCurrency(amount) {
-  if (amount === null || amount === undefined || amount === "") {
+  if (amount === null || amount === undefined || String(amount).trim() === "") {
     return "";
   }
 
   const num = parseAmount(amount);
-  // If result is 0 but input was not '0', it's likely an invalid string
-  if (num === 0 && String(amount).replace(/,/g, "").trim() !== "0") {
+  // If result is 0 but original input wasn't a valid numeric representation, return empty
+  const cleaned = String(amount).replace(/,/g, "").trim();
+  if (num === 0 && cleaned !== "" && parseFloat(cleaned) !== 0) {
     return "";
   }
   return num.toFixed(2);
@@ -269,6 +270,22 @@ export function deepClone(obj) {
 
   if (Array.isArray(obj)) {
     return obj.map((item) => deepClone(item));
+  }
+
+  if (obj instanceof RegExp) {
+    return new RegExp(obj.source, obj.flags);
+  }
+
+  if (obj instanceof Map) {
+    const copy = new Map();
+    obj.forEach((value, key) => copy.set(deepClone(key), deepClone(value)));
+    return copy;
+  }
+
+  if (obj instanceof Set) {
+    const copy = new Set();
+    obj.forEach((value) => copy.add(deepClone(value)));
+    return copy;
   }
 
   if (obj instanceof Object) {
