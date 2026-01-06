@@ -381,7 +381,7 @@
   padding: 5px;
 }
 
-.split-modal-content {
+.modal-content.split-modal-content {
   width: 95%;
   max-width: 1200px;
   max-height: 90vh;
@@ -398,6 +398,7 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+  table-layout: auto;
 }
 
 /* Split Transaction Modal (Edit/Create) */
@@ -425,7 +426,8 @@
   font-weight: bold;
 }
 
-.split-edit-modal-content {
+.modal-content.split-edit-modal-content {
+  width: 100%;
   max-width: 600px;
 }
 
