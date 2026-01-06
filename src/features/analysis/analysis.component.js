@@ -61,7 +61,10 @@ class AnalysisComponent {
       })
     );
     this.unsubscribeHandlers.push(
-      store.subscribe("tags", () => this.updateTagSelectors())
+      store.subscribe("tags", () => {
+        this.updateTagSelectors();
+        this.generateChart();
+      })
     );
   }
 
