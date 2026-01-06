@@ -6,6 +6,8 @@ export default class AnalysisChart {
     this.chartInstance = null;
     this.libLoaded = false;
     this.pendingRender = null;
+    this.handleLoad = null;
+    this.handleError = null;
     this.loadLib();
   }
 
@@ -21,7 +23,7 @@ export default class AnalysisChart {
     const scriptSrc = "src/lib/chart.umd.min.js";
     let script = document.querySelector(`script[src="${scriptSrc}"]`);
 
-    const handleLoad = () => {
+    this.handleLoad = () => {
       if (this.libLoaded) return;
       this.libLoaded = true;
       console.log("Chart.js loaded");
@@ -31,7 +33,7 @@ export default class AnalysisChart {
       }
     };
 
-    const handleError = () => {
+    this.handleError = () => {
       console.error("Failed to load Chart.js");
       this.pendingRender = null;
       if (script) {
@@ -42,24 +44,24 @@ export default class AnalysisChart {
     if (script) {
       // Check if script previously failed
       if (script.dataset.loadFailed === "true") {
-        handleError();
+        this.handleError();
         return;
       }
 
-      script.addEventListener("load", handleLoad);
-      script.addEventListener("error", handleError);
+      script.addEventListener("load", this.handleLoad);
+      script.addEventListener("error", this.handleError);
 
       // Race condition fix: Check if it finished loading while we were attaching listeners
       if (typeof window.Chart === "function") {
-        script.removeEventListener("load", handleLoad);
-        script.removeEventListener("error", handleError);
-        handleLoad();
+        script.removeEventListener("load", this.handleLoad);
+        script.removeEventListener("error", this.handleError);
+        this.handleLoad();
       }
     } else {
       script = document.createElement("script");
       script.src = scriptSrc;
-      script.addEventListener("load", handleLoad);
-      script.addEventListener("error", handleError);
+      script.addEventListener("load", this.handleLoad);
+      script.addEventListener("error", this.handleError);
       document.head.appendChild(script);
     }
   }
@@ -165,7 +167,9 @@ export default class AnalysisChart {
                     tooltipItem.parsed.y !== undefined
                       ? tooltipItem.parsed.y
                       : tooltipItem.parsed;
-                  sum += value;
+                  if (value !== null && value !== undefined) {
+                    sum += value;
+                  }
                 });
                 if (tooltipItems.length > 1) {
                   return "Total: " + formatCurrency(sum);
@@ -202,9 +206,34 @@ export default class AnalysisChart {
   }
 
   destroy() {
+    // Clean up script event listeners
+
+    if (this.handleLoad || this.handleError) {
+      const scriptSrc = "src/lib/chart.umd.min.js";
+
+      const script = document.querySelector(`script[src="${scriptSrc}"]`);
+
+      if (script) {
+        if (this.handleLoad)
+          script.removeEventListener("load", this.handleLoad);
+
+        if (this.handleError)
+          script.removeEventListener("error", this.handleError);
+      }
+
+      this.handleLoad = null;
+
+      this.handleError = null;
+    }
+
     if (this.chartInstance) {
       this.chartInstance.destroy();
+
       this.chartInstance = null;
     }
+
+    this.pendingRender = null;
+
+    this.element = null;
   }
 }
