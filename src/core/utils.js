@@ -230,7 +230,7 @@ export function deepEqual(x, y) {
   }
 
   if (x instanceof RegExp) {
-    return x === y;
+    return x.source === y.source && x.flags === y.flags;
   }
 
   if (x === y || x.valueOf() === y.valueOf()) return true;
@@ -255,7 +255,7 @@ export function deepEqual(x, y) {
  * @param {*} obj
  * @returns {*}
  */
-export function deepClone(obj) {
+export function deepClone(obj, visited = new WeakMap()) {
   if (typeof structuredClone === "function") {
     return structuredClone(obj);
   }
@@ -264,12 +264,20 @@ export function deepClone(obj) {
     return obj;
   }
 
+  // Check for circular reference
+  if (visited.has(obj)) {
+    return visited.get(obj);
+  }
+
   if (obj instanceof Date) {
     return new Date(obj.getTime());
   }
 
   if (Array.isArray(obj)) {
-    return obj.map((item) => deepClone(item));
+    const copy = [];
+    visited.set(obj, copy);
+    obj.forEach((item) => copy.push(deepClone(item, visited)));
+    return copy;
   }
 
   if (obj instanceof RegExp) {
@@ -278,23 +286,26 @@ export function deepClone(obj) {
 
   if (obj instanceof Map) {
     const copy = new Map();
-    obj.forEach((value, key) => copy.set(deepClone(key), deepClone(value)));
+    visited.set(obj, copy);
+    obj.forEach((value, key) =>
+      copy.set(deepClone(key, visited), deepClone(value, visited))
+    );
     return copy;
   }
 
   if (obj instanceof Set) {
     const copy = new Set();
-    obj.forEach((value) => copy.add(deepClone(value)));
+    visited.set(obj, copy);
+    obj.forEach((value) => copy.add(deepClone(value, visited)));
     return copy;
   }
 
   if (obj instanceof Object) {
     const copy = {};
+    visited.set(obj, copy);
     Object.keys(obj).forEach((key) => {
-      copy[key] = deepClone(obj[key]);
+      copy[key] = deepClone(obj[key], visited);
     });
     return copy;
   }
-
-  throw new Error("Unable to copy object! Its type isn't supported.");
 }
