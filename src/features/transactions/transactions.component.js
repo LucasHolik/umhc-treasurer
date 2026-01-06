@@ -34,8 +34,6 @@ class TransactionsComponent {
     this.tripSearchTerm = "";
     this.descriptionSearchTerm = "";
 
-    this.render();
-
     this.subscriptions = [];
     this.subscriptions.push(
       store.subscribe("expenses", (data) => this.handleDataChange(data))
@@ -69,6 +67,14 @@ class TransactionsComponent {
         this.handleLoadingChange(isLoading)
       )
     );
+
+    this.render();
+
+    // Initialize with current store state if available
+    const currentExpenses = store.getState("expenses");
+    if (currentExpenses) {
+      this.handleDataChange(currentExpenses);
+    }
 
     // Global click listener to close dropdowns
     this.boundGlobalClickHandler = (e) => {
@@ -667,7 +673,8 @@ class TransactionsComponent {
           "span",
           {
             className: `tag-pill ${isPending ? "pending-change" : ""}`,
-            dataset: { row: rowId, type: type },
+            "data-row": rowId,
+            "data-type": type,
             style: { cursor: "default" }, // Override pointer cursor
           },
           el("span", { className: "tag-text" }, value)
@@ -684,7 +691,8 @@ class TransactionsComponent {
         "span",
         {
           className: `tag-pill ${isPending ? "pending-change" : ""}`,
-          dataset: { row: rowId, type: type },
+          "data-row": rowId,
+          "data-type": type,
           tabIndex: "0",
           role: "button",
           title: "Click to change tag",
@@ -707,7 +715,8 @@ class TransactionsComponent {
         "span",
         {
           className: "add-tag-placeholder",
-          dataset: { row: rowId, type: type },
+          "data-row": rowId,
+          "data-type": type,
           title: "Add Tag",
           tabIndex: "0",
           role: "button",
@@ -1230,11 +1239,12 @@ class TransactionsComponent {
 
       document.dispatchEvent(new CustomEvent("dataUploaded"));
     } catch (error) {
-      console.error("Save changes failed:", error);
       store.setState("taggingProgress", `Error: ${error.message}`);
       const timeoutId = setTimeout(() => {
         store.setState("isTagging", false);
         store.setState("taggingSource", null);
+        const index = this.activeTimeouts.indexOf(timeoutId);
+        if (index > -1) this.activeTimeouts.splice(index, 1);
       }, 3000);
       this.activeTimeouts.push(timeoutId);
     }
@@ -1320,6 +1330,8 @@ class TransactionsComponent {
       const timeoutId = setTimeout(() => {
         store.setState("isTagging", false);
         store.setState("taggingSource", null);
+        const index = this.activeTimeouts.indexOf(timeoutId);
+        if (index > -1) this.activeTimeouts.splice(index, 1);
       }, 3000);
       this.activeTimeouts.push(timeoutId);
     }
