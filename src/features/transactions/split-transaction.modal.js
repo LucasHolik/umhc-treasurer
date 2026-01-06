@@ -39,6 +39,13 @@ export default class SplitTransactionModal {
       return null;
     }
 
+    if (income === 0 && expense === 0) {
+      await new ModalComponent().alert(
+        "Cannot split a transaction with no amount. Please select a transaction with a valid amount."
+      );
+      return null;
+    }
+
     if (expense > 0) {
       this.originalAmount = expense; // Treat as positive magnitude for splitting
       this.isIncome = false;
@@ -50,21 +57,22 @@ export default class SplitTransactionModal {
     if (existingSplits) {
       this.mode = "edit";
       this.groupId = groupId;
-      this.splits = existingSplits.map((s) => {
-        let amt = 0;
-        if (s.Amount !== undefined) amt = parseAmount(s.Amount);
-        else if (s.amount !== undefined) amt = parseAmount(s.amount);
-        else {
-          const inc = parseAmount(s.Income);
-          const exp = parseAmount(s.Expense);
-          amt = inc !== 0 ? inc : exp;
-        }
+      this.splits = existingSplits.map((s) => ({
+        description: s.Description || s.description || "", // handle both cases
+        amount: this._parseSplitAmount(s),
+      }));
 
-        return {
-          description: s.Description || s.description || "", // handle both cases
-          amount: amt,
-        };
-      });
+      // Validate that existing splits sum to original amount
+      const existingTotal = this.splits.reduce(
+        (sum, s) => sum + (s.amount || 0),
+        0
+      );
+      if (Math.abs(this.originalAmount - existingTotal) >= 0.01) {
+        await new ModalComponent().alert(
+          "Existing splits do not match the original transaction amount. Cannot edit."
+        );
+        return null;
+      }
     } else {
       this.mode = "create";
       this.splits = [
@@ -381,7 +389,14 @@ export default class SplitTransactionModal {
       return;
     }
 
-    if (this.splits.some((s) => !s.description || !s.description.trim())) {
+    // Trim descriptions before validation
+    this.splits.forEach((s) => {
+      if (s.description) {
+        s.description = s.description.trim();
+      }
+    });
+
+    if (this.splits.some((s) => !s.description)) {
       await new ModalComponent().alert("All splits must have a description.");
       return;
     }
@@ -419,5 +434,13 @@ export default class SplitTransactionModal {
       this.resolvePromise(data);
       this.resolvePromise = null;
     }
+  }
+
+  _parseSplitAmount(s) {
+    if (s.Amount !== undefined) return parseAmount(s.Amount);
+    if (s.amount !== undefined) return parseAmount(s.amount);
+    const inc = parseAmount(s.Income);
+    const exp = parseAmount(s.Expense);
+    return inc !== 0 ? inc : exp;
   }
 }
