@@ -7,6 +7,8 @@ import { formatCurrency } from "../../core/utils.js";
 import { el, replace } from "../../core/dom.js";
 
 class UploadComponent {
+  static RECORDS_PER_CHUNK = 20;
+
   constructor(element) {
     this.element = element;
     this.parsedData = [];
@@ -22,6 +24,54 @@ class UploadComponent {
   destroy() {
     this.subscriptions.forEach((sub) => sub.unsubscribe());
     this.subscriptions = [];
+
+    // Remove event listeners
+    if (this._handlers) {
+      if (this.chooseFileBtn)
+        this.chooseFileBtn.removeEventListener(
+          "click",
+          this._handlers.chooseFile
+        );
+      if (this.fileUpload)
+        this.fileUpload.removeEventListener(
+          "change",
+          this._handlers.fileSelect
+        );
+      if (this.uploadButton)
+        this.uploadButton.removeEventListener("click", this._handlers.upload);
+      if (this.tableViewButton)
+        this.tableViewButton.removeEventListener(
+          "click",
+          this._handlers.switchTable
+        );
+      if (this.jsonViewButton)
+        this.jsonViewButton.removeEventListener(
+          "click",
+          this._handlers.switchJson
+        );
+      if (this.showNewOnlyCheckbox)
+        this.showNewOnlyCheckbox.removeEventListener(
+          "change",
+          this._handlers.filterChange
+        );
+    }
+
+    // Clear DOM references
+    this.element = null;
+    this.fileUpload = null;
+    this.chooseFileBtn = null;
+    this.fileNameDisplay = null;
+    this.uploadButton = null;
+    this.uploadStatus = null;
+    this.tableViewButton = null;
+    this.jsonViewButton = null;
+    this.tableViewContent = null;
+    this.fileContentJson = null;
+    this.jsonViewContent = null;
+    this.showNewOnlyCheckbox = null;
+    this.extractedContentSection = null;
+    this.table = null;
+    this.parsedData = [];
   }
 
   render() {
@@ -170,22 +220,24 @@ class UploadComponent {
   }
 
   attachEventListeners() {
-    this.chooseFileBtn.addEventListener("click", () => this.fileUpload.click());
-    this.fileUpload.addEventListener(
+    // Store references for cleanup
+    this._handlers = {
+      chooseFile: () => this.fileUpload.click(),
+      fileSelect: this.handleFileSelect.bind(this),
+      upload: this.handleUpload.bind(this),
+      switchTable: this.switchToTableView.bind(this),
+      switchJson: this.switchToJsonView.bind(this),
+      filterChange: () => this.displayExtractedData(),
+    };
+
+    this.chooseFileBtn.addEventListener("click", this._handlers.chooseFile);
+    this.fileUpload.addEventListener("change", this._handlers.fileSelect);
+    this.uploadButton.addEventListener("click", this._handlers.upload);
+    this.tableViewButton.addEventListener("click", this._handlers.switchTable);
+    this.jsonViewButton.addEventListener("click", this._handlers.switchJson);
+    this.showNewOnlyCheckbox.addEventListener(
       "change",
-      this.handleFileSelect.bind(this)
-    );
-    this.uploadButton.addEventListener("click", this.handleUpload.bind(this));
-    this.tableViewButton.addEventListener(
-      "click",
-      this.switchToTableView.bind(this)
-    );
-    this.jsonViewButton.addEventListener(
-      "click",
-      this.switchToJsonView.bind(this)
-    );
-    this.showNewOnlyCheckbox.addEventListener("change", () =>
-      this.displayExtractedData()
+      this._handlers.filterChange
     );
   }
 
@@ -234,34 +286,58 @@ class UploadComponent {
     }
   }
 
+  _createDuplicateKey(record, schema) {
+    // schema maps field names: { date, description, document, cashIn, cashOut }
+    const dateStr = this._normalizeDateString(
+      schema.date ? record[schema.date] : record.date
+    );
+    const descriptionStr = this._normalizeValue(
+      schema.description ? record[schema.description] : record.description
+    );
+    const documentStr = this._normalizeValue(
+      schema.document ? record[schema.document] : record.document
+    );
+    const incomeStr = this._normalizeValue(
+      this._formatNumberForComparison(
+        schema.cashIn ? record[schema.cashIn] : record.cashIn
+      )
+    );
+    const expenseStr = this._normalizeValue(
+      this._formatNumberForComparison(
+        schema.cashOut ? record[schema.cashOut] : record.cashOut
+      )
+    );
+    // Use JSON.stringify for safer serialization or use a delimiter that can't appear in normalized values
+    return JSON.stringify([
+      dateStr,
+      descriptionStr,
+      documentStr,
+      incomeStr,
+      expenseStr,
+    ]);
+  }
+
   markDuplicates(newData, existingData) {
     const existingKeys = new Set(
-      existingData.map((row) => {
-        const dateStr = this._normalizeDateString(row.Date);
-        const descriptionStr = this._normalizeValue(row.Description);
-        const documentStr = this._normalizeValue(row.Document);
-        const incomeStr = this._normalizeValue(
-          this._formatNumberForComparison(row.Income)
-        );
-        const expenseStr = this._normalizeValue(
-          this._formatNumberForComparison(row.Expense)
-        );
-        return `${dateStr}|${descriptionStr}|${documentStr}|${incomeStr}|${expenseStr}`;
-      })
+      existingData.map((row) =>
+        this._createDuplicateKey(row, {
+          date: "Date",
+          description: "Description",
+          document: "Document",
+          cashIn: "Income",
+          cashOut: "Expense",
+        })
+      )
     );
 
     newData.forEach((row) => {
-      const dateStr = this._normalizeDateString(row.date);
-      const descriptionStr = this._normalizeValue(row.description);
-      const documentStr = this._normalizeValue(row.document);
-      const incomeStr = this._normalizeValue(
-        this._formatNumberForComparison(row.cashIn)
-      );
-      const expenseStr = this._normalizeValue(
-        this._formatNumberForComparison(row.cashOut)
-      );
-      const key = `${dateStr}|${descriptionStr}|${documentStr}|${incomeStr}|${expenseStr}`;
-
+      const key = this._createDuplicateKey(row, {
+        date: "date",
+        description: "description",
+        document: "document",
+        cashIn: "cashIn",
+        cashOut: "cashOut",
+      });
       row.isDuplicate = existingKeys.has(key);
     });
   }
@@ -332,13 +408,15 @@ class UploadComponent {
   }
 
   async _uploadInChunks(records) {
-    const recordsPerChunk = 20;
-    const totalChunks = Math.ceil(records.length / recordsPerChunk);
+    const totalChunks = Math.ceil(
+      records.length / UploadComponent.RECORDS_PER_CHUNK
+    );
     let successfulCount = 0;
+    let failedChunkError = null;
 
     for (let i = 0; i < totalChunks; i++) {
-      const start = i * recordsPerChunk;
-      const end = start + recordsPerChunk;
+      const start = i * UploadComponent.RECORDS_PER_CHUNK;
+      const end = start + UploadComponent.RECORDS_PER_CHUNK;
       const chunk = records.slice(start, end);
       this.displayUploadStatus(
         `Uploading chunk ${i + 1} of ${totalChunks}...`,
@@ -349,25 +427,28 @@ class UploadComponent {
         await ApiService.saveData(chunk, { skipLoading: true });
         successfulCount += chunk.length;
       } catch (error) {
-        if (successfulCount > 0) {
-          // If we uploaded some data, we should notify the app to refresh
-          document.dispatchEvent(new CustomEvent("dataUploaded"));
-        }
-        throw new Error(
-          `Upload interrupted at chunk ${
-            i + 1
-          }. ${successfulCount} records were saved. Error: ${error.message}`
+        failedChunkError = new Error(
+          `Upload interrupted at chunk ${i + 1}. ${successfulCount} of ${
+            records.length
+          } records were saved. Error: ${error.message}`
         );
+        break;
       }
+    }
+
+    // Always dispatch event if any records were uploaded
+    if (successfulCount > 0) {
+      document.dispatchEvent(new CustomEvent("dataUploaded"));
+    }
+
+    if (failedChunkError) {
+      throw failedChunkError;
     }
 
     this.displayUploadStatus(
       `Successfully uploaded ${records.length} records!`,
       "success"
     );
-    // Here we should trigger a refresh of the application data.
-    // The main app component will listen for a 'dataUploaded' event or similar.
-    document.dispatchEvent(new CustomEvent("dataUploaded"));
   }
 
   displayUploadStatus(message, type) {
