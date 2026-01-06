@@ -29,7 +29,14 @@ class UploadComponent {
       type: "file",
       id: "file-upload",
       accept: ".xlsx, .xls",
+      style: { display: "none" },
     });
+    this.chooseFileBtn = el("button", { id: "choose-file-btn" }, "Choose File");
+    this.fileNameDisplay = el(
+      "span",
+      { id: "file-name-display" },
+      "No file chosen"
+    );
     this.uploadButton = el(
       "button",
       { id: "upload-to-sheet-btn" },
@@ -110,8 +117,14 @@ class UploadComponent {
         },
         "Choose Excel File"
       ),
-      this.fileUpload,
-      this.uploadButton,
+      el(
+        "div",
+        { className: "upload-actions" },
+        this.fileUpload,
+        this.chooseFileBtn,
+        this.fileNameDisplay,
+        this.uploadButton
+      ),
       this.uploadStatus,
       this.extractedContentSection
     );
@@ -157,6 +170,7 @@ class UploadComponent {
   }
 
   attachEventListeners() {
+    this.chooseFileBtn.addEventListener("click", () => this.fileUpload.click());
     this.fileUpload.addEventListener(
       "change",
       this.handleFileSelect.bind(this)
@@ -179,6 +193,9 @@ class UploadComponent {
     if (this.fileUpload) {
       this.fileUpload.disabled = isUploading;
     }
+    if (this.chooseFileBtn) {
+      this.chooseFileBtn.disabled = isUploading;
+    }
     if (this.uploadButton) {
       this.uploadButton.disabled = isUploading;
       if (isUploading) {
@@ -192,10 +209,13 @@ class UploadComponent {
   async handleFileSelect(event) {
     const file = event.target.files?.[0];
     if (!file) {
+      this.fileNameDisplay.textContent = "No file chosen";
       this.displayUploadStatus("Please select a file.", "info");
       this.extractedContentSection.style.display = "none";
       return;
     }
+
+    this.fileNameDisplay.textContent = file.name;
 
     try {
       this.parsedData = await ExcelService.parseFile(file);
