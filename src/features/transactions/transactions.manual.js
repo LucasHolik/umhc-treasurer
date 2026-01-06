@@ -238,4 +238,8 @@ export default class TransactionsManualModal {
 
     this.close(transaction);
   }
+
+  destroy() {
+    this.close(null);
+  }
 }

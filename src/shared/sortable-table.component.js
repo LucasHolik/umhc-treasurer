@@ -283,7 +283,8 @@ export default class SortableTable {
   parseNumber(val) {
     if (typeof val === "number") return val;
     if (val === null || val === undefined || val === "") return Infinity;
-    return parseFloat(val.toString().replace(/,/g, "")) || 0;
+    const parsed = parseFloat(val.toString().replace(/,/g, ""));
+    return isNaN(parsed) ? Infinity : parsed;
   }
 
   handleSelectAll(checked) {
@@ -324,5 +325,12 @@ export default class SortableTable {
       this.onSelectionChange(Array.from(this.selectedRows));
     }
     this.render();
+  }
+
+  destroy() {
+    clear(this.container);
+    this.data = [];
+    this.columns = [];
+    this.selectedRows.clear();
   }
 }

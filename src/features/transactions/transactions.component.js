@@ -94,6 +94,21 @@ class TransactionsComponent {
     if (this.tagSelector) {
       this.tagSelector.destroy();
     }
+    if (
+      this.tableComponent &&
+      typeof this.tableComponent.destroy === "function"
+    ) {
+      this.tableComponent.destroy();
+    }
+    if (
+      this.filtersComponent &&
+      typeof this.filtersComponent.destroy === "function"
+    ) {
+      this.filtersComponent.destroy();
+    }
+    if (this.manualModal && typeof this.manualModal.destroy === "function") {
+      this.manualModal.destroy();
+    }
     if (this.boundGlobalClickHandler) {
       document.removeEventListener("click", this.boundGlobalClickHandler);
     }
@@ -727,6 +742,14 @@ class TransactionsComponent {
   }
 
   initializeSubComponents() {
+    // Cleanup old table component
+    if (
+      this.tableComponent &&
+      typeof this.tableComponent.destroy === "function"
+    ) {
+      this.tableComponent.destroy();
+    }
+
     // Table
     this.tableComponent = new SortableTable(
       this.transactionsDisplay.querySelector("#transactions-table-container"),
@@ -751,23 +774,32 @@ class TransactionsComponent {
             label: "Amount",
             type: "custom",
             sortValue: (item) => {
-              const income = item.Income
-                ? parseFloat(String(item.Income).replace(/,/g, ""))
-                : 0;
-              const expense = item.Expense
-                ? parseFloat(String(item.Expense).replace(/,/g, ""))
-                : 0;
-              const safeIncome = isNaN(income) ? 0 : income;
-              const safeExpense = isNaN(expense) ? 0 : expense;
-              return safeIncome - safeExpense;
+              const incomeStr = item.Income
+                ? String(item.Income).replace(/,/g, "")
+                : "";
+              const expenseStr = item.Expense
+                ? String(item.Expense).replace(/,/g, "")
+                : "";
+
+              const income = incomeStr !== "" ? parseFloat(incomeStr) : 0;
+              const expense = expenseStr !== "" ? parseFloat(expenseStr) : 0;
+
+              if (isNaN(income) || isNaN(expense)) {
+                return Infinity;
+              }
+
+              return income - expense;
             },
             render: (item) => {
-              const income = item.Income
-                ? parseFloat(String(item.Income).replace(/,/g, ""))
-                : 0;
-              const expense = item.Expense
-                ? parseFloat(String(item.Expense).replace(/,/g, ""))
-                : 0;
+              const incomeStr = item.Income
+                ? String(item.Income).replace(/,/g, "")
+                : "";
+              const expenseStr = item.Expense
+                ? String(item.Expense).replace(/,/g, "")
+                : "";
+
+              const income = incomeStr !== "" ? parseFloat(incomeStr) : 0;
+              const expense = expenseStr !== "" ? parseFloat(expenseStr) : 0;
 
               const safeIncome = isNaN(income) ? 0 : income;
               const safeExpense = isNaN(expense) ? 0 : expense;
@@ -792,6 +824,14 @@ class TransactionsComponent {
         onRowClick: (item, e) => this.handleRowClick(item, e),
       }
     );
+
+    // Cleanup old filters component
+    if (
+      this.filtersComponent &&
+      typeof this.filtersComponent.destroy === "function"
+    ) {
+      this.filtersComponent.destroy();
+    }
 
     // Filters
     this.filtersComponent = new TransactionsFilters(this.transactionsDisplay, {
@@ -844,7 +884,8 @@ class TransactionsComponent {
       splits = await modal.open(transaction);
     } catch (error) {
       store.setState("savingSplitTransaction", false);
-      throw error;
+      console.error("Split modal error:", error);
+      return;
     }
 
     if (splits) {

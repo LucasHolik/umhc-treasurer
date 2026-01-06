@@ -67,8 +67,10 @@ export const sortData = (data, field, ascending) => {
         valB = parseAmount(b[otherField]);
       }
     } else if (field === "Date") {
-      valA = parseDate(valA) || new Date(0);
-      valB = parseDate(valB) || new Date(0);
+      const dateA = parseDate(valA);
+      const dateB = parseDate(valB);
+      valA = !dateA || isNaN(dateA.getTime()) ? Infinity : dateA.getTime();
+      valB = !dateB || isNaN(dateB.getTime()) ? Infinity : dateB.getTime();
     }
 
     if (valA < valB) return ascending ? -1 : 1;

@@ -174,4 +174,9 @@ export default class TransactionsFilters {
     replace(container, ...children);
     container.scrollTop = previousScrollTop;
   }
+
+  destroy() {
+    this.element = null;
+    this.callbacks = {};
+  }
 }
