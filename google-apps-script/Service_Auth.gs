@@ -84,8 +84,9 @@ const Service_Auth = {
       const sortedParams = {};
       paramKeys.forEach((k) => (sortedParams[k] = allParams[k]));
 
-      // Must match client-side construction: action + "|" + timestamp + JSON.stringify(sortedParams)
-      const payload = action + "|" + timestamp + JSON.stringify(sortedParams);
+      // Must match client-side construction: action + "|" + timestamp + "|" + JSON.stringify(sortedParams)
+      const payload =
+        action + "|" + timestamp + "|" + JSON.stringify(sortedParams);
 
       // 3. Compute Expected Signature
       const signatureBytes = Utilities.computeHmacSha256Signature(

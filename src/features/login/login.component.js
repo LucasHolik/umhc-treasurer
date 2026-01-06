@@ -234,7 +234,10 @@ class LoginComponent {
         this.loginStatus,
         el(
           "div",
-          { className: "status-message", style: { color: "#666" } },
+          {
+            className: "status-message",
+            style: { color: "#f0ad4e", fontWeight: "bold" },
+          },
           "Verifying session..."
         )
       );

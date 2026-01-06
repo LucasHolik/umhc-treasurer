@@ -18,7 +18,7 @@ const getScriptUrl = () => localStorage.getItem("script_url");
 
 const setScriptUrl = (url) => {
   if (url) {
-    localStorage.setItem("script_url", url.trim());
+    localStorage.setItem("script_url", String(url).trim());
   } else {
     localStorage.removeItem("script_url");
   }
@@ -119,7 +119,7 @@ const request = (action, params = {}, options = {}) => {
     const encoder = new TextEncoder();
     const keyData = encoder.encode(secret);
     const payload = encoder.encode(
-      action + "|" + timestamp + JSON.stringify(params)
+      action + "|" + timestamp + "|" + JSON.stringify(params)
     );
 
     const cryptoKey = await crypto.subtle.importKey(
@@ -233,7 +233,12 @@ const request = (action, params = {}, options = {}) => {
   // Safeguard against unbounded growth
   if (activeRequests.size >= MAX_ACTIVE_REQUESTS) {
     const firstKey = activeRequests.keys().next().value;
+    const oldestPromise = activeRequests.get(firstKey);
     activeRequests.delete(firstKey);
+    // Note: The cleanup will happen when the JSONP callback fires or times out
+    console.warn(
+      `Request queue full. Oldest request (${firstKey}) removed from tracking.`
+    );
   }
 
   activeRequests.set(requestKey, promise);
@@ -306,11 +311,10 @@ const ApiService = {
     let allData = [];
     let page = 1;
     let hasMore = true;
-    let manuallyManagedLoading = false;
+    const wasLoading = loadingRequestCount > 0;
 
-    if (loadingRequestCount === 0) {
+    if (!wasLoading) {
       store.setState("isLoading", true);
-      manuallyManagedLoading = true;
     }
     loadingRequestCount++;
 
@@ -350,7 +354,7 @@ const ApiService = {
       return { success: true, data: allData };
     } finally {
       loadingRequestCount--;
-      if (manuallyManagedLoading && loadingRequestCount === 0) {
+      if (!wasLoading && loadingRequestCount === 0) {
         store.setState("isLoading", false);
       }
       store.setState("taggingProgress", null);
