@@ -145,6 +145,7 @@ const store = createStore({
   openingBalance: 0,
   settingsSyncing: false,
   accessibilityMode: false,
+  isVerifyingSession: false,
 });
 
 export default store;

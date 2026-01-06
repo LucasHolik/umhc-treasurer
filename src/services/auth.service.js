@@ -22,6 +22,7 @@ const AuthService = {
     // ApiService initializes its session from sessionStorage automatically on import/load.
     // We just need to check if it has a valid session.
     if (ApiService.hasSession()) {
+      store.setState("isVerifyingSession", true);
       try {
         // Validate session with server
         await ApiService.ping();
@@ -29,6 +30,8 @@ const AuthService = {
       } catch (error) {
         console.warn("Session validation failed:", error);
         this.logout();
+      } finally {
+        store.setState("isVerifyingSession", false);
       }
     }
   },

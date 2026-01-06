@@ -21,11 +21,19 @@ class LoginComponent {
       "isLoading",
       this.handleLoading.bind(this)
     );
+    this.verifyingUnsubscribe = store.subscribe(
+      "isVerifyingSession",
+      this.handleVerifying.bind(this)
+    );
+
+    // Initial check
+    this.handleVerifying(store.getState("isVerifyingSession"));
   }
 
   destroy() {
     if (this.errorUnsubscribe) this.errorUnsubscribe.unsubscribe();
     if (this.loadingUnsubscribe) this.loadingUnsubscribe.unsubscribe();
+    if (this.verifyingUnsubscribe) this.verifyingUnsubscribe.unsubscribe();
   }
 
   render() {
@@ -118,7 +126,7 @@ class LoginComponent {
       }
     });
 
-    const loginButton = el(
+    this.loginButton = el(
       "button",
       {
         id: "login-button",
@@ -152,7 +160,12 @@ class LoginComponent {
         onerror: (e) => (e.target.style.display = "none"),
       }),
       el("div", { className: "instruction-text" }, "Please enter your API Key"),
-      el("div", { className: "input-group" }, this.apiKeyInput, loginButton),
+      el(
+        "div",
+        { className: "input-group" },
+        this.apiKeyInput,
+        this.loginButton
+      ),
       el("div", { className: "action-area" }, changeUrlButton),
       el("div", { className: "status-container" }, this.loginStatus)
     );
@@ -204,6 +217,35 @@ class LoginComponent {
         "error",
         error.message || "Login failed. Please try again."
       );
+    }
+  }
+
+  handleVerifying(isVerifying) {
+    if (this.apiKeyInput) {
+      this.apiKeyInput.disabled = isVerifying;
+    }
+    if (this.loginButton) {
+      this.loginButton.disabled = isVerifying;
+      this.loginButton.textContent = isVerifying ? "Verifying..." : "Login";
+    }
+
+    if (this.loginStatus && isVerifying) {
+      replace(
+        this.loginStatus,
+        el(
+          "div",
+          { className: "status-message", style: { color: "#666" } },
+          "Verifying session..."
+        )
+      );
+    } else if (
+      this.loginStatus &&
+      !isVerifying &&
+      !store.getState("error") &&
+      !store.getState("isLoading")
+    ) {
+      // Clear verifying message if no error/loading
+      replace(this.loginStatus);
     }
   }
 
