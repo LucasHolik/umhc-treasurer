@@ -80,9 +80,17 @@ class TagsComponent {
   }
 
   destroy() {
-    if (this.tagsList && this.tagsList.destroy) {
-      this.tagsList.destroy();
-    }
+    const subComponents = [
+      this.tagsList,
+      this.tagsSubList,
+      this.tagsDetails,
+      this.tagsAddTrip,
+    ];
+    subComponents.forEach((component) => {
+      if (component && typeof component.destroy === "function") {
+        component.destroy();
+      }
+    });
     this.subscriptions.forEach((sub) => sub.unsubscribe());
     this.subscriptions = [];
   }
@@ -313,6 +321,10 @@ class TagsComponent {
 
   async handleTagAdd(type, value) {
     if (!value) return;
+    if (!this.localTags) {
+      await this.modal.alert("Cannot add tag: edit mode not active.");
+      return;
+    }
     if (!this.localTags[type] || !Array.isArray(this.localTags[type])) {
       await this.modal.alert(`Invalid tag type: ${type}`);
       return;
@@ -327,6 +339,10 @@ class TagsComponent {
   }
 
   async handleTagDelete(type, tag) {
+    if (!this.localTags) {
+      await this.modal.alert("Cannot delete tag: edit mode not active.");
+      return;
+    }
     const confirmed = await this.modal.confirm(`Delete tag "${tag}"?`);
     if (confirmed) {
       this.localTags[type] = this.localTags[type].filter((t) => t !== tag);
@@ -346,6 +362,10 @@ class TagsComponent {
   }
 
   async handleTagRename(type, tag) {
+    if (!this.localTags) {
+      await this.modal.alert("Cannot rename tag: edit mode not active.");
+      return;
+    }
     const newName = await this.modal.prompt(
       `Rename "${tag}" to:`,
       tag,
@@ -482,7 +502,12 @@ class TagsComponent {
     let processedCount = 0;
     try {
       for (const chunk of chunks) {
-        await ApiService.processTagOperations(chunk, { skipLoading: true });
+        const result = await ApiService.processTagOperations(chunk, {
+          skipLoading: true,
+        });
+        if (!result.success) {
+          throw new Error(result.message || "Failed to process tag operations");
+        }
         processedCount += chunk.length;
       }
 
