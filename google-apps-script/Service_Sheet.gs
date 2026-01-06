@@ -8,9 +8,21 @@ const Service_Sheet = {
       }
 
       // Validate all dates before processing
-      const invalidDates = data.filter(
-        (row) => row.date && !/^\d{4}-\d{2}-\d{2}$/.test(row.date)
-      );
+      const invalidDates = data.filter((row) => {
+        if (!row.date) return false;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) return true;
+
+        const [year, month, day] = row.date.split("-").map(Number);
+        if (month < 1 || month > 12 || day < 1 || day > 31) return true;
+
+        // Check if date is valid by creating a Date object and comparing
+        const date = new Date(year, month - 1, day);
+        return (
+          date.getFullYear() !== year ||
+          date.getMonth() !== month - 1 ||
+          date.getDate() !== day
+        );
+      });
       if (invalidDates.length > 0) {
         return {
           success: false,
@@ -50,6 +62,8 @@ const Service_Sheet = {
         record[CONFIG.HEADERS.indexOf("Time-uploaded")] = new Date();
         record[CONFIG.HEADERS.indexOf("Date")] = row.date || "";
         record[CONFIG.HEADERS.indexOf("Description")] = row.description || "";
+        record[CONFIG.HEADERS.indexOf("Trip/Event")] = row.tripEvent || "";
+        record[CONFIG.HEADERS.indexOf("Category")] = row.category || "";
         record[CONFIG.HEADERS.indexOf("Income")] = row.cashIn || "";
         record[CONFIG.HEADERS.indexOf("Expense")] = row.cashOut || "";
         record[CONFIG.HEADERS.indexOf("Type")] = row.isManual
@@ -57,6 +71,8 @@ const Service_Sheet = {
           : row.isUploaded
           ? "Uploaded"
           : "";
+        record[CONFIG.HEADERS.indexOf("Split Group ID")] =
+          row.splitGroupId || "";
         return record;
       });
 
