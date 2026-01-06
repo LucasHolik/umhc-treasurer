@@ -6,7 +6,7 @@ export default class AnalysisTable {
     this.element = element;
   }
 
-  render(labels, datasets, options) {
+  render(labels, datasets, options = {}) {
     const { primaryGroup, secondaryGroup, metric, timeUnit, show } = options;
 
     if (!show) {
@@ -41,14 +41,13 @@ export default class AnalysisTable {
       );
     }
 
-    const tableRows = labels.map((label) => {
+    const tableRows = labels.map((label, dataIndex) => {
       const rowCells = [];
       rowCells.push(el("td", { className: "data-table-cell" }, label));
 
       if (secondaryGroup !== "none") {
         let rowTotal = 0;
         datasets.forEach((dataset) => {
-          const dataIndex = labels.indexOf(label);
           const value = dataset.data[dataIndex] || 0;
           rowCells.push(
             el("td", { className: "data-table-cell" }, formatCurrency(value))
@@ -63,11 +62,16 @@ export default class AnalysisTable {
           )
         );
       } else {
-        const dataIndex = labels.indexOf(label);
-        const value = datasets[0].data[dataIndex] || 0;
-        rowCells.push(
-          el("td", { className: "data-table-cell" }, formatCurrency(value))
-        );
+        if (datasets.length === 0) {
+          rowCells.push(
+            el("td", { className: "data-table-cell" }, formatCurrency(0))
+          );
+        } else {
+          const value = datasets[0].data[dataIndex] || 0;
+          rowCells.push(
+            el("td", { className: "data-table-cell" }, formatCurrency(value))
+          );
+        }
       }
       return el("tr", { className: "data-table-row" }, ...rowCells);
     });
