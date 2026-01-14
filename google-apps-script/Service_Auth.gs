@@ -27,7 +27,7 @@ const Service_Auth = {
     }
 
     // 2. Create Session
-    const session = Service_Session.createSession(apiKey);
+    const session = Service_Session.createSession();
 
     return {
       success: true,

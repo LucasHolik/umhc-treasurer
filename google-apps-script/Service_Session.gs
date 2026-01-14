@@ -1,19 +1,14 @@
 const Service_Session = {
   /**
    * Creates a new session for a validated user.
-   * @param {string} apiKey - The permanent API key (used only to generate the session).
    * @returns {object} - { sessionId, sessionKey }
    */
-  createSession: function (apiKey) {
+  createSession: function () {
     const sessionId = Utilities.getUuid();
     const sessionKey = Utilities.getUuid(); // Use a UUID as a random session secret
 
     // Store in CacheService
     // We store the sessionKey keyed by sessionId.
-    // The apiKey is technically not needed for verification once we have the sessionKey,
-    // but we might want to store it if we need to re-validate permissions later
-    // (though currently permissions are just "has key").
-    // For now, we just store the sessionKey.
 
     const cache = CacheService.getScriptCache();
     // Cache for 1 hour (3600 seconds)
