@@ -5,30 +5,36 @@ import { el } from "../core/dom.js";
 class ModalComponent {
   static _idCounter = 0;
   static _stylesLoaded = false;
+  static _styleLoadPromise = null;
 
   constructor() {
     this._injectStyles();
   }
 
   _injectStyles() {
-    // Inject styles if not already present
-    if (!document.getElementById("modal-styles")) {
-      const link = document.createElement("link");
-      link.id = "modal-styles";
-      link.rel = "stylesheet";
-      link.href = new URL("./modal.css", import.meta.url).href;
-
-      // Mark as loaded when done
-      link.onload = () => {
+    const existing = document.getElementById("modal-styles");
+    if (existing) {
+      if (existing.sheet) {
         ModalComponent._stylesLoaded = true;
-      };
-      link.onerror = () => {
-        console.warn("Modal stylesheet failed to load");
-        ModalComponent._stylesLoaded = true;
-      };
-
-      document.head.appendChild(link);
+      }
+      return;
     }
+
+    const link = document.createElement("link");
+    link.id = "modal-styles";
+    link.rel = "stylesheet";
+    link.href = new URL("./modal.css", import.meta.url).href;
+
+    // Mark as loaded when done
+    link.onload = () => {
+      ModalComponent._stylesLoaded = true;
+    };
+    link.onerror = () => {
+      console.warn("Modal stylesheet failed to load");
+      ModalComponent._stylesLoaded = true;
+    };
+
+    document.head.appendChild(link);
   }
 
   /**
@@ -79,6 +85,8 @@ class ModalComponent {
 
   _ensureStylesLoaded() {
     if (ModalComponent._stylesLoaded) return Promise.resolve();
+    if (ModalComponent._styleLoadPromise)
+      return ModalComponent._styleLoadPromise;
 
     const existing = document.getElementById("modal-styles");
 
@@ -89,7 +97,7 @@ class ModalComponent {
       return Promise.resolve();
     }
 
-    return new Promise((resolve) => {
+    ModalComponent._styleLoadPromise = new Promise((resolve) => {
       if (!existing) {
         console.warn("Modal stylesheet element not found, re-injecting...");
         this._injectStyles();
@@ -138,12 +146,17 @@ class ModalComponent {
         // Should be unreachable now
         resolve();
       }
+    }).finally(() => {
+      ModalComponent._styleLoadPromise = null;
     });
+
+    return ModalComponent._styleLoadPromise;
   }
 
   async _show(options) {
     await this._ensureStylesLoaded();
     const modalId = ++ModalComponent._idCounter;
+    const previouslyFocused = document.activeElement;
 
     return new Promise((resolve) => {
       let inputEl;
@@ -274,6 +287,10 @@ class ModalComponent {
         setTimeout(() => {
           if (document.body.contains(overlay)) {
             document.body.removeChild(overlay);
+          }
+          // Restore focus to the element that was focused before the modal opened
+          if (previouslyFocused && previouslyFocused.focus) {
+            previouslyFocused.focus();
           }
         }, 200);
         resolve(result);
