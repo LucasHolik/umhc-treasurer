@@ -2,13 +2,34 @@
 
 import store from "../core/state.js";
 
+// Map<string, { promise: Promise, cancel: Function }>
 const activeRequests = new Map();
 const MAX_ACTIVE_REQUESTS = 100;
-let loadingRequestCount = 0;
+
+// Set<string> - Tracks IDs of requests that are currently triggering the loading state
+const loadingRequests = new Set();
 let callbackCounter = 0;
 
 const SESSION_ID_KEY = "umhc_treasurer_session_id";
 const SESSION_KEY_KEY = "umhc_treasurer_session_key";
+
+/*
+ * SECURITY NOTE:
+ * This application uses JSONP to communicate with Google Apps Script.
+ * JSONP requires a global callback function, and we cannot use HttpOnly cookies
+ * for session management because the script tag mechanism does not support them
+ * in this context.
+ *
+ * We store the session key in sessionStorage to persist login across reloads.
+ * This does expose the key to potential XSS attacks (if an attacker can execute JS).
+ * To mitigate this:
+ * 1. We strictly control the script URL.
+ * 2. We use unique callbacks and clean them up immediately.
+ * 3. We sanitize input parameters where possible.
+ *
+ * Future improvement: If higher security is required, consider moving to a
+ * proxy server that can handle proper OAuth2/JWT flows, eliminating JSONP.
+ */
 
 // Private variables to hold session credentials
 let _sessionId = null;
@@ -57,6 +78,10 @@ const clearSession = () => {
 
 const hasSession = () => !!_sessionId && !!_sessionKey;
 
+const updateLoadingState = () => {
+  store.setState("isLoading", loadingRequests.size > 0);
+};
+
 /**
  * Performs a JSONP request to the Google Apps Script backend.
  * This function is a Promisified version of the old jsonpRequest,
@@ -104,14 +129,12 @@ const request = (action, params = {}, options = {}) => {
   const requestKey = `${action}-${JSON.stringify(sortedParams)}`;
 
   if (activeRequests.has(requestKey)) {
-    return activeRequests.get(requestKey);
+    return activeRequests.get(requestKey).promise;
   }
 
   if (!options.skipLoading) {
-    if (loadingRequestCount === 0) {
-      store.setState("isLoading", true);
-    }
-    loadingRequestCount++;
+    loadingRequests.add(requestKey);
+    updateLoadingState();
   }
 
   // --- SIGNING HELPER ---
@@ -139,8 +162,15 @@ const request = (action, params = {}, options = {}) => {
     return signatureArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
+  const internalCancel = { cancelled: false, run: null };
+
   const promise = (async () => {
     try {
+      // Check if cancelled before starting expensive signing
+      if (internalCancel.cancelled) {
+        throw new Error("Request cancelled");
+      }
+
       const timestamp = Date.now().toString();
       const signature = await signRequest(
         action,
@@ -150,6 +180,12 @@ const request = (action, params = {}, options = {}) => {
       );
 
       return new Promise((resolve, reject) => {
+        // Check if cancelled during signing
+        if (internalCancel.cancelled) {
+          reject(new Error("Request cancelled"));
+          return;
+        }
+
         const url = new URL(SCRIPT_URL);
         url.searchParams.append("action", action);
 
@@ -184,12 +220,15 @@ const request = (action, params = {}, options = {}) => {
           activeRequests.delete(requestKey);
 
           if (!options.skipLoading) {
-            loadingRequestCount--;
-            if (loadingRequestCount === 0) {
-              store.setState("isLoading", false);
-            }
+            loadingRequests.delete(requestKey);
+            updateLoadingState();
           }
+
+          internalCancel.run = null;
         };
+
+        // Assign the real cleanup to our internal cancel handler
+        internalCancel.run = cleanup;
 
         timeoutId = setTimeout(() => {
           cleanup();
@@ -214,6 +253,9 @@ const request = (action, params = {}, options = {}) => {
           reject(new Error("Network error during API request."));
         };
 
+        // Final check: if we were cancelled or timed out during the signing/setup phase
+        if (cleanedUp) return;
+
         script.src = url.toString();
         document.body.appendChild(script);
       });
@@ -221,27 +263,36 @@ const request = (action, params = {}, options = {}) => {
       // Handle signing errors or other prep errors
       activeRequests.delete(requestKey);
       if (!options.skipLoading) {
-        loadingRequestCount--;
-        if (loadingRequestCount === 0) {
-          store.setState("isLoading", false);
-        }
+        loadingRequests.delete(requestKey);
+        updateLoadingState();
       }
       throw err;
     }
   })();
 
+  // Create a cancel function that can be called externally
+  const cancelWrapper = () => {
+    internalCancel.cancelled = true;
+    if (internalCancel.run) internalCancel.run();
+  };
+
   // Safeguard against unbounded growth
   if (activeRequests.size >= MAX_ACTIVE_REQUESTS) {
     const firstKey = activeRequests.keys().next().value;
-    const oldestPromise = activeRequests.get(firstKey);
+    const oldestRequest = activeRequests.get(firstKey);
+
+    // Cancel the oldest request before removing it
+    if (oldestRequest && typeof oldestRequest.cancel === "function") {
+      oldestRequest.cancel();
+    }
+
     activeRequests.delete(firstKey);
-    // Note: The cleanup will happen when the JSONP callback fires or times out
     console.warn(
-      `Request queue full. Oldest request (${firstKey}) removed from tracking.`
+      `Request queue full. Oldest request (${firstKey}) cancelled and removed.`
     );
   }
 
-  activeRequests.set(requestKey, promise);
+  activeRequests.set(requestKey, { promise, cancel: cancelWrapper });
   return promise;
 };
 
@@ -311,12 +362,11 @@ const ApiService = {
     let allData = [];
     let page = 1;
     let hasMore = true;
-    const wasLoading = loadingRequestCount > 0;
 
-    if (!wasLoading) {
-      store.setState("isLoading", true);
-    }
-    loadingRequestCount++;
+    // Use a unique key to represent this batch operation in the loading set
+    const batchLoadingKey = `batch-split-history-${Date.now()}`;
+    loadingRequests.add(batchLoadingKey);
+    updateLoadingState();
 
     try {
       while (hasMore) {
@@ -353,10 +403,8 @@ const ApiService = {
       store.setState("splitTransactions", allData);
       return { success: true, data: allData };
     } finally {
-      loadingRequestCount--;
-      if (!wasLoading && loadingRequestCount === 0) {
-        store.setState("isLoading", false);
-      }
+      loadingRequests.delete(batchLoadingKey);
+      updateLoadingState();
       store.setState("taggingProgress", null);
     }
   },
