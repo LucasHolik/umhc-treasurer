@@ -11,7 +11,7 @@ const cleanupHandlers = new WeakMap();
  * @param {HTMLElement} element - The element to cleanup
  */
 export const cleanup = (element) => {
-  if (!element) return;
+  if (!element || !(element instanceof Element)) return;
 
   const handler = cleanupHandlers.get(element);
   if (handler) {
@@ -28,7 +28,7 @@ export const cleanup = (element) => {
  * @param {HTMLElement} element - The element to clear.
  */
 export const clear = (element) => {
-  if (!element) return;
+  if (!element || !(element instanceof Element)) return;
   Array.from(element.children).forEach((child) => cleanup(child));
   element.replaceChildren();
 };
@@ -39,7 +39,7 @@ export const clear = (element) => {
  * @param {...Node} newChildren - The new children to add.
  */
 export const replace = (element, ...newChildren) => {
-  if (!element) return;
+  if (!element || !(element instanceof Element)) return;
 
   const newChildrenSet = new Set(newChildren);
 
@@ -84,6 +84,11 @@ export const el = (tag, attributes = {}, ...children) => {
         Object.assign(element.dataset, value);
       } else if (value !== false && value !== null && value !== undefined) {
         // Handle other attributes
+        if (typeof value === "object") {
+          throw new TypeError(
+            `Attribute "${key}" has object value. Use className, style, or dataset for objects.`
+          );
+        }
         // Treat boolean 'true' as a presence attribute
         if (value === true) {
           element.setAttribute(key, "");
