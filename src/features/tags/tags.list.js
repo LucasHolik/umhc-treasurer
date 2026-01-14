@@ -52,6 +52,16 @@ export default class TagsList {
     if (this.keydownHandler) {
       this.element.removeEventListener("keydown", this.keydownHandler);
     }
+    if (this.modal && typeof this.modal.destroy === "function") {
+      this.modal.destroy();
+    }
+    if (this.tables) {
+      Object.values(this.tables).forEach((table) => {
+        if (table && typeof table.destroy === "function") {
+          table.destroy();
+        }
+      });
+    }
     if (this.tagSelector) {
       this.tagSelector.destroy();
     }
@@ -89,7 +99,11 @@ export default class TagsList {
               color: "#d9534f",
               marginRight: "10px",
             },
-            onclick: () => this.callbacks.onEditModeToggle(false),
+            onclick: () => {
+              if (this.callbacks.onEditModeToggle) {
+                this.callbacks.onEditModeToggle(false);
+              }
+            },
           },
           "Cancel"
         ),
@@ -98,7 +112,11 @@ export default class TagsList {
           {
             id: "save-tags-btn",
             className: "action-btn",
-            onclick: () => this.callbacks.onSave(),
+            onclick: () => {
+              if (this.callbacks.onSave) {
+                this.callbacks.onSave();
+              }
+            },
           },
           "Save Changes"
         )
@@ -110,7 +128,11 @@ export default class TagsList {
           {
             id: "save-tags-btn",
             className: "action-btn",
-            onclick: () => this.callbacks.onSave(),
+            onclick: () => {
+              if (this.callbacks.onSave) {
+                this.callbacks.onSave();
+              }
+            },
           },
           `Save Changes (${this.queue.length})`
         )
@@ -122,7 +144,11 @@ export default class TagsList {
           {
             id: "edit-tags-btn",
             className: "secondary-btn",
-            onclick: () => this.callbacks.onEditModeToggle(true),
+            onclick: () => {
+              if (this.callbacks.onEditModeToggle) {
+                this.callbacks.onEditModeToggle(true);
+              }
+            },
           },
           "Edit Tags"
         )
@@ -325,7 +351,7 @@ export default class TagsList {
       };
 
       if (type === "Trip/Event") {
-        row.tripType = this.tripTypeMap[tag] || "";
+        row.tripType = this.tripTypeMap?.[tag] || "";
         row.status = tripStatusMap[tag] || "Active";
       }
 
@@ -683,18 +709,7 @@ export default class TagsList {
       e.stopPropagation();
       if (this.isEditMode) return;
       const tag = target.dataset.tag;
-      // Show selector
-      const typeOptions = this.tagsData["Type"] || [];
-      this.tagSelector.show(
-        target,
-        "Type",
-        "",
-        (newType) => {
-          if (this.callbacks.onUpdateTripType)
-            this.callbacks.onUpdateTripType(tag, newType);
-        },
-        typeOptions
-      );
+      this.openTagSelector(target, tag, "");
       return;
     }
 
@@ -707,17 +722,21 @@ export default class TagsList {
       const tagTextEl = pill.querySelector(".tag-text");
       if (!tagTextEl) return;
       const currentVal = tagTextEl.textContent;
-      const typeOptions = this.tagsData["Type"] || [];
-      this.tagSelector.show(
-        pill,
-        "Type",
-        currentVal,
-        (newType) => {
-          if (this.callbacks.onUpdateTripType)
-            this.callbacks.onUpdateTripType(tag, newType);
-        },
-        typeOptions
-      );
+      this.openTagSelector(pill, tag, currentVal);
     }
+  }
+
+  openTagSelector(target, tag, currentVal) {
+    const typeOptions = this.tagsData?.["Type"] || [];
+    this.tagSelector.show(
+      target,
+      "Type",
+      currentVal,
+      (newType) => {
+        if (this.callbacks.onUpdateTripType)
+          this.callbacks.onUpdateTripType(tag, newType);
+      },
+      typeOptions
+    );
   }
 }
