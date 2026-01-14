@@ -34,9 +34,17 @@ const createStore = (initialState = {}) => {
     subscribers[key].push(callback);
 
     // Return an unsubscribe function
+    let isUnsubscribed = false;
     return {
       unsubscribe: () => {
-        subscribers[key] = subscribers[key].filter((cb) => cb !== callback);
+        if (isUnsubscribed) return;
+        if (subscribers[key]) {
+          const index = subscribers[key].indexOf(callback);
+          if (index > -1) {
+            subscribers[key].splice(index, 1);
+            isUnsubscribed = true;
+          }
+        }
       },
     };
   };
@@ -47,10 +55,10 @@ const createStore = (initialState = {}) => {
    */
   const notify = (key) => {
     if (typeof key !== "string" || key === "") {
-      return; // Silently ignore invalid keys in notify
+      throw new TypeError("Key must be a non-empty string");
     }
     if (key === "__proto__" || key === "constructor" || key === "prototype") {
-      return; // Silently ignore reserved keys
+      throw new Error("Invalid key: reserved property name");
     }
     if (subscribers[key]) {
       const value = state[key];
@@ -58,7 +66,8 @@ const createStore = (initialState = {}) => {
       const valueToPass =
         value && typeof value === "object" ? deepClone(value) : value;
 
-      subscribers[key].forEach((callback) => {
+      // Iterate over a shallow copy to prevent issues with unsubscriptions during notification
+      [...subscribers[key]].forEach((callback) => {
         try {
           callback(valueToPass);
         } catch (error) {
