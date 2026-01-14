@@ -1,6 +1,9 @@
 const Service_Sheet = {
   saveData: function (e) {
     try {
+      if (!e || !e.parameter) {
+        return { success: false, message: "Invalid request parameters." };
+      }
       const data = JSON.parse(e.parameter.data || "[]");
 
       if (data.length === 0) {
@@ -127,13 +130,13 @@ const Service_Sheet = {
         CONFIG.HEADERS.length
       );
       const values = range.getValues();
+      const tz = financeSheet.getParent().getSpreadsheetTimeZone();
 
       const data = values.map((row, index) => {
         const obj = { row: index + 2 }; // Add row number for unique identification
         for (let i = 0; i < CONFIG.HEADERS.length; i++) {
           obj[CONFIG.HEADERS[i]] = row[i];
         }
-        const tz = financeSheet.getParent().getSpreadsheetTimeZone();
         if (obj["Date"] instanceof Date) {
           obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
         } else if (typeof obj["Date"] === "string" && obj["Date"]) {
@@ -161,6 +164,9 @@ const Service_Sheet = {
 
   updateExpenses: function (e) {
     try {
+      if (!e || !e.parameter) {
+        return { success: false, message: "Invalid request parameters." };
+      }
       const updates = JSON.parse(e.parameter.data || "[]");
       if (updates.length === 0) {
         return { success: true, message: "No updates to save." };
@@ -169,6 +175,7 @@ const Service_Sheet = {
       const financeSheet = _getFinanceSheet();
       const tripEventCol = CONFIG.HEADERS.indexOf("Trip/Event") + 1;
       const categoryCol = CONFIG.HEADERS.indexOf("Category") + 1;
+      const failures = [];
 
       for (const update of updates) {
         const row = update.row;
@@ -182,6 +189,7 @@ const Service_Sheet = {
               "Skipping split row update due to missing Service_Split:",
               row
             );
+            failures.push({ row, reason: "Service_Split unavailable" });
             continue;
           }
           Service_Split.updateSplitRowTag(
@@ -198,6 +206,7 @@ const Service_Sheet = {
               "Trip/Event column not found, skipping update for row:",
               row
             );
+            failures.push({ row, reason: "Trip/Event column not found" });
           }
           if (categoryCol > 0) {
             financeSheet.getRange(row, categoryCol).setValue(update.category);
@@ -206,13 +215,19 @@ const Service_Sheet = {
               "Category column not found, skipping update for row:",
               row
             );
+            failures.push({ row, reason: "Category column not found" });
           }
         } else if (row) {
           console.error("Invalid row identifier:", row);
+          failures.push({ row, reason: "Invalid row identifier" });
         }
       }
 
-      return { success: true, message: "Expenses updated successfully." };
+      const message =
+        failures.length > 0
+          ? `Updated with ${failures.length} failures`
+          : "Expenses updated successfully.";
+      return { success: failures.length === 0, message, failures };
     } catch (error) {
       console.error("Error updating expenses:", error);
       return {
@@ -246,6 +261,9 @@ const Service_Sheet = {
 
   saveOpeningBalance: function (e) {
     try {
+      if (!e || !e.parameter) {
+        return { success: false, message: "Invalid request parameters." };
+      }
       const balance = parseFloat(e.parameter.balance);
       if (isNaN(balance)) {
         return { success: false, message: "Invalid balance value" };
@@ -410,12 +428,12 @@ function _sortSheetByDate() {
     console.warn("Date column not found in headers, skipping sort");
     return;
   }
+  const tz = financeSheet.getParent().getSpreadsheetTimeZone();
   const dataWithDateObjects = values.map((row) => {
     let dateVal = row[dateIndex];
 
     // Normalize Date objects to YYYY-MM-DD strings to ensure consistency and prevent timezone shifts
     if (dateVal instanceof Date) {
-      const tz = financeSheet.getParent().getSpreadsheetTimeZone();
       dateVal = Utilities.formatDate(dateVal, tz, "yyyy-MM-dd");
       row[dateIndex] = dateVal; // Update row data so it's saved back as a string
     }
