@@ -41,31 +41,31 @@ class App {
       console.error("Failed to initialize authentication:", error);
       store.setState(
         "error",
-        "Authentication initialization failed. Please refresh or contact support."
+        "Authentication initialization failed. Please refresh or contact support.",
       );
     }
     this.render();
 
     this.subscriptions.push(
-      store.subscribe("currentUser", this.render.bind(this))
+      store.subscribe("currentUser", this.render.bind(this)),
     );
     this.subscriptions.push(
-      store.subscribe("isLoading", () => this.handleLoadingState())
+      store.subscribe("isLoading", () => this.handleLoadingState()),
     );
     this.subscriptions.push(
-      store.subscribe("isUploading", () => this.handleLoadingState())
+      store.subscribe("isUploading", () => this.handleLoadingState()),
     );
     this.subscriptions.push(
-      store.subscribe("isTagging", () => this.handleLoadingState())
+      store.subscribe("isTagging", () => this.handleLoadingState()),
     );
     this.subscriptions.push(
-      store.subscribe("savingTags", () => this.handleLoadingState())
+      store.subscribe("savingTags", () => this.handleLoadingState()),
     );
     this.subscriptions.push(
-      store.subscribe("settingsSyncing", () => this.handleLoadingState())
+      store.subscribe("settingsSyncing", () => this.handleLoadingState()),
     );
     this.subscriptions.push(
-      store.subscribe("error", () => this.handleErrorState())
+      store.subscribe("error", () => this.handleErrorState()),
     );
 
     // Accessibility Mode
@@ -78,7 +78,7 @@ class App {
       store.subscribe("accessibilityMode", (enabled) => {
         this.updateAccessibilityMode(enabled);
         localStorage.setItem("accessibilityMode", enabled);
-      })
+      }),
     );
 
     // Reactive Transaction Processing
@@ -91,10 +91,10 @@ class App {
     };
 
     this.subscriptions.push(
-      store.subscribe("rawExpenses", updateProcessedTransactions)
+      store.subscribe("rawExpenses", updateProcessedTransactions),
     );
     this.subscriptions.push(
-      store.subscribe("splitTransactions", updateProcessedTransactions)
+      store.subscribe("splitTransactions", updateProcessedTransactions),
     );
   }
 
@@ -133,8 +133,8 @@ class App {
           "a",
           { href: `#${tab}` },
           el("span", { className: "nav-icon" }, icon),
-          el("span", { className: "nav-text" }, text)
-        )
+          el("span", { className: "nav-text" }, text),
+        ),
       );
 
     const mainApp = el(
@@ -152,7 +152,7 @@ class App {
             className: "sidebar-logo",
             onerror: (e) => (e.target.style.display = "none"),
           }),
-          el("h2", {}, "UMHC Treasurer")
+          el("h2", {}, "UMHC Treasurer"),
         ),
         el(
           "nav",
@@ -165,8 +165,8 @@ class App {
             navItem("upload", "📤", "Upload"),
             navItem("tags", "🏷️", "Manage Tags"),
             navItem("analysis", "📈", "Analysis"),
-            navItem("settings", "⚙️", "Settings")
-          )
+            navItem("settings", "⚙️", "Settings"),
+          ),
         ),
         el(
           "div",
@@ -187,9 +187,9 @@ class App {
                 cursor: "pointer",
               },
             },
-            "Logout"
-          )
-        )
+            "Logout",
+          ),
+        ),
       ),
       el(
         "main",
@@ -200,13 +200,27 @@ class App {
           el(
             "div",
             { className: "header-content" },
-            el("h1", { id: "page-title" }, "Dashboard"),
+            el(
+              "div",
+              { className: "title-group" },
+              el("h1", { id: "page-title" }, "Dashboard"),
+              el(
+                "button",
+                {
+                  id: "expand-btn",
+                  className: "expand-btn",
+                  title: "Toggle Menu",
+                  style: { display: "none" }, // Hidden by default, shown via CSS
+                },
+                "▼",
+              ),
+            ),
             el(
               "button",
               { className: "refresh-btn", title: "Refresh Data" },
-              "🔄"
-            )
-          )
+              "🔄",
+            ),
+          ),
         ),
         el(
           "div",
@@ -220,7 +234,7 @@ class App {
               width: "100%",
             },
           },
-          this.globalLoader.render()
+          this.globalLoader.render(),
         ),
         el(
           "div",
@@ -234,9 +248,9 @@ class App {
           el("section", { id: "upload-content", className: "tab-content" }),
           el("section", { id: "tags-content", className: "tab-content" }),
           el("section", { id: "analysis-content", className: "tab-content" }),
-          el("section", { id: "settings-content", className: "tab-content" })
-        )
-      )
+          el("section", { id: "settings-content", className: "tab-content" }),
+        ),
+      ),
     );
 
     replace(this.element, mainApp);
@@ -299,7 +313,7 @@ class App {
       console.error("Failed to initialize components:", error);
       store.setState(
         "error",
-        "Component initialization failed. Please refresh the page."
+        "Component initialization failed. Please refresh the page.",
       );
       store.setState("isLoading", false);
       return;
@@ -327,7 +341,7 @@ class App {
       : "dashboard";
 
     const loaderContainer = this.element.querySelector(
-      "#global-loader-container"
+      "#global-loader-container",
     );
     const contentWrapper = this.element.querySelector(".content-wrapper");
     const refreshBtn = this.element.querySelector(".refresh-btn");
@@ -373,8 +387,8 @@ class App {
             onclick: () => store.setState("error", null),
             "aria-label": "Dismiss error",
           },
-          "×"
-        )
+          "×",
+        ),
       );
       replace(container, banner);
     } else {
@@ -387,6 +401,17 @@ class App {
     if (logoutBtn) {
       logoutBtn.addEventListener("click", () => {
         AuthService.logout();
+      });
+    }
+
+    const expandBtn = this.element.querySelector("#expand-btn");
+    if (expandBtn) {
+      expandBtn.addEventListener("click", () => {
+        const container = this.element.querySelector(".main-menu-container");
+        if (!container) return;
+        container.classList.toggle("mobile-menu-open");
+        const isOpen = container.classList.contains("mobile-menu-open");
+        expandBtn.textContent = isOpen ? "▲" : "▼";
       });
     }
 
@@ -433,6 +458,14 @@ class App {
 
     // 3. Handle Loading State specific to new tab
     this.handleLoadingState();
+
+    // 4. Close mobile menu if open
+    const container = this.element.querySelector(".main-menu-container");
+    const expandBtn = this.element.querySelector("#expand-btn");
+    if (container && container.classList.contains("mobile-menu-open")) {
+      container.classList.remove("mobile-menu-open");
+      if (expandBtn) expandBtn.textContent = "▼";
+    }
   }
 
   async loadInitialData() {
@@ -451,7 +484,7 @@ class App {
         // Set split transactions from the single API call
         store.setState(
           "splitTransactions",
-          appData.data.splitTransactions || []
+          appData.data.splitTransactions || [],
         );
       } else {
         console.error("API returned success: false", appData);
@@ -476,7 +509,7 @@ class App {
     if (this.sessionExpiredHandler) {
       document.removeEventListener(
         "sessionExpired",
-        this.sessionExpiredHandler
+        this.sessionExpiredHandler,
       );
     }
 

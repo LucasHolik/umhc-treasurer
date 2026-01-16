@@ -217,38 +217,113 @@
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
+:root {
+  --header-height: 75px;
+}
+
+@media (max-width: 1024px) {
   .main-menu-container {
     flex-direction: column;
-    height: auto;
     position: relative;
+    /* Ensure container doesn't overflow improperly */
+    overflow-x: hidden;
   }
 
+  /* Make Main Content fill the screen and sit at the top */
+  .main-content {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Force full height */
+  }
+
+  /* Sidebar: The Hidden Dropdown */
   .sidebar {
+    position: absolute;
+    top: var(--header-height);
+    left: 0;
     width: 100%;
     height: auto;
+    max-height: calc(
+      100vh - var(--header-height)
+    ); /* Prevent scrolling past viewport */
+    z-index: 1001;
+    transform: translateY(-150%);
+    visibility: hidden;
+    transition:
+      transform 0.3s ease-in-out,
+      visibility 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    overflow-y: auto;
+    border-right: none;
+    border-bottom: 2.8px solid #8b4513;
   }
 
+  .main-menu-container.mobile-menu-open .sidebar {
+    transform: translateY(0);
+    visibility: visible;
+  }
+
+  /* Adjust Nav Items for Dropdown */
   .nav-menu ul {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-direction: column; /* Stack vertically in dropdown */
   }
 
   .nav-item {
-    margin: 5px;
+    margin: 5px 15px;
   }
 
   .nav-item a {
-    padding: 8px 10px;
-    font-size: 0.9em;
+    padding: 12px 15px;
+    font-size: 1.1em; /* Larger touch targets */
+    justify-content: flex-start; /* Align left */
   }
 
   .nav-icon {
-    display: none;
+    display: inline-block; /* Show icons in dropdown */
   }
 
-  .main-content {
-    width: 100%;
+  /* Header Controls */
+  .expand-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    margin-left: 10px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .title-group {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Ensure Header stays visible */
+  .main-header {
+    position: relative;
+    z-index: 1002; /* Above sidebar */
+    background-color: #135909; /* Match brand color */
+    height: var(--header-height);
+    box-sizing: border-box;
+    /* Reset padding to vertical center with flex */
+    padding-top: 0;
+    padding-bottom: 0;
+    /* We keep left/right padding from global rule (20px) but remove top/bottom 
+       to ensure the 75px height is strictly respected with flex alignment */
+  }
+}
+
+@media (max-width: 768px) {
+  /* Refinements for smaller phones */
+  .sidebar .logo-section {
+    display: none; /* Hide logo to save space on small phones */
   }
 }
