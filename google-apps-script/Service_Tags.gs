@@ -190,26 +190,10 @@ function _addTag(type, value, skipSort, extraData) {
     }
   }
 
-  // Start from row 2 (skip header)
-  const columnValues =
-    lastRow > 1 ? tagSheet.getRange(2, column, lastRow - 1, 1).getValues() : [];
-  let nextEmptyRow = lastRow + 1;
-
-  // Find first empty cell in column
-  for (let i = 0; i < columnValues.length; i++) {
-    if (!columnValues[i][0]) {
-      nextEmptyRow = i + 2; // +2 because we start from row 2
-      break;
-    }
-  }
-
-  tagSheet.getRange(nextEmptyRow, column).setValue(value);
-
-  // If adding a Trip/Event, we must set its Type (Col 2) and Status (Col 3)
+  // Validate typeValue before writing anything
+  let typeValue = "";
   if (type === "Trip/Event") {
-    const typeValue = extraData || "";
-
-    // Validate typeValue exists in Type List (Col 5)
+    typeValue = extraData || "";
     if (typeValue) {
       if (lastRow < 2) {
         return {
@@ -231,7 +215,25 @@ function _addTag(type, value, skipSort, extraData) {
         };
       }
     }
+  }
 
+  // Start from row 2 (skip header)
+  const columnValues =
+    lastRow > 1 ? tagSheet.getRange(2, column, lastRow - 1, 1).getValues() : [];
+  let nextEmptyRow = lastRow + 1;
+
+  // Find first empty cell in column
+  for (let i = 0; i < columnValues.length; i++) {
+    if (!columnValues[i][0]) {
+      nextEmptyRow = i + 2; // +2 because we start from row 2
+      break;
+    }
+  }
+
+  tagSheet.getRange(nextEmptyRow, column).setValue(value);
+
+  // If adding a Trip/Event, we must set its Type (Col 2) and Status (Col 3)
+  if (type === "Trip/Event") {
     tagSheet.getRange(nextEmptyRow, COL_TYPE).setValue(typeValue);
     tagSheet.getRange(nextEmptyRow, COL_STATUS).setValue("Active"); // Default status
   }
@@ -317,7 +319,7 @@ function _deleteTag(type, value) {
     } catch (error) {
       console.error(
         "Aborting tag deletion due to external update failure:",
-        error
+        error,
       );
 
       let message =
@@ -365,7 +367,7 @@ function _deleteTag(type, value) {
         deleteRow + 1,
         1,
         lastRow - deleteRow,
-        3
+        3,
       );
       rangeToMove.copyTo(tagSheet.getRange(deleteRow, 1));
       // Clear last row of A, B, C
@@ -380,7 +382,7 @@ function _deleteTag(type, value) {
         deleteRow + 1,
         column,
         lastRow - deleteRow,
-        1
+        1,
       );
       rangeToMove.copyTo(tagSheet.getRange(deleteRow, column));
       tagSheet.getRange(lastRow, column).clearContent();
@@ -476,7 +478,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       const expenseResult = Service_Sheet.updateExpensesWithTag(
         oldValue,
         newValue,
-        type
+        type,
       );
       if (!expenseResult.success) {
         throw new Error("Expenses update failed: " + expenseResult.message);
@@ -486,7 +488,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       const splitResult = Service_Split.updateTagInSplits(
         oldValue,
         newValue,
-        type
+        type,
       );
       if (!splitResult.success) {
         throw new Error("Splits update failed: " + splitResult.message);
@@ -494,7 +496,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
     } catch (error) {
       console.error(
         "Error updating related data after tag rename. Rolling back...",
-        error
+        error,
       );
 
       // --- ROLLBACK ---
@@ -520,12 +522,12 @@ function _renameTag(type, oldValue, newValue, skipSort) {
           const revertResult = Service_Sheet.updateExpensesWithTag(
             newValue,
             oldValue,
-            type
+            type,
           );
           if (!revertResult.success) {
             console.error(
               "CRITICAL: Failed to rollback Expenses sheet during rename failure.",
-              revertResult
+              revertResult,
             );
             error.message +=
               " CRITICAL: Failed to revert Expenses sheet. Data is INCONSISTENT. Manual reconciliation required.";
@@ -533,7 +535,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
         } catch (rollbackError) {
           console.error(
             "CRITICAL: Exception during Expenses rollback.",
-            rollbackError
+            rollbackError,
           );
           error.message +=
             " CRITICAL: Exception during Expenses rollback. Data is INCONSISTENT. Manual reconciliation required.";

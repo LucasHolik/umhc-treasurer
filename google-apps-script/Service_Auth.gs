@@ -2,7 +2,7 @@ const Service_Auth = {
   getApiKey: function () {
     try {
       const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
-        CONFIG.CONFIG_SHEET
+        CONFIG.CONFIG_SHEET,
       );
       if (sheet) {
         const apiKey = sheet.getRange(CONFIG.API_KEY_CELL).getValue();
@@ -28,6 +28,11 @@ const Service_Auth = {
 
     // 2. Create Session
     const session = Service_Session.createSession();
+
+    if (!session || !session.sessionId || !session.sessionKey) {
+      console.error("Login failed: Unable to create session.");
+      return { success: false, message: "Session creation failed" };
+    }
 
     return {
       success: true,
@@ -77,7 +82,7 @@ const Service_Auth = {
       // callback is handled by GAS, but we filter it out just in case it's passed
       const ignoredKeys = ["action", "timestamp", "signature", "callback"];
       const paramKeys = Object.keys(allParams || {}).filter(
-        (k) => !ignoredKeys.includes(k)
+        (k) => !ignoredKeys.includes(k),
       );
       paramKeys.sort();
 
@@ -91,7 +96,7 @@ const Service_Auth = {
       // 3. Compute Expected Signature
       const signatureBytes = Utilities.computeHmacSha256Signature(
         payload,
-        secretKey
+        secretKey,
       );
 
       // Convert bytes to hex string
