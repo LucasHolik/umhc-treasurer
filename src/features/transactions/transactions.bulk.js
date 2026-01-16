@@ -30,7 +30,7 @@ export default class TransactionsBulk {
 
   bindEvents() {
     this.tagTransactionsBtn = this.element.querySelector(
-      "#tag-transactions-btn"
+      "#tag-transactions-btn",
     );
     this.bulkToolbar = this.element.querySelector("#bulk-actions-toolbar");
     this.mainControls = this.element.querySelector("#main-controls");
@@ -69,7 +69,7 @@ export default class TransactionsBulk {
       "#bulk-trip-trigger",
       "#bulk-trip-content",
       "#bulk-trip-search",
-      "Trip/Event"
+      "Trip/Event",
     );
     this.setupBulkDropdown(
       "category",
@@ -77,15 +77,20 @@ export default class TransactionsBulk {
       "#bulk-category-trigger",
       "#bulk-category-content",
       "#bulk-category-search",
-      "Category"
+      "Category",
     );
   }
 
   destroy() {
+    if (this.boundGlobalClick) {
+      document.removeEventListener("click", this.boundGlobalClick);
+      this.boundGlobalClick = null;
+    }
+
     if (this.tagTransactionsBtn && this.toggleModeHandler) {
       this.tagTransactionsBtn.removeEventListener(
         "click",
-        this.toggleModeHandler
+        this.toggleModeHandler,
       );
     }
 
@@ -136,7 +141,7 @@ export default class TransactionsBulk {
 
     if (!tripVal && !catVal) {
       await new ModalComponent().alert(
-        "Please select a Trip/Event or Category to apply."
+        "Please select a Trip/Event or Category to apply.",
       );
       return;
     }
@@ -155,7 +160,7 @@ export default class TransactionsBulk {
       this.handleBulkSelection(
         "Category",
         prefill.value,
-        this.bulkCategoryState
+        this.bulkCategoryState,
       );
     }
   }
@@ -226,7 +231,7 @@ export default class TransactionsBulk {
     triggerId,
     contentId,
     searchId,
-    tagName
+    tagName,
   ) {
     const container = this.element.querySelector(containerId);
     const trigger = this.element.querySelector(triggerId);
@@ -281,7 +286,7 @@ export default class TransactionsBulk {
         tagName,
         type === "trip" ? "#bulk-trip-list" : "#bulk-category-list",
         state,
-        type // pass type for ID generation
+        type, // pass type for ID generation
       );
     };
 
@@ -376,6 +381,12 @@ export default class TransactionsBulk {
       state.isOpen = true;
       if (trigger) trigger.setAttribute("aria-expanded", "true");
 
+      // Register global click handler if not already
+      if (!this.boundGlobalClick) {
+        this.boundGlobalClick = this.handleGlobalClick.bind(this);
+        document.addEventListener("click", this.boundGlobalClick);
+      }
+
       // Render list immediately to ensure options exist
       this.renderBulkTagLists();
 
@@ -409,13 +420,13 @@ export default class TransactionsBulk {
       "Trip/Event",
       "#bulk-trip-list",
       this.bulkTripState,
-      "trip"
+      "trip",
     );
     this.renderBulkTagList(
       "Category",
       "#bulk-category-list",
       this.bulkCategoryState,
-      "category"
+      "category",
     );
   }
 
@@ -430,7 +441,7 @@ export default class TransactionsBulk {
     const tags = tagsData[tagName] || [];
     const sortedTags = [...tags].sort();
     const visibleTags = sortedTags.filter((tag) =>
-      tag.toLowerCase().includes(stateObj.search)
+      tag.toLowerCase().includes(stateObj.search),
     );
 
     const children = [];
@@ -451,10 +462,10 @@ export default class TransactionsBulk {
           this.handleBulkSelection(
             tagName,
             TransactionsBulk.NO_TAG_VALUE,
-            stateObj
+            stateObj,
           ),
       },
-      el("em", {}, "(No Tag)")
+      el("em", {}, "(No Tag)"),
     );
     children.push(noTagDiv);
 
@@ -463,8 +474,8 @@ export default class TransactionsBulk {
         el(
           "div",
           { style: { padding: "5px", color: "#ccc" } },
-          "No matches found"
-        )
+          "No matches found",
+        ),
       );
     }
 
@@ -481,7 +492,7 @@ export default class TransactionsBulk {
           "aria-selected": stateObj.value === tag ? "true" : "false",
           onclick: () => this.handleBulkSelection(tagName, tag, stateObj),
         },
-        tag
+        tag,
       );
       children.push(div);
     });

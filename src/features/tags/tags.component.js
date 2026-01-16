@@ -72,7 +72,7 @@ class TagsComponent {
     this.subscriptions.push(
       store.subscribe("tags", () => {
         if (!this.isEditMode && this.viewMode === "list") this.render();
-      })
+      }),
     );
     this.subscriptions.push(store.subscribe("expenses", this.render));
     this.subscriptions.push(store.subscribe("savingTags", this.render));
@@ -118,7 +118,7 @@ class TagsComponent {
         tagsSource,
         this.timeframe,
         this.queue,
-        this.isEditMode
+        this.isEditMode,
       );
 
       this.tagsList.render(
@@ -129,7 +129,7 @@ class TagsComponent {
         tripTypeMap,
         tripStatusMap,
         this.timeframe,
-        tagsData // Pass original tags data for dropdowns (even in edit mode, options come from global or current set)
+        tagsData, // Pass original tags data for dropdowns (even in edit mode, options come from global or current set)
       );
     } else if (this.viewMode === "sublist" && this.selectedTag) {
       const expenses = store.getState("expenses") || [];
@@ -139,13 +139,13 @@ class TagsComponent {
         tagsData,
         this.timeframe,
         this.queue,
-        this.isEditMode
+        this.isEditMode,
       );
       this.tagsSubList.render(
         this.selectedTag.name,
         stats,
         tripTypeMap,
-        tripStatusMap
+        tripStatusMap,
       );
     } else if (this.viewMode === "details" && this.selectedTag) {
       this.tagsDetails.render(this.selectedTag.type, this.selectedTag.name);
@@ -176,14 +176,14 @@ class TagsComponent {
         el(
           "h3",
           { style: { color: "#f0ad4e", marginBottom: "10px" } },
-          "Processing..."
+          "Processing...",
         ),
         el(
           "p",
           { style: { color: "#fff", fontSize: "1.1em" } },
-          "Syncing changes with the database."
-        )
-      )
+          "Syncing changes with the database.",
+        ),
+      ),
     );
   }
 
@@ -294,7 +294,7 @@ class TagsComponent {
       if (this.queue.length > 0) {
         const confirmed = await this.modal.confirm(
           "You have unsaved changes to Trip/Event types. Discard them to enter Edit Mode?",
-          "Unsaved Changes"
+          "Unsaved Changes",
         );
         if (!confirmed) return;
       }
@@ -308,7 +308,7 @@ class TagsComponent {
       if (this.queue.length > 0) {
         const confirmed = await this.modal.confirm(
           "You have unsaved changes. Are you sure you want to cancel?",
-          "Unsaved Changes"
+          "Unsaved Changes",
         );
         if (!confirmed) return;
       }
@@ -369,7 +369,7 @@ class TagsComponent {
     const newName = await this.modal.prompt(
       `Rename "${tag}" to:`,
       tag,
-      "Rename Tag"
+      "Rename Tag",
     );
 
     if (newName && newName.trim() !== "" && newName !== tag) {
@@ -415,7 +415,7 @@ class TagsComponent {
     // Queue operation
     // Remove any previous pending update for this specific trip to avoid redundant ops
     this.queue = this.queue.filter(
-      (op) => !(op.type === "updateTripType" && op.oldValue === tripName)
+      (op) => !(op.type === "updateTripType" && op.oldValue === tripName),
     );
 
     // Check if newType matches original state
@@ -450,7 +450,7 @@ class TagsComponent {
     // 2. Queue operation
     // Remove any previous pending update for this specific trip to avoid redundant ops
     this.queue = this.queue.filter(
-      (op) => !(op.type === "updateTripStatus" && op.oldValue === tripName)
+      (op) => !(op.type === "updateTripStatus" && op.oldValue === tripName),
     );
 
     // Check if newStatus matches original state
@@ -492,7 +492,7 @@ class TagsComponent {
     // Use logic helper to format operations
     const formattedOperations = formatOperationsForApi(
       this.queue,
-      store.getState("tags")
+      store.getState("tags"),
     );
 
     for (let i = 0; i < formattedOperations.length; i += chunkSize) {
@@ -519,11 +519,13 @@ class TagsComponent {
       this.queue = [];
     } catch (error) {
       console.error("Failed to save tags:", error);
+      // Clear successfully processed operations to prevent re-submission
+      this.queue = this.queue.slice(processedCount);
       await this.modal.alert(
         `Failed to save tags: ${error.message}\n\n` +
           `${processedCount} of ${formattedOperations.length} operations were saved. ` +
           `Please refresh the page to see the current state and retry.`,
-        "Error"
+        "Error",
       );
     } finally {
       store.setState("savingTags", false);

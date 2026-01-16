@@ -18,7 +18,7 @@ export const getVirtualTripTypeMap = (originalMap, queue) => {
 
   queue.forEach((op) => {
     if (op.type === "updateTripType") {
-      if (op.newValue === "") {
+      if (!op.newValue || op.newValue === "") {
         delete virtualMap[op.oldValue];
       } else {
         virtualMap[op.oldValue] = op.newValue;
@@ -146,7 +146,7 @@ export const calculateTagStats = (
   tagsData,
   timeframe,
   queue = [],
-  isEditMode = false
+  isEditMode = false,
 ) => {
   const expenses = filterTransactionsByTimeframe(allExpenses, timeframe);
   const stats = { "Trip/Event": {}, Category: {}, Type: {} };
@@ -278,7 +278,7 @@ export const optimizeQueue = (queue, originalTags = null) => {
     if (op.type === "delete") {
       const addIndex = optimized.findIndex(
         (o) =>
-          o.type === "add" && o.value === op.value && o.tagType === op.tagType
+          o.type === "add" && o.value === op.value && o.tagType === op.tagType,
       );
       if (addIndex !== -1) {
         // Found corresponding add.
@@ -309,7 +309,7 @@ export const optimizeQueue = (queue, originalTags = null) => {
           (o) =>
             o.type === "rename" &&
             o.newValue === op.value &&
-            o.tagType === op.tagType
+            o.tagType === op.tagType,
         );
         if (renameIndex !== -1) {
           const prevOp = optimized[renameIndex];
@@ -330,7 +330,7 @@ export const optimizeQueue = (queue, originalTags = null) => {
         (o) =>
           o.type === "add" &&
           o.value === op.oldValue &&
-          o.tagType === op.tagType
+          o.tagType === op.tagType,
       );
       if (addIndex !== -1) {
         // "Add A" + "Rename A->B" = "Add B"
@@ -342,7 +342,7 @@ export const optimizeQueue = (queue, originalTags = null) => {
           (o) =>
             o.type === "rename" &&
             o.newValue === op.oldValue &&
-            o.tagType === op.tagType
+            o.tagType === op.tagType,
         );
         if (renameIndex !== -1) {
           // "Rename X->A" + "Rename A->B" = "Rename X->B"
@@ -363,7 +363,7 @@ export const optimizeQueue = (queue, originalTags = null) => {
         (o) =>
           o.type === "updateTripType" &&
           o.oldValue === op.oldValue &&
-          (o.tagType || "Trip/Event") === (op.tagType || "Trip/Event")
+          (o.tagType || "Trip/Event") === (op.tagType || "Trip/Event"),
       );
       if (existingIndex !== -1) {
         optimized[existingIndex] = op;
@@ -373,7 +373,7 @@ export const optimizeQueue = (queue, originalTags = null) => {
     // Handle multiple updates to same Trip Status
     else if (op.type === "updateTripStatus") {
       const existingIndex = optimized.findIndex(
-        (o) => o.type === "updateTripStatus" && o.oldValue === op.oldValue
+        (o) => o.type === "updateTripStatus" && o.oldValue === op.oldValue,
       );
       if (existingIndex !== -1) {
         optimized[existingIndex] = op;
