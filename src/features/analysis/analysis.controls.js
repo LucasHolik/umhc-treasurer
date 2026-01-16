@@ -118,7 +118,7 @@ export default class AnalysisControls {
       );
       btn.addEventListener("click", (e) => {
         if (this.callbacks.onPresetClick)
-          this.callbacks.onPresetClick(e.target.dataset.preset);
+          this.callbacks.onPresetClick(e.currentTarget.dataset.preset);
       });
       return btn;
     });
@@ -257,8 +257,8 @@ export default class AnalysisControls {
 
   update(state) {
     const setVal = (id, val) => {
-      const el = this.element.querySelector(id);
-      if (el) el.value = val;
+      const input = this.element.querySelector(id);
+      if (input) input.value = val;
     };
 
     setVal("#analysis-timeframe-select", state.timeframe);
