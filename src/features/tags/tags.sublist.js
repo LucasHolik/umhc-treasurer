@@ -10,24 +10,36 @@ export default class TagsSubList {
   }
 
   render(typeName, stats, tripTypeMap, tripStatusMap) {
+    // Validate parameters
+    if (!stats || !tripTypeMap || !tripStatusMap) {
+      console.warn("TagsSubList: Missing required parameters");
+      replace(this.element, el("div", {}, "Unable to load data"));
+      return;
+    }
+
     // Filter trips that belong to this type
     const tripStats = stats["Trip/Event"] || {};
     const relevantTrips = Object.keys(tripStats).filter(
-      (trip) => tripTypeMap[trip] === typeName
+      (trip) => tripTypeMap[trip] === typeName,
     );
 
-    const data = relevantTrips.map((trip) => {
-      const s = tripStats[trip];
-      const net = s.income - s.expense;
-      return {
-        tag: trip,
-        status: tripStatusMap[trip] || "Active",
-        income: s.income,
-        expense: s.expense,
-        net: net,
-        count: s.count,
-      };
-    });
+    const data = relevantTrips
+      .map((trip) => {
+        const s = tripStats[trip];
+        if (!s) return null;
+        const income = s.income || 0;
+        const expense = s.expense || 0;
+        const net = income - expense;
+        return {
+          tag: trip,
+          status: tripStatusMap[trip] || "Active",
+          income: income,
+          expense: expense,
+          net: net,
+          count: s.count,
+        };
+      })
+      .filter(Boolean);
 
     const header = el(
       "div",
@@ -53,7 +65,7 @@ export default class TagsSubList {
               if (this.callbacks.onBack) this.callbacks.onBack();
             },
           },
-          "← Back"
+          "← Back",
         ),
         el(
           "h2",
@@ -64,10 +76,10 @@ export default class TagsSubList {
             {
               style: { fontSize: "0.6em", color: "#aaa", fontWeight: "normal" },
             },
-            " (Trip Type)"
-          )
-        )
-      )
+            " (Trip Type)",
+          ),
+        ),
+      ),
     );
 
     const container = el("div", { id: "sublist-table-container" });
@@ -97,7 +109,7 @@ export default class TagsSubList {
               title: s.title,
               style: { color: s.color, fontWeight: "bold", fontSize: "1.2em" },
             },
-            s.icon
+            s.icon,
           );
           return span;
         },
@@ -123,6 +135,7 @@ export default class TagsSubList {
           const span = el("span", {}, formatCurrency(Math.abs(item.net)));
           if (item.net > 0) span.className = "positive";
           else if (item.net < 0) span.className = "negative";
+          else span.className = "neutral";
           return span;
         },
       },
