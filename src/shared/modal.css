@@ -99,7 +99,10 @@
   cursor: pointer;
   border: 1px solid transparent;
   font-weight: bold;
-  transition: all 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s,
+    border-color 0.2s;
 }
 
 .modal-btn-cancel {
