@@ -1,0 +1,24 @@
+{
+  "name": "umhc-treasurer",
+  "version": "1.0.0",
+  "description": "UMHC Treasurer website using GitHub Pages for hosting and Google Sheets as the backend/database.",
+  "main": "src/App.js",
+  "scripts": {
+    "start": "echo \"This is a client-side app. Open index.html in your browser or serve with a static server (e.g., 'python3 -m http.server').\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "treasurer",
+    "finance",
+    "accounting",
+    "google-sheets",
+    "google-apps-script",
+    "github-pages"
+  ],
+  "author": "Lucas Holik",
+  "license": "CC-BY-NC-4.0",
+  "private": true,
+  "directories": {
+    "lib": "src/lib"
+  }
+}
