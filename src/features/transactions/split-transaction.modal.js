@@ -21,9 +21,9 @@ export default class SplitTransactionModal {
    * @param {string} groupId - Optional. Required if in edit mode.
    */
   async open(transaction, existingSplits = null, groupId = null) {
-    // Clean up any existing modal
+    // Prevent opening multiple modals
     if (this.overlay) {
-      this.close(null);
+      throw new Error("Modal is already open");
     }
 
     this.transaction = transaction;
@@ -34,14 +34,14 @@ export default class SplitTransactionModal {
     // Determine amount and type (should have either income OR expense, not both)
     if (income > 0 && expense > 0) {
       await new ModalComponent().alert(
-        "Cannot split transactions with both Income and Expense. Please select a transaction with only one type."
+        "Cannot split transactions with both Income and Expense. Please select a transaction with only one type.",
       );
       return null;
     }
 
     if (income === 0 && expense === 0) {
       await new ModalComponent().alert(
-        "Cannot split a transaction with no amount. Please select a transaction with a valid amount."
+        "Cannot split a transaction with no amount. Please select a transaction with a valid amount.",
       );
       return null;
     }
@@ -65,11 +65,11 @@ export default class SplitTransactionModal {
       // Validate that existing splits sum to original amount
       const existingTotal = this.splits.reduce(
         (sum, s) => sum + (s.amount || 0),
-        0
+        0,
       );
       if (Math.abs(this.originalAmount - existingTotal) >= 0.01) {
         await new ModalComponent().alert(
-          "Existing splits do not match the original transaction amount. Cannot edit."
+          "Existing splits do not match the original transaction amount. Cannot edit.",
         );
         return null;
       }
@@ -115,7 +115,7 @@ export default class SplitTransactionModal {
               id: "revert-split-btn",
               onclick: () => this.handleRevert(),
             },
-            "Revert to Original"
+            "Revert to Original",
           )
         : null;
 
@@ -132,18 +132,18 @@ export default class SplitTransactionModal {
         disabled: true,
         onclick: () => this.handleSubmit(),
       },
-      "Save Splits"
+      "Save Splits",
     );
 
     this.totalDisplay = el(
       "span",
       { id: "total-split-display", className: "split-summary-value" },
-      "$0.00"
+      "£0.00",
     );
     this.remainingDisplay = el(
       "span",
       { id: "remaining-display", className: "split-summary-value" },
-      "$0.00"
+      "£0.00",
     );
 
     const modalContent = el(
@@ -157,8 +157,8 @@ export default class SplitTransactionModal {
         el(
           "button",
           { className: "modal-close", onclick: () => this.close(null) },
-          "×"
-        )
+          "×",
+        ),
       ),
       // Body
       el(
@@ -172,14 +172,14 @@ export default class SplitTransactionModal {
           el(
             "div",
             { className: "split-source-label" },
-            "Original Transaction"
+            "Original Transaction",
           ),
           el(
             "div",
             {
               className: "split-source-desc",
             },
-            this.transaction.Description ?? "No Description"
+            this.transaction.Description ?? "No Description",
           ),
           el(
             "div",
@@ -191,7 +191,7 @@ export default class SplitTransactionModal {
               { className: "split-source-date" },
               this.transaction.Date instanceof Date
                 ? formatDateForInput(this.transaction.Date)
-                : this.transaction.Date ?? ""
+                : (this.transaction.Date ?? ""),
             ),
             el(
               "span",
@@ -200,9 +200,9 @@ export default class SplitTransactionModal {
                   (this.isIncome ? "positive" : "negative") +
                   " split-source-amount",
               },
-              amountDisplay
-            )
-          )
+              amountDisplay,
+            ),
+          ),
         ),
         this.splitsContainer,
         el(
@@ -212,7 +212,7 @@ export default class SplitTransactionModal {
             className: "secondary-btn split-add-btn",
             onclick: () => this.addSplit(),
           },
-          "+ Add Another Split"
+          "+ Add Another Split",
         ),
         el(
           "div",
@@ -220,7 +220,7 @@ export default class SplitTransactionModal {
             className: "split-summary-total-row",
           },
           el("span", { className: "split-summary-label" }, "Total Split:"),
-          this.totalDisplay
+          this.totalDisplay,
         ),
         el(
           "div",
@@ -228,8 +228,8 @@ export default class SplitTransactionModal {
             className: "split-summary-remaining-row",
           },
           el("span", { className: "split-summary-label" }, "Remaining:"),
-          this.remainingDisplay
-        )
+          this.remainingDisplay,
+        ),
       ),
       // Footer
       el(
@@ -242,10 +242,10 @@ export default class SplitTransactionModal {
             className: "modal-btn modal-btn-cancel",
             onclick: () => this.close(null),
           },
-          "Cancel"
+          "Cancel",
         ),
-        this.saveBtn
-      )
+        this.saveBtn,
+      ),
     );
 
     overlay.appendChild(modalContent);
@@ -306,7 +306,7 @@ export default class SplitTransactionModal {
           onclick: (e) =>
             this.removeSplit(parseInt(e.currentTarget.dataset.index)),
         },
-        "×"
+        "×",
       );
 
       return el(
@@ -316,7 +316,7 @@ export default class SplitTransactionModal {
         },
         descInput,
         amountInput,
-        removeBtn
+        removeBtn,
       );
     });
 
@@ -367,7 +367,7 @@ export default class SplitTransactionModal {
   async handleRevert() {
     const modal = new ModalComponent();
     const confirmed = await modal.confirm(
-      "Are you sure you want to revert this split? The original transaction will be restored."
+      "Are you sure you want to revert this split? The original transaction will be restored.",
     );
 
     if (confirmed) {
@@ -384,7 +384,7 @@ export default class SplitTransactionModal {
     const total = this.splits.reduce((sum, s) => sum + (s.amount || 0), 0);
     if (Math.abs(this.originalAmount - total) >= 0.01) {
       await new ModalComponent().alert(
-        "Total split amount must equal original amount."
+        "Total split amount must equal original amount.",
       );
       return;
     }

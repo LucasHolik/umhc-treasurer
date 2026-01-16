@@ -492,7 +492,10 @@ class App {
       }
     } catch (error) {
       console.error("Load initial data error:", error);
-      store.setState("error", error.message);
+      store.setState(
+        "error",
+        "Failed to load application data. Please try refreshing.",
+      );
     } finally {
       this._loadingData = false;
       store.setState("isLoading", false);

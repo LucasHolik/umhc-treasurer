@@ -8,12 +8,13 @@ export default class TransactionsManualModal {
   }
 
   open() {
-    // Close any existing modal first
-    if (this.overlay) {
-      this.close(null);
-    }
+    return new Promise((resolve, reject) => {
+      // Prevent opening multiple modals
+      if (this.overlay) {
+        reject(new Error("Modal is already open"));
+        return;
+      }
 
-    return new Promise((resolve) => {
       this.resolvePromise = resolve;
       this.render();
     });
@@ -53,7 +54,7 @@ export default class TransactionsManualModal {
         style: { width: "100%" },
       },
       el("option", { value: "Expense" }, "Expense (Money Out)"),
-      el("option", { value: "Income" }, "Income (Money In)")
+      el("option", { value: "Income" }, "Income (Money In)"),
     );
 
     this.amountInput = el("input", {
@@ -83,8 +84,8 @@ export default class TransactionsManualModal {
         el(
           "button",
           { className: "modal-close", onclick: () => this.close(null) },
-          "×"
-        )
+          "×",
+        ),
       ),
       // Body
       el(
@@ -93,25 +94,25 @@ export default class TransactionsManualModal {
         el(
           "p",
           { style: { color: "#aaa", fontSize: "0.9em", marginBottom: "15px" } },
-          "Use this ONLY for old transactions not covered by Excel files."
+          "Use this ONLY for old transactions not covered by Excel files.",
         ),
         el(
           "div",
           { className: "form-group" },
           el("label", { for: "manual-date" }, "Date"),
-          this.dateInput
+          this.dateInput,
         ),
         el(
           "div",
           { className: "form-group" },
           el("label", { for: "manual-desc" }, "Description"),
-          this.descInput
+          this.descInput,
         ),
         el(
           "div",
           { className: "form-group" },
           el("label", { for: "manual-doc" }, "Document (Optional)"),
-          this.docInput
+          this.docInput,
         ),
         el(
           "div",
@@ -127,7 +128,7 @@ export default class TransactionsManualModal {
               },
             },
             el("label", { for: "manual-type" }, "Type"),
-            this.typeSelect
+            this.typeSelect,
           ),
           el(
             "div",
@@ -140,9 +141,9 @@ export default class TransactionsManualModal {
               },
             },
             el("label", { for: "manual-amount" }, "Amount (£)"),
-            this.amountInput
-          )
-        )
+            this.amountInput,
+          ),
+        ),
       ),
       // Footer
       el(
@@ -154,7 +155,7 @@ export default class TransactionsManualModal {
             className: "modal-btn modal-btn-cancel",
             onclick: () => this.close(null),
           },
-          "Cancel"
+          "Cancel",
         ),
         el(
           "button",
@@ -163,9 +164,9 @@ export default class TransactionsManualModal {
             style: { backgroundColor: "#f0ad4e" },
             onclick: () => this.handleSubmit(),
           },
-          "Add Transaction"
-        )
-      )
+          "Add Transaction",
+        ),
+      ),
     );
 
     const overlay = el(
@@ -173,7 +174,7 @@ export default class TransactionsManualModal {
       {
         className: "modal-overlay",
       },
-      modalContent
+      modalContent,
     );
 
     document.body.appendChild(overlay);
@@ -222,7 +223,7 @@ export default class TransactionsManualModal {
 
     if (!date || !desc || isNaN(amount) || amount <= 0) {
       this.modalService.alert(
-        "Please fill in all required fields with valid values."
+        "Please fill in all required fields with valid values.",
       );
       return;
     }

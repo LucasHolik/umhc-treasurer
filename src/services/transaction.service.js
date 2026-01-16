@@ -51,7 +51,7 @@ const TransactionService = {
             processedList.push(...children);
           } else {
             console.warn(
-              `SOURCE group ${gid} has no CHILD entries. Keeping original transaction.`
+              `SOURCE group ${gid} has no CHILD entries. Keeping original transaction.`,
             );
             processedList.push(row);
           }
@@ -69,6 +69,7 @@ const TransactionService = {
 
     // 3. Sort by Date (descending) to ensure children appear correctly relative to others
     // We reuse the existing sort logic to maintain consistency
+    // Note: passing false for 'ascending' parameter sorts in descending order.
     return sortData(processedList, "Date", false);
   },
 };

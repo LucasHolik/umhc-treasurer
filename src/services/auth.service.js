@@ -62,7 +62,11 @@ const AuthService = {
     } catch (error) {
       // Only clear session if the login attempt actually created partial state
       // Don't clear pre-existing valid sessions
-      store.setState("error", error.message);
+      console.error("Login failed:", error);
+      store.setState(
+        "error",
+        "Login failed. Please check your API key and try again.",
+      );
       return false;
     }
   },
