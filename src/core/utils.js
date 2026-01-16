@@ -70,7 +70,7 @@ export function getCurrentMonthRange() {
     23,
     59,
     59,
-    999
+    999,
   );
   return { start, end };
 }
@@ -249,6 +249,9 @@ export function deepEqual(x, y) {
   );
 }
 
+// Check for structuredClone availability once at module initialization
+const hasStructuredClone = typeof structuredClone === "function";
+
 /**
  * Creates a deep copy of a value.
  * Uses structuredClone if available, otherwise falls back to a custom implementation.
@@ -256,8 +259,13 @@ export function deepEqual(x, y) {
  * @returns {*}
  */
 export function deepClone(obj, visited = new WeakMap()) {
-  if (typeof structuredClone === "function") {
+  if (hasStructuredClone) {
     return structuredClone(obj);
+  }
+
+  // Throw on functions/symbols to match structuredClone behavior
+  if (typeof obj === "function" || typeof obj === "symbol") {
+    throw new TypeError("Cannot clone functions or symbols");
   }
 
   if (obj === null || typeof obj !== "object") {
@@ -288,7 +296,7 @@ export function deepClone(obj, visited = new WeakMap()) {
     const copy = new Map();
     visited.set(obj, copy);
     obj.forEach((value, key) =>
-      copy.set(deepClone(key, visited), deepClone(value, visited))
+      copy.set(deepClone(key, visited), deepClone(value, visited)),
     );
     return copy;
   }
@@ -300,7 +308,8 @@ export function deepClone(obj, visited = new WeakMap()) {
     return copy;
   }
 
-  if (obj instanceof Object) {
+  // Handle plain objects and objects created with Object.create(null)
+  if (typeof obj === "object") {
     const copy = {};
     visited.set(obj, copy);
     Object.keys(obj).forEach((key) => {
@@ -308,4 +317,7 @@ export function deepClone(obj, visited = new WeakMap()) {
     });
     return copy;
   }
+
+  // Fallback for any other object types
+  return obj;
 }
