@@ -256,8 +256,10 @@ const Service_Split = {
         return { success: false, message: "System is busy. Please try again." };
       }
       lockAcquired = true;
+      if (!e || !e.parameter || !e.parameter.groupId) {
+        return { success: false, message: "No Group ID provided." };
+      }
       const groupId = e.parameter.groupId;
-      if (!groupId) return { success: false, message: "No Group ID provided." };
 
       const financeSheet = _getFinanceSheet();
       const splitSheetRes = _getSplitSheet();
@@ -292,8 +294,11 @@ const Service_Split = {
       }
       lockAcquired = true;
 
-      const groupId = e.parameter.groupId;
+      if (!e || !e.parameter) {
+        return { success: false, message: "Missing request parameters." };
+      }
 
+      const groupId = e.parameter.groupId;
       // 1. Resolve Finance Sheet Row Index
       const financeSheet = _getFinanceSheet();
       const configValidation = _validateConfig();
@@ -349,7 +354,7 @@ const Service_Split = {
       const preparation = _prepareSplitData(
         financeSheet,
         data.original,
-        data.splits
+        data.splits,
       );
 
       if (!preparation.success) {
@@ -365,7 +370,7 @@ const Service_Split = {
         financeSheet,
         splitSheet,
         groupId,
-        financeRowIndex
+        financeRowIndex,
       );
       if (!revertRes.success) return revertRes;
 
@@ -387,12 +392,12 @@ const Service_Split = {
             splitSheet,
             existingSplitData,
             groupId,
-            financeRowIndex
+            financeRowIndex,
           );
         } catch (restoreError) {
           console.error(
             "Failed to restore split data after write failure",
-            restoreError
+            restoreError,
           );
         }
         return writeRes;
@@ -425,6 +430,9 @@ const Service_Split = {
       lockAcquired = true;
 
       // Returns Source + Children for a specific Group ID from the Split Sheet
+      if (!e || !e.parameter) {
+        return { success: false, message: "Missing request parameters." };
+      }
       const groupId = e.parameter.groupId;
       const splitSheetRes = _getSplitSheet(); // Use helper function
       if (!splitSheetRes.success) return splitSheetRes;
@@ -518,6 +526,10 @@ const Service_Split = {
         return { success: false, message: "System is busy. Please try again." };
       }
       lockAcquired = true;
+
+      if (!e || !e.parameter) {
+        return { success: false, message: "Missing request parameters." };
+      }
 
       const page = parseInt(e.parameter.page) || 1;
       const pageSize = parseInt(e.parameter.pageSize) || 500; // Default chunk size
@@ -739,7 +751,7 @@ function _getSplitSheet() {
         1,
         1,
         1,
-        splitSheet.getLastColumn()
+        splitSheet.getLastColumn(),
       );
       const currentHeaders = currentHeadersRange.getValues()[0];
 
@@ -819,7 +831,7 @@ function _validateSplitRequest(original, splits) {
 
   const splitSum = splits.reduce(
     (sum, split) => sum + parseFloat(split.Amount || 0),
-    0
+    0,
   );
   const tolerance = 0.01; // Allow for rounding errors
 
@@ -827,7 +839,7 @@ function _validateSplitRequest(original, splits) {
     return {
       success: false,
       message: `Split amounts (${splitSum.toFixed(
-        2
+        2,
       )}) must sum to original amount (${originalAmount.toFixed(2)}).`,
     };
   }
@@ -934,7 +946,7 @@ function _prepareSplitData(financeSheet, original, splits) {
     rowIndex,
     1,
     1,
-    CONFIG.HEADERS.length
+    CONFIG.HEADERS.length,
   );
   const originalRowValues = originalRowRange.getValues()[0];
 
@@ -1007,7 +1019,7 @@ function _writeSplitData(financeSheet, splitSheet, preparation) {
     if (rowsWritten && numRows > 0) {
       try {
         console.warn(
-          `Rolling back split sheet write. Deleting ${numRows} rows starting at ${startRow}.`
+          `Rolling back split sheet write. Deleting ${numRows} rows starting at ${startRow}.`,
         );
         splitSheet.deleteRows(startRow, numRows);
       } catch (rollbackError) {
@@ -1066,7 +1078,7 @@ function _restoreSplitData(
   splitSheet,
   existingSplitData,
   groupId,
-  financeRowIndex
+  financeRowIndex,
 ) {
   if (existingSplitData && existingSplitData.length > 0) {
     const lastRow = splitSheet.getLastRow();
@@ -1075,7 +1087,7 @@ function _restoreSplitData(
         lastRow + 1,
         1,
         existingSplitData.length,
-        existingSplitData[0].length
+        existingSplitData[0].length,
       )
       .setValues(existingSplitData);
   }
