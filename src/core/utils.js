@@ -32,7 +32,7 @@ export function parseAmount(amount) {
     return 0;
   }
   if (typeof amount === "number") {
-    return amount;
+    return Number.isFinite(amount) ? amount : 0;
   }
   const parsed = parseFloat(String(amount).replace(/,/g, ""));
   return isNaN(parsed) ? 0 : parsed;
@@ -217,13 +217,17 @@ export function sanitizeForId(str) {
  * @param {*} y
  * @returns {boolean}
  */
-export function deepEqual(x, y) {
+export function deepEqual(x, y, visited = new WeakSet()) {
   if (x === y) return true;
 
   if (x === null || x === undefined || y === null || y === undefined)
     return x === y;
 
   if (x.constructor !== y.constructor) return false;
+
+  if (typeof x === "object" && visited.has(x)) {
+    return true;
+  }
 
   if (x instanceof Function) {
     return x === y;
@@ -242,10 +246,12 @@ export function deepEqual(x, y) {
   if (!(x instanceof Object)) return false;
   if (!(y instanceof Object)) return false;
 
+  visited.add(x);
+
   const p = Object.keys(x);
   return (
     Object.keys(y).every((i) => p.indexOf(i) !== -1) &&
-    p.every((i) => deepEqual(x[i], y[i]))
+    p.every((i) => deepEqual(x[i], y[i], visited))
   );
 }
 
@@ -310,7 +316,8 @@ export function deepClone(obj, visited = new WeakMap()) {
 
   // Handle plain objects and objects created with Object.create(null)
   if (typeof obj === "object") {
-    const copy = {};
+    const proto = Object.getPrototypeOf(obj);
+    const copy = proto === null ? Object.create(null) : {};
     visited.set(obj, copy);
     Object.keys(obj).forEach((key) => {
       copy[key] = deepClone(obj[key], visited);
