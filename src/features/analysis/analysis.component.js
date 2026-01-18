@@ -58,13 +58,13 @@ class AnalysisComponent {
       store.subscribe("expenses", () => {
         this.updateTagSelectors();
         this.generateChart();
-      })
+      }),
     );
     this.unsubscribeHandlers.push(
       store.subscribe("tags", () => {
         this.updateTagSelectors();
         this.generateChart();
-      })
+      }),
     );
   }
 
@@ -74,7 +74,7 @@ class AnalysisComponent {
       const expenses = store.getState("expenses") || [];
       const range = this.analysisLogic.calculateDateRange(
         this.state.timeframe,
-        expenses
+        expenses,
       );
       if (range) {
         this.state.startDate = formatDateForInput(range.start);
@@ -86,7 +86,7 @@ class AnalysisComponent {
       "div",
       { className: "header-section" },
       el("h2", {}, "Financial Analysis"),
-      el("p", {}, "Generate custom reports and visualize your treasury data.")
+      el("p", {}, "Generate custom reports and visualize your treasury data."),
     );
 
     const summaryCards = el("div", {
@@ -108,12 +108,12 @@ class AnalysisComponent {
       el(
         "button",
         { id: "btn-toggle-view", className: "btn-action" },
-        "Show Data Table"
+        "Show Data Table",
       ),
       el(
         "button",
         { id: "btn-download-image", className: "btn-action" },
-        "Download Image"
+        "Download Image",
       ),
       el(
         "button",
@@ -122,14 +122,14 @@ class AnalysisComponent {
           className: "btn-action",
           style: { display: "none" },
         },
-        "Download Data (CSV)"
-      )
+        "Download Data (CSV)",
+      ),
     );
 
     const chartContainer = el(
       "div",
       { className: "chart-container", id: "analysis-chart-container" },
-      el("canvas", { id: "analysis-chart" })
+      el("canvas", { id: "analysis-chart" }),
     );
 
     const tableContainer = el("div", {
@@ -146,12 +146,12 @@ class AnalysisComponent {
       filtersContainer,
       actionsBar,
       chartContainer,
-      tableContainer
+      tableContainer,
     );
 
     const cssLink = el("link", {
       rel: "stylesheet",
-      href: "src/features/analysis/analysis.css",
+      href: new URL("./analysis.css", import.meta.url).href,
     });
 
     replace(this.element, cssLink, container);
@@ -169,47 +169,46 @@ class AnalysisComponent {
   initializeSubComponents() {
     // 1. Controls
     const controlsContainer = this.element.querySelector(
-      "#analysis-controls-container"
+      "#analysis-controls-container",
     );
     if (!controlsContainer) {
       console.error("Analysis: Controls container not found");
-      return;
+    } else {
+      this.controlsComponent = new AnalysisControls(controlsContainer, {
+        onTimeframeChange: (val) => this.handleTimeframeChange(val),
+        onStatusChange: (val) => {
+          this.state.tripStatusFilter = val;
+          this.updateTagSelectors();
+          this.generateChart();
+        },
+        onDateChange: (type, val) => {
+          if (type === "start") this.state.startDate = val;
+          else this.state.endDate = val;
+          this.state.timeframe = "custom";
+          this.updateControls();
+          this.generateChart();
+        },
+        onMetricChange: (val) => {
+          this.state.metric = val;
+          if (val === "balance") {
+            this.state.chartType = "line";
+          }
+          this.updateControls();
+          this.generateChart();
+        },
+        onChartTypeChange: (val) => {
+          this.state.chartType = val;
+          this.generateChart();
+        },
+        onGroupChange: (type, val) => this.handleGroupChange(type, val),
+        onPresetClick: (preset) => this.applyPreset(preset),
+      });
+      this.updateControls();
     }
-
-    this.controlsComponent = new AnalysisControls(controlsContainer, {
-      onTimeframeChange: (val) => this.handleTimeframeChange(val),
-      onStatusChange: (val) => {
-        this.state.tripStatusFilter = val;
-        this.updateTagSelectors();
-        this.generateChart();
-      },
-      onDateChange: (type, val) => {
-        if (type === "start") this.state.startDate = val;
-        else this.state.endDate = val;
-        this.state.timeframe = "custom";
-        this.updateControls();
-        this.generateChart();
-      },
-      onMetricChange: (val) => {
-        this.state.metric = val;
-        if (val === "balance") {
-          this.state.chartType = "line";
-        }
-        this.updateControls();
-        this.generateChart();
-      },
-      onChartTypeChange: (val) => {
-        this.state.chartType = val;
-        this.generateChart();
-      },
-      onGroupChange: (type, val) => this.handleGroupChange(type, val),
-      onPresetClick: (preset) => this.applyPreset(preset),
-    });
-    this.updateControls();
 
     // 2. Filters
     const filtersContainer = this.element.querySelector(
-      "#analysis-filters-container"
+      "#analysis-filters-container",
     );
     if (!filtersContainer) {
       console.error("Analysis: Filters container not found");
@@ -245,7 +244,7 @@ class AnalysisComponent {
 
     // 4. Table
     const tableContainer = this.element.querySelector(
-      "#analysis-data-table-container"
+      "#analysis-data-table-container",
     );
     if (!tableContainer) {
       console.error("Analysis: Data table container not found");
@@ -304,7 +303,7 @@ class AnalysisComponent {
               secondaryGroup: this.state.secondaryGroup,
               metric: this.state.metric,
               timeUnit: this.state.timeUnit,
-            }
+            },
           );
           const blob = new Blob([csvContent], {
             type: "text/csv;charset=utf-8;",
@@ -346,11 +345,11 @@ class AnalysisComponent {
     const visibleTrips = this.analysisLogic.getVisibleTrips(
       allTrips,
       tripStatusMap,
-      this.state.tripStatusFilter
+      this.state.tripStatusFilter,
     );
 
     const tripsToUpdate = visibleTrips.filter(
-      (trip) => tripTypeMap[trip] === typeTag
+      (trip) => tripTypeMap[trip] === typeTag,
     );
 
     tripsToUpdate.forEach((trip) => {
@@ -378,7 +377,7 @@ class AnalysisComponent {
       const expenses = store.getState("expenses") || [];
       const range = this.analysisLogic.calculateDateRange(
         newTimeframe,
-        expenses
+        expenses,
       );
       if (range) {
         this.state.startDate = formatDateForInput(range.start);
@@ -403,7 +402,7 @@ class AnalysisComponent {
       ) {
         this.modal.alert(
           "Secondary grouping cannot be the same as primary.",
-          "Grouping Error"
+          "Grouping Error",
         );
         this.state.secondaryGroup = "none";
       }
@@ -421,7 +420,7 @@ class AnalysisComponent {
     // Ensure Sets remain Sets after preset merge
     if (!(this.state.selectedCategories instanceof Set)) {
       this.state.selectedCategories = new Set(
-        this.state.selectedCategories || []
+        this.state.selectedCategories || [],
       );
     }
     if (!(this.state.selectedTrips instanceof Set)) {
@@ -432,7 +431,7 @@ class AnalysisComponent {
     const expenses = store.getState("expenses") || [];
     const range = this.analysisLogic.calculateDateRange(
       this.state.timeframe,
-      expenses
+      expenses,
     );
     if (range) {
       this.state.startDate = formatDateForInput(range.start);
@@ -453,7 +452,7 @@ class AnalysisComponent {
       this.analysisLogic.calculateTagFilterState(
         tagsData,
         this.state.tripStatusFilter,
-        this.state.selectedTrips
+        this.state.selectedTrips,
       );
 
     this.filtersComponent.renderTagLists(
@@ -463,12 +462,12 @@ class AnalysisComponent {
       typeStatusMap, // Pass calculated map instead of set
       this.state.categorySearchTerm,
       this.state.tripSearchTerm,
-      this.state.typeSearchTerm
+      this.state.typeSearchTerm,
     );
     this.filtersComponent.updateInputs(
       this.state.categorySearchTerm,
       this.state.tripSearchTerm,
-      this.state.typeSearchTerm
+      this.state.typeSearchTerm,
     );
   }
 
@@ -513,7 +512,7 @@ class AnalysisComponent {
         "div",
         props,
         el("h3", {}, card.title),
-        el("p", { className: card.class }, card.value)
+        el("p", { className: card.class }, card.value),
       );
     });
 
@@ -523,10 +522,10 @@ class AnalysisComponent {
   updateViewVisibility() {
     const isTable = this.state.showDataTable;
     const chartContainer = this.element.querySelector(
-      "#analysis-chart-container"
+      "#analysis-chart-container",
     );
     const tableContainer = this.element.querySelector(
-      "#analysis-data-table-container"
+      "#analysis-data-table-container",
     );
     const toggleBtn = this.element.querySelector("#btn-toggle-view");
     const downloadImgBtn = this.element.querySelector("#btn-download-image");
@@ -540,7 +539,7 @@ class AnalysisComponent {
       !downloadDataBtn
     ) {
       console.error(
-        "Analysis: Required elements not found in updateViewVisibility"
+        "Analysis: Required elements not found in updateViewVisibility",
       );
       return;
     }
@@ -570,7 +569,7 @@ class AnalysisComponent {
           metric: this.state.metric,
           timeUnit: this.state.timeUnit,
           show: true,
-        }
+        },
       );
     }
   }
@@ -589,7 +588,7 @@ class AnalysisComponent {
         selectedTrips: this.state.selectedTrips,
         tripStatusFilter: this.state.tripStatusFilter,
       },
-      tripStatusMap
+      tripStatusMap,
     );
 
     this.state.summaryStats =
@@ -611,7 +610,7 @@ class AnalysisComponent {
       this.analysisLogic.calculateEffectiveBalance(
         currentBalance,
         allExpenses,
-        tripStatusMap
+        tripStatusMap,
       );
 
     this.updateStatsDOM(hasBalanceError);
@@ -626,7 +625,7 @@ class AnalysisComponent {
         startDate: this.state.startDate,
       },
       allExpenses,
-      openingBalance
+      openingBalance,
     );
 
     // Render Chart
