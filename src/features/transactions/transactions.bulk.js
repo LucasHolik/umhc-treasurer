@@ -247,7 +247,7 @@ export default class TransactionsBulk {
     trigger.setAttribute("role", "button");
 
     search.setAttribute("aria-autocomplete", "list");
-    search.setAttribute("aria-controls", `${type}-listbox`);
+    search.setAttribute("aria-controls", `bulk-${type}-list`);
 
     // Toggle Dropdown
     const triggerClickHandler = (e) => {
@@ -435,7 +435,7 @@ export default class TransactionsBulk {
     if (!container) return;
 
     container.setAttribute("role", "listbox");
-    container.id = `${typePrefix}-listbox`; // Ensure ID matches aria-controls
+    // ID already matches (bulk-trip-list / bulk-category-list)
 
     const tagsData = store.getState("tags") || {};
     const tags = tagsData[tagName] || [];
