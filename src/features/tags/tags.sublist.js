@@ -13,7 +13,8 @@ export default class TagsSubList {
     // Validate parameters
     if (!stats || !tripTypeMap || !tripStatusMap) {
       console.warn("TagsSubList: Missing required parameters");
-      replace(this.element, el("div", {}, "Unable to load data"));
+      const errorEl = el("div", {}, "Unable to load data");
+      replace(this.element, errorEl);
       return;
     }
 
@@ -36,7 +37,7 @@ export default class TagsSubList {
           income: income,
           expense: expense,
           net: net,
-          count: s.count,
+          count: s.count || 0,
         };
       })
       .filter(Boolean);
