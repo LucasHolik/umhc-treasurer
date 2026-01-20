@@ -29,7 +29,7 @@ function normalizeDateString(dateValue) {
         // Format to YYYY-MM-DD with leading zeros
         const normalized = `${year}-${month.padStart(2, "0")}-${day.padStart(
           2,
-          "0"
+          "0",
         )}`;
 
         // Validate the date is valid (e.g., prevent 31/02/2024)
@@ -122,7 +122,7 @@ function parseAndCleanData(rows) {
 
   const dateCol = headers.findIndex((h) => h.includes("date"));
   const documentCol = headers.findIndex(
-    (h) => h.includes("document") || h.includes("ref")
+    (h) => h.includes("document") || h.includes("ref"),
   );
   const descriptionCol = headers.findIndex((h) => h.includes("description"));
 
@@ -131,24 +131,24 @@ function parseAndCleanData(rows) {
     (h) =>
       (h.includes("in") && (h.includes("cash") || h.includes("amount"))) ||
       h.includes("credit") ||
-      h.includes("deposit")
+      h.includes("deposit"),
   );
   const cashOutCol = headers.findIndex(
     (h) =>
       (h.includes("out") && (h.includes("cash") || h.includes("amount"))) ||
       h.includes("debit") ||
-      h.includes("withdrawal")
+      h.includes("withdrawal"),
   );
 
   if (dateCol === -1 || descriptionCol === -1) {
     throw new Error(
-      "Required columns (date, description) not found in header row."
+      "Required columns (date, description) not found in header row.",
     );
   }
 
   if (cashInCol === -1 && cashOutCol === -1) {
     throw new Error(
-      "Neither 'cash in' nor 'cash out' columns found in header row."
+      "Neither 'cash in' nor 'cash out' columns found in header row.",
     );
   }
 
@@ -188,15 +188,18 @@ function parseAndCleanData(rows) {
       pushCurrentTransaction();
       currentTransaction = {
         date: normalizeDateString(date),
-        documentParts: row[documentCol] ? [String(row[documentCol])] : [],
+        documentParts:
+          documentCol !== -1 && row[documentCol]
+            ? [String(row[documentCol])]
+            : [],
         descriptionParts: row[descriptionCol]
           ? [String(row[descriptionCol])]
           : [],
-        cashIn: parseExcelNumber(row[cashInCol]),
-        cashOut: parseExcelNumber(row[cashOutCol]),
+        cashIn: cashInCol !== -1 ? parseExcelNumber(row[cashInCol]) : null,
+        cashOut: cashOutCol !== -1 ? parseExcelNumber(row[cashOutCol]) : null,
       };
     } else if (currentTransaction) {
-      if (row[documentCol]) {
+      if (documentCol !== -1 && row[documentCol]) {
         const val = String(row[documentCol]);
         if (!currentTransaction.documentParts.includes(val)) {
           currentTransaction.documentParts.push(val);
