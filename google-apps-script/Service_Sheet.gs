@@ -4,7 +4,12 @@ const Service_Sheet = {
       if (!e || !e.parameter) {
         return { success: false, message: "Invalid request parameters." };
       }
-      const data = JSON.parse(e.parameter.data || "[]");
+      let data;
+      try {
+        data = JSON.parse(e.parameter.data || "[]");
+      } catch (parseError) {
+        return { success: false, message: "Invalid JSON data format." };
+      }
 
       if (data.length === 0) {
         return { success: true, message: "No data to save.", added: 0 };
@@ -49,7 +54,7 @@ const Service_Sheet = {
         "Split Group ID",
       ];
       const missingColumns = requiredColumns.filter(
-        (col) => !CONFIG.HEADERS.includes(col)
+        (col) => !CONFIG.HEADERS.includes(col),
       );
       if (missingColumns.length > 0) {
         return {
@@ -72,8 +77,8 @@ const Service_Sheet = {
         record[CONFIG.HEADERS.indexOf("Type")] = row.isManual
           ? "Manual"
           : row.isUploaded
-          ? "Uploaded"
-          : "";
+            ? "Uploaded"
+            : "";
         record[CONFIG.HEADERS.indexOf("Split Group ID")] =
           row.splitGroupId || "";
         return record;
@@ -87,7 +92,7 @@ const Service_Sheet = {
             startRow,
             dateCol,
             recordsToAdd.length,
-            1
+            1,
           );
           dateColumnRange.setNumberFormat("@");
         }
@@ -127,7 +132,7 @@ const Service_Sheet = {
         2,
         1,
         lastRow - 1,
-        CONFIG.HEADERS.length
+        CONFIG.HEADERS.length,
       );
       const values = range.getValues();
       const tz = financeSheet.getParent().getSpreadsheetTimeZone();
@@ -143,7 +148,7 @@ const Service_Sheet = {
           // Date is already a string.
           const result = _parseAndNormalizeDateString(
             obj["Date"],
-            "row " + obj.row
+            "row " + obj.row,
           );
           if (result.normalized) {
             obj["Date"] = result.normalized;
@@ -167,7 +172,12 @@ const Service_Sheet = {
       if (!e || !e.parameter) {
         return { success: false, message: "Invalid request parameters." };
       }
-      const updates = JSON.parse(e.parameter.data || "[]");
+      let updates;
+      try {
+        updates = JSON.parse(e.parameter.data || "[]");
+      } catch (parseError) {
+        return { success: false, message: "Invalid JSON data format." };
+      }
       if (updates.length === 0) {
         return { success: true, message: "No updates to save." };
       }
@@ -187,7 +197,7 @@ const Service_Sheet = {
           ) {
             console.warn(
               "Skipping split row update due to missing Service_Split:",
-              row
+              row,
             );
             failures.push({ row, reason: "Service_Split unavailable" });
             continue;
@@ -195,7 +205,7 @@ const Service_Sheet = {
           Service_Split.updateSplitRowTag(
             row,
             update.tripEvent,
-            update.category
+            update.category,
           );
         } else if (typeof row === "number" && row > 1) {
           // Handle Standard Row (numeric)
@@ -204,7 +214,7 @@ const Service_Sheet = {
           } else {
             console.warn(
               "Trip/Event column not found, skipping update for row:",
-              row
+              row,
             );
             failures.push({ row, reason: "Trip/Event column not found" });
           }
@@ -213,7 +223,7 @@ const Service_Sheet = {
           } else {
             console.warn(
               "Category column not found, skipping update for row:",
-              row
+              row,
             );
             failures.push({ row, reason: "Category column not found" });
           }
@@ -375,7 +385,7 @@ function _getFinanceSheet() {
         1,
         1,
         1,
-        financeSheet.getLastColumn()
+        financeSheet.getLastColumn(),
       );
       const currentHeaders = currentHeadersRange.getValues()[0];
 
@@ -395,10 +405,10 @@ function _getFinanceSheet() {
           "Header mismatch detected. Expected:",
           CONFIG.HEADERS,
           "Got:",
-          currentHeaders
+          currentHeaders,
         );
         throw new Error(
-          "Sheet headers do not match expected configuration. Manual intervention required."
+          "Sheet headers do not match expected configuration. Manual intervention required.",
         );
       } else if (currentHeaders.length !== CONFIG.HEADERS.length) {
         // If length mismatch, update the header row to ensure consistency
@@ -465,7 +475,7 @@ function _sortSheetByDate() {
     2,
     1,
     sortedValues.length,
-    CONFIG.HEADERS.length
+    CONFIG.HEADERS.length,
   );
   newRange.setValues(sortedValues);
   newRange.offset(0, dateIndex, sortedValues.length, 1).setNumberFormat("@");
@@ -478,7 +488,7 @@ function _sortSheetByDate() {
         2 + sortedValues.length,
         1,
         remainingRows,
-        CONFIG.HEADERS.length
+        CONFIG.HEADERS.length,
       )
       .clearContent();
   }
@@ -486,11 +496,11 @@ function _sortSheetByDate() {
 
 function _getConfigSheet() {
   let configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
-    CONFIG.CONFIG_SHEET
+    CONFIG.CONFIG_SHEET,
   );
   if (!configSheet) {
     configSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(
-      CONFIG.CONFIG_SHEET
+      CONFIG.CONFIG_SHEET,
     );
   }
 
