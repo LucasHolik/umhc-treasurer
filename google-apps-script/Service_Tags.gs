@@ -540,6 +540,28 @@ function _renameTag(type, oldValue, newValue, skipSort) {
           error.message +=
             " CRITICAL: Exception during Expenses rollback. Data is INCONSISTENT. Manual reconciliation required.";
         }
+
+        // 4. Revert Splits Sheet (Compensating Transaction)
+        // Even if the initial split update failed, we attempt to revert (New -> Old)
+        // to handle potential partial updates or false-negatives.
+        try {
+          const splitRevert = Service_Split.updateTagInSplits(
+            newValue,
+            oldValue,
+            type,
+          );
+          if (!splitRevert.success) {
+            console.warn(
+              "Splits rollback warning (may be expected if initial update failed cleanly): " +
+                splitRevert.message,
+            );
+          }
+        } catch (splitRollbackError) {
+          console.warn(
+            "Splits rollback exception (ignoring as this is a best-effort cleanup):",
+            splitRollbackError,
+          );
+        }
       }
 
       return {
