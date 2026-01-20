@@ -775,6 +775,14 @@ function _getSplitSheet() {
 
       // If headers don't match, update them
       if (!headersAreConsistent) {
+        if (lastRow > 1) {
+          return {
+            success: false,
+            message:
+              "Header mismatch detected in Split Sheet. Automatic update blocked because data exists. Please align headers manually or archive existing data.",
+          };
+        }
+
         // Clear old headers and set new ones
         // Use clearContent() to remove any extra columns not in expectedHeaders
         splitSheet.getRange(1, 1, 1, splitSheet.getLastColumn()).clearContent();
