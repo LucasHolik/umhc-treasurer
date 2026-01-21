@@ -5,25 +5,38 @@ export default class TransactionsFilters {
   constructor(element, callbacks) {
     this.element = element;
     this.callbacks = callbacks || {}; // { onFilterChange, onFilterSelectAll, onSearchChange }
+    this._boundListeners = [];
     this.bindEvents();
   }
 
   bindEvents() {
     const catSearch = this.element.querySelector("#transactions-cat-search");
     if (catSearch) {
-      catSearch.addEventListener("input", (e) => {
+      const catHandler = (e) => {
         if (this.callbacks.onSearchChange) {
           this.callbacks.onSearchChange("Category", e.target.value);
         }
+      };
+      catSearch.addEventListener("input", catHandler);
+      this._boundListeners.push({
+        el: catSearch,
+        type: "input",
+        handler: catHandler,
       });
     }
 
     const tripSearch = this.element.querySelector("#transactions-trip-search");
     if (tripSearch) {
-      tripSearch.addEventListener("input", (e) => {
+      const tripHandler = (e) => {
         if (this.callbacks.onSearchChange) {
           this.callbacks.onSearchChange("Trip/Event", e.target.value);
         }
+      };
+      tripSearch.addEventListener("input", tripHandler);
+      this._boundListeners.push({
+        el: tripSearch,
+        type: "input",
+        handler: tripHandler,
       });
     }
   }
@@ -33,14 +46,14 @@ export default class TransactionsFilters {
     selectedCategories,
     selectedTrips,
     categorySearch,
-    tripSearch
+    tripSearch,
   ) {
     this.populateTagList(
       "Category",
       tagsData["Category"] || [],
       selectedCategories,
       categorySearch,
-      "#category-selector-container"
+      "#category-selector-container",
     );
 
     this.populateTagList(
@@ -48,7 +61,7 @@ export default class TransactionsFilters {
       tagsData["Trip/Event"] || [],
       selectedTrips,
       tripSearch,
-      "#trip-selector-container"
+      "#trip-selector-container",
     );
   }
 
@@ -79,7 +92,7 @@ export default class TransactionsFilters {
         },
       },
       noTagCheckbox,
-      el("label", { for: noTagUid }, el("em", {}, "(No Tag)"))
+      el("label", { for: noTagUid }, el("em", {}, "(No Tag)")),
     );
 
     const children = [noTagDiv];
@@ -93,8 +106,8 @@ export default class TransactionsFilters {
             role: "status",
             "aria-live": "polite",
           },
-          "No tags found"
-        )
+          "No tags found",
+        ),
       );
       replace(container, ...children);
       return;
@@ -102,7 +115,7 @@ export default class TransactionsFilters {
 
     const sortedTags = [...tagsArray].sort();
     const visibleTags = sortedTags.filter((tag) =>
-      tag.toLowerCase().includes((searchTerm || "").toLowerCase())
+      tag.toLowerCase().includes((searchTerm || "").toLowerCase()),
     );
 
     // 2. Select All
@@ -125,7 +138,7 @@ export default class TransactionsFilters {
         "div",
         { className: "tag-checkbox-item" },
         selectAllCheckbox,
-        el("label", { for: selectAllUid }, el("em", {}, "Select All"))
+        el("label", { for: selectAllUid }, el("em", {}, "Select All")),
       );
       children.push(selectAllDiv);
     } else {
@@ -137,8 +150,8 @@ export default class TransactionsFilters {
             role: "status",
             "aria-live": "polite",
           },
-          "No matches found"
-        )
+          "No matches found",
+        ),
       );
     }
 
@@ -165,7 +178,7 @@ export default class TransactionsFilters {
         "div",
         { className: "tag-checkbox-item" },
         tagCheckbox,
-        el("label", { for: uid }, tag)
+        el("label", { for: uid }, tag),
       );
       children.push(div);
     });
@@ -176,6 +189,10 @@ export default class TransactionsFilters {
   }
 
   destroy() {
+    this._boundListeners.forEach(({ el, type, handler }) => {
+      el.removeEventListener(type, handler);
+    });
+    this._boundListeners = [];
     this.element = null;
     this.callbacks = {};
   }

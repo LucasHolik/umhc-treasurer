@@ -132,6 +132,19 @@ const request = (action, params = {}, options = {}) => {
     return activeRequests.get(requestKey).promise;
   }
 
+  // Safeguard against unbounded growth - check BEFORE adding
+  if (activeRequests.size >= MAX_ACTIVE_REQUESTS) {
+    const firstKey = activeRequests.keys().next().value;
+    const oldestRequest = activeRequests.get(firstKey);
+    if (oldestRequest && typeof oldestRequest.cancel === "function") {
+      oldestRequest.cancel();
+    }
+    activeRequests.delete(firstKey);
+    console.warn(
+      `Request queue full. Oldest request (${firstKey}) cancelled and removed.`,
+    );
+  }
+
   if (!options.skipLoading) {
     loadingRequests.add(requestKey);
     updateLoadingState();
@@ -142,7 +155,7 @@ const request = (action, params = {}, options = {}) => {
     const encoder = new TextEncoder();
     const keyData = encoder.encode(secret);
     const payload = encoder.encode(
-      action + "|" + timestamp + "|" + JSON.stringify(params)
+      action + "|" + timestamp + "|" + JSON.stringify(params),
     );
 
     const cryptoKey = await crypto.subtle.importKey(
@@ -150,19 +163,29 @@ const request = (action, params = {}, options = {}) => {
       keyData,
       { name: "HMAC", hash: "SHA-256" },
       false,
-      ["sign"]
+      ["sign"],
     );
 
     const signatureBuffer = await crypto.subtle.sign(
       "HMAC",
       cryptoKey,
-      payload
+      payload,
     );
     const signatureArray = Array.from(new Uint8Array(signatureBuffer));
     return signatureArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   const internalCancel = { cancelled: false, run: null };
+
+  // Placeholder - will be replaced with actual cancel function
+  const cancelWrapper = () => {
+    internalCancel.cancelled = true;
+    if (internalCancel.run) internalCancel.run();
+  };
+
+  // Add to activeRequests BEFORE creating promise to prevent duplicates
+  const requestEntry = { promise: null, cancel: cancelWrapper };
+  activeRequests.set(requestKey, requestEntry);
 
   const promise = (async () => {
     try {
@@ -176,7 +199,7 @@ const request = (action, params = {}, options = {}) => {
         action,
         timestamp,
         signingKey,
-        sortedParams
+        sortedParams,
       );
 
       return new Promise((resolve, reject) => {
@@ -270,29 +293,7 @@ const request = (action, params = {}, options = {}) => {
     }
   })();
 
-  // Create a cancel function that can be called externally
-  const cancelWrapper = () => {
-    internalCancel.cancelled = true;
-    if (internalCancel.run) internalCancel.run();
-  };
-
-  // Safeguard against unbounded growth
-  if (activeRequests.size >= MAX_ACTIVE_REQUESTS) {
-    const firstKey = activeRequests.keys().next().value;
-    const oldestRequest = activeRequests.get(firstKey);
-
-    // Cancel the oldest request before removing it
-    if (oldestRequest && typeof oldestRequest.cancel === "function") {
-      oldestRequest.cancel();
-    }
-
-    activeRequests.delete(firstKey);
-    console.warn(
-      `Request queue full. Oldest request (${firstKey}) cancelled and removed.`
-    );
-  }
-
-  activeRequests.set(requestKey, { promise, cancel: cancelWrapper });
+  requestEntry.promise = promise;
   return promise;
 };
 
@@ -313,7 +314,7 @@ const ApiService = {
     request(
       "processTagOperations",
       { operations: JSON.stringify(operations) },
-      options
+      options,
     ),
   getOpeningBalance: () => request("getOpeningBalance"),
   saveOpeningBalance: (balance, options = {}) =>
@@ -323,7 +324,7 @@ const ApiService = {
     const res = await request(
       "splitTransaction",
       { data: JSON.stringify({ original, splits }) },
-      options
+      options,
     );
     store.setState("splitTransactions", null); // Invalidate cache
     return res;
@@ -337,7 +338,7 @@ const ApiService = {
     const res = await request(
       "editSplit",
       { groupId, data: JSON.stringify({ original, splits }) },
-      options
+      options,
     );
     store.setState("splitTransactions", null); // Invalidate cache
     return res;
@@ -348,13 +349,13 @@ const ApiService = {
     if (cached && !options.forceRefresh) {
       // Log if from cache
       const parents = cached.filter(
-        (item) => item["Split Type"] === "SOURCE"
+        (item) => item["Split Type"] === "SOURCE",
       ).length;
       const children = cached.filter(
-        (item) => item["Split Type"] === "CHILD"
+        (item) => item["Split Type"] === "CHILD",
       ).length;
       console.log(
-        `Loaded ${parents} split parents and ${children} split children (from cache).`
+        `Loaded ${parents} split parents and ${children} split children (from cache).`,
       );
       return { success: true, data: cached };
     }
@@ -372,13 +373,13 @@ const ApiService = {
       while (hasMore) {
         store.setState(
           "taggingProgress",
-          `Loading split history (Page ${page})...`
+          `Loading split history (Page ${page})...`,
         );
         // Use skipLoading: true because we are managing loading state manually for the whole loop
         const res = await request(
           "getSplitHistory",
           { page, pageSize: 500 },
-          { skipLoading: true }
+          { skipLoading: true },
         );
 
         if (!res.success) {
@@ -391,13 +392,13 @@ const ApiService = {
       }
 
       const parents = allData.filter(
-        (item) => item["Split Type"] === "SOURCE"
+        (item) => item["Split Type"] === "SOURCE",
       ).length;
       const children = allData.filter(
-        (item) => item["Split Type"] === "CHILD"
+        (item) => item["Split Type"] === "CHILD",
       ).length;
       console.log(
-        `Loaded ${parents} split parents and ${children} split children.`
+        `Loaded ${parents} split parents and ${children} split children.`,
       );
 
       store.setState("splitTransactions", allData);

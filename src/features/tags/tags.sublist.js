@@ -11,7 +11,7 @@ export default class TagsSubList {
 
   render(typeName, stats, tripTypeMap, tripStatusMap) {
     // Validate parameters
-    if (!stats || !tripTypeMap || !tripStatusMap) {
+    if (!typeName || !stats || !tripTypeMap || !tripStatusMap) {
       console.warn("TagsSubList: Missing required parameters");
       const errorEl = el("div", {}, "Unable to load data");
       replace(this.element, errorEl);
