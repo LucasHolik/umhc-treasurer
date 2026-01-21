@@ -10,6 +10,10 @@ const TransactionService = {
    * @returns {Array} - The processed list with splits baked in.
    */
   mergeSplits: (rawExpenses, splitHistory) => {
+    if (!rawExpenses || rawExpenses.length === 0) {
+      return [];
+    }
+
     if (!splitHistory || splitHistory.length === 0) {
       return [...rawExpenses];
     }

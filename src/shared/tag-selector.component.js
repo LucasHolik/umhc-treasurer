@@ -60,7 +60,7 @@ export default class TagSelector {
           this.close();
         },
       },
-      "×"
+      "×",
     );
 
     searchWrapper.appendChild(this.searchInput);
@@ -156,14 +156,18 @@ export default class TagSelector {
     }
 
     const filteredTags = tags
-      .filter((tag) => tag.toLowerCase().includes(this.searchTerm))
+      .filter(
+        (tag) =>
+          typeof tag === "string" &&
+          tag.toLowerCase().includes(this.searchTerm),
+      )
       .sort();
 
     clear(this.listContainer);
 
     if (filteredTags.length === 0) {
       this.listContainer.appendChild(
-        el("div", { className: "tag-selector-item empty" }, "No matching tags")
+        el("div", { className: "tag-selector-item empty" }, "No matching tags"),
       );
     }
 
@@ -186,7 +190,7 @@ export default class TagSelector {
             }
           },
         },
-        tag
+        tag,
       );
       this.listContainer.appendChild(item);
     });

@@ -94,7 +94,7 @@ export default class SortableTable {
         {
           className: col.class || "",
         },
-        col.label
+        col.label,
       );
 
       if (col.sortable !== false) {
@@ -118,7 +118,7 @@ export default class SortableTable {
 
         if (this.sortField === col.key) {
           th.appendChild(
-            el("span", { className: "sort-icon" }, this.sortAsc ? " ▲" : " ▼")
+            el("span", { className: "sort-icon" }, this.sortAsc ? " ▲" : " ▼"),
           );
         }
       }
@@ -141,9 +141,9 @@ export default class SortableTable {
               colSpan: colspan,
               style: { textAlign: "center", color: "#aaa" },
             },
-            "No data available"
-          )
-        )
+            "No data available",
+          ),
+        ),
       );
     } else {
       this.data.forEach((item) => {
@@ -283,7 +283,7 @@ export default class SortableTable {
   parseNumber(val) {
     if (typeof val === "number") return val;
     if (val === null || val === undefined || val === "") return Infinity;
-    const parsed = parseFloat(val.toString().replace(/,/g, ""));
+    const parsed = parseFloat(val.toString().replace(/[^0-9.\-]/g, ""));
     return isNaN(parsed) ? Infinity : parsed;
   }
 
@@ -306,7 +306,7 @@ export default class SortableTable {
 
     // Update header checkbox state
     const headerCheckbox = this.container.querySelector(
-      'thead input[type="checkbox"]'
+      'thead input[type="checkbox"]',
     );
     if (headerCheckbox) {
       headerCheckbox.checked =

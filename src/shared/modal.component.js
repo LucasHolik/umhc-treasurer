@@ -40,6 +40,7 @@ class ModalComponent {
   /**
    * Shows a confirmation modal (like confirm()).
    * @param {string} message The message to display.
+   * @param {string} [title="Confirm"] The modal title.
    * @returns {Promise<boolean>} Resolves to true if confirmed, false otherwise.
    */
   async confirm(message, title = "Confirm") {
@@ -55,6 +56,7 @@ class ModalComponent {
   /**
    * Shows an alert modal (like alert()).
    * @param {string} message The message to display.
+   * @param {string} [title="Alert"] The modal title.
    * @returns {Promise<void>} Resolves when closed.
    */
   async alert(message, title = "Alert") {
@@ -70,6 +72,7 @@ class ModalComponent {
    * Shows a prompt modal with an input field (like prompt()).
    * @param {string} message The label/message for the input.
    * @param {string} defaultValue The default value for the input.
+   * @param {string} [title="Input Required"] The modal title.
    * @returns {Promise<string|null>} Resolves to the input string or null if cancelled.
    */
   async prompt(message, defaultValue = "", title = "Input Required") {
@@ -130,7 +133,7 @@ class ModalComponent {
             ModalComponent._stylesLoaded = true;
             resolve();
           },
-          { once: true }
+          { once: true },
         );
         linkEl.addEventListener(
           "error",
@@ -140,7 +143,7 @@ class ModalComponent {
             ModalComponent._stylesLoaded = true; // Resolve anyway to avoid hanging UI
             resolve();
           },
-          { once: true }
+          { once: true },
         );
       } else {
         // Should be unreachable now
@@ -173,7 +176,7 @@ class ModalComponent {
         {
           className: "modal-btn modal-btn-confirm",
         },
-        options.confirmText || "OK"
+        options.confirmText || "OK",
       );
 
       const cancelBtn =
@@ -183,7 +186,7 @@ class ModalComponent {
               {
                 className: "modal-btn modal-btn-cancel",
               },
-              options.cancelText || "Cancel"
+              options.cancelText || "Cancel",
             )
           : null;
 
@@ -193,7 +196,7 @@ class ModalComponent {
           className: "modal-close",
           "aria-label": "Close",
         },
-        "×"
+        "×",
       );
 
       const titleId = `modal-title-${modalId}`;
@@ -212,15 +215,15 @@ class ModalComponent {
           "div",
           { className: "modal-header" },
           el("h3", { id: titleId }, options.title),
-          closeX
+          closeX,
         ),
         el(
           "div",
           { className: "modal-body", id: bodyId },
           el("div", {}, options.body),
-          inputEl
+          inputEl,
         ),
-        el("div", { className: "modal-footer" }, cancelBtn, confirmBtn)
+        el("div", { className: "modal-footer" }, cancelBtn, confirmBtn),
       );
 
       const overlay = el("div", { className: "modal-overlay" }, modalContent);
@@ -231,7 +234,7 @@ class ModalComponent {
       const focusableElementsString =
         'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex]:not([tabindex="-1"]), [contenteditable], audio[controls], video[controls]';
       let focusableElements = modalContent.querySelectorAll(
-        focusableElementsString
+        focusableElementsString,
       );
       focusableElements = Array.from(focusableElements);
       const firstTabStop = focusableElements[0];
@@ -319,8 +322,8 @@ class ModalComponent {
           options.type === "confirm"
             ? false
             : options.type === "prompt"
-            ? null
-            : undefined
+              ? null
+              : undefined,
         );
       });
 
