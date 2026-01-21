@@ -217,7 +217,7 @@ export function sanitizeForId(str) {
  * @param {*} y
  * @returns {boolean}
  */
-export function deepEqual(x, y, visited = new WeakSet()) {
+export function deepEqual(x, y, visited = new WeakMap()) {
   if (x === y) return true;
 
   if (x === null || x === undefined || y === null || y === undefined)
@@ -226,7 +226,8 @@ export function deepEqual(x, y, visited = new WeakSet()) {
   if (x.constructor !== y.constructor) return false;
 
   if (typeof x === "object" && visited.has(x)) {
-    return true;
+    // If we've seen x before, check if it was paired with the same y
+    return visited.get(x) === y;
   }
 
   if (x instanceof Function) {
@@ -246,7 +247,7 @@ export function deepEqual(x, y, visited = new WeakSet()) {
   if (!(x instanceof Object)) return false;
   if (!(y instanceof Object)) return false;
 
-  visited.add(x);
+  visited.set(x, y);
 
   const p = Object.keys(x);
   return (
