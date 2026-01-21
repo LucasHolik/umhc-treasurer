@@ -270,6 +270,12 @@
   color: #fff;
 }
 
+.tag-edit-item .done-btn:focus,
+.tag-edit-item .done-btn:focus-visible {
+  outline: 2px solid #5bc0de;
+  outline-offset: 2px;
+}
+
 .tag-edit-item .cancel-btn {
   border-color: #d9534f;
   color: #d9534f;
@@ -278,6 +284,12 @@
 .tag-edit-item .cancel-btn:hover {
   background-color: #d9534f;
   color: #fff;
+}
+
+.tag-edit-item .cancel-btn:focus,
+.tag-edit-item .cancel-btn:focus-visible {
+  outline: 2px solid #d9534f;
+  outline-offset: 2px;
 }
 
 .add-tag-input {

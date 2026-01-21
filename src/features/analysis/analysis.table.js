@@ -7,7 +7,13 @@ export default class AnalysisTable {
   }
 
   render(labels, datasets, options = {}) {
-    const { primaryGroup, secondaryGroup, metric, timeUnit, show } = options;
+    const {
+      primaryGroup = "",
+      secondaryGroup = "none",
+      metric = "",
+      timeUnit = "",
+      show,
+    } = options;
 
     if (!show) {
       replace(this.element);
@@ -21,8 +27,10 @@ export default class AnalysisTable {
         { className: "data-table-header" },
         primaryGroup === "date"
           ? `Date (${timeUnit})`
-          : primaryGroup.charAt(0).toUpperCase() + primaryGroup.slice(1)
-      )
+          : primaryGroup
+            ? primaryGroup.charAt(0).toUpperCase() + primaryGroup.slice(1)
+            : "",
+      ),
     );
 
     if (secondaryGroup !== "none") {
@@ -36,8 +44,8 @@ export default class AnalysisTable {
         el(
           "th",
           { className: "data-table-header" },
-          metric.charAt(0).toUpperCase() + metric.slice(1)
-        )
+          metric ? metric.charAt(0).toUpperCase() + metric.slice(1) : "",
+        ),
       );
     }
 
@@ -50,7 +58,7 @@ export default class AnalysisTable {
         datasets.forEach((dataset) => {
           const value = dataset.data[dataIndex] || 0;
           rowCells.push(
-            el("td", { className: "data-table-cell" }, formatCurrency(value))
+            el("td", { className: "data-table-cell" }, formatCurrency(value)),
           );
           rowTotal += value;
         });
@@ -58,18 +66,18 @@ export default class AnalysisTable {
           el(
             "td",
             { className: "data-table-cell total-column" },
-            formatCurrency(rowTotal)
-          )
+            formatCurrency(rowTotal),
+          ),
         );
       } else {
         if (datasets.length === 0) {
           rowCells.push(
-            el("td", { className: "data-table-cell" }, formatCurrency(0))
+            el("td", { className: "data-table-cell" }, formatCurrency(0)),
           );
         } else {
           const value = datasets[0].data[dataIndex] || 0;
           rowCells.push(
-            el("td", { className: "data-table-cell" }, formatCurrency(value))
+            el("td", { className: "data-table-cell" }, formatCurrency(value)),
           );
         }
       }
@@ -84,8 +92,8 @@ export default class AnalysisTable {
         "table",
         { className: "data-table" },
         el("thead", {}, el("tr", {}, ...headerCells)),
-        el("tbody", {}, ...tableRows)
-      )
+        el("tbody", {}, ...tableRows),
+      ),
     );
 
     replace(this.element, container);

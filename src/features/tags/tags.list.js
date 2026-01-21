@@ -75,7 +75,7 @@ export default class TagsList {
     tripTypeMap,
     tripStatusMap,
     timeframe,
-    tagsData
+    tagsData,
   ) {
     this.isEditMode = isEditMode;
     this.localTags = localTags;
@@ -105,7 +105,7 @@ export default class TagsList {
               }
             },
           },
-          "Cancel"
+          "Cancel",
         ),
         el(
           "button",
@@ -118,8 +118,8 @@ export default class TagsList {
               }
             },
           },
-          "Save Changes"
-        )
+          "Save Changes",
+        ),
       );
     } else if (this.queue && this.queue.length > 0) {
       actionButtons.push(
@@ -134,8 +134,8 @@ export default class TagsList {
               }
             },
           },
-          `Save Changes (${this.queue.length})`
-        )
+          `Save Changes (${this.queue.length})`,
+        ),
       );
     } else {
       actionButtons.push(
@@ -150,8 +150,8 @@ export default class TagsList {
               }
             },
           },
-          "Edit Tags"
-        )
+          "Edit Tags",
+        ),
       );
     }
 
@@ -180,9 +180,9 @@ export default class TagsList {
             className: `tab-btn ${this.activeTab === tab.id ? "active" : ""}`,
             dataset: { tab: tab.id },
           },
-          tab.label
-        )
-      )
+          tab.label,
+        ),
+      ),
     );
 
     // Timeframe Selector options
@@ -202,9 +202,9 @@ export default class TagsList {
         el(
           "option",
           { value: opt.value, selected: this.timeframe === opt.value },
-          opt.label
-        )
-      )
+          opt.label,
+        ),
+      ),
     );
     timeframeSelect.addEventListener("change", (e) => {
       if (this.callbacks.onTimeframeChange) {
@@ -258,7 +258,7 @@ export default class TagsList {
                     const value = await this.modal.prompt(
                       `Enter new name for ${type} tag:`,
                       "",
-                      "Add Tag"
+                      "Add Tag",
                     );
                     if (value && value.trim() !== "") {
                       if (this.callbacks.onTagAdd)
@@ -269,11 +269,11 @@ export default class TagsList {
                   }
                 },
               },
-              "+"
+              "+",
             )
-          : null
+          : null,
       ),
-      el("div", { id: "tags-table-container" })
+      el("div", { id: "tags-table-container" }),
     );
 
     const section = el(
@@ -301,14 +301,14 @@ export default class TagsList {
               "div",
               { className: "timeframe-selector" },
               el("label", { for: "tag-timeframe-select" }, "Timeframe: "),
-              timeframeSelect
-            )
+              timeframeSelect,
+            ),
           ),
-          el("div", { className: "actions" }, ...actionButtons)
-        )
+          el("div", { className: "actions" }, ...actionButtons),
+        ),
       ),
       tabsContainer,
-      el("div", { className: "tags-container" }, activeTabContent)
+      el("div", { className: "tags-container" }, activeTabContent),
     );
 
     replace(this.element, section);
@@ -330,7 +330,7 @@ export default class TagsList {
     const searchTerm = this.searchTerms[type] || "";
 
     let visibleTags = tagsList.filter((tag) =>
-      tag.toLowerCase().includes(searchTerm.toLowerCase())
+      tag.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
     const data = visibleTags.map((tag) => {
@@ -373,8 +373,8 @@ export default class TagsList {
             title: "What do these mean?",
             style: { cursor: "help", fontSize: "0.8em" },
           },
-          "ℹ️"
-        )
+          "ℹ️",
+        ),
       );
 
       columns.push({
@@ -407,7 +407,7 @@ export default class TagsList {
               tabIndex: this.isEditMode ? "-1" : "0",
               role: "button",
             },
-            s.icon
+            s.icon,
           );
 
           return span;
@@ -445,8 +445,8 @@ export default class TagsList {
                     cursor: this.isEditMode ? "not-allowed" : "pointer",
                   },
                 },
-                "×"
-              )
+                "×",
+              ),
             );
           } else {
             content = el(
@@ -462,7 +462,7 @@ export default class TagsList {
                   cursor: this.isEditMode ? "not-allowed" : "pointer",
                 },
               },
-              "+"
+              "+",
             );
           }
 
@@ -497,7 +497,7 @@ export default class TagsList {
           return span;
         },
       },
-      { key: "count", label: "Uses", type: "number", class: "text-center" }
+      { key: "count", label: "Uses", type: "number", class: "text-center" },
     );
 
     if (this.isEditMode) {
@@ -522,7 +522,7 @@ export default class TagsList {
                     this.callbacks.onTagRename(item.type, item.tag);
                 },
               },
-              "✏️"
+              "✏️",
             ),
             document.createTextNode(" "),
             el(
@@ -536,8 +536,8 @@ export default class TagsList {
                     this.callbacks.onTagDelete(item.type, item.tag);
                 },
               },
-              "🗑️"
-            )
+              "🗑️",
+            ),
           );
           return div;
         },
@@ -551,6 +551,11 @@ export default class TagsList {
     if (this.tables[type]) {
       initialSortField = this.tables[type].sortField;
       initialSortAsc = this.tables[type].sortAsc;
+
+      // Destroy old table before creating new one
+      if (typeof this.tables[type].destroy === "function") {
+        this.tables[type].destroy();
+      }
     }
 
     const table = new SortableTable(container, {
@@ -602,10 +607,10 @@ export default class TagsList {
               {
                 style: { color: "#888", fontWeight: "bold", fontSize: "1.2em" },
               },
-              "◯"
+              "◯",
             ),
             el("strong", {}, " Active:"),
-            " The trip or event is currently being planned or is in progress."
+            " The trip or event is currently being planned or is in progress.",
           ),
           el(
             "li",
@@ -619,10 +624,10 @@ export default class TagsList {
                   fontSize: "1.2em",
                 },
               },
-              "✅"
+              "✅",
             ),
             el("strong", {}, " Completed:"),
-            " The trip is finished and all expenses are finalized."
+            " The trip is finished and all expenses are finalized.",
           ),
           el(
             "li",
@@ -636,11 +641,11 @@ export default class TagsList {
                   fontSize: "1.2em",
                 },
               },
-              "🚀"
+              "🚀",
             ),
             el("strong", {}, " Investment:"),
-            " This tag tracks a long-term investment or asset, not a regular trip."
-          )
+            " This tag tracks a long-term investment or asset, not a regular trip.",
+          ),
         ),
         el(
           "p",
@@ -648,9 +653,9 @@ export default class TagsList {
           el(
             "em",
             {},
-            "Click the status icon to cycle through these options (not available in Edit Mode)."
-          )
-        )
+            "Click the status icon to cycle through these options (not available in Edit Mode).",
+          ),
+        ),
       );
 
       this.modal.alert(message, "Trip/Event Status Legend");
@@ -668,7 +673,7 @@ export default class TagsList {
         this.tripTypeMap,
         this.tripStatusMap,
         this.timeframe,
-        this.tagsData
+        this.tagsData,
       );
       return;
     }
@@ -736,7 +741,7 @@ export default class TagsList {
         if (this.callbacks.onUpdateTripType)
           this.callbacks.onUpdateTripType(tag, newType);
       },
-      typeOptions
+      typeOptions,
     );
   }
 }
