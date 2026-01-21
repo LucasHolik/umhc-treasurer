@@ -14,6 +14,11 @@ const createRouter = () => {
   };
 
   const navigate = (hash) => {
+    // Already on this route - no action needed
+    if (hash === currentRoute) {
+      return;
+    }
+
     // Early exit if route doesn't exist
     if (!routes[hash]) {
       console.warn(`Router.navigate: route "${hash}" is not registered`);
