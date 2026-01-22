@@ -216,8 +216,8 @@ export default class TransactionsManualModal {
 
   async handleSubmit() {
     const date = this.dateInput.value;
-    const desc = this.descInput.value;
-    const doc = this.docInput.value;
+    const desc = this.descInput.value.trim();
+    const doc = this.docInput.value.trim();
     const type = this.typeSelect.value;
     const amount = parseFloat(this.amountInput.value);
 

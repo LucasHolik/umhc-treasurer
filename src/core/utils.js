@@ -217,6 +217,7 @@ export function sanitizeForId(str) {
  * Performs a deep comparison between two values to determine if they are equivalent.
  * @param {*} x
  * @param {*} y
+ * @param {WeakMap} [visited] - Internal parameter for tracking circular references
  * @returns {boolean}
  */
 export function deepEqual(x, y, visited = new WeakMap()) {

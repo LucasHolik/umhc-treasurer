@@ -68,8 +68,8 @@ export default class TagsAddTrip {
             if (this.callbacks.onBack) this.callbacks.onBack();
           },
         },
-        "Back"
-      )
+        "Back",
+      ),
     );
 
     // Filter Group
@@ -100,7 +100,7 @@ export default class TagsAddTrip {
           className: "control-label",
           style: { fontWeight: "bold", marginBottom: "5px" },
         },
-        "Filter by Current Type"
+        "Filter by Current Type",
       ),
       el(
         "div",
@@ -110,9 +110,9 @@ export default class TagsAddTrip {
           { className: "tag-filter-column" },
           el("div", { className: "tag-filter-header" }, "Types"),
           typeFilterSearch,
-          typeFilterList
-        )
-      )
+          typeFilterList,
+        ),
+      ),
     );
 
     // Actions
@@ -126,7 +126,7 @@ export default class TagsAddTrip {
       },
       "Add Selected (",
       el("span", { id: "selection-count" }, "0"),
-      ")"
+      ")",
     );
 
     const actionsDiv = el(
@@ -135,14 +135,14 @@ export default class TagsAddTrip {
         className: "transaction-actions",
         style: { alignSelf: "flex-start", marginTop: "22px" },
       },
-      saveBtn
+      saveBtn,
     );
 
     const controlsToolbar = el(
       "div",
       { className: "transaction-controls" },
       filterGroup,
-      actionsDiv
+      actionsDiv,
     );
 
     // Table Search
@@ -172,7 +172,7 @@ export default class TagsAddTrip {
     const tableSearchDiv = el(
       "div",
       { style: { marginBottom: "15px" } },
-      tableSearchInput
+      tableSearchInput,
     );
 
     const tableContainer = el("div", { id: "add-trip-table-container" });
@@ -183,7 +183,7 @@ export default class TagsAddTrip {
       header,
       controlsToolbar,
       tableSearchDiv,
-      tableContainer
+      tableContainer,
     );
 
     replace(this.element, section);
@@ -222,14 +222,14 @@ export default class TagsAddTrip {
         },
       },
       noTypeCb,
-      el("label", { for: noTypeUid }, el("em", {}, "(No Type)"))
+      el("label", { for: noTypeUid }, el("em", {}, "(No Type)")),
     );
     children.push(noTypeDiv);
 
     // 2. Type List
     const visibleTypes = this.allTypes
       .filter((t) =>
-        t.toLowerCase().includes(this.typeSearchTerm.toLowerCase())
+        t.toLowerCase().includes(this.typeSearchTerm.toLowerCase()),
       )
       .sort();
 
@@ -237,7 +237,7 @@ export default class TagsAddTrip {
     if (visibleTypes.length > 0) {
       const selectAllUid = "add-trip-type-all-visible";
       const allVisibleSelected = visibleTypes.every((t) =>
-        this.typeFilterSet.has(t)
+        this.typeFilterSet.has(t),
       );
 
       const selectAllCb = el("input", { type: "checkbox", id: selectAllUid });
@@ -258,7 +258,7 @@ export default class TagsAddTrip {
         "div",
         { className: "tag-checkbox-item" },
         selectAllCb,
-        el("label", { for: selectAllUid }, el("em", {}, "Select All Visible"))
+        el("label", { for: selectAllUid }, el("em", {}, "Select All Visible")),
       );
       children.push(selectAllDiv);
     }
@@ -281,7 +281,7 @@ export default class TagsAddTrip {
         "div",
         { className: "tag-checkbox-item" },
         checkbox,
-        el("label", { for: uid }, type)
+        el("label", { for: uid }, type),
       );
       children.push(div);
     });
@@ -316,6 +316,7 @@ export default class TagsAddTrip {
 
   renderTable() {
     const container = this.element.querySelector("#add-trip-table-container");
+    if (!container) return;
 
     this.tableComponent = new SortableTable(container, {
       enableSelection: true,
