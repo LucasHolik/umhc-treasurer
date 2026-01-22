@@ -490,6 +490,8 @@ class TagsComponent {
     const chunks = [];
 
     // Use logic helper to format operations
+    // Note: formatOperationsForApi must maintain 1:1 mapping with this.queue
+    // for error recovery to work correctly
     const formattedOperations = formatOperationsForApi(
       this.queue,
       store.getState("tags"),

@@ -86,7 +86,7 @@ export const el = (tag, attributes = {}, ...children) => {
         // Handle other attributes
         if (typeof value === "object") {
           throw new TypeError(
-            `Attribute "${key}" has object value. Use className, style, or dataset for objects.`
+            `Attribute "${key}" has object value. Use className, style, or dataset for objects.`,
           );
         }
         // Treat boolean 'true' as a presence attribute
@@ -100,14 +100,19 @@ export const el = (tag, attributes = {}, ...children) => {
   }
 
   // Handle children
-  children.forEach((child) => {
-    if (child instanceof Node) {
-      element.appendChild(child);
-    } else if (child !== null && child !== undefined && child !== false) {
-      // Convert non-node values to text strings
-      element.appendChild(document.createTextNode(String(child)));
-    }
-  });
+  const appendChildren = (items) => {
+    items.forEach((child) => {
+      if (Array.isArray(child)) {
+        appendChildren(child);
+      } else if (child instanceof Node) {
+        element.appendChild(child);
+      } else if (child !== null && child !== undefined && child !== false) {
+        // Convert non-node values to text strings
+        element.appendChild(document.createTextNode(String(child)));
+      }
+    });
+  };
+  appendChildren(children);
 
   // Store cleanup function in WeakMap to remove event listeners
   cleanupHandlers.set(element, () => {

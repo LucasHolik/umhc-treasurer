@@ -1,4 +1,5 @@
 import { formatCurrency } from "../../core/utils.js";
+import { CONFIG } from "../../core/config.js";
 
 export default class AnalysisChart {
   constructor(element) {
@@ -20,7 +21,7 @@ export default class AnalysisChart {
       return;
     }
 
-    const scriptSrc = "src/lib/chart.umd.min.js";
+    const scriptSrc = CONFIG.CHART_LIB_PATH;
     let script = document.querySelector(`script[src="${scriptSrc}"]`);
 
     this.handleLoad = () => {
@@ -209,7 +210,7 @@ export default class AnalysisChart {
     // Clean up script event listeners
 
     if (this.handleLoad || this.handleError) {
-      const scriptSrc = "src/lib/chart.umd.min.js";
+      const scriptSrc = CONFIG.CHART_LIB_PATH;
 
       const script = document.querySelector(`script[src="${scriptSrc}"]`);
 
