@@ -96,6 +96,8 @@ export function getPastMonthsRange(months) {
 export function getPastYearRange() {
   const now = new Date();
   const start = new Date();
+  // Set to 1st to avoid leap year overflow (Feb 29 -> Mar 1)
+  start.setDate(1);
   start.setFullYear(now.getFullYear() - 1);
   return { start, end: now };
 }
@@ -223,7 +225,10 @@ export function deepEqual(x, y, visited = new WeakMap()) {
   if (x === null || x === undefined || y === null || y === undefined)
     return x === y;
 
-  if (x.constructor !== y.constructor) return false;
+  const xProto = Object.getPrototypeOf(x);
+  const yProto = Object.getPrototypeOf(y);
+  if (xProto !== yProto) return false;
+  if (xProto !== null && x.constructor !== y.constructor) return false;
 
   if (typeof x === "object" && visited.has(x)) {
     // If we've seen x before, check if it was paired with the same y
@@ -238,14 +243,48 @@ export function deepEqual(x, y, visited = new WeakMap()) {
     return x.source === y.source && x.flags === y.flags;
   }
 
-  if (x === y || x.valueOf() === y.valueOf()) return true;
+  if (
+    x === y ||
+    (typeof x.valueOf === "function" &&
+      typeof y.valueOf === "function" &&
+      x.valueOf() === y.valueOf())
+  )
+    return true;
 
   if (Array.isArray(x) && x.length !== y.length) return false;
 
+  if (x instanceof Map) {
+    if (x.size !== y.size) return false;
+    visited.set(x, y);
+    const yEntries = Array.from(y);
+    for (const [key, val] of x) {
+      const index = yEntries.findIndex(
+        ([yKey, yVal]) =>
+          deepEqual(key, yKey, visited) && deepEqual(val, yVal, visited),
+      );
+      if (index === -1) return false;
+      yEntries.splice(index, 1);
+    }
+    return true;
+  }
+
+  if (x instanceof Set) {
+    if (x.size !== y.size) return false;
+    visited.set(x, y);
+    const yItems = Array.from(y);
+    for (const item of x) {
+      const index = yItems.findIndex((yItem) =>
+        deepEqual(item, yItem, visited),
+      );
+      if (index === -1) return false;
+      yItems.splice(index, 1);
+    }
+    return true;
+  }
+
   if (x instanceof Date) return false;
 
-  if (!(x instanceof Object)) return false;
-  if (!(y instanceof Object)) return false;
+  if (typeof x !== "object" || typeof y !== "object") return false;
 
   visited.set(x, y);
 
