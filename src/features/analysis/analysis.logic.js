@@ -99,6 +99,12 @@ class AnalysisLogic {
     } = filterState;
     const start = new Date(startDate);
     const end = new Date(endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      console.warn("getFilteredData: Invalid date range provided");
+      return [];
+    }
+
     end.setHours(23, 59, 59, 999); // Include the whole end day
 
     return expenses.filter((item) => {
@@ -174,7 +180,7 @@ class AnalysisLogic {
         if (timeUnit === "year") return date.getFullYear().toString();
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
           2,
-          "0"
+          "0",
         )}`; // Month format YYYY-MM
       }
       if (type === "category") return item.Category || "Uncategorized";
@@ -222,16 +228,16 @@ class AnalysisLogic {
       try {
         ({ adjustedOpeningBalance } = calculateFinancials(
           parsedOpeningBalance,
-          allExpenses
+          allExpenses,
         ));
       } catch (error) {
         console.error(
           "AnalysisLogic: Error calculating financials. Using unadjusted opening balance.",
-          { openingBalance: parsedOpeningBalance, error }
+          { openingBalance: parsedOpeningBalance, error },
         );
         store.setState(
           "error",
-          "Error calculating cumulative balance. Some metrics may be inaccurate."
+          "Error calculating cumulative balance. Some metrics may be inaccurate.",
         );
       }
       let balance = adjustedOpeningBalance;
@@ -398,7 +404,7 @@ class AnalysisLogic {
    */
   getVisibleTrips(allTrips, tripStatusMap, tripStatusFilter) {
     return allTrips.filter((trip) => {
-      if (tripStatusFilter === "All") return true;
+      if (tripStatusFilter === "All" || tripStatusFilter === "") return true;
       const status = tripStatusMap[trip];
       return status === tripStatusFilter;
     });
@@ -420,7 +426,7 @@ class AnalysisLogic {
     const visibleTrips = this.getVisibleTrips(
       allTrips,
       tripStatusMap,
-      tripStatusFilter
+      tripStatusFilter,
     );
 
     // Determine Visible Types based on Visible Trips
@@ -444,7 +450,7 @@ class AnalysisLogic {
       }
 
       const selectedCount = tripsForType.filter((t) =>
-        selectedTrips.has(t)
+        selectedTrips.has(t),
       ).length;
 
       if (selectedCount === 0) {
@@ -507,20 +513,18 @@ class AnalysisLogic {
 
     // Data Rows
     const rows = labels
-      .map((label) => {
+      .map((label, dataIndex) => {
         let rowStr = escapeCSV(label);
 
         if (secondaryGroup !== "none") {
           let rowTotal = 0;
           datasets.forEach((dataset) => {
-            const dataIndex = labels.indexOf(label);
             const value = dataset.data[dataIndex] || 0;
             rowStr += `,${escapeCSV(value)}`;
             rowTotal += value;
           });
           rowStr += `,${escapeCSV(rowTotal)}`;
         } else {
-          const dataIndex = labels.indexOf(label);
           const value = datasets[0].data[dataIndex] || 0;
           rowStr += `,${escapeCSV(value)}`;
         }
