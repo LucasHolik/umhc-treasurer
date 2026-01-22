@@ -129,13 +129,13 @@ function parseAndCleanData(rows) {
   // Robust matching for In/Out columns
   const cashInCol = headers.findIndex(
     (h) =>
-      (h.includes("in") && (h.includes("cash") || h.includes("amount"))) ||
+      (/\bin\b/.test(h) && (h.includes("cash") || h.includes("amount"))) ||
       h.includes("credit") ||
       h.includes("deposit"),
   );
   const cashOutCol = headers.findIndex(
     (h) =>
-      (h.includes("out") && (h.includes("cash") || h.includes("amount"))) ||
+      (/\bout\b/.test(h) && (h.includes("cash") || h.includes("amount"))) ||
       h.includes("debit") ||
       h.includes("withdrawal"),
   );

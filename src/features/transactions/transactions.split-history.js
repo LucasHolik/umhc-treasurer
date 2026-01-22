@@ -99,9 +99,9 @@ export default class TransactionsSplitHistory {
               colSpan: "6",
               className: "split-history-empty",
             },
-            "No split history found."
-          )
-        )
+            "No split history found.",
+          ),
+        ),
       );
     } else {
       groupIds.forEach((groupId) => {
@@ -156,9 +156,9 @@ export default class TransactionsSplitHistory {
               el(
                 "span",
                 { className: rAmountClass },
-                formatCurrency(Math.abs(rAmount))
-              )
-            )
+                formatCurrency(Math.abs(rAmount)),
+              ),
+            ),
           );
 
           if (!isReverted) {
@@ -178,7 +178,7 @@ export default class TransactionsSplitHistory {
           el(
             "td",
             { className: "split-header-toggle-cell" },
-            el("span", { className: "split-toggle-icon" }, "▶")
+            el("span", { className: "split-toggle-icon" }, "▶"),
           ),
           el("td", {}, date),
           el("td", {}, desc, ...(statusLabel ? [" ", statusLabel] : [])),
@@ -188,14 +188,14 @@ export default class TransactionsSplitHistory {
             el(
               "span",
               { className: amountClass },
-              formatCurrency(Math.abs(amount))
-            )
+              formatCurrency(Math.abs(amount)),
+            ),
           ),
           el(
             "td",
             { className: "split-group-id" },
-            groupId.length > 8 ? groupId.substring(0, 8) + "..." : groupId
-          )
+            groupId.length > 8 ? groupId.substring(0, 8) + "..." : groupId,
+          ),
         );
 
         const detailsRow = el(
@@ -222,13 +222,13 @@ export default class TransactionsSplitHistory {
                     el("th", { className: "split-detail-th" }, "Date"),
                     el("th", { className: "split-detail-th" }, "Description"),
                     el("th", { className: "split-detail-th" }, "Tags"),
-                    el("th", { className: "split-detail-th" }, "Amount")
-                  )
+                    el("th", { className: "split-detail-th" }, "Amount"),
+                  ),
                 ),
-                el("tbody", {}, ...detailRows)
-              )
-            )
-          )
+                el("tbody", {}, ...detailRows),
+              ),
+            ),
+          ),
         );
 
         headerRow.addEventListener("click", () => {
@@ -260,7 +260,7 @@ export default class TransactionsSplitHistory {
         "div",
         { className: "modal-header" },
         el("h3", {}, "Split Transaction History"),
-        el("button", { className: "modal-close", onclick: close }, "×")
+        el("button", { className: "modal-close", onclick: close }, "×"),
       ),
       el(
         "div",
@@ -280,11 +280,11 @@ export default class TransactionsSplitHistory {
               el("th", {}, "Date"),
               el("th", {}, "Description"),
               el("th", {}, "Total Amount"),
-              el("th", {}, "Group ID")
-            )
+              el("th", {}, "Group ID"),
+            ),
           ),
-          el("tbody", {}, ...tableBodyContent)
-        )
+          el("tbody", {}, ...tableBodyContent),
+        ),
       ),
       el(
         "div",
@@ -292,9 +292,9 @@ export default class TransactionsSplitHistory {
         el(
           "button",
           { className: "modal-btn modal-btn-confirm", onclick: close },
-          "Close"
-        )
-      )
+          "Close",
+        ),
+      ),
     );
 
     overlay.appendChild(modalContent);
@@ -327,15 +327,17 @@ export default class TransactionsSplitHistory {
       if (action && action.action === "edit") {
         this.closeOverlay();
 
+        let success = false;
         store.setState("savingSplitTransaction", true);
         try {
           await ApiService.editSplit(
             action.groupId,
             action.splits,
             action.original,
-            { skipLoading: true }
+            { skipLoading: true },
           );
           document.dispatchEvent(new CustomEvent("dataUploaded"));
+          success = true;
         } catch (error) {
           console.error("Failed to update split:", error);
           alert("Failed to update split: " + error.message);
@@ -343,14 +345,16 @@ export default class TransactionsSplitHistory {
           store.setState("savingSplitTransaction", false);
         }
 
-        this.resolveAndCleanup(true);
+        this.resolveAndCleanup(success);
       } else if (action && action.action === "revert") {
         this.closeOverlay();
 
+        let success = false;
         store.setState("savingSplitTransaction", true);
         try {
           await ApiService.revertSplit(action.groupId, { skipLoading: true });
           document.dispatchEvent(new CustomEvent("dataUploaded"));
+          success = true;
         } catch (error) {
           console.error("Failed to revert split:", error);
           alert("Failed to revert split: " + error.message);
@@ -358,7 +362,7 @@ export default class TransactionsSplitHistory {
           store.setState("savingSplitTransaction", false);
         }
 
-        this.resolveAndCleanup(true);
+        this.resolveAndCleanup(success);
       } else if (action) {
         // This handles if a split was created, which won't happen here
         this.closeOverlay();

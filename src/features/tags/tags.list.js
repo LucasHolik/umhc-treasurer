@@ -62,7 +62,7 @@ export default class TagsList {
         }
       });
     }
-    if (this.tagSelector) {
+    if (this.tagSelector && typeof this.tagSelector.destroy === "function") {
       this.tagSelector.destroy();
     }
   }
