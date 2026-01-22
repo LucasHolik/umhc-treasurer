@@ -399,6 +399,13 @@ const Service_Split = {
             "Failed to restore split data after write failure",
             restoreError,
           );
+          return {
+            success: false,
+            message:
+              writeRes.message +
+              " CRITICAL: Rollback also failed: " +
+              restoreError.message,
+          };
         }
         return writeRes;
       }
@@ -1088,6 +1095,12 @@ function _restoreSplitData(
   groupId,
   financeRowIndex,
 ) {
+  const configValidation = _validateConfig();
+  if (!configValidation.success) {
+    console.error("Config validation failed in _restoreSplitData");
+    throw new Error("Config validation failed in _restoreSplitData");
+  }
+
   if (existingSplitData && existingSplitData.length > 0) {
     const lastRow = splitSheet.getLastRow();
     splitSheet
