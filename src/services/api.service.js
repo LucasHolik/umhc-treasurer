@@ -123,7 +123,11 @@ const request = (action, params = {}, options = {}) => {
   Object.keys(finalParams)
     .sort()
     .forEach((key) => {
-      sortedParams[key] = String(finalParams[key]);
+      const value = finalParams[key];
+      sortedParams[key] =
+        typeof value === "object" && value !== null
+          ? JSON.stringify(value)
+          : String(value);
     });
 
   const requestKey = `${action}-${JSON.stringify(sortedParams)}`;
@@ -277,7 +281,10 @@ const request = (action, params = {}, options = {}) => {
         };
 
         // Final check: if we were cancelled or timed out during the signing/setup phase
-        if (cleanedUp) return;
+        if (cleanedUp) {
+          reject(new Error("Request cancelled during setup"));
+          return;
+        }
 
         script.src = url.toString();
         document.body.appendChild(script);
