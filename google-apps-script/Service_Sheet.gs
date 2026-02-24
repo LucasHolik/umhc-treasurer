@@ -504,10 +504,34 @@ function _getConfigSheet() {
     );
   }
 
-  // Ensure titles are correct
+  // Legacy migration:
+  // Old layout used B1/B2 for Initial Balance. New layout uses C1/C2.
+  const legacyBalanceTitle = String(configSheet.getRange("B1").getValue() || "").trim();
+  const isLegacyLayout = legacyBalanceTitle === CONFIG.OPENING_BALANCE_TITLE;
+  if (isLegacyLayout) {
+    const legacyBalanceCell = configSheet.getRange("B2");
+    const legacyBalanceValue = legacyBalanceCell.getValue();
+    const newBalanceCell = configSheet.getRange(CONFIG.OPENING_BALANCE_CELL);
+    const newBalanceValue = newBalanceCell.getValue();
+    const newBalanceIsEmpty =
+      newBalanceValue === "" || newBalanceValue === null || newBalanceValue === undefined;
+
+    if (
+      newBalanceIsEmpty &&
+      legacyBalanceValue !== "" &&
+      legacyBalanceValue !== null &&
+      legacyBalanceValue !== undefined
+    ) {
+      newBalanceCell.setValue(legacyBalanceValue);
+      legacyBalanceCell.clearContent();
+    }
+  }
+
+  // Ensure titles are correct in the new layout
+  configSheet.getRange(CONFIG.API_KEY_TITLE_CELL).setValue(CONFIG.API_KEY_TITLE);
   configSheet
-    .getRange(CONFIG.API_KEY_TITLE_CELL)
-    .setValue(CONFIG.API_KEY_TITLE);
+    .getRange(CONFIG.VIEW_ONLY_API_KEY_TITLE_CELL)
+    .setValue(CONFIG.VIEW_ONLY_API_KEY_TITLE);
   configSheet
     .getRange(CONFIG.OPENING_BALANCE_TITLE_CELL)
     .setValue(CONFIG.OPENING_BALANCE_TITLE);

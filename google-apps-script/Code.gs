@@ -1,3 +1,41 @@
+const READ_ACTIONS = new Set([
+  "ping",
+  "getData",
+  "getAppData",
+  "getOpeningBalance",
+  "getSplitGroup",
+  "getSplitHistory",
+]);
+
+const WRITE_ACTIONS = new Set([
+  "saveData",
+  "addTag",
+  "updateExpenses",
+  "deleteTag",
+  "renameTag",
+  "processTagOperations",
+  "saveOpeningBalance",
+  "splitTransaction",
+  "revertSplit",
+  "editSplit",
+]);
+
+const AUTH_ACTIONS = new Set(["login"]);
+
+function isKnownAction(action) {
+  return (
+    READ_ACTIONS.has(action) || WRITE_ACTIONS.has(action) || AUTH_ACTIONS.has(action)
+  );
+}
+
+function isActionAllowed(action, role) {
+  if (role === "admin") return true;
+  if (role === "viewer") {
+    return READ_ACTIONS.has(action) || AUTH_ACTIONS.has(action);
+  }
+  return false;
+}
+
 // Main entry point
 function doGet(e) {
   try {
@@ -5,26 +43,34 @@ function doGet(e) {
     const timestamp = e?.parameter?.timestamp;
     const signature = e?.parameter?.signature;
 
-    // Verify all requests, including 'login'.
-    // For 'login', the client signs with the user-provided API Key.
-    // The server verifies this signature against its stored API Key.
-    // This proves the user has the key without sending it, solving the auth bootstrap problem securely.
-    if (
-      !Service_Auth.verifyRequest(action, timestamp, signature, e?.parameter)
-    ) {
+    const authResult = Service_Auth.verifyRequest(
+      action,
+      timestamp,
+      signature,
+      e?.parameter,
+    );
+    if (!authResult || !authResult.authorized) {
       return createJsonResponse(
         { success: false, message: "Unauthorized" },
-        e?.parameter?.callback
+        e?.parameter?.callback,
+      );
+    }
+    const role = authResult.role === "viewer" ? "viewer" : "admin";
+
+    if (isKnownAction(action) && !isActionAllowed(action, role)) {
+      return createJsonResponse(
+        { success: false, message: "Forbidden" },
+        e?.parameter?.callback,
       );
     }
 
     let response;
     switch (action) {
       case "login":
-        response = Service_Auth.login();
+        response = Service_Auth.login(role);
         break;
       case "ping":
-        response = { success: true };
+        response = { success: true, role: role };
         break;
       case "saveData":
         if (!e?.parameter?.data) {
@@ -220,7 +266,7 @@ function doGet(e) {
     console.error("Server error in doGet: " + error.toString());
     return createJsonResponse(
       { success: false, message: "Server Error" },
-      e?.parameter?.callback
+      e?.parameter?.callback,
     );
   }
 }

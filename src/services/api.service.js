@@ -12,6 +12,8 @@ let callbackCounter = 0;
 
 const SESSION_ID_KEY = "umhc_treasurer_session_id";
 const SESSION_KEY_KEY = "umhc_treasurer_session_key";
+const READ_ONLY_MESSAGE =
+  "View-only mode: this action is only available with the full-access passkey.";
 
 /*
  * SECURITY NOTE:
@@ -80,6 +82,20 @@ const hasSession = () => !!_sessionId && !!_sessionKey;
 
 const updateLoadingState = () => {
   store.setState("isLoading", loadingRequests.size > 0);
+};
+
+const rejectIfReadOnly = () => {
+  const currentUser = store.getState("currentUser");
+  if (currentUser && currentUser.loggedIn && currentUser.canEdit === false) {
+    return Promise.reject(new Error(READ_ONLY_MESSAGE));
+  }
+  return null;
+};
+
+const requestMutating = (action, params = {}, options = {}) => {
+  const rejected = rejectIfReadOnly();
+  if (rejected) return rejected;
+  return request(action, params, options);
 };
 
 /**
@@ -310,25 +326,25 @@ const ApiService = {
   getAppData: () => request("getAppData"),
   getData: () => request("getData"),
   saveData: (data, options = {}) =>
-    request("saveData", { data: JSON.stringify(data) }, options),
-  addTag: (type, value) => request("addTag", { type, value }),
+    requestMutating("saveData", { data: JSON.stringify(data) }, options),
+  addTag: (type, value) => requestMutating("addTag", { type, value }),
   updateExpenses: (data, options = {}) =>
-    request("updateExpenses", { data: JSON.stringify(data) }, options),
-  deleteTag: (type, value) => request("deleteTag", { type, value }),
+    requestMutating("updateExpenses", { data: JSON.stringify(data) }, options),
+  deleteTag: (type, value) => requestMutating("deleteTag", { type, value }),
   renameTag: (type, oldValue, newValue) =>
-    request("renameTag", { type, oldValue, newValue }),
+    requestMutating("renameTag", { type, oldValue, newValue }),
   processTagOperations: (operations, options = {}) =>
-    request(
+    requestMutating(
       "processTagOperations",
       { operations: JSON.stringify(operations) },
       options,
     ),
   getOpeningBalance: () => request("getOpeningBalance"),
   saveOpeningBalance: (balance, options = {}) =>
-    request("saveOpeningBalance", { balance }, options),
+    requestMutating("saveOpeningBalance", { balance }, options),
 
   splitTransaction: async (original, splits, options = {}) => {
-    const res = await request(
+    const res = await requestMutating(
       "splitTransaction",
       { data: JSON.stringify({ original, splits }) },
       options,
@@ -337,12 +353,12 @@ const ApiService = {
     return res;
   },
   revertSplit: async (groupId, options = {}) => {
-    const res = await request("revertSplit", { groupId }, options);
+    const res = await requestMutating("revertSplit", { groupId }, options);
     store.setState("splitTransactions", null); // Invalidate cache
     return res;
   },
   editSplit: async (groupId, splits, original, options = {}) => {
-    const res = await request(
+    const res = await requestMutating(
       "editSplit",
       { groupId, data: JSON.stringify({ original, splits }) },
       options,

@@ -15,15 +15,15 @@ class LoginComponent {
 
     this.errorUnsubscribe = store.subscribe(
       "error",
-      this.handleError.bind(this)
+      this.handleError.bind(this),
     );
     this.loadingUnsubscribe = store.subscribe(
       "isLoading",
-      this.handleLoading.bind(this)
+      this.handleLoading.bind(this),
     );
     this.verifyingUnsubscribe = store.subscribe(
       "isVerifyingSession",
-      this.handleVerifying.bind(this)
+      this.handleVerifying.bind(this),
     );
 
     // Initial check
@@ -61,7 +61,7 @@ class LoginComponent {
         id: "save-url-button",
         onclick: () => this.handleSaveUrl(urlInput.value),
       },
-      "Save"
+      "Save",
     );
 
     // Keydown listener for input
@@ -82,7 +82,7 @@ class LoginComponent {
               this.render();
             },
           },
-          "Cancel"
+          "Cancel",
         )
       : null;
 
@@ -102,11 +102,11 @@ class LoginComponent {
         { className: "instruction-text" },
         this.isEditingUrl
           ? "Update Google Apps Script URL"
-          : "Enter Google Apps Script URL"
+          : "Enter Google Apps Script URL",
       ),
       el("div", { className: "input-group" }, urlInput, saveButton),
       el("div", { className: "action-area" }, cancelButton),
-      el("div", { className: "status-container" }, this.loginStatus)
+      el("div", { className: "status-container" }, this.loginStatus),
     );
 
     replace(this.element, container);
@@ -116,8 +116,8 @@ class LoginComponent {
     this.apiKeyInput = el("input", {
       type: "password",
       id: "api-key",
-      "aria-label": "API Key",
-      placeholder: "API Key",
+      "aria-label": "Passkey",
+      placeholder: "Passkey",
     });
 
     this.apiKeyInput.addEventListener("keydown", (e) => {
@@ -132,7 +132,7 @@ class LoginComponent {
         id: "login-button",
         onclick: this.handleLogin.bind(this),
       },
-      "Login"
+      "Login",
     );
 
     const changeUrlButton = el(
@@ -145,7 +145,7 @@ class LoginComponent {
           this.render();
         },
       },
-      "Change Script URL"
+      "Change Script URL",
     );
 
     this.loginStatus = el("div", { id: "login-status" });
@@ -159,15 +159,15 @@ class LoginComponent {
         className: "logo",
         onerror: (e) => (e.target.style.display = "none"),
       }),
-      el("div", { className: "instruction-text" }, "Please enter your API Key"),
+      el("div", { className: "instruction-text" }, "Please enter your Passkey"),
       el(
         "div",
         { className: "input-group" },
         this.apiKeyInput,
-        this.loginButton
+        this.loginButton,
       ),
       el("div", { className: "action-area" }, changeUrlButton),
-      el("div", { className: "status-container" }, this.loginStatus)
+      el("div", { className: "status-container" }, this.loginStatus),
     );
 
     replace(this.element, container);
@@ -193,7 +193,7 @@ class LoginComponent {
     } catch (e) {
       store.setState(
         "error",
-        "Invalid URL format. Please check for spaces or typos."
+        "Invalid URL format. Please check for spaces or typos.",
       );
       return;
     }
@@ -207,7 +207,7 @@ class LoginComponent {
   async handleLogin() {
     const apiKey = this.apiKeyInput.value.trim();
     if (!apiKey) {
-      store.setState("error", "Please enter an API key.");
+      store.setState("error", "Please enter a passkey.");
       return;
     }
     try {
@@ -215,7 +215,7 @@ class LoginComponent {
     } catch (error) {
       store.setState(
         "error",
-        error.message || "Login failed. Please try again."
+        error.message || "Login failed. Please try again.",
       );
     }
   }
@@ -238,8 +238,8 @@ class LoginComponent {
             className: "status-message",
             style: { color: "#f0ad4e", fontWeight: "bold" },
           },
-          "Verifying session..."
-        )
+          "Verifying session...",
+        ),
       );
     } else if (
       this.loginStatus &&
@@ -257,7 +257,11 @@ class LoginComponent {
       if (error) {
         replace(
           this.loginStatus,
-          el("div", { className: "status-message error", role: "alert" }, error)
+          el(
+            "div",
+            { className: "status-message error", role: "alert" },
+            error,
+          ),
         );
       } else {
         // Only clear if we are NOT loading

@@ -76,6 +76,7 @@ export default class TagsList {
     tripStatusMap,
     timeframe,
     tagsData,
+    canEdit = this.canEdit,
   ) {
     this.isEditMode = isEditMode;
     this.localTags = localTags;
@@ -85,9 +86,12 @@ export default class TagsList {
     this.tripStatusMap = tripStatusMap;
     this.timeframe = timeframe;
     this.tagsData = tagsData; // Used for type selector options and initial completed list
+    this.canEdit = canEdit;
 
     let actionButtons = [];
-    if (this.isEditMode) {
+    if (!this.canEdit) {
+      actionButtons = [];
+    } else if (this.isEditMode) {
       actionButtons.push(
         el(
           "button",
@@ -237,7 +241,7 @@ export default class TagsList {
         "div",
         { style: { marginBottom: "10px", display: "flex", gap: "10px" } },
         searchInput,
-        this.isEditMode
+        this.isEditMode && this.canEdit
           ? el(
               "button",
               {
@@ -361,6 +365,8 @@ export default class TagsList {
     const columns = [{ key: "tag", label: "Name", type: "text" }];
 
     if (type === "Trip/Event") {
+      const canChangeStatus = this.canEdit && !this.isEditMode;
+      const canAssignType = this.canEdit && !this.isEditMode;
       // Status Column
       const statusLabel = el(
         "span",
@@ -399,12 +405,12 @@ export default class TagsList {
                 color: s.color,
                 fontWeight: "bold",
                 fontSize: "1.2em",
-                cursor: this.isEditMode ? "not-allowed" : "pointer",
-                opacity: this.isEditMode ? "0.7" : "1",
+                cursor: canChangeStatus ? "pointer" : "not-allowed",
+                opacity: canChangeStatus ? "1" : "0.7",
               },
-              title: this.isEditMode ? s.title : `${s.title} - Click to cycle`,
+              title: canChangeStatus ? `${s.title} - Click to cycle` : s.title,
               dataset: { tag: item.tag, status: status },
-              tabIndex: this.isEditMode ? "-1" : "0",
+              tabIndex: canChangeStatus ? "0" : "-1",
               role: "button",
             },
             s.icon,
@@ -419,19 +425,76 @@ export default class TagsList {
         label: "Type",
         type: "custom",
         render: (item) => {
-          let content;
+          if (!this.canEdit) {
+            if (!item.tripType) {
+              return el("span", {}, "");
+            }
+            return el(
+              "span",
+              {
+                className: "tag-pill",
+                style: { cursor: "default" },
+              },
+              el("span", { className: "tag-text" }, item.tripType),
+            );
+          }
+
+          // In edit mode this remains non-interactive (original behavior),
+          // but keeps the same visual affordances.
+          if (!canAssignType) {
+            if (item.tripType) {
+              return el(
+                "span",
+                {
+                  className: "tag-pill",
+                  dataset: { tag: item.tag, type: "Type" },
+                  tabIndex: "-1",
+                  role: "button",
+                  style: {
+                    opacity: "0.7",
+                    cursor: "not-allowed",
+                  },
+                },
+                el("span", { className: "tag-text" }, item.tripType),
+                el(
+                  "span",
+                  {
+                    className: "remove-btn",
+                    title: "Remove Type",
+                    tabIndex: "-1",
+                    role: "button",
+                    style: { cursor: "not-allowed" },
+                  },
+                  "×",
+                ),
+              );
+            }
+            return el(
+              "span",
+              {
+                className: "add-tag-placeholder",
+                dataset: { tag: item.tag, type: "Type" },
+                title: "Add Type",
+                tabIndex: "-1",
+                role: "button",
+                style: {
+                  opacity: "0.7",
+                  cursor: "not-allowed",
+                },
+              },
+              "+",
+            );
+          }
+
           if (item.tripType) {
-            content = el(
+            return el(
               "span",
               {
                 className: "tag-pill",
                 dataset: { tag: item.tag, type: "Type" },
-                tabIndex: this.isEditMode ? "-1" : "0",
+                tabIndex: "0",
                 role: "button",
-                style: {
-                  opacity: this.isEditMode ? "0.7" : "1",
-                  cursor: this.isEditMode ? "not-allowed" : "pointer",
-                },
+                style: { cursor: "pointer" },
               },
               el("span", { className: "tag-text" }, item.tripType),
               el(
@@ -439,34 +502,27 @@ export default class TagsList {
                 {
                   className: "remove-btn",
                   title: "Remove Type",
-                  tabIndex: this.isEditMode ? "-1" : "0",
+                  tabIndex: "0",
                   role: "button",
-                  style: {
-                    cursor: this.isEditMode ? "not-allowed" : "pointer",
-                  },
+                  style: { cursor: "pointer" },
                 },
                 "×",
               ),
             );
-          } else {
-            content = el(
-              "span",
-              {
-                className: "add-tag-placeholder",
-                dataset: { tag: item.tag, type: "Type" },
-                title: "Add Type",
-                tabIndex: this.isEditMode ? "-1" : "0",
-                role: "button",
-                style: {
-                  opacity: this.isEditMode ? "0.7" : "1",
-                  cursor: this.isEditMode ? "not-allowed" : "pointer",
-                },
-              },
-              "+",
-            );
           }
 
-          return content;
+          return el(
+            "span",
+            {
+              className: "add-tag-placeholder",
+              dataset: { tag: item.tag, type: "Type" },
+              title: "Add Type",
+              tabIndex: "0",
+              role: "button",
+              style: { cursor: "pointer" },
+            },
+            "+",
+          );
         },
       });
     }
@@ -500,7 +556,7 @@ export default class TagsList {
       { key: "count", label: "Uses", type: "number", class: "text-center" },
     );
 
-    if (this.isEditMode) {
+    if (this.isEditMode && this.canEdit) {
       columns.push({
         key: "actions",
         label: "Actions",
@@ -674,12 +730,17 @@ export default class TagsList {
         this.tripStatusMap,
         this.timeframe,
         this.tagsData,
+        this.canEdit,
       );
       return;
     }
 
     // Toggle Status
-    if (target.classList.contains("status-toggle-btn") && !this.isEditMode) {
+    if (
+      target.classList.contains("status-toggle-btn") &&
+      !this.isEditMode &&
+      this.canEdit
+    ) {
       e.stopPropagation();
       const tag = target.dataset.tag;
       const currentStatus = target.dataset.status;
@@ -699,7 +760,7 @@ export default class TagsList {
     // Remove Tag
     if (target.classList.contains("remove-btn")) {
       e.stopPropagation();
-      if (this.isEditMode) return;
+      if (this.isEditMode || !this.canEdit) return;
       const pill = target.closest(".tag-pill");
       if (!pill) return;
       const tag = pill.dataset.tag;
@@ -712,7 +773,7 @@ export default class TagsList {
     // Add Tag (+)
     if (target.classList.contains("add-tag-placeholder")) {
       e.stopPropagation();
-      if (this.isEditMode) return;
+      if (this.isEditMode || !this.canEdit) return;
       const tag = target.dataset.tag;
       this.openTagSelector(target, tag, "");
       return;
@@ -722,7 +783,7 @@ export default class TagsList {
     const pill = target.closest(".tag-pill");
     if (pill) {
       e.stopPropagation();
-      if (this.isEditMode) return;
+      if (this.isEditMode || !this.canEdit) return;
       const tag = pill.dataset.tag;
       const tagTextEl = pill.querySelector(".tag-text");
       if (!tagTextEl) return;
@@ -732,6 +793,7 @@ export default class TagsList {
   }
 
   openTagSelector(target, tag, currentVal) {
+    if (!this.canEdit) return;
     const typeOptions = this.tagsData?.["Type"] || [];
     this.tagSelector.show(
       target,

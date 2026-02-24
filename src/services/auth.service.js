@@ -7,7 +7,7 @@ import ApiService from "./api.service.js";
  * Implements session-based authentication with short-lived tokens.
  *
  * Security Model:
- * 1. User enters Passkey (API Key).
+ * 1. User enters a passkey.
  * 2. Passkey is sent to server ONCE to exchange for a Session.
  * 3. Server returns { sessionId, sessionKey }.
  * 4. We store sessionId/sessionKey in private variables in ApiService AND sessionStorage for persistence.
@@ -15,6 +15,15 @@ import ApiService from "./api.service.js";
  * 6. All subsequent requests are signed with sessionKey and include sessionId.
  */
 const AuthService = {
+  buildCurrentUser(role) {
+    const normalizedRole = role === "viewer" ? "viewer" : "admin";
+    return {
+      loggedIn: true,
+      role: normalizedRole,
+      canEdit: normalizedRole === "admin",
+    };
+  },
+
   /**
    * Check if there is a session in local storage (via ApiService) and initialize the app state.
    */
@@ -25,8 +34,8 @@ const AuthService = {
       store.setState("isVerifyingSession", true);
       try {
         // Validate session with server
-        await ApiService.ping();
-        store.setState("currentUser", { loggedIn: true });
+        const response = await ApiService.ping();
+        store.setState("currentUser", this.buildCurrentUser(response?.role));
       } catch (error) {
         console.warn("Session validation failed:", error);
         this.logout();
@@ -37,7 +46,7 @@ const AuthService = {
   },
 
   /**
-   * Attempt to log in with the provided API key.
+   * Attempt to log in with the provided passkey.
    * @param {string} apiKey
    * @returns {Promise<boolean>} - True if login is successful, false otherwise.
    */
@@ -45,15 +54,20 @@ const AuthService = {
     store.setState("error", null);
 
     try {
-      // 1. Exchange API Key for Session
+      // 1. Exchange passkey for session
       const response = await ApiService.login(apiKey);
 
-      if (response.success && response.sessionId && response.sessionKey) {
+      if (
+        response.success &&
+        response.sessionId &&
+        response.sessionKey &&
+        response.role
+      ) {
         // 2. Set Session Credentials in ApiService (memory + sessionStorage)
         ApiService.setSession(response.sessionId, response.sessionKey);
 
-        // 3. Update State (Auth status only, no credentials in store)
-        store.setState("currentUser", { loggedIn: true });
+        // 3. Update State (Auth status + role/capabilities, no credentials in store)
+        store.setState("currentUser", this.buildCurrentUser(response.role));
 
         return true;
       } else {
@@ -65,7 +79,7 @@ const AuthService = {
       console.error("Login failed:", error);
       store.setState(
         "error",
-        "Login failed. Please check your API key and try again.",
+        "Login failed. Please check your passkey and try again.",
       );
       return false;
     }

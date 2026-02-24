@@ -33,9 +33,13 @@ The script requires a specific "Config" sheet to handle authentication and setti
 2. Create a NEW sheet (tab) and name it **"Config"**.
 3. In the **Config** sheet, set up the following cells:
    - **Cell A1:** `Passkey` (Label)
-   - **Cell A2:** `[YOUR_SECRET_PASSWORD]` (Enter a strong password/API key here. You will need this to log in on the website.)
-   - **Cell B1:** `Initial Balance` (Label)
-   - **Cell B2:** `0` (Or your starting account balance)
+   - **Cell A2:** `[YOUR_FULL_ACCESS_PASSKEY]` (Admin/full-access login passkey)
+   - **Cell B1:** `View Only Passkey` (Label)
+   - **Cell B2:** `[YOUR_VIEW_ONLY_PASSKEY]` (Optional viewer login passkey)
+   - **Cell C1:** `Initial Balance` (Label)
+   - **Cell C2:** `0` (Or your starting account balance)
+
+> **Migration note:** Existing deployments using legacy `B1/B2` for Initial Balance are auto-migrated to `C1/C2` on first run. The migration is idempotent.
 
 > **Note:** The "Tags" sheet and other data structures will be created automatically by the script when needed.
 
@@ -46,7 +50,7 @@ The script requires a specific "Config" sheet to handle authentication and setti
 3. Fill in the details:
    - **Description:** `v1` (or anything you like)
    - **Execute as:** `Me` (This is crucial - it ensures the script has permission to edit your sheet).
-   - **Who has access:** `Anyone` (This allows the website to contact your script. Security is handled via the API Key/Signature system, not Google's permissions).
+   - **Who has access:** `Anyone` (This allows the website to contact your script. Security is handled via the passkey/signature system, not Google's permissions).
 4. Click **Deploy**.
 5. You will be asked to **Authorize access**. Click "Review permissions", select your Google account, and likely click "Advanced" > "Go to (Script Name) (unsafe)" to proceed. This is normal for your own scripts.
 6. **COPY THE WEB APP URL.** It will look like `https://script.google.com/macros/s/.../exec`. You will need this for the website.
@@ -57,8 +61,9 @@ This backend uses a custom security layer designed for "Serverless" static sites
 
 - **JSONP:** Used for cross-origin communication.
 - **HMAC-SHA256 Signatures:** Every request is signed.
-  - **Login:** Signed with your **API Key** (stored in the Config sheet).
-  - **Session:** After login, the server issues a temporary **Session Key**. Subsequent requests are signed with this session key to minimize exposure of your main API Key.
+  - **Login:** Signed with a configured **Passkey** (full-access or view-only).
+  - **Session:** After login, the server issues a temporary **Session Key** with an attached role (`admin` or `viewer`). Subsequent requests are signed with this session key.
+- **Authorization:** `viewer` sessions are read-only; mutation actions are blocked server-side with `Forbidden`.
 - **Replay Protection:** Timestamps are verified to prevent replay attacks.
 
 ## 📂 File Structure

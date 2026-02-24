@@ -8,7 +8,7 @@ This project decouples the User Interface (the website) from the Data (Google Sh
 
 - **Dashboard:** Real-time overview of finances, including current balance and recent activity.
 - **Transaction Management:**
-  - Add, edit, and delete transactions.
+  - Add, edit, and delete transactions (full-access mode).
   - **Split Transactions:** Break down a single bank entry into multiple categories or projects.
   - Bulk operations and filtering.
 - **Tagging System:**
@@ -16,6 +16,7 @@ This project decouples the User Interface (the website) from the Data (Google Sh
   - "Smart" relationship mapping (e.g., specific Trips belong to specific Types).
 - **Analysis:** Visual charts and data tables to track spending trends.
 - **Excel Upload:** Drag-and-drop support for bank statement imports (Excel/CSV).
+- **Role-Based Access:** Full-access and view-only passkeys on the same app URL.
 - **Zero Cost Hosting:**
   - **Frontend:** Hosted on GitHub Pages (or any static host).
   - **Backend:** Google Apps Script (Serverless).
@@ -36,14 +37,14 @@ You must first set up your own private "Database".
 
 1. Navigate to the `google-apps-script` folder in this repository.
 2. Follow the detailed [Deployment Instructions](google-apps-script/README.md) to set up your Google Sheet and deploy the API.
-3. **Keep your "Web App URL" and "API Key" handy.**
+3. **Keep your "Web App URL" and passkeys handy.**
 
 #### 2. Frontend Usage
 
 1. Open the hosted website (or run locally).
 2. On the first visit, you will be prompted to **Configure Connection**.
 3. Enter your **Google Script Web App URL**.
-4. You will then be asked to **Login**. Enter the **API Key** you saved in your Google Sheet's "Config" tab.
+4. You will then be asked to **Login**. Enter either the full-access passkey or the view-only passkey from your Google Sheet's `Config` tab.
 
 ### Running Locally
 

@@ -1,9 +1,10 @@
 const Service_Session = {
   /**
    * Creates a new session for a validated user.
+   * @param {string} role - "admin" or "viewer"
    * @returns {object} - { sessionId, sessionKey }
    */
-  createSession: function () {
+  createSession: function (role) {
     const sessionId = Utilities.getUuid();
     const sessionKey = Utilities.getUuid(); // Use a UUID as a random session secret
 
@@ -15,6 +16,7 @@ const Service_Session = {
     // We store a JSON object to allow for extensibility (e.g. user roles later)
     const sessionData = {
       sessionKey: sessionKey,
+      role: role === "viewer" ? "viewer" : "admin",
     };
 
     cache.put(sessionId, JSON.stringify(sessionData), 3600);
@@ -28,7 +30,7 @@ const Service_Session = {
   /**
    * Retrieves session data.
    * @param {string} sessionId
-   * @returns {object|null} - { sessionKey } or null if invalid/expired.
+   * @returns {object|null} - { sessionKey, role } or null if invalid/expired.
    */
   getSession: function (sessionId) {
     if (!sessionId) return null;

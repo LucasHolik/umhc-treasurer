@@ -10,8 +10,14 @@ import { calculateTagStats, formatOperationsForApi } from "./tags.logic.js";
 import { el, replace } from "../../core/dom.js";
 
 class TagsComponent {
+  getCanEdit() {
+    const currentUser = store.getState("currentUser");
+    return !(currentUser && currentUser.canEdit === false);
+  }
+
   constructor(element) {
     this.element = element;
+    this.canEdit = this.getCanEdit();
 
     // Edit Mode State
     this.queue = [];
@@ -77,6 +83,9 @@ class TagsComponent {
     this.subscriptions.push(store.subscribe("expenses", this.render));
     this.subscriptions.push(store.subscribe("savingTags", this.render));
     this.subscriptions.push(store.subscribe("isTagging", this.render));
+    this.subscriptions.push(
+      store.subscribe("currentUser", () => this.handleUserChange()),
+    );
   }
 
   destroy() {
@@ -96,6 +105,13 @@ class TagsComponent {
   }
 
   render() {
+    this.canEdit = this.getCanEdit();
+    if (!this.canEdit && this.isEditMode) {
+      this.isEditMode = false;
+      this.localTags = null;
+      this.queue = [];
+    }
+
     const savingTags = store.getState("savingTags");
     const isTagging = store.getState("isTagging");
 
@@ -130,6 +146,7 @@ class TagsComponent {
         tripStatusMap,
         this.timeframe,
         tagsData, // Pass original tags data for dropdowns (even in edit mode, options come from global or current set)
+        this.canEdit,
       );
     } else if (this.viewMode === "sublist" && this.selectedTag) {
       const expenses = store.getState("expenses") || [];
@@ -148,10 +165,29 @@ class TagsComponent {
         tripStatusMap,
       );
     } else if (this.viewMode === "details" && this.selectedTag) {
-      this.tagsDetails.render(this.selectedTag.type, this.selectedTag.name);
+      this.tagsDetails.render(
+        this.selectedTag.type,
+        this.selectedTag.name,
+        this.canEdit,
+      );
     } else if (this.viewMode === "add-trip") {
+      if (!this.canEdit) {
+        this.viewMode = this.selectedTag ? "details" : "list";
+        this.render();
+        return;
+      }
       this.tagsAddTrip.init(this.targetTypeName);
     }
+  }
+
+  handleUserChange() {
+    const canEdit = this.getCanEdit();
+    if (this.canEdit === canEdit) return;
+    this.canEdit = canEdit;
+    if (!this.canEdit && this.viewMode === "add-trip") {
+      this.viewMode = this.selectedTag ? "details" : "list";
+    }
+    this.render();
   }
 
   renderSavingState() {
@@ -225,6 +261,7 @@ class TagsComponent {
   }
 
   handleAddTransactions(type, name) {
+    if (!this.canEdit) return;
     // Set intent in store
     store.setState("transactionParams", {
       mode: "bulk",
@@ -239,6 +276,7 @@ class TagsComponent {
   }
 
   handleAddTagsToType(typeName) {
+    if (!this.canEdit) return;
     this.targetTypeName = typeName;
     this.viewMode = "add-trip";
     this.render();
@@ -256,6 +294,7 @@ class TagsComponent {
   }
 
   async handleAddTripSave(selectedTrips, typeName) {
+    if (!this.canEdit) return;
     store.setState("taggingSource", "tags");
     store.setState("isTagging", true);
     const operations = selectedTrips.map((trip) => [
@@ -290,6 +329,7 @@ class TagsComponent {
   // --- Edit Mode Handlers ---
 
   async handleEditModeToggle(isEdit) {
+    if (!this.canEdit) return;
     if (isEdit) {
       if (this.queue.length > 0) {
         const confirmed = await this.modal.confirm(
@@ -320,6 +360,7 @@ class TagsComponent {
   }
 
   async handleTagAdd(type, value) {
+    if (!this.canEdit) return;
     if (!value) return;
     if (!this.localTags) {
       await this.modal.alert("Cannot add tag: edit mode not active.");
@@ -339,6 +380,7 @@ class TagsComponent {
   }
 
   async handleTagDelete(type, tag) {
+    if (!this.canEdit) return;
     if (!this.localTags) {
       await this.modal.alert("Cannot delete tag: edit mode not active.");
       return;
@@ -362,6 +404,7 @@ class TagsComponent {
   }
 
   async handleTagRename(type, tag) {
+    if (!this.canEdit) return;
     if (!this.localTags) {
       await this.modal.alert("Cannot rename tag: edit mode not active.");
       return;
@@ -404,6 +447,7 @@ class TagsComponent {
   }
 
   handleUpdateTripType(tripName, newType) {
+    if (!this.canEdit) return;
     // Update local state if in edit mode
     if (this.isEditMode && this.localTags) {
       if (!this.localTags.TripTypeMap) {
@@ -439,6 +483,7 @@ class TagsComponent {
   }
 
   handleUpdateTripStatus(tripName, newStatus) {
+    if (!this.canEdit) return;
     // 1. Update local state immediately for responsiveness (optimistic update logic)
     if (this.isEditMode && this.localTags) {
       if (!this.localTags.TripStatusMap) {
@@ -474,6 +519,7 @@ class TagsComponent {
   }
 
   async handleSave() {
+    if (!this.canEdit) return;
     if (store.getState("savingTags")) {
       return; // Save already in progress
     }

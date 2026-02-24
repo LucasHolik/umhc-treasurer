@@ -124,6 +124,9 @@ class App {
     store.setState("isLoading", true);
     this.cleanupMainApp();
     this.globalLoader = new LoaderComponent();
+    const currentUser = store.getState("currentUser") || {};
+    const isReadOnly = currentUser.canEdit === false;
+    const canEdit = !isReadOnly;
 
     const navItem = (tab, icon, text, active = false) =>
       el(
@@ -162,8 +165,8 @@ class App {
             {},
             navItem("dashboard", "📊", "Dashboard", true),
             navItem("transactions", "💳", "Transactions"),
-            navItem("upload", "📤", "Upload"),
-            navItem("tags", "🏷️", "Manage Tags"),
+            canEdit ? navItem("upload", "📤", "Upload") : null,
+            navItem("tags", "🏷️", canEdit ? "Manage Tags" : "Tags"),
             navItem("analysis", "📈", "Analysis"),
             navItem("settings", "⚙️", "Settings"),
           ),
@@ -203,7 +206,18 @@ class App {
             el(
               "div",
               { className: "title-group" },
-              el("h1", { id: "page-title" }, "Dashboard"),
+              el(
+                "div",
+                { className: "title-row" },
+                el("h1", { id: "page-title" }, "Dashboard"),
+                isReadOnly
+                  ? el(
+                      "span",
+                      { className: "mode-badge mode-badge-readonly" },
+                      "View Only",
+                    )
+                  : null,
+              ),
               el(
                 "button",
                 {
@@ -245,7 +259,9 @@ class App {
             id: "transactions-content",
             className: "tab-content",
           }),
-          el("section", { id: "upload-content", className: "tab-content" }),
+          canEdit
+            ? el("section", { id: "upload-content", className: "tab-content" })
+            : null,
           el("section", { id: "tags-content", className: "tab-content" }),
           el("section", { id: "analysis-content", className: "tab-content" }),
           el("section", { id: "settings-content", className: "tab-content" }),
@@ -281,10 +297,14 @@ class App {
 
   initComponents() {
     this.components = {};
+    const currentUser = store.getState("currentUser") || {};
+    const canEdit = currentUser.canEdit !== false;
 
     const dashboardEl = this.element.querySelector("#dashboard-content");
     const transactionsEl = this.element.querySelector("#transactions-content");
-    const uploadEl = this.element.querySelector("#upload-content");
+    const uploadEl = canEdit
+      ? this.element.querySelector("#upload-content")
+      : null;
     const tagsEl = this.element.querySelector("#tags-content");
     const analysisEl = this.element.querySelector("#analysis-content");
     const settingsEl = this.element.querySelector("#settings-content");
@@ -292,7 +312,7 @@ class App {
     if (
       !dashboardEl ||
       !transactionsEl ||
-      !uploadEl ||
+      (canEdit && !uploadEl) ||
       !tagsEl ||
       !analysisEl ||
       !settingsEl
@@ -305,7 +325,9 @@ class App {
     try {
       this.components.dashboard = new DashboardComponent(dashboardEl);
       this.components.transactions = new TransactionsComponent(transactionsEl);
-      this.components.upload = new UploadComponent(uploadEl);
+      if (canEdit && uploadEl) {
+        this.components.upload = new UploadComponent(uploadEl);
+      }
       this.components.tags = new TagsComponent(tagsEl);
       this.components.analysis = new AnalysisComponent(analysisEl);
       this.components.settings = new SettingsComponent(settingsEl);
@@ -321,7 +343,9 @@ class App {
 
     router.register("dashboard", dashboardEl);
     router.register("transactions", transactionsEl);
-    router.register("upload", uploadEl);
+    if (canEdit && uploadEl) {
+      router.register("upload", uploadEl);
+    }
     router.register("tags", tagsEl);
     router.register("analysis", analysisEl);
     router.register("settings", settingsEl);
@@ -439,6 +463,15 @@ class App {
   }
 
   updateActiveTab(tabName) {
+    const currentUser = store.getState("currentUser") || {};
+    const canEdit = currentUser.canEdit !== false;
+    if (!canEdit && tabName === "upload") {
+      tabName = "dashboard";
+      if (window.location.hash.slice(1) === "upload") {
+        window.location.hash = "#dashboard";
+      }
+    }
+
     // 1. Update Sidebar Selection
     const navItems = this.element.querySelectorAll(".nav-item");
     navItems.forEach((i) => {

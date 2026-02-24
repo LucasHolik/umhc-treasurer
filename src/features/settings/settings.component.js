@@ -7,6 +7,11 @@ import { calculateFinancials } from "../../core/financial.logic.js";
 import { el, replace } from "../../core/dom.js";
 
 class SettingsComponent {
+  getCanEdit() {
+    const currentUser = store.getState("currentUser");
+    return !(currentUser && currentUser.canEdit === false);
+  }
+
   constructor(element) {
     this.element = element;
     this.modal = new ModalComponent();
@@ -17,16 +22,19 @@ class SettingsComponent {
     this.unsubscribers = [];
     this.render();
     this.unsubscribers.push(
-      store.subscribe("openingBalance", this.render.bind(this))
+      store.subscribe("openingBalance", this.render.bind(this)),
     );
     this.unsubscribers.push(
-      store.subscribe("settingsSyncing", this.render.bind(this))
+      store.subscribe("settingsSyncing", this.render.bind(this)),
     );
     this.unsubscribers.push(
-      store.subscribe("expenses", this.render.bind(this))
+      store.subscribe("expenses", this.render.bind(this)),
     );
     this.unsubscribers.push(
-      store.subscribe("accessibilityMode", this.render.bind(this))
+      store.subscribe("accessibilityMode", this.render.bind(this)),
+    );
+    this.unsubscribers.push(
+      store.subscribe("currentUser", this.render.bind(this)),
     );
   }
 
@@ -40,6 +48,7 @@ class SettingsComponent {
 
   render() {
     const settingsSyncing = store.getState("settingsSyncing");
+    const canEdit = this.getCanEdit();
 
     if (settingsSyncing) {
       this.renderSavingState();
@@ -53,16 +62,18 @@ class SettingsComponent {
     const expenses = store.getState("expenses") || [];
 
     const createEditButton = () =>
-      el(
-        "button",
-        {
-          id: "edit-opening-balance",
-          className: "secondary-btn",
-          title: "Edit Opening Balance",
-          onclick: () => this.handleEdit(),
-        },
-        "✏️ Edit"
-      );
+      canEdit
+        ? el(
+            "button",
+            {
+              id: "edit-opening-balance",
+              className: "secondary-btn",
+              title: "Edit Opening Balance",
+              onclick: () => this.handleEdit(),
+            },
+            "✏️ Edit",
+          )
+        : null;
 
     // Calculate offset from manual transactions
     let manualOffset = 0;
@@ -70,7 +81,7 @@ class SettingsComponent {
     try {
       ({ manualOffset, adjustedOpeningBalance } = calculateFinancials(
         currentBalance,
-        expenses
+        expenses,
       ));
     } catch (error) {
       console.error("Error calculating financials:", error);
@@ -90,9 +101,9 @@ class SettingsComponent {
         el(
           "p",
           { style: { color: "#d9534f" } },
-          "Unable to calculate financial data."
+          "Unable to calculate financial data.",
         ),
-        createEditButton()
+        createEditButton(),
       );
 
       const container = el(
@@ -101,11 +112,11 @@ class SettingsComponent {
         el(
           "div",
           { className: "transactions-header" },
-          el("h2", {}, "Settings")
+          el("h2", {}, "Settings"),
         ),
         errorSection,
         this.renderPreferencesSection(),
-        this.status
+        this.status,
       );
 
       replace(this.element, container);
@@ -156,20 +167,20 @@ class SettingsComponent {
                   fontSize: "0.85em",
                 },
               },
-              "Base Opening Balance"
+              "Base Opening Balance",
             ),
             el(
               "div",
               { style: { fontSize: "1.5em" } },
-              `£${formatCurrency(currentBalance)}`
+              `£${formatCurrency(currentBalance)}`,
             ),
             el(
               "div",
               { style: { color: "#aaa", fontSize: "0.9em" } },
-              "Set manually."
-            )
+              "Set manually.",
+            ),
           ),
-          createEditButton()
+          createEditButton(),
         ),
 
         // Manual Offset
@@ -198,7 +209,7 @@ class SettingsComponent {
                   fontSize: "0.85em",
                 },
               },
-              "Manual Transactions Offset"
+              "Manual Transactions Offset",
             ),
             el(
               "div",
@@ -209,15 +220,15 @@ class SettingsComponent {
                 },
               },
               `${manualOffset >= 0 ? "+" : ""}£${formatCurrency(
-                Math.abs(manualOffset)
-              )}`
+                Math.abs(manualOffset),
+              )}`,
             ),
             el(
               "div",
               { style: { color: "#aaa", fontSize: "0.9em" } },
-              "Calculated from manually added old transactions."
-            )
-          )
+              "Calculated from manually added old transactions.",
+            ),
+          ),
         ),
 
         // Effective Start
@@ -247,25 +258,25 @@ class SettingsComponent {
                   fontSize: "0.85em",
                 },
               },
-              "Effective Start Balance"
+              "Effective Start Balance",
             ),
             el(
               "div",
               { style: { fontSize: "1.5em" } },
-              `£${formatCurrency(adjustedOpeningBalance)}`
+              `£${formatCurrency(adjustedOpeningBalance)}`,
             ),
             el(
               "div",
               { style: { color: "#aaa", fontSize: "0.9em" } },
-              "Actual starting point for calculations."
-            )
-          )
-        )
+              "Actual starting point for calculations.",
+            ),
+          ),
+        ),
       ),
 
       this.renderPreferencesSection(),
 
-      this.status
+      this.status,
     );
 
     replace(this.element, container);
@@ -282,7 +293,7 @@ class SettingsComponent {
       el(
         "div",
         { className: "transactions-header" },
-        el("h2", {}, "Preferences")
+        el("h2", {}, "Preferences"),
       ),
       el(
         "div",
@@ -309,7 +320,7 @@ class SettingsComponent {
                 marginBottom: "5px",
               },
             },
-            "Accessibility Mode"
+            "Accessibility Mode",
           ),
           el(
             "div",
@@ -317,8 +328,8 @@ class SettingsComponent {
               id: "accessibility-description",
               style: { color: "#aaa", fontSize: "0.9em" },
             },
-            "Add symbols (▲/▼) to positive/negative values for better visibility."
-          )
+            "Add symbols (▲/▼) to positive/negative values for better visibility.",
+          ),
         ),
         el(
           "label",
@@ -334,9 +345,9 @@ class SettingsComponent {
             onchange: (e) =>
               store.setState("accessibilityMode", e.target.checked),
           }),
-          el("span", { className: "slider" })
-        )
-      )
+          el("span", { className: "slider" }),
+        ),
+      ),
     );
   }
 
@@ -362,23 +373,24 @@ class SettingsComponent {
         el(
           "h3",
           { style: { color: "#f0ad4e", marginBottom: "10px" } },
-          "Saving Settings..."
+          "Saving Settings...",
         ),
         el(
           "p",
           { style: { color: "#fff", fontSize: "1.1em" } },
-          "Updating and syncing data."
-        )
-      )
+          "Updating and syncing data.",
+        ),
+      ),
     );
   }
 
   async handleEdit() {
+    if (!this.getCanEdit()) return;
     const currentBalance = store.getState("openingBalance") || 0;
     const newBalanceStr = await this.modal.prompt(
       "Enter new Opening Balance (£):",
       currentBalance.toString(),
-      "Edit Opening Balance"
+      "Edit Opening Balance",
     );
 
     if (newBalanceStr === null) return; // Cancelled
@@ -400,6 +412,7 @@ class SettingsComponent {
   }
 
   async handleSave(balance) {
+    if (!this.getCanEdit()) return;
     store.setState("settingsSyncing", true);
 
     try {

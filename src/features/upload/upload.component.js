@@ -9,6 +9,11 @@ import { el, replace } from "../../core/dom.js";
 class UploadComponent {
   static RECORDS_PER_CHUNK = 20;
 
+  isReadOnly() {
+    const currentUser = store.getState("currentUser");
+    return currentUser && currentUser.canEdit === false;
+  }
+
   constructor(element) {
     this.element = element;
     this.parsedData = [];
@@ -16,7 +21,12 @@ class UploadComponent {
     this.render();
     this.attachEventListeners();
     this.subscriptions.push(
-      store.subscribe("isUploading", this.handleUploadingState.bind(this))
+      store.subscribe("isUploading", this.handleUploadingState.bind(this)),
+    );
+    this.subscriptions.push(
+      store.subscribe("currentUser", () =>
+        this.handleUploadingState(store.getState("isUploading")),
+      ),
     );
     this.handleUploadingState(store.getState("isUploading"));
   }
@@ -30,29 +40,29 @@ class UploadComponent {
       if (this.chooseFileBtn)
         this.chooseFileBtn.removeEventListener(
           "click",
-          this._handlers.chooseFile
+          this._handlers.chooseFile,
         );
       if (this.fileUpload)
         this.fileUpload.removeEventListener(
           "change",
-          this._handlers.fileSelect
+          this._handlers.fileSelect,
         );
       if (this.uploadButton)
         this.uploadButton.removeEventListener("click", this._handlers.upload);
       if (this.tableViewButton)
         this.tableViewButton.removeEventListener(
           "click",
-          this._handlers.switchTable
+          this._handlers.switchTable,
         );
       if (this.jsonViewButton)
         this.jsonViewButton.removeEventListener(
           "click",
-          this._handlers.switchJson
+          this._handlers.switchJson,
         );
       if (this.showNewOnlyCheckbox)
         this.showNewOnlyCheckbox.removeEventListener(
           "change",
-          this._handlers.filterChange
+          this._handlers.filterChange,
         );
     }
 
@@ -85,24 +95,24 @@ class UploadComponent {
     this.fileNameDisplay = el(
       "span",
       { id: "file-name-display" },
-      "No file chosen"
+      "No file chosen",
     );
     this.uploadButton = el(
       "button",
       { id: "upload-to-sheet-btn" },
-      "Upload to Sheet"
+      "Upload to Sheet",
     );
     this.uploadStatus = el("div", { id: "upload-status" });
 
     this.tableViewButton = el(
       "button",
       { id: "table-view-btn", className: "active view-toggle-btn" },
-      "Table View"
+      "Table View",
     );
     this.jsonViewButton = el(
       "button",
       { id: "json-view-btn", className: "view-toggle-btn" },
-      "JSON View"
+      "JSON View",
     );
 
     this.tableViewContent = el("div", { id: "table-view-content" });
@@ -110,7 +120,7 @@ class UploadComponent {
     this.jsonViewContent = el(
       "div",
       { id: "json-view-content", style: { display: "none" } },
-      el("pre", {}, this.fileContentJson)
+      el("pre", {}, this.fileContentJson),
     );
 
     this.showNewOnlyCheckbox = el("input", {
@@ -126,7 +136,7 @@ class UploadComponent {
         "div",
         { className: "view-toggle" },
         this.tableViewButton,
-        this.jsonViewButton
+        this.jsonViewButton,
       ),
       el(
         "div",
@@ -135,11 +145,11 @@ class UploadComponent {
           "label",
           { className: "checkbox-label", for: "show-new-only" },
           this.showNewOnlyCheckbox,
-          " Show New Transactions Only"
-        )
+          " Show New Transactions Only",
+        ),
       ),
       this.tableViewContent,
-      this.jsonViewContent
+      this.jsonViewContent,
     );
 
     const container = el(
@@ -149,7 +159,7 @@ class UploadComponent {
       el(
         "p",
         {},
-        "Select an Excel file with transaction data to upload to the sheet."
+        "Select an Excel file with transaction data to upload to the sheet.",
       ),
       el(
         "label",
@@ -165,7 +175,7 @@ class UploadComponent {
             whiteSpace: "nowrap",
           },
         },
-        "Choose Excel File"
+        "Choose Excel File",
       ),
       el(
         "div",
@@ -173,10 +183,10 @@ class UploadComponent {
         this.fileUpload,
         this.chooseFileBtn,
         this.fileNameDisplay,
-        this.uploadButton
+        this.uploadButton,
       ),
       this.uploadStatus,
-      this.extractedContentSection
+      this.extractedContentSection,
     );
 
     replace(this.element, container);
@@ -209,7 +219,7 @@ class UploadComponent {
               {
                 className: row.isDuplicate ? "status-duplicate" : "status-new",
               },
-              row.isDuplicate ? "Duplicate" : "New"
+              row.isDuplicate ? "Duplicate" : "New",
             );
           },
         },
@@ -237,11 +247,12 @@ class UploadComponent {
     this.jsonViewButton.addEventListener("click", this._handlers.switchJson);
     this.showNewOnlyCheckbox.addEventListener(
       "change",
-      this._handlers.filterChange
+      this._handlers.filterChange,
     );
   }
 
   handleUploadingState(isUploading) {
+    const isReadOnly = this.isReadOnly();
     if (this.fileUpload) {
       this.fileUpload.disabled = isUploading;
     }
@@ -249,7 +260,7 @@ class UploadComponent {
       this.chooseFileBtn.disabled = isUploading;
     }
     if (this.uploadButton) {
-      this.uploadButton.disabled = isUploading;
+      this.uploadButton.disabled = isUploading || isReadOnly;
       if (isUploading) {
         this.uploadButton.textContent = "Uploading...";
       } else {
@@ -289,23 +300,23 @@ class UploadComponent {
   _createDuplicateKey(record, schema) {
     // schema maps field names: { date, description, document, cashIn, cashOut }
     const dateStr = this._normalizeDateString(
-      schema.date ? record[schema.date] : record.date
+      schema.date ? record[schema.date] : record.date,
     );
     const descriptionStr = this._normalizeValue(
-      schema.description ? record[schema.description] : record.description
+      schema.description ? record[schema.description] : record.description,
     );
     const documentStr = this._normalizeValue(
-      schema.document ? record[schema.document] : record.document
+      schema.document ? record[schema.document] : record.document,
     );
     const incomeStr = this._normalizeValue(
       this._formatNumberForComparison(
-        schema.cashIn ? record[schema.cashIn] : record.cashIn
-      )
+        schema.cashIn ? record[schema.cashIn] : record.cashIn,
+      ),
     );
     const expenseStr = this._normalizeValue(
       this._formatNumberForComparison(
-        schema.cashOut ? record[schema.cashOut] : record.cashOut
-      )
+        schema.cashOut ? record[schema.cashOut] : record.cashOut,
+      ),
     );
     // Use JSON.stringify for safer serialization or use a delimiter that can't appear in normalized values
     return JSON.stringify([
@@ -326,8 +337,8 @@ class UploadComponent {
           document: "Document",
           cashIn: "Income",
           cashOut: "Expense",
-        })
-      )
+        }),
+      ),
     );
 
     newData.forEach((row) => {
@@ -367,6 +378,10 @@ class UploadComponent {
   }
 
   async handleUpload() {
+    if (this.isReadOnly()) {
+      return;
+    }
+
     if (!this.parsedData || this.parsedData.length === 0) {
       this.displayUploadStatus("No data to upload.", "error");
       return;
@@ -391,7 +406,7 @@ class UploadComponent {
 
     this.displayUploadStatus(
       `Uploading ${newRecords.length} new records...`,
-      "info"
+      "info",
     );
 
     try {
@@ -400,7 +415,7 @@ class UploadComponent {
     } catch (error) {
       this.displayUploadStatus(
         `Error uploading data: ${error.message}`,
-        "error"
+        "error",
       );
     } finally {
       store.setState("isUploading", false);
@@ -409,7 +424,7 @@ class UploadComponent {
 
   async _uploadInChunks(records) {
     const totalChunks = Math.ceil(
-      records.length / UploadComponent.RECORDS_PER_CHUNK
+      records.length / UploadComponent.RECORDS_PER_CHUNK,
     );
     let successfulCount = 0;
     let failedChunkError = null;
@@ -420,7 +435,7 @@ class UploadComponent {
       const chunk = records.slice(start, end);
       this.displayUploadStatus(
         `Uploading chunk ${i + 1} of ${totalChunks}...`,
-        "info"
+        "info",
       );
 
       try {
@@ -430,7 +445,7 @@ class UploadComponent {
         failedChunkError = new Error(
           `Upload interrupted at chunk ${i + 1}. ${successfulCount} of ${
             records.length
-          } records were saved. Error: ${error.message}`
+          } records were saved. Error: ${error.message}`,
         );
         break;
       }
@@ -447,7 +462,7 @@ class UploadComponent {
 
     this.displayUploadStatus(
       `Successfully uploaded ${records.length} records!`,
-      "success"
+      "success",
     );
   }
 
@@ -477,7 +492,7 @@ class UploadComponent {
       const parts = dateString.split("/");
       return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(
         2,
-        "0"
+        "0",
       )}`;
     }
     if (dateString.includes("T")) {

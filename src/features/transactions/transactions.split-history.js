@@ -5,7 +5,10 @@ import SplitTransactionModal from "./split-transaction.modal.js";
 import { el } from "../../core/dom.js";
 
 export default class TransactionsSplitHistory {
-  constructor() {}
+  constructor() {
+    const currentUser = store.getState("currentUser");
+    this.canEdit = !(currentUser && currentUser.canEdit === false);
+  }
 
   async open(data) {
     // Prevent opening multiple overlays concurrently
@@ -138,7 +141,8 @@ export default class TransactionsSplitHistory {
           if (rType === "SOURCE") rowTypeClass = "split-row-source";
           if (rType === "CHILD") rowTypeClass = "split-row-child";
 
-          const clickableClass = !isReverted ? "split-detail-clickable" : "";
+          const clickableClass =
+            !isReverted && this.canEdit ? "split-detail-clickable" : "";
 
           const rowEl = el(
             "tr",
@@ -161,7 +165,7 @@ export default class TransactionsSplitHistory {
             ),
           );
 
-          if (!isReverted) {
+          if (!isReverted && this.canEdit) {
             rowEl.addEventListener("click", (e) => {
               e.stopPropagation(); // Prevent toggling the group
               this.handleRowClick(groupId);
@@ -302,6 +306,8 @@ export default class TransactionsSplitHistory {
   }
 
   async handleRowClick(groupId) {
+    if (!this.canEdit) return;
+
     // 1. Find data locally from this.data
     const groupRows = this.data.filter((r) => r["Split Group ID"] === groupId);
 

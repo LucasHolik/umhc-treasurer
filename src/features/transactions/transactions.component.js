@@ -15,10 +15,16 @@ import { el, replace } from "../../core/dom.js";
 import { formatCurrency } from "../../core/utils.js";
 
 class TransactionsComponent {
+  getCanEdit() {
+    const currentUser = store.getState("currentUser");
+    return !(currentUser && currentUser.canEdit === false);
+  }
+
   constructor(element) {
     this.element = element;
     this.transactionData = [];
     this.originalTransactionData = [];
+    this.canEdit = this.getCanEdit();
 
     // State
     this.selectionMode = false;
@@ -36,36 +42,39 @@ class TransactionsComponent {
 
     this.subscriptions = [];
     this.subscriptions.push(
-      store.subscribe("expenses", (data) => this.handleDataChange(data))
+      store.subscribe("expenses", (data) => this.handleDataChange(data)),
     );
     this.subscriptions.push(
-      store.subscribe("tags", () => this.handleTagsChange())
+      store.subscribe("tags", () => this.handleTagsChange()),
     );
     this.subscriptions.push(
-      store.subscribe("isTagging", () => this.renderTransactionsDisplay())
+      store.subscribe("isTagging", () => this.renderTransactionsDisplay()),
     );
     this.subscriptions.push(
       store.subscribe("savingSplitTransaction", () =>
-        this.renderTransactionsDisplay()
-      )
+        this.renderTransactionsDisplay(),
+      ),
     );
     this.subscriptions.push(
-      store.subscribe("taggingProgress", () => this.updateProgressDisplay())
+      store.subscribe("taggingProgress", () => this.updateProgressDisplay()),
     );
     this.subscriptions.push(
       store.subscribe("transactionParams", (params) =>
-        this.handleTransactionParams(params)
-      )
+        this.handleTransactionParams(params),
+      ),
     );
     this.subscriptions.push(
       store.subscribe("splitTransactions", (splits) =>
-        this.handleSplitsChange(splits)
-      )
+        this.handleSplitsChange(splits),
+      ),
     );
     this.subscriptions.push(
       store.subscribe("isLoading", (isLoading) =>
-        this.handleLoadingChange(isLoading)
-      )
+        this.handleLoadingChange(isLoading),
+      ),
+    );
+    this.subscriptions.push(
+      store.subscribe("currentUser", () => this.handleUserChange()),
     );
 
     this.render();
@@ -143,6 +152,16 @@ class TransactionsComponent {
     }
   }
 
+  handleUserChange() {
+    const canEdit = this.getCanEdit();
+    if (this.canEdit === canEdit) return;
+    this.canEdit = canEdit;
+    if (!this.canEdit && this.selectionMode) {
+      this.toggleSelectionMode(false);
+    }
+    this.renderTransactionsDisplay();
+  }
+
   handleGlobalClick(e) {
     if (this.selectionMode && this.bulkComponent) {
       this.bulkComponent.handleGlobalClick(e);
@@ -151,7 +170,7 @@ class TransactionsComponent {
 
   handleInteractiveTagClick(e) {
     // Ignore if we are in bulk selection mode
-    if (this.selectionMode) return;
+    if (this.selectionMode || !this.canEdit) return;
 
     const target = e.target;
 
@@ -203,7 +222,7 @@ class TransactionsComponent {
 
   handleInteractiveTagKeydown(e) {
     // Ignore if we are in bulk selection mode
-    if (this.selectionMode) return;
+    if (this.selectionMode || !this.canEdit) return;
 
     // Check for Enter (13) or Space (32)
     if (e.key === "Enter" || e.key === " ") {
@@ -262,7 +281,7 @@ class TransactionsComponent {
 
     // Check if the new value is actually the same as original, if so remove pending
     const originalRow = this.originalTransactionData.find(
-      (r) => String(r.row) === rowId
+      (r) => String(r.row) === rowId,
     );
     if (originalRow) {
       const originalVal = originalRow[type] || "";
@@ -280,6 +299,10 @@ class TransactionsComponent {
 
   handleTransactionParams(params) {
     if (!params) return;
+    if (!this.canEdit) {
+      store.setState("transactionParams", null);
+      return;
+    }
 
     // Ensure we are rendered and components exist
     if (!this.bulkComponent) return;
@@ -329,7 +352,7 @@ class TransactionsComponent {
           el(
             "h3",
             { style: { color: "#f0ad4e", marginBottom: "10px" } },
-            "Processing Tags..."
+            "Processing Tags...",
           ),
           el(
             "p",
@@ -337,8 +360,8 @@ class TransactionsComponent {
               id: "tagging-progress-text",
               style: { color: "#fff", fontSize: "1.1em" },
             },
-            taggingProgress
-          )
+            taggingProgress,
+          ),
         );
       } else {
         content = el(
@@ -352,7 +375,7 @@ class TransactionsComponent {
               alignItems: "center",
             },
           },
-          new LoaderComponent().render()
+          new LoaderComponent().render(),
         );
       }
       replace(this.transactionsDisplay, content);
@@ -381,14 +404,14 @@ class TransactionsComponent {
           el(
             "h3",
             { style: { color: "#f0ad4e", marginBottom: "10px" } },
-            "Saving Split Transaction..."
+            "Saving Split Transaction...",
           ),
           el(
             "p",
             { style: { color: "#aaa" } },
-            "Please wait while we update the finances."
-          )
-        )
+            "Please wait while we update the finances.",
+          ),
+        ),
       );
       return;
     }
@@ -397,17 +420,18 @@ class TransactionsComponent {
     const hasPendingChanges = this.pendingChanges.size > 0;
 
     // Controls
-    const saveBtn = hasPendingChanges
-      ? el(
-          "button",
-          {
-            id: "save-changes-btn",
-            className: "action-btn",
-            onclick: () => this.savePendingChanges(),
-          },
-          `Save Changes (${this.pendingChanges.size})`
-        )
-      : null;
+    const saveBtn =
+      this.canEdit && hasPendingChanges
+        ? el(
+            "button",
+            {
+              id: "save-changes-btn",
+              className: "action-btn",
+              onclick: () => this.savePendingChanges(),
+            },
+            `Save Changes (${this.pendingChanges.size})`,
+          )
+        : null;
 
     // Tag Filters Container
     const tripFilterInput = el("input", {
@@ -425,8 +449,8 @@ class TransactionsComponent {
       el(
         "div",
         { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
-        "Loading..."
-      )
+        "Loading...",
+      ),
     );
 
     const catFilterInput = el("input", {
@@ -444,8 +468,8 @@ class TransactionsComponent {
       el(
         "div",
         { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
-        "Loading..."
-      )
+        "Loading...",
+      ),
     );
 
     const controls = el(
@@ -466,7 +490,7 @@ class TransactionsComponent {
             className: "control-label",
             style: { fontWeight: "bold", marginBottom: "5px" },
           },
-          "Filter Tags"
+          "Filter Tags",
         ),
         el(
           "div",
@@ -477,7 +501,7 @@ class TransactionsComponent {
             { className: "tag-filter-column" },
             el("div", { className: "tag-filter-header" }, "Trips / Events"),
             tripFilterInput,
-            tripSelectorContainer
+            tripSelectorContainer,
           ),
           // Category Filter
           el(
@@ -485,9 +509,9 @@ class TransactionsComponent {
             { className: "tag-filter-column" },
             el("div", { className: "tag-filter-header" }, "Categories"),
             catFilterInput,
-            catSelectorContainer
-          )
-        )
+            catSelectorContainer,
+          ),
+        ),
       ),
       // Action Buttons
       el(
@@ -497,20 +521,24 @@ class TransactionsComponent {
           style: { alignSelf: "flex-start", marginTop: "22px" },
         },
         saveBtn,
-        el(
-          "button",
-          { id: "tag-transactions-btn", className: "secondary-btn" },
-          "Bulk Tagging Mode"
-        ),
-        el(
-          "button",
-          {
-            id: "add-manual-btn",
-            className: "secondary-btn",
-            onclick: () => this.openManualModal(),
-          },
-          "Add Manual Transaction"
-        ),
+        this.canEdit
+          ? el(
+              "button",
+              { id: "tag-transactions-btn", className: "secondary-btn" },
+              "Bulk Tagging Mode",
+            )
+          : null,
+        this.canEdit
+          ? el(
+              "button",
+              {
+                id: "add-manual-btn",
+                className: "secondary-btn",
+                onclick: () => this.openManualModal(),
+              },
+              "Add Manual Transaction",
+            )
+          : null,
         el(
           "button",
           {
@@ -518,9 +546,9 @@ class TransactionsComponent {
             className: "secondary-btn",
             onclick: () => this.viewSplitHistory(),
           },
-          "View Split Transactions"
-        )
-      )
+          "View Split Transactions",
+        ),
+      ),
     );
 
     // Bulk Actions Toolbar
@@ -538,7 +566,7 @@ class TransactionsComponent {
           el(
             "div",
             { className: "dropdown-trigger", id: "bulk-trip-trigger" },
-            "Set Trip/Event..."
+            "Set Trip/Event...",
           ),
           el(
             "div",
@@ -554,8 +582,8 @@ class TransactionsComponent {
               "aria-label": "Search trips for bulk action",
               placeholder: "Search trips...",
             }),
-            el("div", { className: "tag-selector", id: "bulk-trip-list" })
-          )
+            el("div", { className: "tag-selector", id: "bulk-trip-list" }),
+          ),
         ),
         // Custom Category Dropdown
         el(
@@ -564,7 +592,7 @@ class TransactionsComponent {
           el(
             "div",
             { className: "dropdown-trigger", id: "bulk-category-trigger" },
-            "Set Category..."
+            "Set Category...",
           ),
           el(
             "div",
@@ -580,19 +608,19 @@ class TransactionsComponent {
               "aria-label": "Search categories for bulk action",
               placeholder: "Search categories...",
             }),
-            el("div", { className: "tag-selector", id: "bulk-category-list" })
-          )
+            el("div", { className: "tag-selector", id: "bulk-category-list" }),
+          ),
         ),
         el("div", { style: { flexGrow: "1" } }),
         el(
           "span",
           { id: "selection-count", className: "selection-count" },
-          "0 selected"
+          "0 selected",
         ),
         el(
           "button",
           { id: "bulk-apply-btn", className: "action-btn" },
-          "Apply Tags"
+          "Apply Tags",
         ),
         el(
           "button",
@@ -601,9 +629,9 @@ class TransactionsComponent {
             className: "secondary-btn",
             style: { borderColor: "#d9534f", color: "#d9534f" },
           },
-          "Cancel"
-        )
-      )
+          "Cancel",
+        ),
+      ),
     );
 
     // Description Search
@@ -634,7 +662,7 @@ class TransactionsComponent {
     const descSearchContainer = el(
       "div",
       { style: { marginBottom: "15px" } },
-      descSearchInput
+      descSearchInput,
     );
 
     const tableContainer = el("div", { id: "transactions-table-container" });
@@ -645,12 +673,12 @@ class TransactionsComponent {
       el(
         "div",
         { className: "transactions-header" },
-        el("h2", {}, "All Transactions")
+        el("h2", {}, "All Transactions"),
       ),
       controls,
-      bulkToolbar,
+      this.canEdit ? bulkToolbar : null,
       descSearchContainer,
-      tableContainer
+      tableContainer,
     );
 
     replace(this.transactionsDisplay, mainContainer);
@@ -692,13 +720,29 @@ class TransactionsComponent {
             "data-type": type,
             style: { cursor: "default" }, // Override pointer cursor
           },
-          el("span", { className: "tag-text" }, value)
+          el("span", { className: "tag-text" }, value),
           // No remove button
         );
       } else {
         // No "+" button in bulk mode
         return el("span", {}, "");
       }
+    }
+
+    if (!this.canEdit) {
+      if (value) {
+        return el(
+          "span",
+          {
+            className: `tag-pill ${isPending ? "pending-change" : ""}`,
+            "data-row": rowId,
+            "data-type": type,
+            style: { cursor: "default" },
+          },
+          el("span", { className: "tag-text" }, value),
+        );
+      }
+      return el("span", {}, "");
     }
 
     if (value) {
@@ -722,8 +766,8 @@ class TransactionsComponent {
             role: "button",
             "aria-label": "Remove Tag",
           },
-          "×"
-        )
+          "×",
+        ),
       );
     } else {
       return el(
@@ -736,7 +780,7 @@ class TransactionsComponent {
           tabIndex: "0",
           role: "button",
         },
-        "+"
+        "+",
       );
     }
   }
@@ -822,7 +866,7 @@ class TransactionsComponent {
         onSelectionChange: (selectedIds) =>
           this.handleSelectionChange(selectedIds),
         onRowClick: (item, e) => this.handleRowClick(item, e),
-      }
+      },
     );
 
     // Cleanup old filters component
@@ -855,6 +899,8 @@ class TransactionsComponent {
   }
 
   handleRowClick(item, e) {
+    if (!this.canEdit) return;
+
     // Check if click was on a tag interactive element
     if (
       e.target.closest(".tag-pill") ||
@@ -872,6 +918,7 @@ class TransactionsComponent {
   }
 
   async openSplitModal(transaction) {
+    if (!this.canEdit) return;
     if (this.selectionMode) return; // Don't split in bulk mode
     if (store.getState("savingSplitTransaction")) {
       return; // Prevent concurrent split operations
@@ -908,6 +955,7 @@ class TransactionsComponent {
   }
 
   async openEditSplitModal(groupId) {
+    if (!this.canEdit) return;
     if (this.selectionMode) return;
     if (store.getState("savingSplitTransaction")) {
       return;
@@ -921,7 +969,7 @@ class TransactionsComponent {
     const cachedSplits = store.getState("splitTransactions");
     if (cachedSplits && cachedSplits.length > 0) {
       const groupRows = cachedSplits.filter(
-        (r) => r["Split Group ID"] === groupId
+        (r) => r["Split Group ID"] === groupId,
       );
       if (groupRows.length > 0) {
         source = groupRows.find((r) => r["Split Type"] === "SOURCE");
@@ -962,7 +1010,7 @@ class TransactionsComponent {
             editPayload.groupId,
             editPayload.splits,
             editPayload.original,
-            { skipLoading: true }
+            { skipLoading: true },
           );
           document.dispatchEvent(new CustomEvent("dataUploaded"));
         } catch (error) {
@@ -1008,6 +1056,7 @@ class TransactionsComponent {
   }
 
   async openManualModal() {
+    if (!this.canEdit) return;
     if (!this.manualModal) {
       this.manualModal = new TransactionsManualModal();
     }
@@ -1018,6 +1067,7 @@ class TransactionsComponent {
   }
 
   async handleManualAdd(data) {
+    if (!this.canEdit) return;
     try {
       // Wrap single object in array
       await ApiService.saveData([data]);
@@ -1046,7 +1096,7 @@ class TransactionsComponent {
       this.pendingChanges.forEach((changes, rowId) => {
         const rowIdStr = String(rowId);
         const matchingRow = this.originalTransactionData.find(
-          (r) => String(r.row) === rowIdStr
+          (r) => String(r.row) === rowIdStr,
         );
 
         if (!matchingRow) {
@@ -1100,6 +1150,7 @@ class TransactionsComponent {
   }
 
   updateSaveButtonState() {
+    if (!this.canEdit) return;
     const container = this.element.querySelector(".transaction-actions");
     if (!container) return;
 
@@ -1119,7 +1170,7 @@ class TransactionsComponent {
             className: "action-btn",
             onclick: () => this.savePendingChanges(),
           },
-          btnText
+          btnText,
         );
         container.prepend(newBtn);
       }
@@ -1141,11 +1192,13 @@ class TransactionsComponent {
       this.selectedCategories,
       this.selectedTrips,
       this.categorySearchTerm,
-      this.tripSearchTerm
+      this.tripSearchTerm,
     );
 
     // Update Bulk Dropdowns
-    this.bulkComponent.renderBulkTagLists();
+    if (this.canEdit) {
+      this.bulkComponent.renderBulkTagLists();
+    }
   }
 
   // --- Filtering ---
@@ -1184,7 +1237,7 @@ class TransactionsComponent {
         selectedCategories: this.selectedCategories,
         selectedTrips: this.selectedTrips,
         descriptionSearch: this.descriptionSearchTerm,
-      }
+      },
     );
 
     // 2. Render (SortableTable handles sorting)
@@ -1196,6 +1249,9 @@ class TransactionsComponent {
   // --- Bulk Actions & Selection ---
 
   toggleSelectionMode(active) {
+    if (!this.canEdit) {
+      active = false;
+    }
     this.selectionMode = active;
 
     if (!active) {
@@ -1226,12 +1282,13 @@ class TransactionsComponent {
   }
 
   async savePendingChanges() {
+    if (!this.canEdit) return;
     if (this.pendingChanges.size === 0) return;
 
     const changesList = [];
     this.pendingChanges.forEach((changes, rowId) => {
       const original = this.originalTransactionData.find(
-        (t) => String(t.row) === String(rowId)
+        (t) => String(t.row) === String(rowId),
       );
       if (original) {
         // Merge pending changes with original data to get full update object
@@ -1273,7 +1330,7 @@ class TransactionsComponent {
 
         store.setState(
           "taggingProgress",
-          `Saving batch ${i + 1} of ${totalChunks}...`
+          `Saving batch ${i + 1} of ${totalChunks}...`,
         );
         await ApiService.updateExpenses(chunk, { skipLoading: true });
       }
@@ -1292,13 +1349,14 @@ class TransactionsComponent {
   }
 
   async applyBulkTags(tripVal, catVal) {
+    if (!this.canEdit) return;
     if (this.selectedRows.size === 0) return;
 
     const changesList = [];
 
     this.selectedRows.forEach((rowId) => {
       const original = this.originalTransactionData.find(
-        (t) => String(t.row) === String(rowId)
+        (t) => String(t.row) === String(rowId),
       );
       if (original) {
         let newTripEvent, newCategory;
@@ -1356,7 +1414,7 @@ class TransactionsComponent {
 
         store.setState(
           "taggingProgress",
-          `Uploading batch ${i + 1} of ${totalChunks}...`
+          `Uploading batch ${i + 1} of ${totalChunks}...`,
         );
         await ApiService.updateExpenses(chunk, { skipLoading: true });
       }

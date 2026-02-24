@@ -14,7 +14,7 @@ export default class TagsDetails {
     this.transactionsData = [];
   }
 
-  render(tagType, tagName) {
+  render(tagType, tagName, canEdit = true) {
     this.tagType = tagType;
     this.tagName = tagName;
 
@@ -30,7 +30,7 @@ export default class TagsDetails {
       });
     } else {
       this.transactionsData = allExpenses.filter(
-        (item) => item[tagType] === tagName
+        (item) => item[tagType] === tagName,
       );
     }
 
@@ -41,12 +41,12 @@ export default class TagsDetails {
       stats.income - stats.expense > 0
         ? "positive"
         : stats.income - stats.expense < 0
-        ? "negative"
-        : "";
+          ? "negative"
+          : "";
 
     // Contextual Action Button
     let actionButton = null;
-    if (tagType === "Type") {
+    if (canEdit && tagType === "Type") {
       // Use save-changes-btn for orange background
       actionButton = el(
         "button",
@@ -58,9 +58,9 @@ export default class TagsDetails {
               this.callbacks.onAddTagsToType(this.tagName);
           },
         },
-        "Add Trip/Events"
+        "Add Trip/Events",
       );
-    } else {
+    } else if (canEdit) {
       actionButton = el(
         "button",
         {
@@ -71,7 +71,7 @@ export default class TagsDetails {
               this.callbacks.onAddTransactions(this.tagType, this.tagName);
           },
         },
-        "Add Transactions"
+        "Add Transactions",
       );
     }
 
@@ -99,7 +99,7 @@ export default class TagsDetails {
               if (this.callbacks.onBack) this.callbacks.onBack();
             },
           },
-          "← Back"
+          "← Back",
         ),
         el(
           "h2",
@@ -110,11 +110,11 @@ export default class TagsDetails {
             {
               style: { fontSize: "0.6em", color: "#aaa", fontWeight: "normal" },
             },
-            ` (${tagType})`
-          )
-        )
+            ` (${tagType})`,
+          ),
+        ),
       ),
-      actionButton
+      actionButton,
     );
 
     const summary = el(
@@ -134,7 +134,7 @@ export default class TagsDetails {
         "div",
         {},
         el("div", { style: { fontSize: "0.9em", color: "#aaa" } }, "Count"),
-        el("div", { style: { fontSize: "1.2em" } }, stats.count)
+        el("div", { style: { fontSize: "1.2em" } }, stats.count),
       ),
       el(
         "div",
@@ -142,13 +142,13 @@ export default class TagsDetails {
         el(
           "div",
           { style: { fontSize: "0.9em", color: "#aaa" } },
-          "Total Income"
+          "Total Income",
         ),
         el(
           "div",
           { style: { fontSize: "1.2em" }, className: "positive" },
-          formatCurrency(stats.income)
-        )
+          formatCurrency(stats.income),
+        ),
       ),
       el(
         "div",
@@ -156,20 +156,24 @@ export default class TagsDetails {
         el(
           "div",
           { style: { fontSize: "0.9em", color: "#aaa" } },
-          "Total Expense"
+          "Total Expense",
         ),
         el(
           "div",
           { style: { fontSize: "1.2em" }, className: "negative" },
-          formatCurrency(stats.expense)
-        )
+          formatCurrency(stats.expense),
+        ),
       ),
       el(
         "div",
         {},
         el("div", { style: { fontSize: "0.9em", color: "#aaa" } }, "Net"),
-        el("div", { style: { fontSize: "1.2em" }, className: netClass }, netStr)
-      )
+        el(
+          "div",
+          { style: { fontSize: "1.2em" }, className: netClass },
+          netStr,
+        ),
+      ),
     );
 
     const tableContainer = el("div", {
@@ -181,7 +185,7 @@ export default class TagsDetails {
       { className: "section" },
       header,
       summary,
-      tableContainer
+      tableContainer,
     );
 
     replace(this.element, section);
