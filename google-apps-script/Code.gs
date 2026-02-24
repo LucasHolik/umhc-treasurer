@@ -131,7 +131,10 @@ function doGet(e) {
         response = Service_Sheet.getOpeningBalance();
         break;
       case "saveOpeningBalance":
-        if (e?.parameter?.balance == null) {
+        if (
+          e?.parameter?.balance === undefined ||
+          e?.parameter?.balance === null
+        ) {
           response = {
             success: false,
             message: "Missing required parameter: balance",

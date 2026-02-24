@@ -354,16 +354,6 @@ const ApiService = {
   getSplitTransactions: async (options = {}) => {
     const cached = store.getState("splitTransactions");
     if (cached && !options.forceRefresh) {
-      // Log if from cache
-      const parents = cached.filter(
-        (item) => item["Split Type"] === "SOURCE",
-      ).length;
-      const children = cached.filter(
-        (item) => item["Split Type"] === "CHILD",
-      ).length;
-      console.log(
-        `Loaded ${parents} split parents and ${children} split children (from cache).`,
-      );
       return { success: true, data: cached };
     }
 
@@ -397,16 +387,6 @@ const ApiService = {
         hasMore = res.hasMore;
         page++;
       }
-
-      const parents = allData.filter(
-        (item) => item["Split Type"] === "SOURCE",
-      ).length;
-      const children = allData.filter(
-        (item) => item["Split Type"] === "CHILD",
-      ).length;
-      console.log(
-        `Loaded ${parents} split parents and ${children} split children.`,
-      );
 
       store.setState("splitTransactions", allData);
       return { success: true, data: allData };

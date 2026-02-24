@@ -102,7 +102,7 @@ const Service_Auth = {
       // Convert bytes to hex string
       const expectedSignature = signatureBytes.reduce(function (str, byte) {
         const v = (byte < 0 ? byte + 256 : byte).toString(16);
-        return str + (v.length == 1 ? "0" + v : v);
+        return str + (v.length === 1 ? "0" + v : v);
       }, "");
 
       // 4. Compare (constant-time, case-insensitive)

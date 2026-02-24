@@ -27,7 +27,6 @@ export default class AnalysisChart {
     this.handleLoad = () => {
       if (this.libLoaded) return;
       this.libLoaded = true;
-      console.log("Chart.js loaded");
       if (this.pendingRender) {
         this.render(this.pendingRender.data, this.pendingRender.options);
         this.pendingRender = null;

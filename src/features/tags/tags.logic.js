@@ -347,7 +347,7 @@ export const optimizeQueue = (queue, originalTags = null) => {
         if (renameIndex !== -1) {
           // "Rename X->A" + "Rename A->B" = "Rename X->B"
           const prevOp = optimized[renameIndex];
-          // If X == B, then it's a circular rename back to start? Rename X->A->X.
+          // If X === B, then it's a circular rename back to start? Rename X->A->X.
           if (prevOp.oldValue === op.newValue) {
             optimized.splice(renameIndex, 1); // Remove both
           } else {
