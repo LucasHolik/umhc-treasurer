@@ -1,0 +1,23 @@
+name: Sync to UMHC Treasury Org Repo
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  repo-sync:
+    # Ensures this only runs from original repo and not a fork
+    if: github.repository == 'LucasHolik/umhc-treasurer'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Push to UMHC Repo
+        run: |
+          # We use the PAT (DESTINATION_TOKEN) to authenticate the push to the UMHC repo
+          git push --force https://x-access-token:${{ secrets.DESTINATION_TOKEN }}@github.com/UMHC/umhc-treasury.git main
