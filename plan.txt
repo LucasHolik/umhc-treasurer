@@ -56,6 +56,8 @@ Desktop-safe guardrails:
 - Mobile-only collapse state should not be global unless multiple screens truly need shared persistence.
 
 Step 3: Transactions mobile compression
+Status: Complete (March 3, 2026)
+
 Files:
 - src/features/transactions/transactions.component.js
 - src/features/transactions/transactions.css

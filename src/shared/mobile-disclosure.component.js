@@ -204,10 +204,15 @@ export default class MobileDisclosureComponent {
       .filter(Boolean)
       .join(" ");
 
-    this.renderSummary(this.options.summary);
+    this.setSummary(this.options.summary);
     this.setActions(this.options.actionsChildren || []);
     this.setBody(this.options.bodyChildren || []);
     this.syncState();
+  }
+
+  setSummary(summaryConfig = {}) {
+    this.options.summary = summaryConfig;
+    this.renderSummary(summaryConfig);
   }
 
   renderSummary(summaryConfig = {}) {

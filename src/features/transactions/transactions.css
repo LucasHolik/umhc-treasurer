@@ -32,6 +32,40 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  align-self: flex-start;
+  margin-top: 22px;
+  min-width: 220px;
+}
+
+.transaction-actions__primary,
+.transaction-actions__secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.transaction-actions__primary:empty {
+  display: none;
+}
+
+.transaction-actions__primary .action-btn,
+.transaction-actions__secondary .secondary-btn {
+  width: 100%;
+}
+
+.transactions-filters-disclosure-mount {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+
+.transactions-filters-disclosure {
+  width: 100%;
+}
+
+.transactions-filter-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 /* Tag Filters Section (Ported from Analysis) */
@@ -99,6 +133,19 @@
 .tag-checkbox-item input[type="checkbox"] {
   accent-color: #f0ad4e;
   cursor: pointer;
+}
+
+.transactions-description-search {
+  margin-bottom: 15px;
+}
+
+.transactions-description-search__input {
+  width: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+  font-size: 1em;
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Theme Select Dropdown */
@@ -279,6 +326,85 @@
 .transaction-controls.disabled {
   opacity: 0.5;
   pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .transaction-controls {
+    gap: var(--mobile-control-gap, 12px);
+    padding: var(--mobile-section-padding-y, 12px)
+      var(--mobile-section-padding-x, 14px);
+  }
+
+  .transactions-filters-disclosure-mount,
+  .transaction-actions {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .transaction-actions {
+    margin-top: 0;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .transaction-actions__primary .action-btn {
+    min-height: var(--mobile-control-height, 38px);
+  }
+
+  .transaction-actions__secondary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .transaction-actions__secondary .secondary-btn {
+    min-height: var(--mobile-control-height, 38px);
+    padding: 8px 10px;
+  }
+
+  .transactions-filter-body {
+    gap: var(--mobile-control-gap, 12px);
+  }
+
+  .tag-filters-container {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .tag-filter-column {
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .tag-filter-header {
+    font-size: 0.78em;
+    margin-bottom: 0;
+  }
+
+  .tag-search-input {
+    padding: 5px 8px;
+    font-size: 0.82em;
+  }
+
+  .tag-selector {
+    height: 112px;
+    padding: 4px;
+  }
+
+  .tag-checkbox-item {
+    gap: 6px;
+    padding: 3px 6px;
+    font-size: 0.85em;
+  }
+
+  .transactions-description-search {
+    margin-bottom: 12px;
+  }
+
+  .transactions-description-search__input {
+    padding: 8px 10px;
+    font-size: 0.9em;
+  }
 }
 
 /* Split History Grouping Styles */

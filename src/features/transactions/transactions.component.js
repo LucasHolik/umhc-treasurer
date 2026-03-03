@@ -11,6 +11,7 @@ import SplitTransactionModal from "./split-transaction.modal.js";
 import TransactionsSplitHistory from "./transactions.split-history.js";
 import * as TransactionsLogic from "./transactions.logic.js";
 import TagSelector from "../../shared/tag-selector.component.js";
+import MobileDisclosureComponent from "../../shared/mobile-disclosure.component.js";
 import { withSearchInputAttributes } from "../../shared/search-input.js";
 import { el, replace } from "../../core/dom.js";
 import { formatCurrency } from "../../core/utils.js";
@@ -40,6 +41,8 @@ class TransactionsComponent {
     this.categorySearchTerm = "";
     this.tripSearchTerm = "";
     this.descriptionSearchTerm = "";
+    this.filtersExpanded = false;
+    this.filtersDisclosure = null;
 
     this.subscriptions = [];
     this.subscriptions.push(
@@ -135,6 +138,10 @@ class TransactionsComponent {
     }
     if (this.bulkComponent) {
       this.bulkComponent.destroy();
+    }
+    if (this.filtersDisclosure) {
+      this.filtersDisclosure.destroy();
+      this.filtersDisclosure = null;
     }
   }
 
@@ -324,7 +331,71 @@ class TransactionsComponent {
     this.renderTransactionsDisplay();
   }
 
+  getFiltersSummaryConfig() {
+    const items = [];
+
+    if (this.selectedTrips.size > 0) {
+      items.push({
+        label: `${this.selectedTrips.size} trip${this.selectedTrips.size === 1 ? "" : "s"}`,
+      });
+    }
+
+    if (this.selectedCategories.size > 0) {
+      items.push({
+        label: `${this.selectedCategories.size} categor${this.selectedCategories.size === 1 ? "y" : "ies"}`,
+      });
+    }
+
+    const activeSearchCount = [
+      this.tripSearchTerm,
+      this.categorySearchTerm,
+      this.descriptionSearchTerm,
+    ].filter((term) => term && term.trim().length > 0).length;
+
+    if (activeSearchCount > 0) {
+      items.push({
+        label: `${activeSearchCount} search${activeSearchCount === 1 ? "" : "es"}`,
+        tone: "muted",
+      });
+    }
+
+    return {
+      items,
+      emptyText: "No filters active",
+    };
+  }
+
+  renderFiltersDisclosure(mountPoint, filterBody) {
+    if (this.filtersDisclosure) {
+      this.filtersDisclosure.destroy();
+    }
+
+    this.filtersDisclosure = new MobileDisclosureComponent(mountPoint, {
+      title: "Filters",
+      summary: this.getFiltersSummaryConfig(),
+      expanded: this.filtersExpanded,
+      collapseMode: "mobile",
+      className: "transactions-filters-disclosure",
+      bodyClassName: "transactions-filters-disclosure__body",
+      bodyChildren: [filterBody],
+      onToggle: (expanded) => {
+        this.filtersExpanded = expanded;
+      },
+    });
+  }
+
+  updateFiltersDisclosure() {
+    if (!this.filtersDisclosure) return;
+
+    this.filtersDisclosure.setSummary(this.getFiltersSummaryConfig());
+  }
+
   renderTransactionsDisplay() {
+    if (this.filtersDisclosure) {
+      this.filtersDisclosure.destroy();
+      this.filtersDisclosure = null;
+    }
+
     const isTagging = store.getState("isTagging");
     const taggingSource = store.getState("taggingSource");
     const isSavingSplit = store.getState("savingSplitTransaction");
@@ -475,6 +546,33 @@ class TransactionsComponent {
       ),
     );
 
+    const filterContent = el(
+      "div",
+      { className: "transactions-filter-body" },
+      el(
+        "div",
+        { className: "tag-filters-container" },
+        el(
+          "div",
+          { className: "tag-filter-column" },
+          el("div", { className: "tag-filter-header" }, "Trips / Events"),
+          tripFilterInput,
+          tripSelectorContainer,
+        ),
+        el(
+          "div",
+          { className: "tag-filter-column" },
+          el("div", { className: "tag-filter-header" }, "Categories"),
+          catFilterInput,
+          catSelectorContainer,
+        ),
+      ),
+    );
+
+    const filtersDisclosureMount = el("div", {
+      className: "transactions-filters-disclosure-mount",
+    });
+
     const controls = el(
       "div",
       {
@@ -483,73 +581,41 @@ class TransactionsComponent {
           this.selectionMode ? "disabled" : ""
         }`,
       },
-      // New Tag Filters
+      filtersDisclosureMount,
       el(
         "div",
-        { className: "control-group", style: { flexGrow: "1" } },
+        { className: "transaction-actions" },
+        el("div", { className: "transaction-actions__primary" }, saveBtn),
         el(
           "div",
-          {
-            className: "control-label",
-            style: { fontWeight: "bold", marginBottom: "5px" },
-          },
-          "Filter Tags",
-        ),
-        el(
-          "div",
-          { className: "tag-filters-container" },
-          // Trip Filter
+          { className: "transaction-actions__secondary" },
+          this.canEdit
+            ? el(
+                "button",
+                { id: "tag-transactions-btn", className: "secondary-btn" },
+                "Bulk Tagging Mode",
+              )
+            : null,
+          this.canEdit
+            ? el(
+                "button",
+                {
+                  id: "add-manual-btn",
+                  className: "secondary-btn",
+                  onclick: () => this.openManualModal(),
+                },
+                "Add Manual Transaction",
+              )
+            : null,
           el(
-            "div",
-            { className: "tag-filter-column" },
-            el("div", { className: "tag-filter-header" }, "Trips / Events"),
-            tripFilterInput,
-            tripSelectorContainer,
+            "button",
+            {
+              id: "view-splits-btn",
+              className: "secondary-btn",
+              onclick: () => this.viewSplitHistory(),
+            },
+            "View Split Transactions",
           ),
-          // Category Filter
-          el(
-            "div",
-            { className: "tag-filter-column" },
-            el("div", { className: "tag-filter-header" }, "Categories"),
-            catFilterInput,
-            catSelectorContainer,
-          ),
-        ),
-      ),
-      // Action Buttons
-      el(
-        "div",
-        {
-          className: "transaction-actions",
-          style: { alignSelf: "flex-start", marginTop: "22px" },
-        },
-        saveBtn,
-        this.canEdit
-          ? el(
-              "button",
-              { id: "tag-transactions-btn", className: "secondary-btn" },
-              "Bulk Tagging Mode",
-            )
-          : null,
-        this.canEdit
-          ? el(
-              "button",
-              {
-                id: "add-manual-btn",
-                className: "secondary-btn",
-                onclick: () => this.openManualModal(),
-              },
-              "Add Manual Transaction",
-            )
-          : null,
-        el(
-          "button",
-          {
-            id: "view-splits-btn",
-            className: "secondary-btn",
-            onclick: () => this.viewSplitHistory(),
-          },
-          "View Split Transactions",
         ),
       ),
     );
@@ -647,15 +713,7 @@ class TransactionsComponent {
       withSearchInputAttributes({
         id: "transactions-desc-search",
         "aria-label": "Search transaction descriptions",
-        className: "tag-search-input",
-        style: {
-          width: "100%",
-          padding: "12px",
-          boxSizing: "border-box",
-          fontSize: "1em",
-          background: "rgba(0,0,0,0.3)",
-          border: "1px solid rgba(255,255,255,0.2)",
-        },
+        className: "tag-search-input transactions-description-search__input",
         placeholder: "Search transaction descriptions...",
         value: this.descriptionSearchTerm,
       }),
@@ -664,12 +722,13 @@ class TransactionsComponent {
     // Attach listener for description search
     descSearchInput.oninput = (e) => {
       this.descriptionSearchTerm = e.target.value;
+      this.updateFiltersDisclosure();
       this.applyFilters();
     };
 
     const descSearchContainer = el(
       "div",
-      { style: { marginBottom: "15px" } },
+      { className: "transactions-description-search" },
       descSearchInput,
     );
 
@@ -690,6 +749,7 @@ class TransactionsComponent {
     );
 
     replace(this.transactionsDisplay, mainContainer);
+    this.renderFiltersDisclosure(filtersDisclosureMount, filterContent);
 
     this.initializeSubComponents();
 
@@ -1159,7 +1219,9 @@ class TransactionsComponent {
 
   updateSaveButtonState() {
     if (!this.canEdit) return;
-    const container = this.element.querySelector(".transaction-actions");
+    const container = this.element.querySelector(
+      ".transaction-actions__primary",
+    );
     if (!container) return;
 
     const existingBtn = container.querySelector("#save-changes-btn");
@@ -1207,6 +1269,8 @@ class TransactionsComponent {
     if (this.canEdit) {
       this.bulkComponent.renderBulkTagLists();
     }
+
+    this.updateFiltersDisclosure();
   }
 
   // --- Filtering ---
