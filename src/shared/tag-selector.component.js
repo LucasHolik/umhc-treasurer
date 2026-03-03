@@ -1,5 +1,6 @@
 import store from "../core/state.js";
 import { el, clear } from "../core/dom.js";
+import { withSearchInputAttributes } from "./search-input.js";
 
 export default class TagSelector {
   constructor() {
@@ -37,17 +38,18 @@ export default class TagSelector {
     // Render structure once
     const searchWrapper = el("div", { className: "tag-search-wrapper" });
 
-    this.searchInput = el("input", {
-      type: "text",
-      name: "tag-selector-search",
-      "aria-label": "Search Tags",
-      className: "tag-selector-search",
-      placeholder: "Search...",
-      oninput: (e) => {
-        this.searchTerm = e.target.value.toLowerCase();
-        this.renderList();
-      },
-    });
+    this.searchInput = el(
+      "input",
+      withSearchInputAttributes({
+        "aria-label": "Search Tags",
+        className: "tag-selector-search",
+        placeholder: "Search...",
+        oninput: (e) => {
+          this.searchTerm = e.target.value.toLowerCase();
+          this.renderList();
+        },
+      }),
+    );
 
     const closeBtn = el(
       "button",

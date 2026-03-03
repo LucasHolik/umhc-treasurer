@@ -1,5 +1,6 @@
 import { el, replace } from "../../core/dom.js";
 import { sanitizeForId } from "../../core/utils.js";
+import { withSearchInputAttributes } from "../../shared/search-input.js";
 
 export default class AnalysisFilters {
   constructor(element, callbacks) {
@@ -21,68 +22,74 @@ export default class AnalysisFilters {
           "div",
           { className: "tag-filter-column" },
           el("div", { className: "tag-filter-header" }, "Types"),
-          el("input", {
-            type: "text",
-            id: "analysis-type-search",
-            "aria-label": "Search Types",
-            className: "tag-search-input",
-            placeholder: "Search types...",
-          }),
+          el(
+            "input",
+            withSearchInputAttributes({
+              id: "analysis-type-search",
+              "aria-label": "Search Types",
+              className: "tag-search-input",
+              placeholder: "Search types...",
+            }),
+          ),
           el(
             "div",
             { id: "type-selector-container", className: "tag-selector" },
             el(
               "div",
               { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
-              "Loading..."
-            )
-          )
+              "Loading...",
+            ),
+          ),
         ),
         // Trip Filter
         el(
           "div",
           { className: "tag-filter-column" },
           el("div", { className: "tag-filter-header" }, "Trips / Events"),
-          el("input", {
-            type: "text",
-            id: "analysis-trip-search",
-            "aria-label": "Search Trips",
-            className: "tag-search-input",
-            placeholder: "Search trips...",
-          }),
+          el(
+            "input",
+            withSearchInputAttributes({
+              id: "analysis-trip-search",
+              "aria-label": "Search Trips",
+              className: "tag-search-input",
+              placeholder: "Search trips...",
+            }),
+          ),
           el(
             "div",
             { id: "trip-selector-container", className: "tag-selector" },
             el(
               "div",
               { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
-              "Loading..."
-            )
-          )
+              "Loading...",
+            ),
+          ),
         ),
         // Category Filter
         el(
           "div",
           { className: "tag-filter-column" },
           el("div", { className: "tag-filter-header" }, "Categories"),
-          el("input", {
-            type: "text",
-            id: "analysis-cat-search",
-            "aria-label": "Search Categories",
-            className: "tag-search-input",
-            placeholder: "Search categories...",
-          }),
+          el(
+            "input",
+            withSearchInputAttributes({
+              id: "analysis-cat-search",
+              "aria-label": "Search Categories",
+              className: "tag-search-input",
+              placeholder: "Search categories...",
+            }),
+          ),
           el(
             "div",
             { id: "category-selector-container", className: "tag-selector" },
             el(
               "div",
               { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
-              "Loading..."
-            )
-          )
-        )
-      )
+              "Loading...",
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -133,7 +140,7 @@ export default class AnalysisFilters {
     typeStatusMap,
     catTerm,
     tripTerm,
-    typeTerm
+    typeTerm,
   ) {
     this.populateTagList(
       "Type",
@@ -146,7 +153,7 @@ export default class AnalysisFilters {
           this.callbacks.onTypeChange(tag, isChecked);
         }
       },
-      typeStatusMap
+      typeStatusMap,
     );
 
     this.populateTagList(
@@ -154,7 +161,7 @@ export default class AnalysisFilters {
       tagsData["Category"] || [],
       selectedCategories,
       catTerm,
-      "#category-selector-container"
+      "#category-selector-container",
     );
 
     this.populateTagList(
@@ -162,7 +169,7 @@ export default class AnalysisFilters {
       tagsData["Trip/Event"] || [],
       selectedTrips,
       tripTerm,
-      "#trip-selector-container"
+      "#trip-selector-container",
     );
   }
 
@@ -173,7 +180,7 @@ export default class AnalysisFilters {
     searchTerm,
     containerId,
     onItemChange = null,
-    statusMap = null
+    statusMap = null,
   ) {
     const container = this.element.querySelector(containerId);
     if (!container) return;
@@ -181,14 +188,14 @@ export default class AnalysisFilters {
     if (!tagsArray || tagsArray.length === 0) {
       replace(
         container,
-        el("div", { style: { padding: "5px" } }, "No tags found")
+        el("div", { style: { padding: "5px" } }, "No tags found"),
       );
       return;
     }
 
     const sortedTags = [...tagsArray].sort();
     const visibleTags = sortedTags.filter((tag) =>
-      tag.toLowerCase().includes((searchTerm || "").toLowerCase())
+      tag.toLowerCase().includes((searchTerm || "").toLowerCase()),
     );
 
     const children = [];
@@ -200,7 +207,7 @@ export default class AnalysisFilters {
       let allVisibleSelected = false;
       if (statusMap) {
         allVisibleSelected = visibleTags.every(
-          (t) => statusMap[t] === "checked"
+          (t) => statusMap[t] === "checked",
         );
       } else if (selectionSet) {
         allVisibleSelected = visibleTags.every((t) => selectionSet.has(t));
@@ -228,7 +235,7 @@ export default class AnalysisFilters {
         "div",
         { className: "tag-checkbox-item" },
         checkbox,
-        el("label", { for: uid }, el("em", {}, "Select All"))
+        el("label", { for: uid }, el("em", {}, "Select All")),
       );
       children.push(selectAllDiv);
     } else {
@@ -236,8 +243,8 @@ export default class AnalysisFilters {
         el(
           "div",
           { style: { padding: "5px", color: "#ccc" } },
-          "No matches found"
-        )
+          "No matches found",
+        ),
       );
     }
 
@@ -254,7 +261,7 @@ export default class AnalysisFilters {
       }
 
       const uid = `analysis-${sanitizeForId(type)}-${sanitizeForId(
-        tag
+        tag,
       )}-${index}`;
 
       const input = el("input", {
@@ -285,7 +292,7 @@ export default class AnalysisFilters {
         "div",
         { className: "tag-checkbox-item" },
         input,
-        el("label", { for: uid }, tag)
+        el("label", { for: uid }, tag),
       );
       children.push(div);
     });

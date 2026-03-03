@@ -11,6 +11,7 @@ import SplitTransactionModal from "./split-transaction.modal.js";
 import TransactionsSplitHistory from "./transactions.split-history.js";
 import * as TransactionsLogic from "./transactions.logic.js";
 import TagSelector from "../../shared/tag-selector.component.js";
+import { withSearchInputAttributes } from "../../shared/search-input.js";
 import { el, replace } from "../../core/dom.js";
 import { formatCurrency } from "../../core/utils.js";
 
@@ -434,15 +435,16 @@ class TransactionsComponent {
         : null;
 
     // Tag Filters Container
-    const tripFilterInput = el("input", {
-      type: "text",
-      id: "transactions-trip-search",
-      name: "transactions-trip-search",
-      "aria-label": "Search Trips",
-      className: "tag-search-input",
-      placeholder: "Search trips...",
-      value: this.tripSearchTerm,
-    });
+    const tripFilterInput = el(
+      "input",
+      withSearchInputAttributes({
+        id: "transactions-trip-search",
+        "aria-label": "Search Trips",
+        className: "tag-search-input",
+        placeholder: "Search trips...",
+        value: this.tripSearchTerm,
+      }),
+    );
     const tripSelectorContainer = el(
       "div",
       { id: "trip-selector-container", className: "tag-selector" },
@@ -453,15 +455,16 @@ class TransactionsComponent {
       ),
     );
 
-    const catFilterInput = el("input", {
-      type: "text",
-      id: "transactions-cat-search",
-      name: "transactions-cat-search",
-      "aria-label": "Search Categories",
-      className: "tag-search-input",
-      placeholder: "Search categories...",
-      value: this.categorySearchTerm,
-    });
+    const catFilterInput = el(
+      "input",
+      withSearchInputAttributes({
+        id: "transactions-cat-search",
+        "aria-label": "Search Categories",
+        className: "tag-search-input",
+        placeholder: "Search categories...",
+        value: this.categorySearchTerm,
+      }),
+    );
     const catSelectorContainer = el(
       "div",
       { id: "category-selector-container", className: "tag-selector" },
@@ -575,13 +578,15 @@ class TransactionsComponent {
               id: "bulk-trip-content",
               style: { display: "none" },
             },
-            el("input", {
-              type: "text",
-              className: "tag-search-input",
-              id: "bulk-trip-search",
-              "aria-label": "Search trips for bulk action",
-              placeholder: "Search trips...",
-            }),
+            el(
+              "input",
+              withSearchInputAttributes({
+                className: "tag-search-input",
+                id: "bulk-trip-search",
+                "aria-label": "Search trips for bulk action",
+                placeholder: "Search trips...",
+              }),
+            ),
             el("div", { className: "tag-selector", id: "bulk-trip-list" }),
           ),
         ),
@@ -601,13 +606,15 @@ class TransactionsComponent {
               id: "bulk-category-content",
               style: { display: "none" },
             },
-            el("input", {
-              type: "text",
-              className: "tag-search-input",
-              id: "bulk-category-search",
-              "aria-label": "Search categories for bulk action",
-              placeholder: "Search categories...",
-            }),
+            el(
+              "input",
+              withSearchInputAttributes({
+                className: "tag-search-input",
+                id: "bulk-category-search",
+                "aria-label": "Search categories for bulk action",
+                placeholder: "Search categories...",
+              }),
+            ),
             el("div", { className: "tag-selector", id: "bulk-category-list" }),
           ),
         ),
@@ -635,23 +642,24 @@ class TransactionsComponent {
     );
 
     // Description Search
-    const descSearchInput = el("input", {
-      type: "text",
-      id: "transactions-desc-search",
-      name: "transactions-desc-search",
-      "aria-label": "Search transaction descriptions",
-      className: "tag-search-input",
-      style: {
-        width: "100%",
-        padding: "12px",
-        boxSizing: "border-box",
-        fontSize: "1em",
-        background: "rgba(0,0,0,0.3)",
-        border: "1px solid rgba(255,255,255,0.2)",
-      },
-      placeholder: "Search transaction descriptions...",
-      value: this.descriptionSearchTerm,
-    });
+    const descSearchInput = el(
+      "input",
+      withSearchInputAttributes({
+        id: "transactions-desc-search",
+        "aria-label": "Search transaction descriptions",
+        className: "tag-search-input",
+        style: {
+          width: "100%",
+          padding: "12px",
+          boxSizing: "border-box",
+          fontSize: "1em",
+          background: "rgba(0,0,0,0.3)",
+          border: "1px solid rgba(255,255,255,0.2)",
+        },
+        placeholder: "Search transaction descriptions...",
+        value: this.descriptionSearchTerm,
+      }),
+    );
 
     // Attach listener for description search
     descSearchInput.oninput = (e) => {

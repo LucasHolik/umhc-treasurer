@@ -1,6 +1,7 @@
 import store from "../../core/state.js";
 import SortableTable from "../../shared/sortable-table.component.js";
 import ModalComponent from "../../shared/modal.component.js";
+import { withSearchInputAttributes } from "../../shared/search-input.js";
 import { el, replace } from "../../core/dom.js";
 
 export default class TagsAddTrip {
@@ -73,14 +74,13 @@ export default class TagsAddTrip {
     );
 
     // Filter Group
-    const typeFilterSearch = el("input", {
-      type: "text",
+    const typeFilterSearch = el("input", withSearchInputAttributes({
       id: "filter-type-search",
       className: "tag-search-input",
       "aria-label": "Search types",
       placeholder: "Search types...",
       value: this.typeSearchTerm,
-    });
+    }));
     typeFilterSearch.addEventListener("input", (e) => {
       this.typeSearchTerm = e.target.value;
       this.renderFilters();
@@ -146,8 +146,7 @@ export default class TagsAddTrip {
     );
 
     // Table Search
-    const tableSearchInput = el("input", {
-      type: "text",
+    const tableSearchInput = el("input", withSearchInputAttributes({
       id: "trip-table-search",
       className: "tag-search-input",
       "aria-label": "Search Trip/Events",
@@ -161,7 +160,7 @@ export default class TagsAddTrip {
       },
       placeholder: "Search Trip/Events...",
       value: this.tripSearchTerm,
-    });
+    }));
     tableSearchInput.addEventListener("input", (e) => {
       this.tripSearchTerm = e.target.value;
       if (this.tableComponent) {

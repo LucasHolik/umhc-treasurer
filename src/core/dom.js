@@ -6,6 +6,34 @@
 // Store cleanup handlers in a WeakMap to avoid polluting DOM elements
 const cleanupHandlers = new WeakMap();
 
+const applyFormControlDefaults = (element, tag, attributes = {}) => {
+  const setDefaultAttribute = (name, value) => {
+    if (attributes[name] !== undefined || element.hasAttribute(name)) return;
+    element.setAttribute(name, value);
+  };
+
+  if (tag === "form") {
+    setDefaultAttribute("autocomplete", "off");
+    return;
+  }
+
+  if (tag === "textarea" || tag === "select") {
+    setDefaultAttribute("autocomplete", "off");
+    return;
+  }
+
+  if (tag !== "input") return;
+
+  const inputType = String(
+    attributes.type || element.getAttribute("type") || "text",
+  ).toLowerCase();
+
+  setDefaultAttribute(
+    "autocomplete",
+    inputType === "password" ? "new-password" : "off",
+  );
+};
+
 /**
  * Recursively cleanup an element and its children
  * @param {HTMLElement} element - The element to cleanup
@@ -98,6 +126,8 @@ export const el = (tag, attributes = {}, ...children) => {
       }
     });
   }
+
+  applyFormControlDefaults(element, tag, attributes);
 
   // Handle children
   const appendChildren = (items) => {

@@ -269,7 +269,6 @@ export default class SplitTransactionModal {
       const descInput = el("input", {
         type: "text",
         id: `split-desc-${index}`,
-        name: `split-desc-${index}`,
         "aria-label": `Description for split ${index + 1}`,
         className: "theme-input split-desc split-input-desc",
         dataset: { index },
@@ -283,7 +282,6 @@ export default class SplitTransactionModal {
       const amountInput = el("input", {
         type: "number",
         id: `split-amount-${index}`,
-        name: `split-amount-${index}`,
         "aria-label": `Amount for split ${index + 1}`,
         className: "theme-input split-amount split-input-amount",
         dataset: { index },

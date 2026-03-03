@@ -2,6 +2,7 @@ import { formatCurrency } from "../../core/utils.js";
 import ModalComponent from "../../shared/modal.component.js";
 import SortableTable from "../../shared/sortable-table.component.js";
 import TagSelector from "../../shared/tag-selector.component.js";
+import { withSearchInputAttributes } from "../../shared/search-input.js";
 import { el, replace } from "../../core/dom.js";
 
 export default class TagsList {
@@ -217,17 +218,15 @@ export default class TagsList {
     });
 
     // Search Input
-    const searchInput = el("input", {
-      type: "text",
+    const searchInput = el("input", withSearchInputAttributes({
       id: "search-tag",
-      name: "search-tag",
       "aria-label": "Search Tags",
       className: "tag-search-input column-search",
       style: { flex: "1" },
       dataset: { type: this.activeTab },
       placeholder: `Search ${this.activeTab}...`,
       value: this.searchTerms[this.activeTab] || "",
-    });
+    }));
     searchInput.addEventListener("input", (e) => {
       const type = e.target.dataset.type;
       this.searchTerms[type] = e.target.value;
