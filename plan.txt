@@ -38,9 +38,12 @@ Desktop-safe guardrails:
 - Do not rename or repurpose existing shared classes used on desktop.
 
 Step 2: Create shared mobile disclosure patterns
+Status: Complete (March 3, 2026)
+
 Files:
-- src/shared/
-- shared CSS files as needed
+- src/shared/mobile-disclosure.component.js
+- src/shared/mobile-disclosure.css
+- index.html
 
 Work:
 - Add a reusable collapsible section pattern for filters and secondary controls.
