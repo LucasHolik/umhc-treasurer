@@ -7,6 +7,7 @@ This project decouples the User Interface (the website) from the Data (Google Sh
 ## 🌟 Features
 
 - **Dashboard:** Real-time overview of finances, including current balance and recent activity.
+- **Responsive Phone Support:** Mobile-optimized layouts for core screens, including compressed controls and phone-friendly row/card views for dense data.
 - **Transaction Management:**
   - Add, edit, and delete transactions (full-access mode).
   - **Split Transactions:** Break down a single bank entry into multiple categories or projects.
@@ -64,6 +65,8 @@ npx serve .
 ```
 
 Open your browser to `http://localhost:8000`.
+
+The interface is responsive and supports both desktop and phone-sized screens when served locally.
 
 ## 🏗️ Architecture
 

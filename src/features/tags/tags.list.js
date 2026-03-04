@@ -228,7 +228,11 @@ export default class TagsList {
     const createTimeframeSelect = (id = "tag-timeframe-select") => {
       const timeframeSelect = el(
         "select",
-        { id: id, "aria-label": "Timeframe" },
+        {
+          id: id,
+          className: "theme-select tags-timeframe-select",
+          "aria-label": "Timeframe",
+        },
         ...timeframeOptions.map((opt) =>
           el(
             "option",
@@ -430,6 +434,10 @@ export default class TagsList {
 
     const desktopControls = !this.isMobile ? createDesktopControls() : null;
     const mobileToolbar = this.isMobile ? createMobileToolbar() : null;
+    const sectionTitle = this.canEdit ? "Manage Tags" : "Tags";
+    const sectionCaption = this.canEdit
+      ? "Review and maintain trip, type, and category tags."
+      : "Review trip, type, and category tags.";
 
     const section = el(
       "div",
@@ -448,12 +456,8 @@ export default class TagsList {
         el(
           "div",
           { className: "tags-heading-block" },
-          el("h2", {}, "Manage Tags"),
-          el(
-            "p",
-            { className: "tags-heading-caption" },
-            "Review and maintain trip, type, and category tags.",
-          ),
+          el("h2", {}, sectionTitle),
+          el("p", { className: "tags-heading-caption" }, sectionCaption),
         ),
         desktopControls ? desktopControls.headerControls : null,
       ),

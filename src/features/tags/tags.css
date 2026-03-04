@@ -139,6 +139,41 @@
   border-color: #f0ad4e;
 }
 
+.tags-timeframe-select {
+  background-color: #1a6b10;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.tags-timeframe-select:hover:not(:disabled) {
+  background-color: #1f7c13;
+  border-color: rgba(240, 173, 78, 0.45);
+}
+
+.tags-timeframe-select:focus,
+.tags-timeframe-select:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+  border-color: #f0ad4e;
+  box-shadow: 0 0 0 1px rgba(240, 173, 78, 0.18);
+}
+
+.tags-timeframe-select:disabled {
+  background-color: rgba(26, 107, 16, 0.45);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.65);
+  cursor: not-allowed;
+}
+
+.tags-timeframe-select option {
+  background-color: #124b0c;
+  color: #fff;
+}
+
 .tags-table-num {
   text-align: right;
 }
