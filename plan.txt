@@ -118,6 +118,8 @@ Desktop-safe guardrails:
 - Phone-specific rendering must use the same callbacks for save, edit, rename, add, and delete.
 
 Step 6: App shell phone polish
+Status: Complete (March 4, 2026)
+
 Files:
 - src/App.js
 - src/App.css

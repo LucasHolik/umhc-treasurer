@@ -145,7 +145,7 @@ class App {
       { className: "main-menu-container" },
       el(
         "aside",
-        { className: "sidebar" },
+        { className: "sidebar", id: "app-sidebar" },
         el(
           "div",
           { className: "logo-section" },
@@ -173,27 +173,19 @@ class App {
         ),
         el(
           "div",
-          {
-            className: "sidebar-footer",
-            style: { padding: "20px", textAlign: "center" },
-          },
+          { className: "sidebar-footer" },
           el(
             "button",
-            {
-              id: "logout-button",
-              style: {
-                backgroundColor: "transparent",
-                border: "1px solid #d9534f",
-                color: "#d9534f",
-                padding: "8px 15px",
-                borderRadius: "4px",
-                cursor: "pointer",
-              },
-            },
+            { id: "logout-button", className: "logout-button" },
             "Logout",
           ),
         ),
       ),
+      el("button", {
+        className: "mobile-menu-backdrop",
+        "aria-label": "Close navigation menu",
+        tabindex: "-1",
+      }),
       el(
         "main",
         { className: "main-content" },
@@ -205,28 +197,35 @@ class App {
             { className: "header-content" },
             el(
               "div",
-              { className: "title-group" },
-              el(
-                "div",
-                { className: "title-row" },
-                el("h1", { id: "page-title" }, "Dashboard"),
-                isReadOnly
-                  ? el(
-                      "span",
-                      { className: "mode-badge mode-badge-readonly" },
-                      "View Only",
-                    )
-                  : null,
-              ),
+              { className: "header-primary" },
               el(
                 "button",
                 {
                   id: "expand-btn",
                   className: "expand-btn",
-                  title: "Toggle Menu",
+                  title: "Open navigation menu",
+                  "aria-controls": "app-sidebar",
+                  "aria-expanded": "false",
+                  "aria-label": "Open navigation menu",
                   style: { display: "none" }, // Hidden by default, shown via CSS
                 },
-                "▼",
+                "☰",
+              ),
+              el(
+                "div",
+                { className: "title-group" },
+                el(
+                  "div",
+                  { className: "title-row" },
+                  el("h1", { id: "page-title" }, "Dashboard"),
+                  isReadOnly
+                    ? el(
+                        "span",
+                        { className: "mode-badge mode-badge-readonly" },
+                        "View Only",
+                      )
+                    : null,
+                ),
               ),
             ),
             el(
@@ -293,6 +292,8 @@ class App {
 
     // Remove hashchange listener specifically added in attachEventListeners
     window.removeEventListener("hashchange", this.hashChangeHandler);
+    window.removeEventListener("resize", this.mobileViewportHandler);
+    document.removeEventListener("keydown", this.mobileMenuKeydownHandler);
   }
 
   initComponents() {
@@ -431,11 +432,14 @@ class App {
     const expandBtn = this.element.querySelector("#expand-btn");
     if (expandBtn) {
       expandBtn.addEventListener("click", () => {
-        const container = this.element.querySelector(".main-menu-container");
-        if (!container) return;
-        container.classList.toggle("mobile-menu-open");
-        const isOpen = container.classList.contains("mobile-menu-open");
-        expandBtn.textContent = isOpen ? "▲" : "▼";
+        this.toggleMobileMenu();
+      });
+    }
+
+    const backdrop = this.element.querySelector(".mobile-menu-backdrop");
+    if (backdrop) {
+      backdrop.addEventListener("click", () => {
+        this.toggleMobileMenu(false);
       });
     }
 
@@ -448,10 +452,45 @@ class App {
 
     // Handle navigation via hash change (Unidirectional Flow)
     window.addEventListener("hashchange", this.hashChangeHandler);
+    this.mobileViewportHandler = () => {
+      if (window.innerWidth > 1024) {
+        this.toggleMobileMenu(false);
+      }
+    };
+    this.mobileMenuKeydownHandler = (event) => {
+      if (event.key === "Escape") {
+        this.toggleMobileMenu(false);
+      }
+    };
+    window.addEventListener("resize", this.mobileViewportHandler);
+    document.addEventListener("keydown", this.mobileMenuKeydownHandler);
 
     // Initial check
     const initialTab = window.location.hash.slice(1) || "dashboard";
     this.updateActiveTab(initialTab);
+  }
+
+  toggleMobileMenu(forceOpen) {
+    const container = this.element.querySelector(".main-menu-container");
+    const expandBtn = this.element.querySelector("#expand-btn");
+    if (!container || !expandBtn) return;
+
+    const isOpen =
+      typeof forceOpen === "boolean"
+        ? forceOpen
+        : !container.classList.contains("mobile-menu-open");
+
+    container.classList.toggle("mobile-menu-open", isOpen);
+    expandBtn.textContent = isOpen ? "✕" : "☰";
+    expandBtn.setAttribute("aria-expanded", String(isOpen));
+    expandBtn.setAttribute(
+      "aria-label",
+      isOpen ? "Close navigation menu" : "Open navigation menu",
+    );
+    expandBtn.setAttribute(
+      "title",
+      isOpen ? "Close navigation menu" : "Open navigation menu",
+    );
   }
 
   updateAccessibilityMode(enabled) {
@@ -493,12 +532,7 @@ class App {
     this.handleLoadingState();
 
     // 4. Close mobile menu if open
-    const container = this.element.querySelector(".main-menu-container");
-    const expandBtn = this.element.querySelector("#expand-btn");
-    if (container && container.classList.contains("mobile-menu-open")) {
-      container.classList.remove("mobile-menu-open");
-      if (expandBtn) expandBtn.textContent = "▼";
-    }
+    this.toggleMobileMenu(false);
   }
 
   async loadInitialData() {
