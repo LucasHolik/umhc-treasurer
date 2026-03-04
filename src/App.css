@@ -1,16 +1,37 @@
 /* App Shell & Layout */
 
+.app-root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-root--login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 24px 16px;
+}
+
+.app-root--shell {
+  display: block;
+}
+
 /* Main menu container - full height layout */
 .main-menu-container {
   display: flex;
   width: 100%;
+  min-width: 100%;
   height: 100vh;
+  min-height: 100dvh;
   background-color: #135909;
   color: #fff;
   position: fixed;
   top: 0;
   left: 0;
   z-index: 1000;
+  box-sizing: border-box;
 }
 
 /* Sidebar styling */
@@ -123,6 +144,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   overflow: auto;
   background-color: #1a6b10;
 }
@@ -285,6 +307,8 @@
   .main-menu-container {
     flex-direction: column;
     position: relative;
+    width: 100%;
+    min-width: 100%;
     /* Ensure container doesn't overflow improperly */
     overflow-x: hidden;
   }
@@ -292,10 +316,12 @@
   /* Make Main Content fill the screen and sit at the top */
   .main-content {
     width: 100%;
+    min-width: 100%;
     flex: 1;
     display: flex;
     flex-direction: column;
     height: 100vh; /* Force full height */
+    min-height: 100dvh;
   }
 
   /* Sidebar: The Hidden Dropdown */

@@ -135,6 +135,8 @@ Desktop-safe guardrails:
 - If shell markup changes, they must remain layout-neutral above the mobile breakpoint.
 
 Step 7: Desktop regression pass after each feature
+Status: Complete (March 4, 2026)
+
 Work:
 - Check each screen on desktop immediately after its mobile pass.
 - Verify spacing, button placement, tables, and action flows.
@@ -146,7 +148,7 @@ Desktop-safe guardrails:
 - Prefer duplication of small presentation wrappers over risky cross-screen rewrites.
 
 Step 8: Stabilize phone layout width during initial load and refresh
-Status: Pending
+Status: Complete (March 4, 2026)
 
 Files:
 - src/App.js

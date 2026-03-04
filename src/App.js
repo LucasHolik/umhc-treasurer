@@ -17,6 +17,7 @@ import LoaderComponent from "./shared/loader.component.js";
 class App {
   constructor(element) {
     this.element = element;
+    this.element.className = "app-root";
     this.subscriptions = [];
 
     this.dataUploadedHandler = () => {
@@ -113,6 +114,7 @@ class App {
   }
 
   renderLogin() {
+    this.element.className = "app-root app-root--login";
     this.cleanupMainApp();
     this.cleanupComponents();
     const loginRoot = el("div", { id: "login-root" });
@@ -121,6 +123,7 @@ class App {
   }
 
   renderMainApp() {
+    this.element.className = "app-root app-root--shell";
     store.setState("isLoading", true);
     this.cleanupMainApp();
     this.globalLoader = new LoaderComponent();
