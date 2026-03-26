@@ -238,7 +238,7 @@ export default class AnalysisControls {
         ),
         el(
           "div",
-          { className: "control-group" },
+          { className: "control-group", id: "secondary-group-container" },
           el(
             "label",
             { for: "analysis-secondary-group-select" },
@@ -352,7 +352,6 @@ export default class AnalysisControls {
       } else {
         options = [
           { value: "bar", label: "Bar" },
-          { value: "line", label: "Line" },
           { value: "pie", label: "Pie" },
           { value: "doughnut", label: "Doughnut" },
         ];
@@ -376,7 +375,38 @@ export default class AnalysisControls {
     }
 
     setVal("#analysis-primary-group-select", state.primaryGroup);
-    setVal("#analysis-secondary-group-select", state.secondaryGroup);
+
+    // Update Secondary Group options, excluding whichever value is selected as primary
+    const secondaryGroupSelect = this.element.querySelector(
+      "#analysis-secondary-group-select",
+    );
+    if (secondaryGroupSelect) {
+      const allSecondaryOptions = [
+        { value: "none", label: "None" },
+        { value: "category", label: "Category" },
+        { value: "trip", label: "Trip/Event" },
+      ];
+      const secondaryOptions = allSecondaryOptions.filter(
+        (opt) => opt.value === "none" || opt.value !== state.primaryGroup,
+      );
+      const validSecondaryValues = secondaryOptions.map((opt) => opt.value);
+      const secondaryGroupValue = validSecondaryValues.includes(
+        state.secondaryGroup,
+      )
+        ? state.secondaryGroup
+        : "none";
+      secondaryGroupSelect.innerHTML = "";
+      this.createOptions(secondaryOptions, secondaryGroupValue).forEach((opt) =>
+        secondaryGroupSelect.appendChild(opt),
+      );
+      if (secondaryGroupValue !== state.secondaryGroup) {
+        stateAdjustment = {
+          ...stateAdjustment,
+          secondaryGroup: secondaryGroupValue,
+        };
+      }
+    }
+
     setVal("#analysis-time-unit-select", state.timeUnit);
 
     const timeUnitContainer = this.element.querySelector(
@@ -385,6 +415,15 @@ export default class AnalysisControls {
     if (timeUnitContainer) {
       timeUnitContainer.style.display =
         state.primaryGroup === "date" ? "flex" : "none";
+    }
+
+    const secondaryGroupContainer = this.element.querySelector(
+      "#secondary-group-container",
+    );
+    if (secondaryGroupContainer) {
+      const isPieOrDoughnut =
+        state.chartType === "pie" || state.chartType === "doughnut";
+      secondaryGroupContainer.style.display = isPieOrDoughnut ? "none" : "flex";
     }
 
     return stateAdjustment;

@@ -275,6 +275,10 @@ class AnalysisComponent {
           },
           onChartTypeChange: (val) => {
             this.state.chartType = val;
+            if (val === "pie" || val === "doughnut") {
+              this.state.secondaryGroup = "none";
+            }
+            this.updateControls();
             this.generateChart();
           },
           onGroupChange: (type, val) => this.handleGroupChange(type, val),
@@ -485,6 +489,9 @@ class AnalysisComponent {
     if (adjustments && adjustments.chartType) {
       this.state.chartType = adjustments.chartType;
     }
+    if (adjustments && adjustments.secondaryGroup) {
+      this.state.secondaryGroup = adjustments.secondaryGroup;
+    }
     this.controlsComponent.updateDisclosureSummaries({
       scope: this.getScopeSummaryConfig(),
       quickViews: this.getQuickViewsSummaryConfig(),
@@ -512,21 +519,8 @@ class AnalysisComponent {
   handleGroupChange(type, val) {
     if (type === "primary") {
       this.state.primaryGroup = val;
-      if (this.state.primaryGroup === this.state.secondaryGroup) {
-        this.state.secondaryGroup = "none";
-      }
     } else if (type === "secondary") {
       this.state.secondaryGroup = val;
-      if (
-        this.state.primaryGroup === this.state.secondaryGroup &&
-        this.state.secondaryGroup !== "none"
-      ) {
-        this.modal.alert(
-          "Secondary grouping cannot be the same as primary.",
-          "Grouping Error",
-        );
-        this.state.secondaryGroup = "none";
-      }
     } else if (type === "timeUnit") {
       this.state.timeUnit = val;
     }
