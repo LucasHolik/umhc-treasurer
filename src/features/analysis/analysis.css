@@ -274,6 +274,12 @@
   outline-offset: 2px;
 }
 
+.btn-action.active {
+  background-color: rgba(240, 173, 78, 0.3);
+  border-color: #f0ad4e;
+  color: #f0ad4e;
+}
+
 /* Chart */
 .chart-container {
   background-color: rgba(255, 255, 255, 0.05);

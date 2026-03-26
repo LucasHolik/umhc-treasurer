@@ -369,3 +369,13 @@ export function deepClone(obj, visited = new WeakMap()) {
   // Fallback for any other object types
   return obj;
 }
+
+export function debounce(fn, delay) {
+  let timer;
+  const debounced = function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+  debounced.cancel = () => clearTimeout(timer);
+  return debounced;
+}

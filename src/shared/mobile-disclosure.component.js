@@ -205,8 +205,12 @@ export default class MobileDisclosureComponent {
       .join(" ");
 
     this.setSummary(this.options.summary);
-    this.setActions(this.options.actionsChildren || []);
-    this.setBody(this.options.bodyChildren || []);
+    if ("actionsChildren" in options) {
+      this.setActions(this.options.actionsChildren || []);
+    }
+    if ("bodyChildren" in options) {
+      this.setBody(this.options.bodyChildren || []);
+    }
     this.syncState();
   }
 

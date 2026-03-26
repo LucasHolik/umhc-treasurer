@@ -330,7 +330,7 @@ export default class AnalysisControls {
   update(state) {
     const setVal = (id, val) => {
       const input = this.element.querySelector(id);
-      if (input) input.value = val;
+      if (input && document.activeElement !== input) input.value = val;
     };
 
     setVal("#analysis-timeframe-select", state.timeframe);

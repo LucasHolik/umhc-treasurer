@@ -1,5 +1,9 @@
 import store from "../../core/state.js";
-import { formatCurrency, formatDateForInput } from "../../core/utils.js";
+import {
+  formatCurrency,
+  formatDateForInput,
+  debounce,
+} from "../../core/utils.js";
 import ModalComponent from "../../shared/modal.component.js";
 import AnalysisLogic from "./analysis.logic.js";
 import { calculateFinancials } from "../../core/financial.logic.js";
@@ -111,7 +115,10 @@ class AnalysisComponent {
         effectiveBalance: 0,
       },
       showDataTable: false,
+      skipEmptyPeriods: false,
     };
+
+    this.debouncedGenerateChart = debounce(() => this.generateChart(), 600);
 
     this.render();
 
@@ -166,6 +173,11 @@ class AnalysisComponent {
     const actionsBar = el(
       "div",
       { className: "analysis-actions-bar", id: "analysis-actions-bar" },
+      el(
+        "button",
+        { id: "btn-skip-empty", className: "btn-action" },
+        "Skip Empty Periods",
+      ),
       el(
         "button",
         { id: "btn-toggle-view", className: "btn-action" },
@@ -250,7 +262,7 @@ class AnalysisComponent {
             else this.state.endDate = val;
             this.state.timeframe = "custom";
             this.updateControls();
-            this.generateChart();
+            this.debouncedGenerateChart();
           },
           onMetricChange: (val) => {
             this.state.metric = val;
@@ -346,6 +358,17 @@ class AnalysisComponent {
   }
 
   initializeActionButtons() {
+    const skipBtn = this.element.querySelector("#btn-skip-empty");
+    if (skipBtn) {
+      const handler = () => {
+        this.state.skipEmptyPeriods = !this.state.skipEmptyPeriods;
+        skipBtn.classList.toggle("active", this.state.skipEmptyPeriods);
+        this.generateChart();
+      };
+      skipBtn.addEventListener("click", handler);
+      this.eventListeners.push({ element: skipBtn, type: "click", handler });
+    }
+
     const toggleBtn = this.element.querySelector("#btn-toggle-view");
     if (toggleBtn) {
       const handler = () => {
@@ -815,6 +838,7 @@ class AnalysisComponent {
         timeUnit: this.state.timeUnit,
         startDate: this.state.startDate,
         endDate: this.state.endDate,
+        skipEmptyPeriods: this.state.skipEmptyPeriods,
       },
       allExpenses,
       openingBalance,
@@ -835,6 +859,7 @@ class AnalysisComponent {
   }
 
   destroy() {
+    this.debouncedGenerateChart.cancel();
     this.unsubscribeHandlers.forEach((handler) => handler.unsubscribe());
     this.unsubscribeHandlers = [];
     this.timeouts.forEach((timeout) => clearTimeout(timeout));
