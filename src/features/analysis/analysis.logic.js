@@ -156,6 +156,7 @@ class AnalysisLogic {
       startDate,
       endDate,
       skipEmptyPeriods,
+      tripTypeMap,
     } = aggregationState;
 
     const generateAllDateKeys = (start, end, unit) => {
@@ -242,6 +243,8 @@ class AnalysisLogic {
       }
       if (type === "category") return item.Category || "Uncategorized";
       if (type === "trip") return item["Trip/Event"] || "Uncategorized";
+      if (type === "tripType")
+        return (tripTypeMap || {})[item["Trip/Event"]] || "Unassigned";
       return "Unknown";
     };
 
@@ -571,7 +574,9 @@ class AnalysisLogic {
     let header =
       primaryGroup === "date"
         ? `Date (${timeUnit})`
-        : primaryGroup.charAt(0).toUpperCase() + primaryGroup.slice(1);
+        : primaryGroup === "tripType"
+          ? "Trip Type"
+          : primaryGroup.charAt(0).toUpperCase() + primaryGroup.slice(1);
 
     header = escapeCSV(header);
 

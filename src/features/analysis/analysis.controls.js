@@ -172,6 +172,7 @@ export default class AnalysisControls {
         { value: "date", label: "Date" },
         { value: "category", label: "Category" },
         { value: "trip", label: "Trip/Event" },
+        { value: "tripType", label: "Trip Type" },
       ]),
     );
     primaryGroupSelect.addEventListener("change", (e) => {

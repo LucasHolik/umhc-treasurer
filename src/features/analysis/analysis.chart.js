@@ -103,8 +103,15 @@ export default class AnalysisChart {
       chartType = "line";
     }
 
-    const titleText = `Analysis: ${metric.toUpperCase()} by ${primaryGroup}${
-      secondaryGroup !== "none" ? " & " + secondaryGroup : ""
+    const groupLabel = (g) =>
+      ({
+        date: "Date",
+        category: "Category",
+        trip: "Trip/Event",
+        tripType: "Trip Type",
+      })[g] || g;
+    const titleText = `Analysis: ${metric.toUpperCase()} by ${groupLabel(primaryGroup)}${
+      secondaryGroup !== "none" ? " & " + groupLabel(secondaryGroup) : ""
     }${
       hasBalanceError && metric === "balance" ? " (⚠️ CALCULATION ERROR)" : ""
     }`;

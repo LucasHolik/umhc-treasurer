@@ -49,6 +49,7 @@ const GROUP_LABELS = {
   date: "Date",
   category: "Category",
   trip: "Trip",
+  tripType: "Trip Type",
   none: "None",
 };
 
@@ -839,6 +840,7 @@ class AnalysisComponent {
         startDate: this.state.startDate,
         endDate: this.state.endDate,
         skipEmptyPeriods: this.state.skipEmptyPeriods,
+        tripTypeMap: tags.TripTypeMap || {},
       },
       allExpenses,
       openingBalance,
