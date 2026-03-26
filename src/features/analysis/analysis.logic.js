@@ -341,7 +341,7 @@ class AnalysisLogic {
       };
     }
 
-    const labels = sortedPKeys;
+    let labels = sortedPKeys;
     const datasets = [];
 
     // Helper for consistent color generation
@@ -373,7 +373,15 @@ class AnalysisLogic {
     };
 
     if (secondaryGroup === "none") {
-      const dataPoints = labels.map((k) => primaryMap[k]);
+      let dataPoints = labels.map((k) => primaryMap[k]);
+
+      // For non-date primary groups (tags), remove entries with no value for this metric
+      if (primaryGroup !== "date") {
+        const keep = dataPoints.map((v) => v !== 0);
+        labels = labels.filter((_, i) => keep[i]);
+        dataPoints = dataPoints.filter((_, i) => keep[i]);
+      }
+
       const colors = labels.map((k, i) => {
         // Apply conditional coloring (green for positive, red for negative) only for non-balance, date-grouped charts
         if (primaryGroup === "date" && metric !== "balance") {
@@ -393,6 +401,7 @@ class AnalysisLogic {
 
       sortedSKeys.forEach((sKey, i) => {
         const dataPoints = labels.map((pKey) => primaryMap[pKey][sKey] || 0);
+        if (dataPoints.every((v) => v === 0)) return;
         datasets.push({
           label: sKey,
           data: dataPoints,
