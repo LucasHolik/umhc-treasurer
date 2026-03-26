@@ -105,6 +105,7 @@ class AnalysisComponent {
       chartType: "line",
       primaryGroup: "date",
       secondaryGroup: "none",
+      expandedTripTypes: new Set(),
       timeUnit: "day",
 
       // Summary Statistics
@@ -132,6 +133,7 @@ class AnalysisComponent {
     this.unsubscribeHandlers.push(
       store.subscribe("tags", () => {
         this.updateTagSelectors();
+        this.updateControls();
         this.generateChart();
       }),
     );
@@ -282,6 +284,8 @@ class AnalysisComponent {
             this.generateChart();
           },
           onGroupChange: (type, val) => this.handleGroupChange(type, val),
+          onTripTypeExpansionToggle: (type, isExpanded) =>
+            this.handleTripTypeExpansionToggle(type, isExpanded),
           onPresetClick: (preset) => this.applyPreset(preset),
         },
         {
@@ -485,7 +489,11 @@ class AnalysisComponent {
 
   updateControls() {
     if (!this.controlsComponent) return;
-    const adjustments = this.controlsComponent.update(this.state);
+    const tags = store.getState("tags") || {};
+    const adjustments = this.controlsComponent.update({
+      ...this.state,
+      tripTypes: tags["Type"] || [],
+    });
     if (adjustments && adjustments.chartType) {
       this.state.chartType = adjustments.chartType;
     }
@@ -518,6 +526,7 @@ class AnalysisComponent {
 
   handleGroupChange(type, val) {
     if (type === "primary") {
+      if (val !== "tripType") this.state.expandedTripTypes = new Set();
       this.state.primaryGroup = val;
     } else if (type === "secondary") {
       this.state.secondaryGroup = val;
@@ -525,6 +534,12 @@ class AnalysisComponent {
       this.state.timeUnit = val;
     }
     this.updateControls();
+    this.generateChart();
+  }
+
+  handleTripTypeExpansionToggle(type, isExpanded) {
+    if (isExpanded) this.state.expandedTripTypes.add(type);
+    else this.state.expandedTripTypes.delete(type);
     this.generateChart();
   }
 
@@ -540,6 +555,14 @@ class AnalysisComponent {
     }
     if (!(this.state.selectedTrips instanceof Set)) {
       this.state.selectedTrips = new Set(this.state.selectedTrips || []);
+    }
+    if (!(this.state.expandedTripTypes instanceof Set)) {
+      this.state.expandedTripTypes = new Set(
+        this.state.expandedTripTypes || [],
+      );
+    }
+    if (this.state.primaryGroup !== "tripType") {
+      this.state.expandedTripTypes = new Set();
     }
 
     // Recalculate date range
@@ -835,6 +858,9 @@ class AnalysisComponent {
         endDate: this.state.endDate,
         skipEmptyPeriods: this.state.skipEmptyPeriods,
         tripTypeMap: tags.TripTypeMap || {},
+        expandedTripTypes: this.state.expandedTripTypes,
+        tripTypes: tags["Type"] || [],
+        allTripNames: tags["Trip/Event"] || [],
       },
       allExpenses,
       openingBalance,

@@ -157,6 +157,9 @@ class AnalysisLogic {
       endDate,
       skipEmptyPeriods,
       tripTypeMap,
+      expandedTripTypes = new Set(),
+      tripTypes = [],
+      allTripNames = [],
     } = aggregationState;
 
     const generateAllDateKeys = (start, end, unit) => {
@@ -243,8 +246,13 @@ class AnalysisLogic {
       }
       if (type === "category") return item.Category || "Uncategorized";
       if (type === "trip") return item["Trip/Event"] || "Uncategorized";
-      if (type === "tripType")
-        return (tripTypeMap || {})[item["Trip/Event"]] || "Unassigned";
+      if (type === "tripType") {
+        const resolvedType =
+          (tripTypeMap || {})[item["Trip/Event"]] || "Unassigned";
+        if (expandedTripTypes.has(resolvedType))
+          return item["Trip/Event"] || "Unassigned";
+        return resolvedType;
+      }
       return "Unknown";
     };
 
@@ -266,7 +274,16 @@ class AnalysisLogic {
       }
     });
 
-    let sortedPKeys = Object.keys(primaryMap).sort();
+    let sortedPKeys =
+      primaryGroup === "tripType" && tripTypes.length > 0
+        ? this.buildTripTypeOrderedKeys(
+            primaryMap,
+            tripTypes,
+            tripTypeMap,
+            expandedTripTypes,
+            allTripNames,
+          )
+        : Object.keys(primaryMap).sort();
     if (primaryGroup === "date" && startDate && endDate && !skipEmptyPeriods) {
       const allKeys = generateAllDateKeys(startDate, endDate, timeUnit);
       if (allKeys.length > 0) {
@@ -416,6 +433,52 @@ class AnalysisLogic {
     }
 
     return { labels, datasets };
+  }
+
+  /**
+   * Builds an ordered array of primaryMap keys for tripType grouping.
+   * Collapsed types appear at their natural position; expanded types are replaced
+   * inline by the alphabetically sorted names of their individual trips.
+   */
+  buildTripTypeOrderedKeys(
+    primaryMap,
+    tripTypes,
+    tripTypeMap,
+    expandedTripTypes,
+    allTripNames,
+  ) {
+    const keys = new Set(Object.keys(primaryMap));
+    const ordered = [];
+    const placed = new Set();
+
+    tripTypes.forEach((type) => {
+      if (!expandedTripTypes.has(type)) {
+        if (keys.has(type)) {
+          ordered.push(type);
+          placed.add(type);
+        }
+      } else {
+        const tripsForType = allTripNames
+          .filter((t) => (tripTypeMap || {})[t] === type && keys.has(t))
+          .sort();
+        tripsForType.forEach((t) => {
+          ordered.push(t);
+          placed.add(t);
+        });
+      }
+    });
+
+    // "Unassigned" — trips with no type entry — appended last
+    if (keys.has("Unassigned") && !placed.has("Unassigned")) {
+      ordered.push("Unassigned");
+    }
+
+    // Safety: any remaining keys not placed (shouldn't normally occur)
+    keys.forEach((k) => {
+      if (!placed.has(k)) ordered.push(k);
+    });
+
+    return ordered;
   }
 
   /**

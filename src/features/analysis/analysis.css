@@ -222,6 +222,14 @@
   box-sizing: border-box;
 }
 
+#trip-type-expansion-container {
+  margin-top: 4px;
+}
+
+#trip-type-expansion-list {
+  height: 120px;
+}
+
 .tag-checkbox-item {
   display: flex;
   align-items: center;

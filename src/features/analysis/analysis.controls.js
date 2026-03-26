@@ -257,6 +257,19 @@ export default class AnalysisControls {
           timeUnitSelect,
         ),
       ),
+      el(
+        "div",
+        {
+          id: "trip-type-expansion-container",
+          className: "control-group",
+          style: { display: "none" },
+        },
+        el("label", {}, "Expand trip types into individual trips:"),
+        el("div", {
+          id: "trip-type-expansion-list",
+          className: "tag-selector",
+        }),
+      ),
     );
 
     const scopeMount = el("div", {
@@ -426,7 +439,64 @@ export default class AnalysisControls {
       secondaryGroupContainer.style.display = isPieOrDoughnut ? "none" : "flex";
     }
 
+    const expansionContainer = this.element.querySelector(
+      "#trip-type-expansion-container",
+    );
+    if (expansionContainer) {
+      const show = state.primaryGroup === "tripType";
+      expansionContainer.style.display = show ? "block" : "none";
+      if (show) {
+        this.renderTripTypeExpansionList(
+          state.tripTypes || [],
+          state.expandedTripTypes || new Set(),
+          this.callbacks.onTripTypeExpansionToggle,
+        );
+      }
+    }
+
     return stateAdjustment;
+  }
+
+  renderTripTypeExpansionList(tripTypes, expandedTripTypes, onToggle) {
+    const list = this.element.querySelector("#trip-type-expansion-list");
+    if (!list) return;
+
+    const sorted = [...tripTypes].sort();
+    if (sorted.length === 0) {
+      replace(
+        list,
+        el(
+          "div",
+          { style: { padding: "5px", color: "rgba(255,255,255,0.5)" } },
+          "No trip types found",
+        ),
+      );
+      return;
+    }
+
+    const children = sorted.map((type, index) => {
+      const uid = `expansion-type-${index}`;
+      const input = el("input", {
+        type: "checkbox",
+        id: uid,
+        value: type,
+        className: "tag-item-input",
+      });
+      input.checked = expandedTripTypes.has(type);
+      input.addEventListener("change", (e) => {
+        if (onToggle) onToggle(type, e.target.checked);
+      });
+      return el(
+        "div",
+        { className: "tag-checkbox-item" },
+        input,
+        el("label", { for: uid }, type),
+      );
+    });
+
+    const previousScrollTop = list.scrollTop;
+    replace(list, ...children);
+    list.scrollTop = previousScrollTop;
   }
 
   updateDisclosureSummaries(summaries = {}) {
