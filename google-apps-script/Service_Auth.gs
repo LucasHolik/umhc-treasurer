@@ -104,19 +104,31 @@ const Service_Auth = {
 
       const payload = this._buildPayload(action, timestamp, allParams);
       if (action === "login") {
+        const cache = CacheService.getScriptCache();
+        const bucketKey = "bf_" + Math.floor(Date.now() / 600000);
+        const failCount = parseInt(cache.get(bucketKey) || "0", 10);
+        if (failCount >= 10) {
+          console.warn("Login rejected: too many failed attempts");
+          return { authorized: false };
+        }
+
         const passkeys = this.getPasskeys();
         if (passkeys.admin) {
           const adminSig = this._computeSignatureHex(payload, passkeys.admin);
           if (this._isSignatureMatch(signature, adminSig)) {
+            cache.put(bucketKey, "0", 600);
             return { authorized: true, role: "admin" };
           }
         }
         if (passkeys.viewer) {
           const viewerSig = this._computeSignatureHex(payload, passkeys.viewer);
           if (this._isSignatureMatch(signature, viewerSig)) {
+            cache.put(bucketKey, "0", 600);
             return { authorized: true, role: "viewer" };
           }
         }
+
+        cache.put(bucketKey, String(failCount + 1), 600);
         return { authorized: false };
       }
 
@@ -142,7 +154,7 @@ const Service_Auth = {
 
       return {
         authorized: true,
-        role: session.role === "viewer" ? "viewer" : "admin",
+        role: session.role === "admin" ? "admin" : "viewer",
       };
     } catch (e) {
       console.error("Error in verifyRequest: " + e.message);

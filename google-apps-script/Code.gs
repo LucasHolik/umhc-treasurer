@@ -1,5 +1,6 @@
 const READ_ACTIONS = new Set([
   "ping",
+  "logout",
   "getData",
   "getAppData",
   "getOpeningBalance",
@@ -24,7 +25,9 @@ const AUTH_ACTIONS = new Set(["login"]);
 
 function isKnownAction(action) {
   return (
-    READ_ACTIONS.has(action) || WRITE_ACTIONS.has(action) || AUTH_ACTIONS.has(action)
+    READ_ACTIONS.has(action) ||
+    WRITE_ACTIONS.has(action) ||
+    AUTH_ACTIONS.has(action)
   );
 }
 
@@ -72,6 +75,10 @@ function doGet(e) {
       case "ping":
         response = { success: true, role: role };
         break;
+      case "logout":
+        Service_Session.invalidateSession(e?.parameter?.sessionId);
+        response = { success: true };
+        break;
       case "saveData":
         if (!e?.parameter?.data) {
           response = {
@@ -106,7 +113,7 @@ function doGet(e) {
           response = Service_Tags.addTag(
             e?.parameter?.type,
             e?.parameter?.value,
-            e?.parameter?.extraData
+            e?.parameter?.extraData,
           );
         }
         break;
@@ -161,7 +168,7 @@ function doGet(e) {
         } else {
           const validation = validateJsonParameter(
             e.parameter.operations,
-            "array"
+            "array",
           );
           if (!validation.valid) {
             response = {
@@ -304,7 +311,7 @@ function getAppData() {
       if (!splitTransactions.success) {
         console.error(
           "Failed to fetch split transactions:",
-          splitTransactions.message
+          splitTransactions.message,
         );
         // Don't throw, just log and return empty array for splits
         splitTransactions.data = [];
@@ -312,7 +319,7 @@ function getAppData() {
     } catch (splitError) {
       console.error(
         "Error fetching split transactions:",
-        splitError.toString()
+        splitError.toString(),
       );
       splitTransactions.data = [];
     }
@@ -348,7 +355,7 @@ function createJsonResponse(data, callback) {
 
   const jsonp = safeCallback + "(" + JSON.stringify(data) + ")";
   return ContentService.createTextOutput(jsonp).setMimeType(
-    ContentService.MimeType.JAVASCRIPT
+    ContentService.MimeType.JAVASCRIPT,
   );
 }
 

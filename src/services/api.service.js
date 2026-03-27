@@ -37,7 +37,22 @@ const READ_ONLY_MESSAGE =
 let _sessionId = null;
 let _sessionKey = null;
 
-const getScriptUrl = () => localStorage.getItem("script_url");
+const getScriptUrl = () => {
+  const raw = localStorage.getItem("script_url");
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (
+      parsed.hostname !== "script.google.com" ||
+      !parsed.pathname.startsWith("/macros/s/")
+    ) {
+      return null;
+    }
+  } catch (_) {
+    return null;
+  }
+  return raw;
+};
 
 const setScriptUrl = (url) => {
   if (url) {
@@ -323,6 +338,7 @@ const request = (action, params = {}, options = {}) => {
 const ApiService = {
   login: (apiKey) => request("login", {}, { apiKey }),
   ping: () => request("ping", {}, { skipLoading: true }),
+  logout: () => request("logout", {}, { skipLoading: true }),
   getAppData: () => request("getAppData"),
   getData: () => request("getData"),
   saveData: (data, options = {}) =>

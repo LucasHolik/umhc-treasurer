@@ -188,12 +188,23 @@ class LoginComponent {
       cleanUrl = cleanUrl.slice(1, -1);
     }
 
+    let parsed;
     try {
-      new URL(cleanUrl); // Validation check
+      parsed = new URL(cleanUrl);
     } catch (e) {
       store.setState(
         "error",
         "Invalid URL format. Please check for spaces or typos.",
+      );
+      return;
+    }
+    if (
+      parsed.hostname !== "script.google.com" ||
+      !parsed.pathname.startsWith("/macros/s/")
+    ) {
+      store.setState(
+        "error",
+        "URL must be a Google Apps Script URL (script.google.com/macros/s/...).",
       );
       return;
     }

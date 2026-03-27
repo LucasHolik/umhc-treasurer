@@ -16,7 +16,7 @@ import ApiService from "./api.service.js";
  */
 const AuthService = {
   buildCurrentUser(role) {
-    const normalizedRole = role === "viewer" ? "viewer" : "admin";
+    const normalizedRole = role === "admin" ? "admin" : "viewer";
     return {
       loggedIn: true,
       role: normalizedRole,
@@ -87,8 +87,14 @@ const AuthService = {
 
   /**
    * Log the user out by clearing session credentials and user state.
+   * Also invalidates the session server-side so stolen credentials cannot be reused.
    */
-  logout: function () {
+  logout: async function () {
+    try {
+      await ApiService.logout();
+    } catch (_) {
+      // Fire-and-forget — always clear local state even if the server call fails
+    }
     ApiService.clearSession();
     store.setState("currentUser", null);
   },

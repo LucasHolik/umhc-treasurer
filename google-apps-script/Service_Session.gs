@@ -28,6 +28,17 @@ const Service_Session = {
   },
 
   /**
+   * Invalidates a session so it cannot be used after logout.
+   * @param {string} sessionId
+   */
+  invalidateSession: function (sessionId) {
+    if (!sessionId) return;
+    const cache = CacheService.getScriptCache();
+    cache.remove(sessionId);
+    cache.put("revoked_" + sessionId, "1", 3600);
+  },
+
+  /**
    * Retrieves session data.
    * @param {string} sessionId
    * @returns {object|null} - { sessionKey, role } or null if invalid/expired.
@@ -36,6 +47,7 @@ const Service_Session = {
     if (!sessionId) return null;
 
     const cache = CacheService.getScriptCache();
+    if (cache.get("revoked_" + sessionId)) return null;
     const dataStr = cache.get(sessionId);
 
     if (!dataStr) return null;

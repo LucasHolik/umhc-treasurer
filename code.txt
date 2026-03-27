@@ -460,12 +460,21 @@ Frontend:
   - HMAC-SHA256 request signing (SubtleCrypto)
   - Session credentials in sessionStorage (cleared on tab close)
   - Input sanitisation: escapeHtml(), sanitizeForId() in utils.js
+  - Script URL validated at both save-time and read-time: must be
+    script.google.com/macros/s/… (rejects tampered localStorage values)
+  - Role normalization defaults to "viewer" for any unexpected role value
+    (least-privilege default in buildCurrentUser and verifyRequest)
 
 Backend:
   - Every request signature-verified before processing
   - Role check before every write action
   - Passkey never stored in plaintext (hashed in Config.gs)
-  - Timestamp validation window prevents replay attacks
+  - Timestamp validation window (±5 min) prevents replay attacks
+  - Brute-force protection: 10 failed login attempts per 10-minute window
+    locks out further attempts; counter resets on successful login
+  - Server-side session invalidation on logout (Service_Session.invalidateSession):
+    session removed from cache + revoked_ tombstone written for 1 hour,
+    so stolen credentials cannot be reused after the user logs out
 
 Known tradeoff:
   JSONP is used instead of fetch due to Google Apps Script CORS constraints.
