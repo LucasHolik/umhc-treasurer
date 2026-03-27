@@ -1,144 +1,559 @@
-# PROJECT ARCHITECTURE FRAMEWORK: UMHC TREASURER 2.0
-# Design Philosophy: To have code that's professional, modular, and easy to expand upon.
+# PROJECT ARCHITECTURE: UMHC TREASURER
+# A financial management app for the University of Manchester Hillwalking Club.
+# Stack: Vanilla JS (ES Modules) · Google Apps Script · Google Sheets · GitHub Pages
 
 ================================================================================
-1. CORE PHILOSOPHY: "THE SEPARATION OF CONCERNS"
+1. CORE PHILOSOPHY: SEPARATION OF CONCERNS
 ================================================================================
 
-The root cause of "vibe coding" failure is tight coupling—where your UI knows 
-too much about your API, and your API knows too much about your DOM. 
+Strict unidirectional data flow:
+  User Action -> Service Layer -> State (Store) -> UI Re-render
 
-To fix this, we will adopt a strict unidirectional data flow:
-Action -> Service -> State -> UI Update
+1. The UI is dumb. It renders data it receives and fires events. It does not
+   fetch its own data or contain business logic.
+2. The Store is the single source of truth. All application state lives here.
+3. Services handle the dirty work: API calls, signing, Excel parsing, merging.
 
-1.  **The UI is dumb.** It only knows how to display data it is given and trigger events.
-2.  **The State is the single source of truth.** Data lives here, not in the DOM.
-3.  **The Services handle the dirty work.** API calls, calculations, and formatting.
+No npm / no build step. All dependencies are vendored locally.
+
 
 ================================================================================
-2. RECOMMENDED DIRECTORY STRUCTURE
+2. DIRECTORY STRUCTURE
 ================================================================================
-
-Refactor your folders to group files by *domain* (what they do) rather than 
-just file type.
 
 /project-root
+  index.html                    # Single HTML shell — minimal skeleton
+  logo.jpg
+  favicon.ico
+
   /src
-    /core             # The framework plumbing
-      state.js        # Central Store (Pub/Sub system)
-      router.js       # Handles tab switching/URL state
-      utils.js        # Shared helpers (date formatting, etc.)
-    
-    /services         # Logic that touches external things
-      api.service.js  # Communication with Google Apps Script
-      excel.service.js# Excel parsing logic
-      auth.service.js # Login logic
-    
-    /features         # Self-contained feature modules
+    App.js                      # Root init: wires router, auth, first data load
+    App.css
+
+    /core                       # Framework plumbing
+      config.js                 # App-wide constants (paths, keys)
+      dom.js                    # el(), replace(), cleanup(), clear()
+      router.js                 # Hash-based router (#dashboard, #transactions…)
+      state.js                  # Pub/Sub store (subscribe, setState, getState)
+      utils.js                  # Formatting, date helpers, deepEqual, deepClone, debounce
+      financial.logic.js        # Opening balance + manual-offset reconciliation
+
+    /services                   # Logic that touches external things
+      api.service.js            # JSONP client with HMAC-SHA256 signing
+      auth.service.js           # Login, logout, session verification
+      transaction.service.js    # Merges split children into expense list
+      excel.service.js          # .xlsx/.xls → clean JSON
+
+    /features                   # One folder per page/feature
+      /login
+        login.component.js
+        login.css
       /dashboard
         dashboard.component.js
         dashboard.css
       /transactions
-        transactions.table.js
-        transactions.filters.js
+        transactions.component.js   # Main list + inline editing
+        transactions.bulk.js        # Bulk-tag selection mode
+        transactions.filters.js     # Category/Trip/Description filter bar
+        transactions.logic.js       # filterData(), sortData()
+        transactions.css
       /tags
-        tags.manager.js
+        tags.component.js           # Tag manager (Categories, Trips, Types)
+        tags.css
+      /analysis
+        analysis.component.js       # Chart.js wrapper + controls
+        analysis.css
       /upload
-        file-upload.js
-      /shared         # Reusable UI elements
-        loader.js
-        modal.js
-        
-  /google-apps-script # Backend Code
-    Controller.gs     # The entry point (doGet, router)
-    Service_Sheet.gs  # Database interaction
-    Service_Auth.gs   # Auth logic
-    Config.gs         # Constants
+        upload.component.js         # Drag-and-drop Excel import
+        upload.css
+      /settings
+        settings.component.js       # Opening balance + accessibility toggle
+        settings.css
 
-  index.html          # The minimal skeleton
+    /shared                     # Reusable UI primitives
+      sortable-table.component.js
+      modal.component.js
+      loader.component.js
+      tag-selector.component.js
+      mobile-data-card.component.js
+      mobile-disclosure.component.js
+      search-input.js
+      *.css
+
+    /lib                        # Vendored third-party (minified)
+      chart.umd.min.js          # Chart.js
+      read-excel-file.min.js    # Excel parser
+
+    /styles
+      base.css                  # CSS reset + typography
+      shared.css                # Common utility classes
+
+  /google-apps-script           # Backend (deployed as a GAS Web App)
+    Code.gs                     # doGet() router — no business logic
+    Config.gs                   # Server-side constants
+    Service_Auth.gs             # HMAC-SHA256 signature verification
+    Service_Session.gs          # Session token creation/validation
+    Service_Sheet.gs            # All SpreadsheetApp access
+    Service_Tags.gs             # Tag CRUD + TripTypeMap management
+    Service_Split.gs            # Split transaction creation, revert, history
+
+  .github/workflows/            # GitHub Actions (auto-deploy to GitHub Pages)
+
 
 ================================================================================
-3. CLIENT-SIDE ARCHITECTURE (The Frontend)
+3. DATA MODELS
 ================================================================================
 
-A. The Store (State Management)
+Transaction (one row in the Finances sheet):
+  {
+    row:            number,        // sheet row number (internal ID)
+    Date:           string,        // "YYYY-MM-DD"
+    Description:    string,
+    Income:         number,
+    Expense:        number,
+    Category:       string,        // tag of type "Category"
+    "Trip/Event":   string,        // tag of type "Trip/Event"
+    Type:           string,        // tag of type "Type" | "Manual" (historical)
+    "Split Group ID": string,      // links SOURCE + CHILD rows
+    "Split Type":   string         // "SOURCE" | "CHILD" | ""
+  }
+
+Tags (returned by getAppData):
+  {
+    "Category":     string[],
+    "Trip/Event":   string[],
+    "Type":         string[],
+    "TripTypeMap":  { [tripName]: string[] },    // allowed Types per Trip
+    "TripStatusMap":{ [tripName]: "Active" | "Completed" | "Investment" }
+  }
+
+Store (central state object):
+  {
+    expenses:               [],        // merged + processed transactions
+    rawExpenses:            [],        // raw from API (before split merge)
+    splitTransactions:      null,      // paginated split history
+    tags:                   {},        // see Tags above
+    isLoading:              false,
+    isUploading:            false,
+    isTagging:              false,
+    savingTags:             false,
+    savingSplitTransaction: false,
+    settingsSyncing:        false,
+    taggingProgress:        null,
+    taggingSource:          null,
+    error:                  null,
+    currentUser:            null,      // { loggedIn, role, canEdit }
+    openingBalance:         0,
+    accessibilityMode:      false,
+    isVerifyingSession:     false
+  }
+
+
+================================================================================
+4. CORE MODULES
+================================================================================
+
+A. State (src/core/state.js)
 --------------------------------------------------------------------------------
-Stop storing data in HTML tables or global variables scattered in `main.js`. 
-Create a central "Store."
-- **Concept:** A javascript object that holds the application state (e.g., `currentUser`, `expensesList`, `tagsList`, `isLoading`).
-- **Mechanism:** Use the "Observer Pattern" (Pub/Sub).
-    1. Components "subscribe" to specific data changes (e.g., Dashboard subscribes to `expensesList`).
-    2. When data changes, the Store notifies only the subscribers.
-    3. The UI automatically re-renders based on the new data.
+Pub/Sub store. The single source of truth.
 
-B. The Component Pattern
+  store.subscribe(key, callback)   // returns unsubscribe fn
+  store.setState(key, value)       // notify all subscribers for that key
+  store.getState(key)              // returns deep clone (prevents mutation)
+
+Safety:
+  - Deep-clones all values in/out (structuredClone with custom fallback)
+  - Deep equality check before notifying (no redundant renders)
+  - Circular-reference detection in clone/equality
+  - Blocks mutations to __proto__, constructor, prototype
+
+B. DOM (src/core/dom.js)
 --------------------------------------------------------------------------------
-Every section of your app (Dashboard, Transaction Table, Tag Editor) should be a 
-"Component." A Component is a JS class/object that adheres to strict rules:
-1.  **Init:** It caches its own DOM elements (buttons, inputs) within its scope.
-2.  **Render:** It accepts *data* as an argument and updates its HTML. It never fetches its own data.
-3.  **Listen:** It listens for user clicks and dispatches "Actions" to the Services. It does *not* perform the business logic itself.
-    * *Bad:* Click Save -> UI calculates total -> UI calls API.
-    * *Good:* Click Save -> UI triggers `ExpenseService.save()`.
+Declarative element creation. No innerHTML anywhere in the app (XSS prevention).
 
-C. The Service Layer
+  el(tag, attrs, ...children)   // returns HTMLElement
+    - attrs: className, style{}, dataset{}, onclick, onchange, …
+  replace(element, ...newChildren)   // swap children, run cleanup on old ones
+  cleanup(element)                   // recursively remove event listeners
+  clear(element)                     // remove all children + cleanup
+
+Event listeners are tracked in a WeakMap. cleanup() removes them all to prevent
+memory leaks during re-renders.
+
+C. Router (src/core/router.js)
 --------------------------------------------------------------------------------
-This is the boundary between your app and the outside world.
-- **API Service:** Wraps `google.script.run` or your JSONP implementation. It returns Promises. It handles network errors so the UI doesn't have to.
-- **Excel Service:** Pure logic. Input: File -> Output: Clean JSON. No UI code allowed here.
+Hash-based. No page reloads.
 
-================================================================================
-4. SERVER-SIDE ARCHITECTURE (Google Apps Script)
-================================================================================
+  Routes: #dashboard · #transactions · #upload · #tags · #analysis · #settings
 
-A. The Controller (Code.gs)
+  - Listens on hashchange
+  - Toggles CSS visibility of content sections
+  - Updates active state in the sidebar
+  - Redirects viewer-role users away from #upload
+
+D. API Service (src/services/api.service.js)
 --------------------------------------------------------------------------------
-This file should contain *no business logic*. It is a traffic cop.
-- It receives the request (`doGet` or `post`).
-- It checks the Action parameter (e.g., `action=getData`).
-- It routes the request to the appropriate Service function.
-- It formats the response (Success/Error) standardizing the output format.
+All backend calls go through here. Uses JSONP (Google Apps Script limitation).
 
-B. The Services (Backend)
+Request Signing (HMAC-SHA256 via SubtleCrypto):
+  - Login:    signed with the user's passkey
+  - Subsequent calls: signed with sessionKey returned at login
+  - Signature = HMAC-SHA256(secret, "action|timestamp|jsonParams")
+  - Replay protection: server rejects timestamps older than ~5 minutes
+
+Session Storage:
+  - sessionId + sessionKey stored in sessionStorage (survives page reload,
+    cleared on tab close)
+  - Cleared automatically on 401 Unauthorized response
+
+Request Deduplication:
+  - Concurrent calls with identical params share one in-flight promise
+
+Timeout: 15 seconds. JSONP script tags and callbacks cleaned up on
+completion, error, or timeout.
+
+Key methods:
+  login(apiKey)                      // exchange passkey for session
+  getAppData()                       // expenses + tags + balance + splits
+  updateExpenses(data)               // save tag/transaction changes
+  splitTransaction(original, splits) // create split group
+  getSplitTransactions(page)         // paginated split history
+  saveOpeningBalance(balance)
+
+E. Auth Service (src/services/auth.service.js)
 --------------------------------------------------------------------------------
-Break your backend logic into specialized files:
-- **Repository Pattern:** Create a `SheetService` that acts as the *only* place that touches `SpreadsheetApp`.
-    - `getAllExpenses()`
-    - `addExpense(row)`
-    - `updateTag(id, tag)`
-- This prevents "spaghetti code" where every function tries to find the active sheet and calculate rows.
+Wraps ApiService for login/logout/session verification.
+
+  AuthService.init()         // on app load — verify existing session
+  AuthService.login(key)     // authenticate → set currentUser in store
+  AuthService.logout()       // clear credentials + store
+  AuthService.isLoggedIn()   // boolean check
+
+Roles:
+  "admin"  — full read/write access
+  "viewer" — read-only; write API calls rejected server-side and
+             mutation UI elements hidden client-side
+
+F. Transaction Service (src/services/transaction.service.js)
+--------------------------------------------------------------------------------
+Merges split children into the main expense list after fetching from API.
+
+  mergeSplits(rawExpenses, splitTransactions)
+    - Removes SOURCE rows (the original unsplit transaction)
+    - Injects CHILD rows in their place
+    - Re-sorts by date
+
+G. Financial Logic (src/core/financial.logic.js)
+--------------------------------------------------------------------------------
+Reconciles the opening balance with "Manual" transactions (historical entries
+that predate the configured opening balance).
+
+  Problem: Manual transactions represent activity already baked into the
+  opening balance. Including them in totals would double-count.
+
+  Solution:
+    manualOffset           = manual_expenses - manual_income
+    adjustedOpeningBalance = openingBalance + manualOffset
+    currentBalance         = adjustedOpeningBalance + totalIncome - totalExpenses
+
+  calculateFinancials(openingBalance, transactions) →
+    { manualOffset, adjustedOpeningBalance, currentBalance, totalIncome, totalExpenses }
+
+H. Excel Service (src/services/excel.service.js)
+--------------------------------------------------------------------------------
+Turns an uploaded .xlsx/.xls file into clean transaction JSON.
+
+  - Scans first 20 rows for "date" and "description" headers
+  - Locates Cash In / Cash Out columns by keyword matching
+  - Normalises dates to YYYY-MM-DD (handles DD/MM/YYYY, ISO, datetime)
+  - Combines multi-row transactions (same date, blank description)
+  - Stops on footer-marker rows ("pending transactions", "please note…")
+
 
 ================================================================================
-5. DATA FLOW SCENARIO: "Adding a Tag"
+5. FEATURE COMPONENTS
 ================================================================================
 
-Here is how a feature should work to ensure stability:
+A. Login (src/features/login/)
+--------------------------------------------------------------------------------
+- First-run Script URL setup (stored in localStorage)
+- Passkey input + submit
+- Session verification spinner (isVerifyingSession state)
+- Error display
 
-1.  **User Interaction:** User types "Food" into the Tag Input and hits Enter.
-2.  **Component:** `TagsComponent` catches the event. It calls `TagService.addTag('Food')`.
-3.  **Service (Client):** `TagService` calls the Google Backend API.
-4.  **Backend Controller:** Receives request, calls `BackendTagService.add()`.
-5.  **Backend Service:** Validates input, writes to Sheet, returns "Success".
-6.  **Service (Client):** Receives "Success". It now updates the **State** (The Store), adding "Food" to the `tagsList`.
-7.  **State:** The Store triggers an event: "TagsUpdated".
-8.  **UI Update:** Both `TagsComponent` AND `TransactionTableComponent` (which has a dropdown for tags) are subscribed to "TagsUpdated". They both re-render automatically.
+B. Dashboard (src/features/dashboard/)
+--------------------------------------------------------------------------------
+Displays:  Balance · Total Income · Total Expenses · Net Change
+           Recent Transactions (table on desktop, cards on mobile)
 
-*Result:* You didn't have to manually update the dropdowns in the transaction table. The architecture did it for you.
+Controls:  Timeframe selector (Current Month / 30 Days / 3 Months /
+           6 Months / Year / All Time)
+
+Uses calculateFinancials() for all balance figures.
+Accessibility mode adds +/- symbols to currency values for colorblind users.
+
+C. Transactions (src/features/transactions/)
+--------------------------------------------------------------------------------
+The most complex feature. Composed of several sub-modules:
+
+  transactions.component.js     Main container + orchestration
+  transactions.bulk.js          Bulk-select mode for applying tags to many rows
+  transactions.filters.js       Category / Trip / Description filter bar
+  transactions.logic.js         Pure functions: filterData(), sortData()
+
+Capabilities:
+  - Filter: Category, Trip/Event, Description search, "No Tag" magic value
+  - Sort: Date, Description, Income, Expense, Net (type-aware)
+  - Inline tag editing: click a tag pill to open TagSelector dropdown
+  - Pending changes: edits batched client-side, saved in one API call
+  - Bulk tag mode: select rows → apply tag to all at once
+  - Split transaction: break one row into multiple with different categories
+  - Manual transaction: add a historical entry (Type = "Manual")
+  - Split history: view how a transaction was split
+  - Mobile: cards grouped by MobileDisclosure sections
+
+D. Tags (src/features/tags/)
+--------------------------------------------------------------------------------
+Manages the three tag taxonomies: Categories, Trips/Events, Types.
+
+  TagsList      — overview with per-tag transaction counts
+  TagsDetails   — drill into one tag, see its transactions
+  TagsSubList   — secondary list (e.g. Types under a Trip)
+  TagsAddTrip   — assign allowed Types to a Trip
+
+Operations: add · rename · delete
+Also manages:
+  - TripTypeMap: which Types are allowed for each Trip
+  - TripStatusMap: Active / Completed / Investment per Trip
+  - Undo queue for destructive operations
+  - Timeframe filter for transaction counts
+
+E. Analysis (src/features/analysis/)
+--------------------------------------------------------------------------------
+Data visualisation powered by Chart.js.
+
+Chart types:    Bar · Line · Pie · Doughnut
+Metrics:        Balance · Income · Expenses · Net Income
+X-axis grouping:Date (Daily/Weekly/Monthly/Yearly) · Category ·
+                Trip · Trip Type · None (summary)
+Filters:        Timeframe · Trip Status · specific Categories · specific Trips
+
+Sub-components:
+  AnalysisControls  — chart type + metric selectors
+  AnalysisFilters   — category/trip/date pickers
+  AnalysisChart     — Chart.js canvas wrapper
+  AnalysisTable     — tabular export of chart data
+
+Special rules enforced by the UI:
+  - "Cumulative Balance" forces date grouping
+  - Some chart types lock available metrics
+  - Trip Type grouping only available when a Trip filter is active
+
+F. Upload (src/features/upload/)
+--------------------------------------------------------------------------------
+Bulk import transactions from an Excel bank export.
+
+  - Drag-and-drop or file picker
+  - Uses ExcelService to parse
+  - Duplicate detection against existing transactions
+  - Preview table (toggle "Show New Only" to hide duplicates)
+  - Uploads in batches of 20 rows to avoid GAS timeout
+  - Admin-only route
+
+G. Settings (src/features/settings/)
+--------------------------------------------------------------------------------
+  - Opening Balance: base starting balance (editable, saved to backend)
+  - Manual Transaction Offset: auto-calculated, read-only
+  - Effective Start Balance: adjustedOpeningBalance, read-only
+  - Accessibility Mode: toggle colorblind-friendly +/- symbols (localStorage)
+
 
 ================================================================================
-6. WORKFLOW FOR EXPANSION (How to add features)
+6. SHARED COMPONENTS
 ================================================================================
 
-When you want to add a new feature (e.g., "Budget Goals"):
+SortableTable (src/shared/sortable-table.component.js)
+  Config: { columns[], onRowClick, enableSelection, onSelectionChange,
+            rowIdField, initialSortField, initialSortAsc }
+  Columns: { key, label, type ("date"|"text"|"currency"|"custom"),
+             sortable, render(row)→el, class }
+  Features: clickable sort headers · row checkboxes · custom cell renderers
 
-1.  **Define Data:** What does a "Budget Goal" look like? (Amount, Category, Month). Add this shape to your mental model.
-2.  **Backend:** Create `Service_Budget.gs`. Write functions to read/write this data to a new Sheet tab.
-3.  **Frontend Service:** Add `BudgetService.js` to talk to the backend.
-4.  **Frontend State:** Add `budgetList` to your Store.
-5.  **UI Component:** Create `BudgetComponent.js`.
-    - Subscribe to `budgetList` in the Store.
-    - Render the HTML.
-    - On click, call `BudgetService`.
-6.  **Wire Up:** Add the new component to your navigation router.
+ModalComponent (src/shared/modal.component.js)
+  modal.confirm(msg, title) → Promise<boolean>
+  modal.alert(msg, title)   → Promise<void>
+  modal.prompt(msg, default, title) → Promise<string|null>
+  Features: focus trap · Escape to close · backdrop click · ARIA attributes
 
-By following this order, you never touch the existing "Transactions" code to add "Budgets." Nothing breaks.
+TagSelector (src/shared/tag-selector.component.js)
+  Dropdown picker with search input.
+  Dynamic screen-edge avoidance. Click-outside + Escape to dismiss.
+
+MobileDataCard (src/shared/mobile-data-card.component.js)
+  Card layout for mobile lists. Props: eyebrow, title, details[], metrics[].
+  Supports tone/colour variants.
+
+MobileDisclosure (src/shared/mobile-disclosure.component.js)
+  Collapsible <details>-style section with item count in summary.
+
+LoaderComponent (src/shared/loader.component.js)
+  Full-page loading spinner tied to store.isLoading.
+
+
+================================================================================
+7. BACKEND (GOOGLE APPS SCRIPT)
+================================================================================
+
+Deployed as a publicly accessible Web App URL stored by the client in
+localStorage. All requests must carry a valid HMAC-SHA256 signature.
+
+Code.gs — Router (no business logic)
+  doGet(e) → routes on e.parameter.action
+
+  READ actions (admin + viewer):
+    ping · getData · getAppData · getOpeningBalance ·
+    getSplitGroup · getSplitHistory
+
+  WRITE actions (admin only):
+    saveData · updateExpenses · addTag · deleteTag · renameTag ·
+    processTagOperations · saveOpeningBalance ·
+    splitTransaction · revertSplit · editSplit
+
+  AUTH actions:
+    login — exchange passkey for sessionId + sessionKey + role
+
+Config.gs — Server-side constants (passkey hash, sheet names, column indices)
+
+Service_Auth.gs
+  - Verifies HMAC-SHA256 signatures on every request
+  - Validates timestamps (replay attack prevention)
+
+Service_Session.gs
+  - Generates random session tokens on login
+  - Maps sessionId → { sessionKey, role, expiry }
+
+Service_Sheet.gs — The ONLY file that touches SpreadsheetApp
+  - Read/write rows in the "Finances" sheet
+  - Opening balance in Config sheet cell C2
+  - Column mapping: Date(A) Description(B) Income(C) Expense(D)
+                    Category(E) Trip/Event(F) Type(G)
+                    Split Group ID(H) Split Type(I)
+
+Service_Tags.gs
+  - Maintains Category, Trip/Event, Type lists
+  - TripTypeMap and TripStatusMap stored in a dedicated Tags sheet
+  - Bulk operation support (add/delete/rename in one call)
+
+Service_Split.gs
+  - Creates split groups: marks original as SOURCE, writes CHILD rows
+  - Stores full split history in a Split History sheet
+  - Supports revert (removes CHILD rows, un-marks SOURCE) and edit
+  - Paginated history retrieval (500 rows per page)
+
+
+================================================================================
+8. SECURITY MODEL
+================================================================================
+
+Frontend:
+  - No innerHTML anywhere (XSS prevention)
+  - HMAC-SHA256 request signing (SubtleCrypto)
+  - Session credentials in sessionStorage (cleared on tab close)
+  - Input sanitisation: escapeHtml(), sanitizeForId() in utils.js
+
+Backend:
+  - Every request signature-verified before processing
+  - Role check before every write action
+  - Passkey never stored in plaintext (hashed in Config.gs)
+  - Timestamp validation window prevents replay attacks
+
+Known tradeoff:
+  JSONP is used instead of fetch due to Google Apps Script CORS constraints.
+  This is less ideal than a proper REST endpoint but is mitigated by:
+  strict URL control, unique per-request callback names, immediate cleanup.
+
+
+================================================================================
+9. UTILITIES (src/core/utils.js)
+================================================================================
+
+Currency:
+  formatCurrency(n)     → "1,234.56"
+  parseAmount(n)        → 1234.56  (handles strings, commas)
+
+Dates:
+  parseDate(str)               → Date object (handles multiple input formats)
+  formatDateForInput(date)     → "YYYY-MM-DD"
+  getCurrentMonthRange()       → { start, end }
+  getPastDaysRange(n)          → { start, end }
+  getPastMonthsRange(n)        → { start, end }
+  getPastYearRange()           → { start, end }
+  filterTransactionsByTimeframe(txns, timeframe) → filtered array
+
+General:
+  deepEqual(a, b)      → boolean  (handles circular refs)
+  deepClone(obj)       → copy     (structuredClone with custom fallback)
+  debounce(fn, ms)     → debounced fn
+  escapeHtml(str)      → safe string
+  sanitizeForId(str)   → safe HTML id
+
+
+================================================================================
+10. DATA FLOW: WORKED EXAMPLE — "Splitting a Transaction"
+================================================================================
+
+1. User clicks a transaction row in the Transactions table.
+2. TransactionsComponent opens SplitTransactionModal.
+3. User defines splits: £60 → Category A, £40 → Category B.
+4. Modal calls ApiService.splitTransaction(original, splits).
+5. ApiService signs the request and fires a JSONP call.
+6. Backend (Code.gs) routes to Service_Split.gs:
+     - Marks original row as Split Type = "SOURCE"
+     - Appends two CHILD rows for the splits
+     - Records everything in the Split History sheet
+7. Backend returns success.
+8. ApiService calls store.setState("rawExpenses", updatedData) and
+   invalidates the splitTransactions cache.
+9. TransactionService.mergeSplits() re-processes:
+     SOURCE row suppressed, CHILD rows injected in its place.
+10. store.setState("expenses", mergedData) fires.
+11. TransactionsComponent subscriber re-renders the table automatically.
+    The original row is gone; the two split rows appear in its place.
+
+
+================================================================================
+11. HOW TO ADD A NEW FEATURE
+================================================================================
+
+Example: "Budget Goals"
+
+1. Data shape: { category, amount, month }
+2. Backend: Service_Budget.gs — read/write a Budgets sheet tab.
+   Register actions in Code.gs: getBudgets, saveBudget, deleteBudget.
+3. API methods: add getBudgets(), saveBudget(), deleteBudget() to api.service.js.
+4. Store: add budgets: [] to the store default state.
+5. Component: src/features/budgets/budgets.component.js
+     - subscribe to "budgets" in the store
+     - render using el() — no innerHTML
+     - on user action, call api.service.js methods
+     - on success, call store.setState("budgets", newData)
+6. Router: register "#budgets" in router.js.
+7. Nav: add a sidebar link in index.html.
+
+No existing feature files need to be touched.
+
+
+================================================================================
+12. DEPLOYMENT
+================================================================================
+
+Frontend:
+  Push to main → GitHub Actions deploys to GitHub Pages automatically.
+  No build step. Files served as-is.
+
+Backend:
+  1. Paste .gs files into a Google Apps Script project.
+  2. Set passkey hash and sheet ID in Config.gs.
+  3. Deploy as Web App (Execute as: Me, Access: Anyone).
+  4. Copy the Web App URL.
+  5. Paste URL into the app on first login (stored in localStorage).
