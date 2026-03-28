@@ -69,7 +69,7 @@ const Service_Tags = {
       console.error("Error processing tag operations:", error);
       return {
         success: false,
-        message: "Error processing tag operations: " + error.message,
+        message: "Failed to process tag operations. Please try again.",
       };
     }
   },
@@ -230,7 +230,7 @@ function _addTag(type, value, skipSort, extraData) {
     }
   }
 
-  tagSheet.getRange(nextEmptyRow, column).setValue(value);
+  tagSheet.getRange(nextEmptyRow, column).setValue(_sanitizeForSheet(value));
 
   // If adding a Trip/Event, we must set its Type (Col 2) and Status (Col 3)
   if (type === "Trip/Event") {
@@ -322,9 +322,7 @@ function _deleteTag(type, value) {
         error,
       );
 
-      let message =
-        "Failed to remove tag usages from expenses/splits. Tag NOT deleted. Error: " +
-        error.message;
+      let message = "Failed to remove tag usages. Tag NOT deleted.";
       if (expensesUpdated) {
         message +=
           " WARNING: Tag was removed from Expenses but failed to remove from Splits. Data may be inconsistent.";
@@ -427,17 +425,18 @@ function _renameTag(type, oldValue, newValue, skipSort) {
   const updateRow = tagIndex + 2;
 
   // --- Step 1: Optimistic Update (Master) ---
-  tagSheet.getRange(updateRow, column).setValue(newValue);
+  tagSheet.getRange(updateRow, column).setValue(_sanitizeForSheet(newValue));
 
   // If renaming a "Type" (master list), update all Trip/Events (Col B) that use this type
   if (type === "Type") {
     const tripTypesRange = tagSheet.getRange(2, COL_TYPE, lastRow - 1, 1);
     const tripTypes = tripTypesRange.getValues();
     let updated = false;
+    const sanitizedNewValue = _sanitizeForSheet(newValue);
     const newTripTypes = tripTypes.map((r) => {
       if (r[0] === oldValue) {
         updated = true;
-        return [newValue];
+        return [sanitizedNewValue];
       }
       return r;
     });
@@ -554,8 +553,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       return {
         success: false,
         message:
-          "Tag rename failed during dependent updates. Changes reverted. Error: " +
-          error.message,
+          "Tag rename failed during dependent updates. Changes reverted.",
       };
     }
   }

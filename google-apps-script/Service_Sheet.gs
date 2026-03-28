@@ -66,14 +66,26 @@ const Service_Sheet = {
       const startRow = financeSheet.getLastRow() + 1;
       const recordsToAdd = data.map((row) => {
         const record = new Array(CONFIG.HEADERS.length).fill("");
-        record[CONFIG.HEADERS.indexOf("Document")] = row.document || "";
+        record[CONFIG.HEADERS.indexOf("Document")] = _sanitizeForSheet(
+          row.document,
+        );
         record[CONFIG.HEADERS.indexOf("Time-uploaded")] = new Date();
         record[CONFIG.HEADERS.indexOf("Date")] = row.date || "";
-        record[CONFIG.HEADERS.indexOf("Description")] = row.description || "";
-        record[CONFIG.HEADERS.indexOf("Trip/Event")] = row.tripEvent || "";
-        record[CONFIG.HEADERS.indexOf("Category")] = row.category || "";
-        record[CONFIG.HEADERS.indexOf("Income")] = row.cashIn || "";
-        record[CONFIG.HEADERS.indexOf("Expense")] = row.cashOut || "";
+        record[CONFIG.HEADERS.indexOf("Description")] = _sanitizeForSheet(
+          row.description,
+        );
+        record[CONFIG.HEADERS.indexOf("Trip/Event")] = _sanitizeForSheet(
+          row.tripEvent,
+        );
+        record[CONFIG.HEADERS.indexOf("Category")] = _sanitizeForSheet(
+          row.category,
+        );
+        const cashIn = parseFloat(row.cashIn);
+        const cashOut = parseFloat(row.cashOut);
+        record[CONFIG.HEADERS.indexOf("Income")] = isNaN(cashIn) ? "" : cashIn;
+        record[CONFIG.HEADERS.indexOf("Expense")] = isNaN(cashOut)
+          ? ""
+          : cashOut;
         record[CONFIG.HEADERS.indexOf("Type")] = row.isManual
           ? "Manual"
           : row.isUploaded
@@ -115,7 +127,10 @@ const Service_Sheet = {
       };
     } catch (error) {
       console.error("Error saving data:", error);
-      return { success: false, message: "Error saving data: " + error.message };
+      return {
+        success: false,
+        message: "Failed to save data. Please try again.",
+      };
     }
   },
 
@@ -162,7 +177,7 @@ const Service_Sheet = {
       console.error("Error getting data:", error);
       return {
         success: false,
-        message: "Error getting data: " + error.message,
+        message: "Failed to retrieve data. Please try again.",
       };
     }
   },
@@ -183,12 +198,36 @@ const Service_Sheet = {
       }
 
       const financeSheet = _getFinanceSheet();
+      const lastRow = financeSheet.getLastRow();
       const tripEventCol = CONFIG.HEADERS.indexOf("Trip/Event") + 1;
       const categoryCol = CONFIG.HEADERS.indexOf("Category") + 1;
       const failures = [];
 
+      // Fetch valid tags once to validate values before writing (issue 12)
+      const validTags = Service_Tags.getTags();
+      const validTripEvents = new Set(validTags["Trip/Event"]);
+      const validCategories = new Set(validTags["Category"]);
+
       for (const update of updates) {
         const row = update.row;
+        const tripVal = update.tripEvent || "";
+        const catVal = update.category || "";
+
+        // Validate tag values against the known taxonomy
+        if (tripVal && !validTripEvents.has(tripVal)) {
+          console.warn("Invalid Trip/Event tag rejected:", tripVal);
+          failures.push({ row, reason: "Invalid Trip/Event tag" });
+          continue;
+        }
+        if (catVal && !validCategories.has(catVal)) {
+          console.warn("Invalid Category tag rejected:", catVal);
+          failures.push({ row, reason: "Invalid Category tag" });
+          continue;
+        }
+
+        const sanitizedTripVal = _sanitizeForSheet(tripVal);
+        const sanitizedCatVal = _sanitizeForSheet(catVal);
+
         if (typeof row === "string" && row.startsWith("S-")) {
           // Handle Split Transaction Row
           if (
@@ -204,13 +243,13 @@ const Service_Sheet = {
           }
           Service_Split.updateSplitRowTag(
             row,
-            update.tripEvent,
-            update.category,
+            sanitizedTripVal,
+            sanitizedCatVal,
           );
-        } else if (typeof row === "number" && row > 1) {
-          // Handle Standard Row (numeric)
+        } else if (typeof row === "number" && row >= 2 && row <= lastRow) {
+          // Handle Standard Row (numeric) — bounds-checked against actual sheet data
           if (tripEventCol > 0) {
-            financeSheet.getRange(row, tripEventCol).setValue(update.tripEvent);
+            financeSheet.getRange(row, tripEventCol).setValue(sanitizedTripVal);
           } else {
             console.warn(
               "Trip/Event column not found, skipping update for row:",
@@ -219,7 +258,7 @@ const Service_Sheet = {
             failures.push({ row, reason: "Trip/Event column not found" });
           }
           if (categoryCol > 0) {
-            financeSheet.getRange(row, categoryCol).setValue(update.category);
+            financeSheet.getRange(row, categoryCol).setValue(sanitizedCatVal);
           } else {
             console.warn(
               "Category column not found, skipping update for row:",
@@ -228,7 +267,7 @@ const Service_Sheet = {
             failures.push({ row, reason: "Category column not found" });
           }
         } else if (row) {
-          console.error("Invalid row identifier:", row);
+          console.error("Invalid or out-of-range row identifier:", row);
           failures.push({ row, reason: "Invalid row identifier" });
         }
       }
@@ -242,7 +281,7 @@ const Service_Sheet = {
       console.error("Error updating expenses:", error);
       return {
         success: false,
-        message: "Error updating expenses: " + error.message,
+        message: "Failed to update expenses. Please try again.",
       };
     }
   },
@@ -264,7 +303,7 @@ const Service_Sheet = {
       console.error("Error getting opening balance:", error);
       return {
         success: false,
-        message: "Error getting opening balance: " + error.message,
+        message: "Failed to retrieve opening balance. Please try again.",
       };
     }
   },
@@ -287,7 +326,7 @@ const Service_Sheet = {
       console.error("Error saving opening balance:", error);
       return {
         success: false,
-        message: "Error saving opening balance: " + error.message,
+        message: "Failed to save opening balance. Please try again.",
       };
     }
   },
@@ -323,7 +362,7 @@ const Service_Sheet = {
       console.error("Error removing tag from expenses:", error);
       return {
         success: false,
-        message: "Error removing tag: " + error.message,
+        message: "Failed to remove tag. Please try again.",
       };
     }
   },
@@ -361,7 +400,7 @@ const Service_Sheet = {
       console.error("Error updating expenses with tag:", error);
       return {
         success: false,
-        message: "Error updating expenses: " + error.message,
+        message: "Failed to update expenses. Please try again.",
       };
     }
   },
@@ -506,7 +545,9 @@ function _getConfigSheet() {
 
   // Legacy migration:
   // Old layout used B1/B2 for Initial Balance. New layout uses C1/C2.
-  const legacyBalanceTitle = String(configSheet.getRange("B1").getValue() || "").trim();
+  const legacyBalanceTitle = String(
+    configSheet.getRange("B1").getValue() || "",
+  ).trim();
   const isLegacyLayout = legacyBalanceTitle === CONFIG.OPENING_BALANCE_TITLE;
   if (isLegacyLayout) {
     const legacyBalanceCell = configSheet.getRange("B2");
@@ -514,7 +555,9 @@ function _getConfigSheet() {
     const newBalanceCell = configSheet.getRange(CONFIG.OPENING_BALANCE_CELL);
     const newBalanceValue = newBalanceCell.getValue();
     const newBalanceIsEmpty =
-      newBalanceValue === "" || newBalanceValue === null || newBalanceValue === undefined;
+      newBalanceValue === "" ||
+      newBalanceValue === null ||
+      newBalanceValue === undefined;
 
     if (
       newBalanceIsEmpty &&
@@ -528,7 +571,9 @@ function _getConfigSheet() {
   }
 
   // Ensure titles are correct in the new layout
-  configSheet.getRange(CONFIG.API_KEY_TITLE_CELL).setValue(CONFIG.API_KEY_TITLE);
+  configSheet
+    .getRange(CONFIG.API_KEY_TITLE_CELL)
+    .setValue(CONFIG.API_KEY_TITLE);
   configSheet
     .getRange(CONFIG.VIEW_ONLY_API_KEY_TITLE_CELL)
     .setValue(CONFIG.VIEW_ONLY_API_KEY_TITLE);

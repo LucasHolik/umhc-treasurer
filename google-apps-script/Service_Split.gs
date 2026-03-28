@@ -38,7 +38,7 @@ const Service_Split = {
       console.error("Split error", error);
       return {
         success: false,
-        message: "Error splitting transaction: " + error.message,
+        message: "Failed to split transaction. Please try again.",
       };
     } finally {
       if (lockAcquired) {
@@ -104,7 +104,7 @@ const Service_Split = {
       console.error("Remove tag error", error);
       return {
         success: false,
-        message: "Error removing tag: " + error.message,
+        message: "Failed to remove tag. Please try again.",
       };
     } finally {
       if (lockAcquired) {
@@ -171,7 +171,7 @@ const Service_Split = {
       console.error("Update tag error", error);
       return {
         success: false,
-        message: "Error updating tag: " + error.message,
+        message: "Failed to update tag. Please try again.",
       };
     } finally {
       if (lockAcquired) {
@@ -225,16 +225,37 @@ const Service_Split = {
         };
       }
 
+      // Validate tag values against the known taxonomy (issue 12)
+      const tripVal = tripEvent || "";
+      const catVal = category || "";
+      if (tripVal || catVal) {
+        const validTags = Service_Tags.getTags();
+        const validTripEvents = new Set(validTags["Trip/Event"]);
+        const validCategories = new Set(validTags["Category"]);
+        if (tripVal && !validTripEvents.has(tripVal)) {
+          console.warn("Invalid Trip/Event tag rejected:", tripVal);
+          return { success: false, message: "Invalid Trip/Event tag." };
+        }
+        if (catVal && !validCategories.has(catVal)) {
+          console.warn("Invalid Category tag rejected:", catVal);
+          return { success: false, message: "Invalid Category tag." };
+        }
+      }
+
       // Trip/Event is col tripEventIndex + 1, Category is col categoryIndex + 1
-      splitSheet.getRange(rowIndex, tripEventIndex + 1).setValue(tripEvent);
-      splitSheet.getRange(rowIndex, categoryIndex + 1).setValue(category);
+      splitSheet
+        .getRange(rowIndex, tripEventIndex + 1)
+        .setValue(_sanitizeForSheet(tripVal));
+      splitSheet
+        .getRange(rowIndex, categoryIndex + 1)
+        .setValue(_sanitizeForSheet(catVal));
 
       return { success: true };
     } catch (error) {
       console.error("Update split row tag error", error);
       return {
         success: false,
-        message: "Error updating split row tag: " + error.message,
+        message: "Failed to update split row tag. Please try again.",
       };
     } finally {
       if (lockAcquired) {
@@ -271,7 +292,7 @@ const Service_Split = {
       console.error("Revert error", error);
       return {
         success: false,
-        message: "Error reverting split: " + error.message,
+        message: "Failed to revert split. Please try again.",
       };
     } finally {
       if (lockAcquired) {
@@ -413,7 +434,7 @@ const Service_Split = {
       console.error("Edit split error", error);
       return {
         success: false,
-        message: "Error editing split: " + error.message,
+        message: "Failed to edit split. Please try again.",
       };
     } finally {
       if (lockAcquired) {
@@ -511,7 +532,7 @@ const Service_Split = {
       console.error("Get split group error", error);
       return {
         success: false,
-        message: "Error fetching split group: " + error.message,
+        message: "Failed to fetch split group. Please try again.",
       };
     } finally {
       if (lockAcquired) {
@@ -626,7 +647,7 @@ const Service_Split = {
       console.error("Get split history error", error);
       return {
         success: false,
-        message: "Error fetching split history: " + error.message,
+        message: "Failed to fetch split history. Please try again.",
       };
     } finally {
       if (lockAcquired) {
@@ -711,7 +732,7 @@ const Service_Split = {
       console.error("Get all split history error", error);
       return {
         success: false,
-        message: "Error fetching all split history: " + error.message,
+        message: "Failed to fetch split history. Please try again.",
       };
     } finally {
       if (lockAcquired) {
@@ -1042,17 +1063,14 @@ function _writeSplitData(financeSheet, splitSheet, preparation) {
         return {
           success: false,
           message:
-            "Error writing split data: " +
-            error.message +
-            ". CRITICAL: Rollback also failed: " +
-            rollbackError.message,
+            "Failed to write split data. CRITICAL: Rollback also failed. Manual reconciliation may be required.",
         };
       }
     }
 
     return {
       success: false,
-      message: "Error writing split data: " + error.message,
+      message: "Failed to write split data. Please try again.",
     };
   }
 }

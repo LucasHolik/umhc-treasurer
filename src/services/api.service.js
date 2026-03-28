@@ -37,8 +37,11 @@ const READ_ONLY_MESSAGE =
 let _sessionId = null;
 let _sessionKey = null;
 
-const getScriptUrl = () => {
-  const raw = localStorage.getItem("script_url");
+// Once a session is established, the script URL is locked in memory so that
+// mid-session localStorage tampering cannot redirect API calls to a different endpoint.
+let _lockedScriptUrl = null;
+
+const _validateScriptUrl = (raw) => {
   if (!raw) return null;
   try {
     const parsed = new URL(raw);
@@ -52,6 +55,11 @@ const getScriptUrl = () => {
     return null;
   }
   return raw;
+};
+
+const getScriptUrl = () => {
+  if (_lockedScriptUrl) return _lockedScriptUrl;
+  return _validateScriptUrl(localStorage.getItem("script_url"));
 };
 
 const setScriptUrl = (url) => {
@@ -71,6 +79,9 @@ const hasScriptUrl = () => !!getScriptUrl();
 const initSession = () => {
   _sessionId = sessionStorage.getItem(SESSION_ID_KEY);
   _sessionKey = sessionStorage.getItem(SESSION_KEY_KEY);
+  if (_sessionId && _sessionKey) {
+    _lockedScriptUrl = _validateScriptUrl(localStorage.getItem("script_url"));
+  }
 };
 
 // Initialize immediately
@@ -79,6 +90,7 @@ initSession();
 const setSession = (sessionId, sessionKey) => {
   _sessionId = sessionId;
   _sessionKey = sessionKey;
+  _lockedScriptUrl = _validateScriptUrl(localStorage.getItem("script_url"));
   if (sessionId) sessionStorage.setItem(SESSION_ID_KEY, sessionId);
   else sessionStorage.removeItem(SESSION_ID_KEY);
 
@@ -89,6 +101,7 @@ const setSession = (sessionId, sessionKey) => {
 const clearSession = () => {
   _sessionId = null;
   _sessionKey = null;
+  _lockedScriptUrl = null;
   sessionStorage.removeItem(SESSION_ID_KEY);
   sessionStorage.removeItem(SESSION_KEY_KEY);
 };

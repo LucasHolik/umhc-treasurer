@@ -270,9 +270,9 @@ function doGet(e) {
 
     return createJsonResponse(response, e?.parameter?.callback);
   } catch (error) {
-    console.error("Server error in doGet: " + error.toString());
+    console.error("Server error in doGet:", error);
     return createJsonResponse(
-      { success: false, message: "Server Error" },
+      { success: false, message: "Server error. Please try again." },
       e?.parameter?.callback,
     );
   }
@@ -357,6 +357,22 @@ function createJsonResponse(data, callback) {
   return ContentService.createTextOutput(jsonp).setMimeType(
     ContentService.MimeType.JAVASCRIPT,
   );
+}
+
+/**
+ * Sanitizes a user-supplied string before writing it to a Google Sheets cell.
+ * Prefixes values that start with a formula character (=, +, -, @, tab, CR)
+ * with an apostrophe so Sheets treats them as plain text, preventing formula injection.
+ * @param {*} value
+ * @returns {string}
+ */
+function _sanitizeForSheet(value) {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  if (str.length > 0 && ["=", "+", "-", "@", "\t", "\r"].includes(str[0])) {
+    return "'" + str;
+  }
+  return str;
 }
 
 function validateJsonParameter(jsonString, expectedType) {

@@ -31,6 +31,18 @@ class App {
     };
     document.addEventListener("sessionExpired", this.sessionExpiredHandler);
 
+    // When a tab regains focus, verify the session is still valid server-side.
+    // This catches the case where a duplicated tab's session was revoked in another tab.
+    this.visibilityChangeHandler = () => {
+      if (document.visibilityState === "visible" && AuthService.isLoggedIn()) {
+        ApiService.ping().catch(() => {
+          // A 401 response dispatches the "sessionExpired" CustomEvent via ApiService,
+          // which AuthService.logout() handles via sessionExpiredHandler above.
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", this.visibilityChangeHandler);
+
     this.hashChangeHandler = () => {
       const hash = window.location.hash.slice(1) || "dashboard";
       this.updateActiveTab(hash);
@@ -583,6 +595,12 @@ class App {
       document.removeEventListener(
         "sessionExpired",
         this.sessionExpiredHandler,
+      );
+    }
+    if (this.visibilityChangeHandler) {
+      document.removeEventListener(
+        "visibilitychange",
+        this.visibilityChangeHandler,
       );
     }
 
