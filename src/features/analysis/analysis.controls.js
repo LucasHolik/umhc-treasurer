@@ -377,7 +377,7 @@ export default class AnalysisControls {
         : options[0].value;
 
       // Re-populate options
-      chartTypeSelect.innerHTML = "";
+      chartTypeSelect.replaceChildren();
       const optionEls = this.createOptions(options, chartTypeValue);
       optionEls.forEach((opt) => chartTypeSelect.appendChild(opt));
 
@@ -417,7 +417,7 @@ export default class AnalysisControls {
       )
         ? state.secondaryGroup
         : "none";
-      secondaryGroupSelect.innerHTML = "";
+      secondaryGroupSelect.replaceChildren();
       this.createOptions(secondaryOptions, secondaryGroupValue).forEach((opt) =>
         secondaryGroupSelect.appendChild(opt),
       );

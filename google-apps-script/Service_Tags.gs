@@ -638,6 +638,26 @@ function _processTagOperations(operations) {
     return { success: false, message: "Invalid operations array" };
   }
 
+  // Cap operations dynamically: allow 3 ops per existing tag (rename + delete +
+  // re-add headroom), with a floor of 50 so a fresh/empty tag sheet still works.
+  const currentTags = _getTags();
+  const totalTagCount =
+    currentTags["Trip/Event"].length +
+    currentTags["Category"].length +
+    currentTags["Type"].length;
+  const maxOps = Math.max(totalTagCount * 3, 50);
+  if (operations.length > maxOps) {
+    return {
+      success: false,
+      message:
+        "Too many operations (" +
+        operations.length +
+        "). Maximum allowed: " +
+        maxOps +
+        ".",
+    };
+  }
+
   const modifiedTypes = new Set();
   const appliedOperations = [];
 

@@ -4,11 +4,16 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; frame-ancestors 'none'; script-src 'self' https://script.google.com https://script.googleusercontent.com; style-src 'self'; img-src 'self' data:; connect-src 'self';"
+      content="default-src 'self'; script-src 'self' https://script.google.com https://script.googleusercontent.com; style-src 'self'; img-src 'self' data:; connect-src 'self';"
     />
     <!-- JSONP requests to GAS are made via <script> tags and are governed by
          script-src above, not connect-src. GAS URLs are intentionally absent
-         from connect-src to avoid a false impression of fetch/XHR protection. -->
+         from connect-src to avoid a false impression of fetch/XHR protection.
+         NOTE: frame-ancestors is intentionally absent from this <meta> CSP.
+         Browsers ignore frame-ancestors when delivered via <meta> (it requires
+         an HTTP response header). GitHub Pages does not support custom headers,
+         so clickjacking protection via frame-ancestors cannot be enforced in
+         this deployment. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <title>UMHC Treasurer</title>
@@ -35,6 +40,11 @@
   <body>
     <div id="app"></div>
 
+    <script
+      src="src/lib/chart.umd.min.js"
+      integrity="sha256-8qrlqNTgh+A4ULwxQ8qRV8iy3G9/ugkpWqnMiNIr9+I="
+      crossorigin="anonymous"
+    ></script>
     <script
       src="src/lib/read-excel-file.min.js"
       integrity="sha256-nJTVGJ35cqHaC/+z3lfC9d6kIMaMpyb1eVYrjUlzmlY="

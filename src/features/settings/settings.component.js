@@ -56,7 +56,7 @@ class SettingsComponent {
     }
 
     // Reset status content on re-render to match previous behavior (fresh state)
-    this.status.innerHTML = "";
+    this.status.replaceChildren();
 
     const currentBalance = store.getState("openingBalance") || 0;
     const expenses = store.getState("expenses") || [];

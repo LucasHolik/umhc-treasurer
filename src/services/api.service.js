@@ -64,9 +64,12 @@ const getScriptUrl = () => {
 
 const setScriptUrl = (url) => {
   if (url) {
-    localStorage.setItem("script_url", String(url).trim());
+    const trimmed = String(url).trim();
+    localStorage.setItem("script_url", trimmed);
+    _lockedScriptUrl = _validateScriptUrl(trimmed); // lock in memory immediately
   } else {
     localStorage.removeItem("script_url");
+    _lockedScriptUrl = null;
   }
 };
 
@@ -79,9 +82,10 @@ const hasScriptUrl = () => !!getScriptUrl();
 const initSession = () => {
   _sessionId = sessionStorage.getItem(SESSION_ID_KEY);
   _sessionKey = sessionStorage.getItem(SESSION_KEY_KEY);
-  if (_sessionId && _sessionKey) {
-    _lockedScriptUrl = _validateScriptUrl(localStorage.getItem("script_url"));
-  }
+  // Lock the URL at page load regardless of session state. This prevents a
+  // browser extension (or other code) from swapping localStorage between the
+  // user saving the URL and submitting their passkey.
+  _lockedScriptUrl = _validateScriptUrl(localStorage.getItem("script_url"));
 };
 
 // Initialize immediately
@@ -90,7 +94,13 @@ initSession();
 const setSession = (sessionId, sessionKey) => {
   _sessionId = sessionId;
   _sessionKey = sessionKey;
-  _lockedScriptUrl = _validateScriptUrl(localStorage.getItem("script_url"));
+  // Only lock the URL if it isn't already locked. The common path sets it at
+  // page load (initSession) or when the user explicitly saves a URL
+  // (setScriptUrl). The fallback here covers logout → re-login without a page
+  // reload, where clearSession() has nulled _lockedScriptUrl.
+  if (!_lockedScriptUrl) {
+    _lockedScriptUrl = _validateScriptUrl(localStorage.getItem("script_url"));
+  }
   if (sessionId) sessionStorage.setItem(SESSION_ID_KEY, sessionId);
   else sessionStorage.removeItem(SESSION_ID_KEY);
 

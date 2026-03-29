@@ -105,6 +105,12 @@ const Service_Auth = {
       const payload = this._buildPayload(action, timestamp, allParams);
       if (action === "login") {
         const cache = CacheService.getScriptCache();
+        // TRADEOFF: This counter is GLOBAL — GAS does not expose the client IP,
+        // so we cannot scope it per-caller. Consequence: 10 failed login attempts
+        // from ANY source in a single 10-minute window will lock out ALL users
+        // for the remainder of that window. This is a known denial-of-service
+        // risk accepted because no per-IP isolation primitive exists in GAS.
+        // The window resets automatically at the next 10-minute boundary.
         const bucketKey = "bf_" + Math.floor(Date.now() / 600000);
         const failCount = parseInt(cache.get(bucketKey) || "0", 10);
         if (failCount >= 10) {

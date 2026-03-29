@@ -6,7 +6,9 @@ const Service_Session = {
    */
   createSession: function (role) {
     const sessionId = Utilities.getUuid();
-    const sessionKey = Utilities.getUuid(); // Use a UUID as a random session secret
+    // UUID v4 provides 122 bits of cryptographic randomness — sufficient for a
+    // session secret at this scale. getUuid() delegates to Google's CSPRNG.
+    const sessionKey = Utilities.getUuid();
 
     // Store in CacheService
     // We store the sessionKey keyed by sessionId.

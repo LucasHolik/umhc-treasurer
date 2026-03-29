@@ -560,7 +560,6 @@ const Service_Split = {
       }
 
       const page = parseInt(e.parameter.page) || 1;
-      const pageSize = parseInt(e.parameter.pageSize) || 500; // Default chunk size
 
       const splitSheetRes = _getSplitSheet(); // Use helper function
       if (!splitSheetRes.success) return splitSheetRes;
@@ -573,6 +572,13 @@ const Service_Split = {
       }
 
       const totalRows = lastRow - 1; // Exclude header
+      // Cap pageSize to the actual number of rows so a caller cannot request
+      // more data than exists, regardless of what they send.
+      const rawPageSize = parseInt(e.parameter.pageSize) || 500;
+      const pageSize = Math.min(
+        Math.max(1, rawPageSize),
+        Math.max(totalRows, 1),
+      );
 
       // Calculate indices
       // 1-based rows. Data starts at row 2.

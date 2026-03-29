@@ -369,7 +369,10 @@ function createJsonResponse(data, callback) {
 function _sanitizeForSheet(value) {
   if (value === null || value === undefined) return "";
   const str = String(value);
-  if (str.length > 0 && ["=", "+", "-", "@", "\t", "\r"].includes(str[0])) {
+  if (
+    str.length > 0 &&
+    ["=", "+", "-", "@", "\t", "\r", "\n"].includes(str[0])
+  ) {
     return "'" + str;
   }
   return str;
