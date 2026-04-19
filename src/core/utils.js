@@ -77,29 +77,67 @@ export function getCurrentMonthRange() {
 
 export function getPastDaysRange(days) {
   const now = new Date();
-  const start = new Date();
-  start.setDate(now.getDate() - days);
-  return { start, end: now };
+  const end = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23,
+    59,
+    59,
+    999,
+  );
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - days,
+    0,
+    0,
+    0,
+    0,
+  );
+  return { start, end };
 }
 
 export function getPastMonthsRange(months) {
   const now = new Date();
-  const start = new Date();
+  const end = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23,
+    59,
+    59,
+    999,
+  );
   // Set to the 1st of the month to avoid overflow issues on the 29th-31st.
   // e.g. March 31st - 1 month would otherwise overflow to March 2nd/3rd (skipping Feb).
   // This results in a range starting from the beginning of the month 'months' ago.
-  start.setDate(1);
-  start.setMonth(now.getMonth() - months);
-  return { start, end: now };
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth() - months,
+    1,
+    0,
+    0,
+    0,
+    0,
+  );
+  return { start, end };
 }
 
 export function getPastYearRange() {
   const now = new Date();
-  const start = new Date();
+  const end = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23,
+    59,
+    59,
+    999,
+  );
   // Set to 1st to avoid leap year overflow (Feb 29 -> Mar 1)
-  start.setDate(1);
-  start.setFullYear(now.getFullYear() - 1);
-  return { start, end: now };
+  const start = new Date(now.getFullYear() - 1, now.getMonth(), 1, 0, 0, 0, 0);
+  return { start, end };
 }
 
 export function getDateRange(timeframe) {
@@ -283,7 +321,7 @@ export function deepEqual(x, y, visited = new WeakMap()) {
     return true;
   }
 
-  if (x instanceof Date) return false;
+  if (x instanceof Date) return x.getTime() === y.getTime();
 
   if (typeof x !== "object" || typeof y !== "object") return false;
 
