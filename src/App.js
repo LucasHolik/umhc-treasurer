@@ -140,8 +140,7 @@ class App {
     this.cleanupMainApp();
     this.globalLoader = new LoaderComponent();
     const currentUser = store.getState("currentUser") || {};
-    const isReadOnly = currentUser.canEdit === false;
-    const canEdit = !isReadOnly;
+    const canEdit = currentUser.canEdit === true;
 
     const navItem = (tab, icon, text, active = false) =>
       el(
@@ -314,7 +313,7 @@ class App {
   initComponents() {
     this.components = {};
     const currentUser = store.getState("currentUser") || {};
-    const canEdit = currentUser.canEdit !== false;
+    const canEdit = currentUser.canEdit === true;
 
     const dashboardEl = this.element.querySelector("#dashboard-content");
     const transactionsEl = this.element.querySelector("#transactions-content");
@@ -518,7 +517,7 @@ class App {
 
   updateActiveTab(tabName) {
     const currentUser = store.getState("currentUser") || {};
-    const canEdit = currentUser.canEdit !== false;
+    const canEdit = currentUser.canEdit === true;
     if (!canEdit && tabName === "upload") {
       tabName = "dashboard";
       if (window.location.hash.slice(1) === "upload") {
@@ -559,15 +558,15 @@ class App {
       const appData = await ApiService.getAppData();
 
       if (appData.success) {
-        // Store raw expenses. This triggers the subscription in constructor to process and update 'expenses'
-        store.setState("rawExpenses", appData.data.expenses);
-        store.setState("tags", appData.data.tags);
-        store.setState("openingBalance", appData.data.openingBalance);
-        // Set split transactions from the single API call
         store.setState(
           "splitTransactions",
           appData.data.splitTransactions || [],
         );
+        store.setState("tags", appData.data.tags);
+        store.setState("openingBalance", appData.data.openingBalance);
+        // Store raw expenses last — triggers the subscription that merges splits,
+        // which must already be in the store to avoid a flash of un-split state.
+        store.setState("rawExpenses", appData.data.expenses);
       } else {
         console.error("API returned success: false", appData);
         store.setState("error", appData.message || "Failed to load data");
