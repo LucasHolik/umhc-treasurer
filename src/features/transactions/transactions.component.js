@@ -1722,14 +1722,9 @@ class TransactionsComponent {
 
       document.dispatchEvent(new CustomEvent("dataUploaded"));
     } catch (error) {
-      store.setState("taggingProgress", `Error: ${error.message}`);
-      const timeoutId = setTimeout(() => {
-        store.setState("isTagging", false);
-        store.setState("taggingSource", null);
-        const index = this.activeTimeouts.indexOf(timeoutId);
-        if (index > -1) this.activeTimeouts.splice(index, 1);
-      }, 3000);
-      this.activeTimeouts.push(timeoutId);
+      store.setState("error", `Failed to save tag changes: ${error.message}`);
+      store.setState("isTagging", false);
+      store.setState("taggingSource", null);
     }
   }
 
@@ -1810,14 +1805,9 @@ class TransactionsComponent {
       document.dispatchEvent(new CustomEvent("dataUploaded"));
     } catch (error) {
       console.error("Bulk tagging failed:", error);
-      store.setState("taggingProgress", `Error: ${error.message}`);
-      const timeoutId = setTimeout(() => {
-        store.setState("isTagging", false);
-        store.setState("taggingSource", null);
-        const index = this.activeTimeouts.indexOf(timeoutId);
-        if (index > -1) this.activeTimeouts.splice(index, 1);
-      }, 3000);
-      this.activeTimeouts.push(timeoutId);
+      store.setState("error", `Failed to apply bulk tags: ${error.message}`);
+      store.setState("isTagging", false);
+      store.setState("taggingSource", null);
     }
   }
 
