@@ -57,9 +57,10 @@ export default class SplitTransactionModal {
     if (existingSplits) {
       this.mode = "edit";
       this.groupId = groupId;
-      this.splits = existingSplits.map((s) => ({
+      this.splits = existingSplits.map((s, i) => ({
         description: s.Description || s.description || "", // handle both cases
         amount: this._parseSplitAmount(s),
+        partNumber: i + 1,
       }));
 
       // Validate that existing splits sum to original amount
@@ -79,10 +80,12 @@ export default class SplitTransactionModal {
         {
           description: (transaction.Description ?? "Transaction") + " (Part 1)",
           amount: 0,
+          partNumber: 1,
         },
         {
           description: (transaction.Description ?? "Transaction") + " (Part 2)",
           amount: 0,
+          partNumber: 2,
         },
       ];
     }
@@ -323,9 +326,11 @@ export default class SplitTransactionModal {
 
   addSplit() {
     const baseDesc = this.transaction.Description ?? "Transaction";
+    const nextPart = Math.max(...this.splits.map((s) => s.partNumber ?? 0)) + 1;
     this.splits.push({
-      description: baseDesc + " (Part " + (this.splits.length + 1) + ")",
+      description: baseDesc + " (Part " + nextPart + ")",
       amount: 0,
+      partNumber: nextPart,
     });
     this.renderSplits();
     this.updateCalculations();

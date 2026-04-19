@@ -1296,19 +1296,22 @@ class TransactionsComponent {
     if (store.getState("savingSplitTransaction")) {
       return; // Prevent concurrent split operations
     }
-    store.setState("savingSplitTransaction", true);
+    if (this._splitModalOpen) return; // Prevent opening a second modal before the first resolves
+    this._splitModalOpen = true;
 
     const modal = new SplitTransactionModal();
     let splits;
     try {
       splits = await modal.open(transaction);
     } catch (error) {
-      store.setState("savingSplitTransaction", false);
       console.error("Split modal error:", error);
+      this._splitModalOpen = false;
       return;
     }
+    this._splitModalOpen = false;
 
     if (splits) {
+      store.setState("savingSplitTransaction", true);
       try {
         // Use skipLoading: true to manage our own state/UI
         await ApiService.splitTransaction(transaction, splits, {
@@ -1322,8 +1325,6 @@ class TransactionsComponent {
         alert("Failed to split transaction: " + error.message);
         store.setState("savingSplitTransaction", false);
       }
-    } else {
-      store.setState("savingSplitTransaction", false);
     }
   }
 
