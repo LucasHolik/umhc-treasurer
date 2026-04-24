@@ -292,9 +292,10 @@ const request = (action, params = {}, options = {}) => {
           cleanedUp = true;
 
           clearTimeout(timeoutId);
-          if (window[callbackName]) {
-            delete window[callbackName];
-          }
+          // Replace with no-op instead of deleting: the script tag can't be
+          // cancelled, so a late-arriving response must call something rather
+          // than throw ReferenceError.
+          window[callbackName] = () => {};
           if (document.body.contains(script)) {
             document.body.removeChild(script);
           }
