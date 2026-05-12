@@ -4,6 +4,7 @@ import {
   formatDateForInput,
 } from "../../core/utils.js";
 import ModalComponent from "../../shared/modal.component.js";
+import TagSelector from "../../shared/tag-selector.component.js";
 import { el, replace } from "../../core/dom.js";
 
 export default class SplitTransactionModal {
@@ -12,6 +13,8 @@ export default class SplitTransactionModal {
     this.splits = [];
     this.mode = "create"; // 'create' or 'edit'
     this.groupId = null;
+    this.tagSelector = new TagSelector();
+    this.tagSelector.element.classList.add("tag-selector-popover--split-modal");
   }
 
   /**
@@ -61,6 +64,8 @@ export default class SplitTransactionModal {
         description: s.Description || s.description || "", // handle both cases
         amount: this._parseSplitAmount(s),
         partNumber: i + 1,
+        category: s.Category ?? s.category ?? "",
+        tripEvent: s["Trip/Event"] ?? s.tripEvent ?? "",
       }));
 
       // Validate that existing splits sum to original amount
@@ -76,16 +81,22 @@ export default class SplitTransactionModal {
       }
     } else {
       this.mode = "create";
+      const srcCategory = transaction.Category ?? "";
+      const srcTripEvent = transaction["Trip/Event"] ?? "";
       this.splits = [
         {
           description: (transaction.Description ?? "Transaction") + " (Part 1)",
           amount: 0,
           partNumber: 1,
+          category: srcCategory,
+          tripEvent: srcTripEvent,
         },
         {
           description: (transaction.Description ?? "Transaction") + " (Part 2)",
           amount: 0,
           partNumber: 2,
+          category: srcCategory,
+          tripEvent: srcTripEvent,
         },
       ];
     }
@@ -310,18 +321,107 @@ export default class SplitTransactionModal {
         "×",
       );
 
+      const tagsRow = el(
+        "div",
+        { className: "split-row-tags" },
+        this._renderTagPill(index, "Trip/Event", split.tripEvent),
+        this._renderTagPill(index, "Category", split.category),
+      );
+
       return el(
         "div",
         {
           className: "split-row split-edit-row",
         },
-        descInput,
-        amountInput,
-        removeBtn,
+        el(
+          "div",
+          { className: "split-row-main" },
+          descInput,
+          amountInput,
+          removeBtn,
+        ),
+        tagsRow,
       );
     });
 
     replace(this.splitsContainer, ...rows);
+  }
+
+  _renderTagPill(index, type, value) {
+    const writeBack = (newVal) => {
+      if (type === "Category") this.splits[index].category = newVal;
+      else this.splits[index].tripEvent = newVal;
+      this.renderSplits();
+    };
+
+    if (value) {
+      const pill = el(
+        "span",
+        {
+          className: "tag-pill split-tag-pill",
+          tabIndex: "0",
+          role: "button",
+          title: `Change ${type}`,
+        },
+        el("span", { className: "tag-pill-type" }, `${type}: `),
+        el("span", { className: "tag-text" }, value),
+        el(
+          "span",
+          {
+            className: "remove-btn",
+            title: `Remove ${type}`,
+            "aria-label": `Remove ${type}`,
+          },
+          "×",
+        ),
+      );
+
+      pill.addEventListener("click", (e) => {
+        if (e.target.classList.contains("remove-btn")) {
+          e.stopPropagation();
+          writeBack("");
+          return;
+        }
+        e.stopPropagation();
+        this.tagSelector.show(pill, type, value, writeBack);
+      });
+
+      pill.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          this.tagSelector.show(pill, type, value, writeBack);
+        }
+      });
+
+      return pill;
+    }
+
+    const placeholder = el(
+      "span",
+      {
+        className: "add-tag-placeholder split-tag-placeholder",
+        tabIndex: "0",
+        role: "button",
+        title: `Add ${type}`,
+      },
+      `+ ${type}`,
+    );
+
+    placeholder.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.tagSelector.show(placeholder, type, "", writeBack);
+    });
+
+    placeholder.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        e.stopPropagation();
+        this.tagSelector.show(placeholder, type, "", writeBack);
+      }
+    });
+
+    return placeholder;
   }
 
   addSplit() {
@@ -331,6 +431,8 @@ export default class SplitTransactionModal {
       description: baseDesc + " (Part " + nextPart + ")",
       amount: 0,
       partNumber: nextPart,
+      category: this.transaction.Category ?? "",
+      tripEvent: this.transaction["Trip/Event"] ?? "",
     });
     this.renderSplits();
     this.updateCalculations();
@@ -408,6 +510,8 @@ export default class SplitTransactionModal {
     const splitsPayload = this.splits.map((s) => ({
       Description: s.description,
       Amount: s.amount,
+      Category: s.category ?? "",
+      TripEvent: s.tripEvent ?? "",
     }));
 
     if (this.mode === "edit") {
@@ -428,6 +532,10 @@ export default class SplitTransactionModal {
     if (this.handleEscape) {
       document.removeEventListener("keydown", this.handleEscape);
       this.handleEscape = null;
+    }
+    if (this.tagSelector) {
+      this.tagSelector.destroy();
+      this.tagSelector = null;
     }
     if (this.overlay) {
       this.overlay.remove();

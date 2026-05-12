@@ -718,9 +718,37 @@
 
 .split-edit-row {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.split-row-main {
+  display: flex;
   gap: 10px;
-  margin-bottom: 10px;
   align-items: center;
+}
+
+.split-row-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-left: 2px;
+}
+
+.tag-selector-popover--split-modal {
+  background-color: #2b2b2b;
+  border-color: #444;
+}
+
+.split-tag-pill,
+.split-tag-placeholder {
+  font-size: 0.85em;
+}
+
+.tag-pill-type {
+  opacity: 0.7;
+  margin-right: 2px;
 }
 
 .split-input-desc {
