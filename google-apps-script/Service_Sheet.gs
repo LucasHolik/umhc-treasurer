@@ -343,7 +343,14 @@ const Service_Sheet = {
   },
 
   removeTagFromExpenses: function (type, value) {
+    const lock = LockService.getScriptLock();
+    let lockAcquired = false;
     try {
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
+      }
+      lockAcquired = true;
+
       const financeSheet = _getFinanceSheet();
       const lastRow = financeSheet.getLastRow();
       if (lastRow <= 1) {
@@ -375,11 +382,22 @@ const Service_Sheet = {
         success: false,
         message: "Failed to remove tag. Please try again.",
       };
+    } finally {
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
   },
 
   updateExpensesWithTag: function (oldTag, newTag, type) {
+    const lock = LockService.getScriptLock();
+    let lockAcquired = false;
     try {
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
+      }
+      lockAcquired = true;
+
       const financeSheet = _getFinanceSheet();
       const lastRow = financeSheet.getLastRow();
 
@@ -404,7 +422,6 @@ const Service_Sheet = {
         }
       }
 
-      // Write the updated values back to the sheet
       range.setValues(values);
       return { success: true, message: "Expenses updated successfully." };
     } catch (error) {
@@ -413,6 +430,10 @@ const Service_Sheet = {
         success: false,
         message: "Failed to update expenses. Please try again.",
       };
+    } finally {
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
   },
 };
