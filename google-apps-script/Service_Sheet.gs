@@ -367,20 +367,86 @@ const Service_Sheet = {
 
       const range = financeSheet.getRange(2, column, lastRow - 1, 1);
       const values = range.getValues();
+      const modifiedRows = [];
 
       for (let i = 0; i < values.length; i++) {
         if (values[i][0] === value) {
           values[i][0] = "";
+          modifiedRows.push(i + 2); // 1-based sheet row
         }
       }
 
-      range.setValues(values);
-      return { success: true, message: "Tag removed successfully." };
+      if (modifiedRows.length > 0) {
+        range.setValues(values);
+      }
+      return {
+        success: true,
+        message: "Tag removed successfully.",
+        modifiedRows: modifiedRows,
+      };
     } catch (error) {
       console.error("Error removing tag from expenses:", error);
       return {
         success: false,
         message: "Failed to remove tag. Please try again.",
+      };
+    } finally {
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
+    }
+  },
+
+  restoreTagInExpenses: function (type, value, rowIndices) {
+    const lock = LockService.getScriptLock();
+    let lockAcquired = false;
+    try {
+      if (!Array.isArray(rowIndices) || rowIndices.length === 0) {
+        return { success: true, message: "No rows to restore." };
+      }
+
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
+      }
+      lockAcquired = true;
+
+      const financeSheet = _getFinanceSheet();
+      const lastRow = financeSheet.getLastRow();
+      if (lastRow <= 1) {
+        return {
+          success: false,
+          message: "Expenses sheet is empty; cannot restore tag.",
+        };
+      }
+
+      const column = CONFIG.HEADERS.indexOf(type) + 1;
+      if (column <= 0) {
+        return {
+          success: false,
+          message: "Invalid type parameter or column not found.",
+        };
+      }
+
+      for (let i = 0; i < rowIndices.length; i++) {
+        const row = rowIndices[i];
+        if (row < 2 || row > lastRow) {
+          return {
+            success: false,
+            message: "Row index out of range: " + row,
+          };
+        }
+      }
+
+      for (let i = 0; i < rowIndices.length; i++) {
+        financeSheet.getRange(rowIndices[i], column).setValue(value);
+      }
+
+      return { success: true, message: "Tag restored successfully." };
+    } catch (error) {
+      console.error("Error restoring tag in expenses:", error);
+      return {
+        success: false,
+        message: "Failed to restore tag. Please try again.",
       };
     } finally {
       if (lockAcquired) {

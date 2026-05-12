@@ -272,21 +272,17 @@ function _deleteTag(type, value) {
     return { success: false, message: "Tag not found." };
   }
 
-  // --- Step 1: External Updates (Safe First) ---
-  // We remove the tag from expenses/splits BEFORE deleting it from the master list.
-  // This prevents the "Ghost Tag" issue where a tag is deleted but still referenced.
-  // If this fails, we abort, leaving the tag in the master list (safe state).
-  //
-  // LIMITATION: This operation is not fully atomic across services.
-  // If removeTagFromExpenses succeeds but removeTagFromSplits fails,
-  // the tag will remain in the master list (aborting delete), but will have been
-  // removed from the Expenses sheet. Manual reconciliation may be required in this edge case.
+  // --- Step 1: External Updates with Rollback ---
+  // Strip the tag from Expenses and Splits before deleting it from the master
+  // list. If the Splits write fails after Expenses succeeded, restore the
+  // affected Expenses rows so we leave both sheets in their pre-call state.
 
   if (type === "Trip/Event" || type === "Category") {
     // Pre-flight dependency checks
     if (
       typeof Service_Sheet === "undefined" ||
-      !Service_Sheet.removeTagFromExpenses
+      !Service_Sheet.removeTagFromExpenses ||
+      !Service_Sheet.restoreTagInExpenses
     ) {
       return {
         success: false,
@@ -304,28 +300,51 @@ function _deleteTag(type, value) {
       };
     }
 
-    let expensesUpdated = false;
-    try {
-      const expenseResult = Service_Sheet.removeTagFromExpenses(type, value);
-      if (!expenseResult.success) {
-        throw new Error("Expenses update failed: " + expenseResult.message);
-      }
-      expensesUpdated = true;
+    const expenseResult = Service_Sheet.removeTagFromExpenses(type, value);
+    if (!expenseResult.success) {
+      return {
+        success: false,
+        message: "Failed to remove tag usages. Tag NOT deleted.",
+      };
+    }
 
-      const splitResult = Service_Split.removeTagFromSplits(type, value);
-      if (!splitResult.success) {
-        throw new Error("Splits update failed: " + splitResult.message);
-      }
-    } catch (error) {
+    const modifiedExpenseRows = Array.isArray(expenseResult.modifiedRows)
+      ? expenseResult.modifiedRows
+      : [];
+
+    const splitResult = Service_Split.removeTagFromSplits(type, value);
+    if (!splitResult.success) {
       console.error(
-        "Aborting tag deletion due to external update failure:",
-        error,
+        "Splits update failed during tag deletion. Rolling back Expenses...",
+        splitResult,
       );
 
-      let message = "Failed to remove tag usages. Tag NOT deleted.";
-      if (expensesUpdated) {
-        message +=
-          " WARNING: Tag was removed from Expenses but failed to remove from Splits. Data may be inconsistent.";
+      let message =
+        "Failed to remove tag usages. Tag NOT deleted. Changes reverted.";
+
+      if (modifiedExpenseRows.length > 0) {
+        try {
+          const revertResult = Service_Sheet.restoreTagInExpenses(
+            type,
+            value,
+            modifiedExpenseRows,
+          );
+          if (!revertResult.success) {
+            console.error(
+              "CRITICAL: Failed to rollback Expenses sheet during delete failure.",
+              revertResult,
+            );
+            message =
+              "Tag delete failed and Expenses rollback failed. Data is INCONSISTENT. Manual reconciliation required.";
+          }
+        } catch (rollbackError) {
+          console.error(
+            "CRITICAL: Exception during Expenses rollback.",
+            rollbackError,
+          );
+          message =
+            "Tag delete failed and Expenses rollback threw. Data is INCONSISTENT. Manual reconciliation required.";
+        }
       }
 
       return {
