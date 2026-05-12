@@ -1,6 +1,13 @@
 const Service_Sheet = {
   saveData: function (e) {
+    const lock = LockService.getScriptLock();
+    let lockAcquired = false;
     try {
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
+      }
+      lockAcquired = true;
+
       if (!e || !e.parameter) {
         return { success: false, message: "Invalid request parameters." };
       }
@@ -131,6 +138,10 @@ const Service_Sheet = {
         success: false,
         message: "Failed to save data. Please try again.",
       };
+    } finally {
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
     }
   },
 
@@ -460,6 +471,8 @@ function _getFinanceSheet() {
   return financeSheet;
 }
 
+// Precondition: caller must hold the script lock — performs an unguarded
+// read-modify-write of the Finance sheet.
 function _sortSheetByDate() {
   const financeSheet = _getFinanceSheet();
   const lastRow = financeSheet.getLastRow();
