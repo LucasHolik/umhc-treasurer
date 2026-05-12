@@ -1,5 +1,9 @@
 const Service_Split = {
   SPLIT_SHEET_NAME: "Split Transactions",
+  SPLIT_TYPE_SOURCE: "SOURCE",
+  SPLIT_TYPE_CHILD: "CHILD",
+  SPLIT_TYPE_PENDING: "PENDING",
+  PENDING_SWEEP_MS: 10 * 60 * 1000,
 
   /**
    * Processes a split transaction by archiving the original and creating child entries.
@@ -491,6 +495,7 @@ const Service_Split = {
       for (let i = 1; i < data.length; i++) {
         if (data[i][idIndex] === groupId) {
           const row = data[i];
+          if (row[typeIndex] === Service_Split.SPLIT_TYPE_PENDING) continue;
           const obj = {};
 
           // Map based on CONFIG.HEADERS if present in sheet headers
@@ -517,9 +522,9 @@ const Service_Split = {
             obj["Split Date"] = sDate;
           }
 
-          if (row[typeIndex] === "SOURCE") {
+          if (row[typeIndex] === Service_Split.SPLIT_TYPE_SOURCE) {
             source = obj;
-          } else if (row[typeIndex] === "CHILD") {
+          } else if (row[typeIndex] === Service_Split.SPLIT_TYPE_CHILD) {
             children.push(obj);
           }
         }
@@ -607,6 +612,12 @@ const Service_Split = {
 
       for (let i = 0; i < values.length; i++) {
         const row = values[i];
+        if (
+          typeIndex !== -1 &&
+          row[typeIndex] === Service_Split.SPLIT_TYPE_PENDING
+        ) {
+          continue;
+        }
         const obj = {};
         const currentRowIndex = startRowIndex + i;
 
@@ -700,6 +711,12 @@ const Service_Split = {
 
       for (let i = 0; i < values.length; i++) {
         const row = values[i];
+        if (
+          typeIndex !== -1 &&
+          row[typeIndex] === Service_Split.SPLIT_TYPE_PENDING
+        ) {
+          continue;
+        }
         const obj = {};
         const currentRowIndex = i + 2; // Data starts at row 2, so add 2
 
@@ -995,8 +1012,14 @@ function _prepareSplitData(financeSheet, original, splits) {
   // Update ID in the in-memory array for archive rows
   originalRowValues[idIndex] = splitGroupId;
 
+  const PENDING = Service_Split.SPLIT_TYPE_PENDING;
+  const SOURCE = Service_Split.SPLIT_TYPE_SOURCE;
+  const CHILD = Service_Split.SPLIT_TYPE_CHILD;
+
   const archiveRows = [];
-  archiveRows.push([...originalRowValues, "SOURCE", splitDate]);
+  const finalTypes = [];
+  archiveRows.push([...originalRowValues, PENDING, splitDate]);
+  finalTypes.push(SOURCE);
 
   splits.forEach((split) => {
     const childRow = [...originalRowValues];
@@ -1015,69 +1038,127 @@ function _prepareSplitData(financeSheet, original, splits) {
       childRow[incomeIndex] = "";
       childRow[expenseIndex] = split.Amount;
     }
-    archiveRows.push([...childRow, "CHILD", splitDate]);
+    archiveRows.push([...childRow, PENDING, splitDate]);
+    finalTypes.push(CHILD);
   });
+
+  // Split Type / Split Date columns sit immediately after CONFIG.HEADERS.
+  const splitTypeColIndex = CONFIG.HEADERS.length + 1; // 1-based
 
   return {
     success: true,
     splitGroupId: splitGroupId,
     rowIndex: rowIndex,
     archiveRows: archiveRows,
+    finalTypes: finalTypes,
+    splitTypeColIndex: splitTypeColIndex,
     idIndex: idIndex,
   };
 }
 
 function _writeSplitData(financeSheet, splitSheet, preparation) {
-  let rowsWritten = false;
+  // Opportunistically clear any stale PENDING rows left by prior failures.
+  // Safe under the script lock and bounded by PENDING_SWEEP_MS so an in-flight
+  // write cannot delete its own rows.
+  try {
+    _sweepStalePending(splitSheet);
+  } catch (sweepError) {
+    console.warn("Stale-pending sweep failed (non-fatal):", sweepError);
+  }
+
+  const {
+    splitGroupId,
+    rowIndex,
+    archiveRows,
+    finalTypes,
+    splitTypeColIndex,
+    idIndex,
+  } = preparation;
+
+  if (!archiveRows || archiveRows.length === 0) {
+    return {
+      success: false,
+      message: "Failed to write split data: no rows to write.",
+    };
+  }
+
+  // Phase 1: append rows as PENDING. Readers ignore PENDING, so even if the
+  // process dies right here the rows are inert.
   let startRow = 0;
   let numRows = 0;
-
   try {
-    const { splitGroupId, rowIndex, archiveRows, idIndex } = preparation;
-
-    if (archiveRows.length > 0) {
-      startRow = splitSheet.getLastRow() + 1;
-      numRows = archiveRows.length;
-
-      splitSheet
-        .getRange(startRow, 1, numRows, archiveRows[0].length)
-        .setValues(archiveRows);
-
-      rowsWritten = true;
-    }
-
-    // Update Finance Sheet with new ID (after split sheet succeeds)
-    financeSheet.getRange(rowIndex, idIndex + 1).setValue(splitGroupId);
-
-    return {
-      success: true,
-      message: "Transaction split successfully.",
-      splitGroupId: splitGroupId,
-    };
-  } catch (error) {
-    console.error("Write split data error", error);
-
-    // Rollback: Remove orphaned rows from split sheet if they were written
-    if (rowsWritten && numRows > 0) {
-      try {
-        console.warn(
-          `Rolling back split sheet write. Deleting ${numRows} rows starting at ${startRow}.`,
-        );
-        splitSheet.deleteRows(startRow, numRows);
-      } catch (rollbackError) {
-        console.error("Rollback failed:", rollbackError);
-        return {
-          success: false,
-          message:
-            "Failed to write split data. CRITICAL: Rollback also failed. Manual reconciliation may be required.",
-        };
-      }
-    }
-
+    startRow = splitSheet.getLastRow() + 1;
+    numRows = archiveRows.length;
+    splitSheet
+      .getRange(startRow, 1, numRows, archiveRows[0].length)
+      .setValues(archiveRows);
+  } catch (phase1Error) {
+    console.error("Phase 1 (append pending) failed:", phase1Error);
     return {
       success: false,
       message: "Failed to write split data. Please try again.",
     };
+  }
+
+  // Phase 2: stamp the Split Group ID onto the Finance sheet.
+  try {
+    financeSheet.getRange(rowIndex, idIndex + 1).setValue(splitGroupId);
+  } catch (phase2Error) {
+    console.error("Phase 2 (finance stamp) failed:", phase2Error);
+    _safeDeletePending(splitSheet, startRow, numRows);
+    return {
+      success: false,
+      message: "Failed to write split data. Please try again.",
+    };
+  }
+
+  // Phase 3: promote PENDING → SOURCE/CHILD in one setValues call.
+  try {
+    const typeValues = finalTypes.map((t) => [t]);
+    splitSheet
+      .getRange(startRow, splitTypeColIndex, numRows, 1)
+      .setValues(typeValues);
+  } catch (phase3Error) {
+    console.error("Phase 3 (promote) failed:", phase3Error);
+    // Finance was committed but children never promoted. Clear the Finance ID
+    // so the user can retry from a clean state; the pending rows are inert and
+    // will be swept on the next successful write.
+    try {
+      financeSheet.getRange(rowIndex, idIndex + 1).setValue("");
+    } catch (clearError) {
+      console.error(
+        "Failed to clear Finance ID after promotion failure:",
+        clearError,
+      );
+    }
+    _safeDeletePending(splitSheet, startRow, numRows);
+    return {
+      success: false,
+      message: "Failed to write split data. Please try again.",
+    };
+  }
+
+  return {
+    success: true,
+    message: "Transaction split successfully.",
+    splitGroupId: splitGroupId,
+  };
+}
+
+/**
+ * Best-effort deletion of a contiguous block of pending rows. On failure the
+ * rows are left in place — they are inert (readers filter PENDING) and will
+ * be swept by _sweepStalePending once they age past PENDING_SWEEP_MS.
+ */
+function _safeDeletePending(splitSheet, startRow, numRows) {
+  if (!numRows || numRows <= 0) return;
+  try {
+    splitSheet.deleteRows(startRow, numRows);
+  } catch (rollbackError) {
+    console.error(
+      "Rollback delete failed; leaving rows PENDING for sweep:",
+      rollbackError,
+    );
   }
 }
 
@@ -1141,6 +1222,53 @@ function _restoreSplitData(
     const idIndex = CONFIG.HEADERS.indexOf("Split Group ID");
     if (idIndex !== -1) {
       financeSheet.getRange(financeRowIndex, idIndex + 1).setValue(groupId);
+    }
+  }
+}
+
+/**
+ * Deletes any PENDING rows older than Service_Split.PENDING_SWEEP_MS.
+ * The age threshold is well past the script-lock budget so an in-flight
+ * write can never have its own rows swept. Bottom-up deletion avoids
+ * index shifting (same idiom as _revertSplitCore).
+ */
+function _sweepStalePending(splitSheet) {
+  const lastRow = splitSheet.getLastRow();
+  if (lastRow <= 1) return;
+
+  const headers = splitSheet
+    .getRange(1, 1, 1, splitSheet.getLastColumn())
+    .getValues()[0];
+  const typeCol = headers.indexOf("Split Type") + 1; // 1-based
+  const dateCol = headers.indexOf("Split Date") + 1;
+  if (typeCol === 0 || dateCol === 0) return;
+
+  // Only read the two columns we need — full-sheet reads dominate latency
+  // for large Split sheets.
+  const numDataRows = lastRow - 1;
+  const types = splitSheet
+    .getRange(2, typeCol, numDataRows, 1)
+    .getValues();
+
+  const PENDING = Service_Split.SPLIT_TYPE_PENDING;
+  const pendingOffsets = [];
+  for (let i = 0; i < types.length; i++) {
+    if (types[i][0] === PENDING) pendingOffsets.push(i);
+  }
+  if (pendingOffsets.length === 0) return; // Fast path: nothing to sweep.
+
+  const dates = splitSheet
+    .getRange(2, dateCol, numDataRows, 1)
+    .getValues();
+
+  const cutoff = Date.now() - Service_Split.PENDING_SWEEP_MS;
+  // Delete bottom-up so row indices stay stable.
+  for (let i = pendingOffsets.length - 1; i >= 0; i--) {
+    const offset = pendingOffsets[i];
+    const rawDate = dates[offset][0];
+    const ts = rawDate instanceof Date ? rawDate.getTime() : Date.parse(rawDate);
+    if (isNaN(ts) || ts < cutoff) {
+      splitSheet.deleteRow(offset + 2);
     }
   }
 }

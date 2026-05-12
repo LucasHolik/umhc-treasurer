@@ -301,7 +301,7 @@ const request = (action, params = {}, options = {}) => {
         url.searchParams.append("callback", callbackName);
 
         const script = document.createElement("script");
-        const timeout = 15000; // 15 seconds
+        const timeout = 20000; // 20 seconds
         let cleanedUp = false;
         let timeoutId;
 
