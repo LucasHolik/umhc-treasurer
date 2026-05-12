@@ -5,6 +5,34 @@ import {
 } from "../core/utils.js";
 import { el, clear } from "../core/dom.js";
 
+function dateSortKey(val) {
+  const d = parseDate(val);
+  const ms = d && d.getTime();
+  return Number.isFinite(ms)
+    ? { key: ms, valid: true }
+    : { key: 0, valid: false };
+}
+
+function numberSortKey(val) {
+  if (typeof val === "number" && Number.isFinite(val)) {
+    return { key: val, valid: true };
+  }
+  if (val === null || val === undefined || val === "") {
+    return { key: 0, valid: false };
+  }
+  const parsed = parseFloat(String(val).replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(parsed)
+    ? { key: parsed, valid: true }
+    : { key: 0, valid: false };
+}
+
+function stringSortKey(val) {
+  const s = (val !== undefined && val !== null ? val : "")
+    .toString()
+    .toLowerCase();
+  return { key: s, valid: true };
+}
+
 export default class SortableTable {
   /**
    * @param {HTMLElement} container
@@ -235,56 +263,36 @@ export default class SortableTable {
     if (!this.sortField) return;
 
     const colDef = this.columns.find((c) => c.key === this.sortField);
+    const getRaw = (row) =>
+      colDef && colDef.sortValue ? colDef.sortValue(row) : row[this.sortField];
 
-    this.data.sort((a, b) => {
-      let valA, valB;
+    let keyFor;
+    if (colDef && colDef.type === "date") {
+      keyFor = dateSortKey;
+    } else if (
+      colDef &&
+      (colDef.type === "number" || colDef.type === "currency")
+    ) {
+      keyFor = numberSortKey;
+    } else {
+      keyFor = stringSortKey;
+    }
 
-      if (colDef && colDef.sortValue) {
-        valA = colDef.sortValue(a);
-        valB = colDef.sortValue(b);
-      } else {
-        valA = a[this.sortField];
-        valB = b[this.sortField];
-      }
+    const valid = [];
+    const invalid = [];
+    for (const row of this.data) {
+      const { key, valid: isValid } = keyFor(getRaw(row));
+      (isValid ? valid : invalid).push({ row, key });
+    }
 
-      // Handle Dates
-      if (colDef && colDef.type === "date") {
-        const dateA = parseDate(valA);
-        const dateB = parseDate(valB);
-        valA = !dateA || isNaN(dateA.getTime()) ? Infinity : dateA.getTime();
-        valB = !dateB || isNaN(dateB.getTime()) ? Infinity : dateB.getTime();
-      } else if (
-        colDef &&
-        (colDef.type === "number" || colDef.type === "currency")
-      ) {
-        // Try parsing simple numbers or currency
-        valA = this.parseNumber(valA);
-        valB = this.parseNumber(valB);
-      } else {
-        if (typeof valA === "number" && typeof valB === "number") {
-          // Keep as numbers
-        } else {
-          // String comparison
-          valA = (valA !== undefined && valA !== null ? valA : "")
-            .toString()
-            .toLowerCase();
-          valB = (valB !== undefined && valB !== null ? valB : "")
-            .toString()
-            .toLowerCase();
-        }
-      }
-
-      if (valA < valB) return this.sortAsc ? -1 : 1;
-      if (valA > valB) return this.sortAsc ? 1 : -1;
+    const dir = this.sortAsc ? 1 : -1;
+    valid.sort((a, b) => {
+      if (a.key < b.key) return -1 * dir;
+      if (a.key > b.key) return 1 * dir;
       return 0;
     });
-  }
 
-  parseNumber(val) {
-    if (typeof val === "number") return val;
-    if (val === null || val === undefined || val === "") return Infinity;
-    const parsed = parseFloat(val.toString().replace(/[^0-9.\-]/g, ""));
-    return isNaN(parsed) ? Infinity : parsed;
+    this.data = valid.map((e) => e.row).concat(invalid.map((e) => e.row));
   }
 
   handleSelectAll(checked) {

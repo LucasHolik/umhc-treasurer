@@ -2,6 +2,24 @@ import store from "../core/state.js";
 import { el, clear } from "../core/dom.js";
 import { withSearchInputAttributes } from "./search-input.js";
 
+function computePopoverPlacement(triggerRect, popoverSize, viewport, gap = 5) {
+  const spaceBelow = viewport.height - triggerRect.bottom;
+  const spaceAbove = triggerRect.top;
+  const flipUp =
+    popoverSize.height + gap > spaceBelow && spaceAbove > spaceBelow;
+
+  const top = flipUp
+    ? Math.max(gap, triggerRect.top - popoverSize.height - gap)
+    : triggerRect.bottom + gap;
+
+  let left = triggerRect.left;
+  if (left + popoverSize.width > viewport.width) {
+    left = Math.max(gap, viewport.width - popoverSize.width - gap);
+  }
+
+  return { top, left };
+}
+
 export default class TagSelector {
   constructor() {
     this.isOpen = false;
@@ -107,21 +125,19 @@ export default class TagSelector {
   updatePosition() {
     if (!this.targetElement) return;
 
-    const rect = this.targetElement.getBoundingClientRect();
+    const triggerRect = this.targetElement.getBoundingClientRect();
+    const popRect = this.element.getBoundingClientRect();
     const scrollX = window.scrollX || window.pageXOffset;
     const scrollY = window.scrollY || window.pageYOffset;
 
-    // Default position: below the element
-    let top = rect.bottom + scrollY + 5;
-    let left = rect.left + scrollX;
+    const { top, left } = computePopoverPlacement(
+      triggerRect,
+      { width: popRect.width, height: popRect.height },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
 
-    // Boundary checks (simple)
-    if (left + 200 > window.innerWidth) {
-      left = window.innerWidth - 210;
-    }
-
-    this.element.style.top = `${top}px`;
-    this.element.style.left = `${left}px`;
+    this.element.style.top = `${top + scrollY}px`;
+    this.element.style.left = `${left + scrollX}px`;
   }
 
   close() {
