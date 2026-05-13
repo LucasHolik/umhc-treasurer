@@ -56,19 +56,31 @@ No npm / no build step. All dependencies are vendored locally.
         transactions.bulk.js        # Bulk-tag selection mode
         transactions.filters.js     # Category/Trip/Description filter bar
         transactions.logic.js       # filterData(), sortData()
+        transactions.manual.js      # Add manual (historical) transaction modal
+        transactions.split-history.js # View/edit/revert past splits
+        split-transaction.modal.js  # Split-creation modal (one row → many)
         transactions.css
       /tags
-        tags.component.js           # Tag manager (Categories, Trips, Types)
+        tags.component.js           # Tag manager container + orchestration
+        tags.list.js                # Overview list with per-tag counts
+        tags.details.js             # Drill into a single tag
+        tags.sublist.js             # Secondary list (Types under a Trip)
+        tags.add-trip.js            # Assign allowed Types to a Trip
+        tags.logic.js               # Pure helpers (counts, filtering)
         tags.css
       /analysis
-        analysis.component.js       # Chart.js wrapper + controls
+        analysis.component.js       # Container + orchestration
+        analysis.controls.js        # Chart type + metric selectors
+        analysis.filters.js         # Category/trip/date pickers
+        analysis.chart.js           # Chart.js canvas wrapper
+        analysis.table.js           # Tabular export of chart data
+        analysis.logic.js           # Pure aggregation/grouping helpers
         analysis.css
       /upload
         upload.component.js         # Drag-and-drop Excel import
         upload.css
       /settings
         settings.component.js       # Opening balance + accessibility toggle
-        settings.css
 
     /shared                     # Reusable UI primitives
       sortable-table.component.js
@@ -78,7 +90,7 @@ No npm / no build step. All dependencies are vendored locally.
       mobile-data-card.component.js
       mobile-disclosure.component.js
       search-input.js
-      *.css
+      *.css                     # incl. action-button.css (shared button styles)
 
     /lib                        # Vendored third-party (minified)
       chart.umd.min.js          # Chart.js
@@ -107,16 +119,28 @@ No npm / no build step. All dependencies are vendored locally.
 Transaction (one row in the Finances sheet):
   {
     row:            number,        // sheet row number (internal ID)
+    Document:       string,        // source document/upload label
+    "Time-uploaded": Date|string,
     Date:           string,        // "YYYY-MM-DD"
     Description:    string,
+    "Trip/Event":   string,        // tag of type "Trip/Event"
+    Category:       string,        // tag of type "Category"
     Income:         number,
     Expense:        number,
-    Category:       string,        // tag of type "Category"
-    "Trip/Event":   string,        // tag of type "Trip/Event"
     Type:           string,        // tag of type "Type" | "Manual" (historical)
-    "Split Group ID": string,      // links SOURCE + CHILD rows
-    "Split Type":   string         // "SOURCE" | "CHILD" | ""
+    "Split Group ID": string       // present on the SOURCE row; links to Split History
   }
+
+Split History row (Split History sheet — same shape as a Finances row plus):
+  {
+    ...all Transaction fields...,
+    "Split Type":   string,        // "PENDING" | "SOURCE" | "CHILD" | "REVERTED"
+    "Split Date":   Date
+  }
+Note: the Finances sheet itself does NOT have a "Split Type" column; that lives
+only in Split History. The frontend's merged `expenses` list, however, replaces
+each SOURCE Finances row with its CHILD rows from Split History — so post-merge
+rows in the store may carry a "Split Type" field.
 
 Tags (returned by getAppData):
   {
@@ -325,7 +349,9 @@ Operations: add · rename · delete
 Also manages:
   - TripTypeMap: which Types are allowed for each Trip
   - TripStatusMap: Active / Completed / Investment per Trip
-  - Undo queue for destructive operations
+  - Pending-operations queue: edits batched client-side (virtual lists
+    rendered via tags.logic.js) and committed in one processTagOperations
+    call; server runs the batch atomically and rolls Expenses back on failure
   - Timeframe filter for transaction counts
 
 E. Analysis (src/features/analysis/)
@@ -435,9 +461,11 @@ Service_Session.gs
 Service_Sheet.gs — The ONLY file that touches SpreadsheetApp
   - Read/write rows in the "Finances" sheet
   - Opening balance in Config sheet cell C2
-  - Column mapping: Date(A) Description(B) Income(C) Expense(D)
-                    Category(E) Trip/Event(F) Type(G)
-                    Split Group ID(H) Split Type(I)
+  - Finances column mapping:
+      Document(A) Time-uploaded(B) Date(C) Description(D)
+      Trip/Event(E) Category(F) Income(G) Expense(H)
+      Type(I) Split Group ID(J)
+  - Split History sheet appends two extra columns: Split Type, Split Date
 
 Service_Tags.gs
   - Maintains Category, Trip/Event, Type lists
@@ -445,10 +473,13 @@ Service_Tags.gs
   - Bulk operation support (add/delete/rename in one call)
 
 Service_Split.gs
-  - Creates split groups: marks original as SOURCE, writes CHILD rows
-  - Stores full split history in a Split History sheet
-  - Supports revert (removes CHILD rows, un-marks SOURCE) and edit
-  - Paginated history retrieval (500 rows per page)
+  - Creates split groups: stamps Split Group ID on the Finances row and
+    writes SOURCE + CHILD rows into the Split History sheet
+  - Uses a PENDING marker during the write and atomically promotes rows to
+    SOURCE/CHILD; a stale-pending sweeper cleans up after failed writes
+  - Supports revert (clears Group ID on Finances, deletes the group's rows
+    from Split History) and edit (revert then re-process)
+  - Paginated history retrieval (default 500 rows per page)
 
 
 ================================================================================
@@ -517,9 +548,10 @@ General:
 4. Modal calls ApiService.splitTransaction(original, splits).
 5. ApiService signs the request and fires a JSONP call.
 6. Backend (Code.gs) routes to Service_Split.gs:
-     - Marks original row as Split Type = "SOURCE"
-     - Appends two CHILD rows for the splits
-     - Records everything in the Split History sheet
+     - Stamps a Split Group ID onto the original Finances row
+     - Writes SOURCE + CHILD rows into the Split History sheet
+       (the Finances sheet itself is NOT given child rows — the children only
+       live in Split History and are merged in by the frontend)
 7. Backend returns success.
 8. ApiService calls store.setState("rawExpenses", updatedData) and
    invalidates the splitTransactions cache.
