@@ -1217,6 +1217,7 @@ class TransactionsComponent {
               key: "Amount",
               label: "Amount",
               type: "custom",
+              sortType: "number",
               sortValue: (item) => this.getTransactionNet(item),
               render: (item) => {
                 const net = this.getTransactionNet(item);

@@ -41,9 +41,11 @@ export default class SortableTable {
    *   {
    *     key: string,             // Property name in data object
    *     label: string,           // Header text
-   *     type: string,            // 'text', 'number', 'currency', 'date'
+   *     type: string,            // 'text', 'number', 'currency', 'date', 'custom'
    *     sortable: boolean,       // Default true
    *     render: (row) => string, // Optional custom renderer
+   *     sortValue: (row) => any, // Optional value extractor for sorting (used for 'custom' columns)
+   *     sortType: string,        // Optional sort dispatch override ('number'|'currency'|'date'|'text'); use with 'custom' columns whose sortValue is numeric or a date
    *     class: string            // Optional CSS class (e.g., 'text-right')
    *   }
    *   Note: Elements with class 'no-sort' inside sortable headers will not trigger sorting.
@@ -266,13 +268,11 @@ export default class SortableTable {
     const getRaw = (row) =>
       colDef && colDef.sortValue ? colDef.sortValue(row) : row[this.sortField];
 
+    const sortType = colDef && (colDef.sortType || colDef.type);
     let keyFor;
-    if (colDef && colDef.type === "date") {
+    if (sortType === "date") {
       keyFor = dateSortKey;
-    } else if (
-      colDef &&
-      (colDef.type === "number" || colDef.type === "currency")
-    ) {
+    } else if (sortType === "number" || sortType === "currency") {
       keyFor = numberSortKey;
     } else {
       keyFor = stringSortKey;
