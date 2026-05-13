@@ -91,24 +91,100 @@ const Service_Split = {
 
       const range = splitSheet.getRange(2, colIndex, lastRow - 1, 1);
       const values = range.getValues();
-      let changed = false;
+      const modifiedRows = [];
 
       for (let i = 0; i < values.length; i++) {
         if (values[i][0] === value) {
           values[i][0] = "";
-          changed = true;
+          modifiedRows.push(i + 2); // 1-based sheet row
         }
       }
 
-      if (changed) {
+      if (modifiedRows.length > 0) {
         range.setValues(values);
       }
-      return { success: true };
+      return { success: true, modifiedRows: modifiedRows };
     } catch (error) {
       console.error("Remove tag error", error);
       return {
         success: false,
         message: "Failed to remove tag. Please try again.",
+      };
+    } finally {
+      if (lockAcquired) {
+        lock.releaseLock();
+      }
+    }
+  },
+
+  /**
+   * Restores a tag value to specific split rows. Used as the inverse of
+   * removeTagFromSplits during batch rollback.
+   * @param {string} type - Type of tag ("Trip/Event" or "Category")
+   * @param {string} value - Value to restore
+   * @param {number[]} rowIndices - 1-based sheet row indices to restore
+   * @returns {Object} Response object with success and message
+   */
+  restoreTagInSplits: function (type, value, rowIndices) {
+    const lock = LockService.getScriptLock();
+    let lockAcquired = false;
+    try {
+      if (!Array.isArray(rowIndices) || rowIndices.length === 0) {
+        return { success: true, message: "No rows to restore." };
+      }
+
+      if (!lock.tryLock(30000)) {
+        return { success: false, message: "System is busy. Please try again." };
+      }
+      lockAcquired = true;
+
+      const splitSheetRes = _getSplitSheet();
+      if (!splitSheetRes.success) return splitSheetRes;
+      const splitSheet = splitSheetRes.sheet;
+      const lastRow = splitSheet.getLastRow();
+      if (lastRow <= 1) {
+        return {
+          success: false,
+          message: "Splits sheet is empty; cannot restore tag.",
+        };
+      }
+
+      const configValidation = _validateConfig();
+      if (!configValidation.success) return configValidation;
+
+      let colIndex;
+      if (type === "Trip/Event") {
+        const idx = CONFIG.HEADERS.indexOf("Trip/Event");
+        if (idx === -1)
+          return { success: false, message: "Trip/Event column not found." };
+        colIndex = idx + 1;
+      } else if (type === "Category") {
+        const idx = CONFIG.HEADERS.indexOf("Category");
+        if (idx === -1)
+          return { success: false, message: "Category column not found." };
+        colIndex = idx + 1;
+      } else return { success: false, message: "Invalid tag type." };
+
+      for (let i = 0; i < rowIndices.length; i++) {
+        const row = rowIndices[i];
+        if (row < 2 || row > lastRow) {
+          return {
+            success: false,
+            message: "Row index out of range: " + row,
+          };
+        }
+      }
+
+      for (let i = 0; i < rowIndices.length; i++) {
+        splitSheet.getRange(rowIndices[i], colIndex).setValue(value);
+      }
+
+      return { success: true, message: "Tag restored successfully." };
+    } catch (error) {
+      console.error("Error restoring tag in splits:", error);
+      return {
+        success: false,
+        message: "Failed to restore tag. Please try again.",
       };
     } finally {
       if (lockAcquired) {

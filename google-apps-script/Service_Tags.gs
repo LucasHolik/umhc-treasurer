@@ -272,6 +272,9 @@ function _deleteTag(type, value) {
     return { success: false, message: "Tag not found." };
   }
 
+  let modifiedExpenseRows = [];
+  let modifiedSplitRows = [];
+
   // --- Step 1: External Updates with Rollback ---
   // Strip the tag from Expenses and Splits before deleting it from the master
   // list. If the Splits write fails after Expenses succeeded, restore the
@@ -308,11 +311,14 @@ function _deleteTag(type, value) {
       };
     }
 
-    const modifiedExpenseRows = Array.isArray(expenseResult.modifiedRows)
+    modifiedExpenseRows = Array.isArray(expenseResult.modifiedRows)
       ? expenseResult.modifiedRows
       : [];
 
     const splitResult = Service_Split.removeTagFromSplits(type, value);
+    modifiedSplitRows = Array.isArray(splitResult.modifiedRows)
+      ? splitResult.modifiedRows
+      : [];
     if (!splitResult.success) {
       console.error(
         "Splits update failed during tag deletion. Rolling back Expenses...",
@@ -408,7 +414,12 @@ function _deleteTag(type, value) {
     }
   }
 
-  return { success: true, message: "Tag deleted successfully." };
+  return {
+    success: true,
+    message: "Tag deleted successfully.",
+    modifiedExpenseRows: modifiedExpenseRows,
+    modifiedSplitRows: modifiedSplitRows,
+  };
 }
 
 function _renameTag(type, oldValue, newValue, skipSort) {
@@ -442,6 +453,9 @@ function _renameTag(type, oldValue, newValue, skipSort) {
   }
 
   const updateRow = tagIndex + 2;
+
+  let expensesUpdated = false;
+  let splitsUpdated = false;
 
   // --- Step 1: Optimistic Update (Master) ---
   tagSheet.getRange(updateRow, column).setValue(_sanitizeForSheet(newValue));
@@ -491,7 +505,6 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       };
     }
 
-    let expensesUpdated = false;
     try {
       const expenseResult = Service_Sheet.updateExpensesWithTag(
         oldValue,
@@ -511,6 +524,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       if (!splitResult.success) {
         throw new Error("Splits update failed: " + splitResult.message);
       }
+      splitsUpdated = true;
     } catch (error) {
       console.error(
         "Error updating related data after tag rename. Rolling back...",
@@ -581,7 +595,12 @@ function _renameTag(type, oldValue, newValue, skipSort) {
     _sortTags(type);
   }
 
-  return { success: true, message: "Tag renamed successfully." };
+  return {
+    success: true,
+    message: "Tag renamed successfully.",
+    expensesUpdated: expensesUpdated,
+    splitsUpdated: splitsUpdated,
+  };
 }
 
 function _updateTripType(tripName, typeName) {
@@ -677,73 +696,299 @@ function _processTagOperations(operations) {
     };
   }
 
-  const modifiedTypes = new Set();
-  const appliedOperations = [];
+  return _runTagBatch(operations);
+}
 
-  for (let i = 0; i < operations.length; i++) {
-    const operation = operations[i];
-    // [oldValue, newValue, operationType, tagType]
+// Captures the Tags sheet body (rows 2..lastRow across all 5 columns) so the
+// batch can restore it verbatim if a later op fails.
+function _snapshotTagSheet() {
+  const tagSheet = _getTagSheet();
+  const lastRow = tagSheet.getLastRow();
+  const values =
+    lastRow > 1
+      ? tagSheet.getRange(2, 1, lastRow - 1, COL_TYPE_LIST).getValues()
+      : [];
+  return { lastRow: lastRow, values: values };
+}
 
-    if (!Array.isArray(operation) || operation.length !== 4) {
-      return {
-        success: false,
-        message: `Invalid operation at index ${i}`,
-        appliedOperations: appliedOperations,
-      };
-    }
+function _restoreTagSheet(snapshot) {
+  const tagSheet = _getTagSheet();
+  const currentLastRow = tagSheet.getLastRow();
 
-    const [rawOldValue, rawNewValue, operationType, tagType] = operation;
-
-    const oldValue = rawOldValue !== null ? String(rawOldValue) : null;
-    const newValue = rawNewValue !== null ? String(rawNewValue) : null;
-
-    let result;
-    switch (operationType) {
-      case "add":
-        result = _addTag(tagType, newValue, true);
-        if (result.success) modifiedTypes.add(tagType);
-        break;
-      case "delete":
-        result = _deleteTag(tagType, oldValue);
-        break;
-      case "rename":
-        result = _renameTag(tagType, oldValue, newValue, true);
-        if (result.success) modifiedTypes.add(tagType);
-        break;
-      case "updateTripType":
-        result = _updateTripType(oldValue, newValue);
-        break;
-      case "updateTripStatus":
-        // oldValue = tripName, newValue = status ("Active", "Completed", "Investment")
-        result = _updateTripStatus(oldValue, newValue);
-        break;
-      default:
-        return {
-          success: false,
-          message: `Unknown operation type: ${operationType}`,
-          appliedOperations: appliedOperations,
-        };
-    }
-
-    if (!result.success) {
-      return {
-        success: false,
-        message: `Operation failed at index ${i}: ${result.message}`,
-        failedOperation: { index: i, operation: operation },
-        appliedOperations: appliedOperations,
-      };
-    }
-    appliedOperations.push({ index: i, operation: operation });
+  if (currentLastRow > 1) {
+    tagSheet
+      .getRange(2, 1, currentLastRow - 1, COL_TYPE_LIST)
+      .clearContent();
   }
 
-  // Sort modified types after batch processing
-  modifiedTypes.forEach((type) => {
-    _sortTags(type);
-  });
+  if (snapshot.values.length > 0) {
+    tagSheet
+      .getRange(2, 1, snapshot.values.length, COL_TYPE_LIST)
+      .setValues(snapshot.values);
+  }
+}
+
+// Executes a tag operation batch atomically. Either every op is applied or the
+// Tags sheet (plus any Expenses/Splits touched by rename/delete) is restored
+// to its pre-batch state. Returns a per-operation result array.
+function _runTagBatch(operations) {
+  const lock = LockService.getScriptLock();
+  let lockAcquired = false;
+  try {
+    if (!lock.tryLock(30000)) {
+      return { success: false, message: "System is busy. Please try again." };
+    }
+    lockAcquired = true;
+
+    const snapshot = _snapshotTagSheet();
+    const compensations = [];
+    const results = [];
+    const modifiedTypes = new Set();
+
+    for (let i = 0; i < operations.length; i++) {
+      const operation = operations[i];
+
+      if (!Array.isArray(operation) || operation.length !== 4) {
+        results.push({
+          index: i,
+          operation: operation,
+          status: "failed",
+          message: "Invalid operation shape",
+        });
+        return _rollbackTagBatch(
+          snapshot,
+          compensations,
+          results,
+          operations,
+          i,
+          "Invalid operation at index " + i,
+        );
+      }
+
+      const [rawOldValue, rawNewValue, operationType, tagType] = operation;
+      const oldValue = rawOldValue !== null ? String(rawOldValue) : null;
+      const newValue = rawNewValue !== null ? String(rawNewValue) : null;
+
+      let result;
+      let compensation = null;
+
+      switch (operationType) {
+        case "add":
+          result = _addTag(tagType, newValue, true);
+          if (result.success) modifiedTypes.add(tagType);
+          break;
+        case "delete":
+          result = _deleteTag(tagType, oldValue);
+          if (
+            result.success &&
+            (tagType === "Trip/Event" || tagType === "Category")
+          ) {
+            compensation = {
+              kind: "delete",
+              type: tagType,
+              value: oldValue,
+              expenseRows: result.modifiedExpenseRows || [],
+              splitRows: result.modifiedSplitRows || [],
+            };
+          }
+          break;
+        case "rename":
+          result = _renameTag(tagType, oldValue, newValue, true);
+          if (result.success) {
+            modifiedTypes.add(tagType);
+            if (tagType === "Trip/Event" || tagType === "Category") {
+              compensation = {
+                kind: "rename",
+                type: tagType,
+                oldValue: oldValue,
+                newValue: newValue,
+                expensesUpdated: !!result.expensesUpdated,
+                splitsUpdated: !!result.splitsUpdated,
+              };
+            }
+          }
+          break;
+        case "updateTripType":
+          result = _updateTripType(oldValue, newValue);
+          break;
+        case "updateTripStatus":
+          result = _updateTripStatus(oldValue, newValue);
+          break;
+        default:
+          results.push({
+            index: i,
+            operation: operation,
+            status: "failed",
+            message: "Unknown operation type: " + operationType,
+          });
+          return _rollbackTagBatch(
+            snapshot,
+            compensations,
+            results,
+            operations,
+            i,
+            "Unknown operation type: " + operationType,
+          );
+      }
+
+      if (!result.success) {
+        results.push({
+          index: i,
+          operation: operation,
+          status: "failed",
+          message: result.message,
+        });
+        return _rollbackTagBatch(
+          snapshot,
+          compensations,
+          results,
+          operations,
+          i,
+          "Operation failed at index " + i + ": " + result.message,
+        );
+      }
+
+      results.push({ index: i, operation: operation, status: "applied" });
+      if (compensation) compensations.push(compensation);
+    }
+
+    modifiedTypes.forEach((type) => _sortTags(type));
+
+    return {
+      success: true,
+      message: "Processed " + operations.length + " operations successfully",
+      results: results,
+    };
+  } finally {
+    if (lockAcquired) lock.releaseLock();
+  }
+}
+
+function _rollbackTagBatch(
+  snapshot,
+  compensations,
+  results,
+  operations,
+  failedIndex,
+  failureMessage,
+) {
+  let rollbackSuccess = true;
+  let rollbackDetail = "";
+
+  // Mark operations after the failure as skipped
+  for (let j = failedIndex + 1; j < operations.length; j++) {
+    results.push({ index: j, operation: operations[j], status: "skipped" });
+  }
+
+  // 1. Restore the Tags sheet from the pre-batch snapshot
+  try {
+    _restoreTagSheet(snapshot);
+  } catch (snapErr) {
+    console.error("CRITICAL: Tags-sheet restore failed.", snapErr);
+    rollbackSuccess = false;
+    rollbackDetail =
+      "Tags-sheet restore failed. Data is INCONSISTENT. Manual reconciliation required.";
+  }
+
+  // 2. Replay external-sheet inverses in reverse order
+  for (let k = compensations.length - 1; k >= 0; k--) {
+    const comp = compensations[k];
+    try {
+      if (comp.kind === "delete") {
+        if (comp.expenseRows.length > 0) {
+          const r = Service_Sheet.restoreTagInExpenses(
+            comp.type,
+            comp.value,
+            comp.expenseRows,
+          );
+          if (!r.success) {
+            console.error("CRITICAL: Expenses restore failed.", r);
+            rollbackSuccess = false;
+            rollbackDetail =
+              "Expenses restore failed during rollback. Data is INCONSISTENT. Manual reconciliation required.";
+          }
+        }
+        if (
+          comp.splitRows.length > 0 &&
+          Service_Split &&
+          Service_Split.restoreTagInSplits
+        ) {
+          const r = Service_Split.restoreTagInSplits(
+            comp.type,
+            comp.value,
+            comp.splitRows,
+          );
+          if (!r.success) {
+            console.error("CRITICAL: Splits restore failed.", r);
+            rollbackSuccess = false;
+            rollbackDetail =
+              "Splits restore failed during rollback. Data is INCONSISTENT. Manual reconciliation required.";
+          }
+        }
+      } else if (comp.kind === "rename") {
+        if (comp.expensesUpdated) {
+          const r = Service_Sheet.updateExpensesWithTag(
+            comp.newValue,
+            comp.oldValue,
+            comp.type,
+          );
+          if (!r.success) {
+            console.error("CRITICAL: Expenses rename rollback failed.", r);
+            rollbackSuccess = false;
+            rollbackDetail =
+              "Expenses rename rollback failed. Data is INCONSISTENT. Manual reconciliation required.";
+          }
+        }
+        if (comp.splitsUpdated) {
+          const r = Service_Split.updateTagInSplits(
+            comp.newValue,
+            comp.oldValue,
+            comp.type,
+          );
+          if (!r.success) {
+            console.error("CRITICAL: Splits rename rollback failed.", r);
+            rollbackSuccess = false;
+            rollbackDetail =
+              "Splits rename rollback failed. Data is INCONSISTENT. Manual reconciliation required.";
+          }
+        }
+      }
+    } catch (rollbackErr) {
+      console.error("CRITICAL: Rollback exception.", rollbackErr);
+      rollbackSuccess = false;
+      rollbackDetail =
+        "Exception during rollback. Data is INCONSISTENT. Manual reconciliation required.";
+    }
+  }
+
+  // Flip prior applied results to reflect the rollback outcome
+  for (let m = 0; m < results.length; m++) {
+    if (results[m].status === "applied") {
+      results[m].status = rollbackSuccess ? "rolled_back" : "rollback_failed";
+    }
+  }
+
+  // Backwards-compat: clients that read appliedOperations to advance a local
+  // queue should treat ops surviving the rollback (rollback_failed) as
+  // applied so they aren't replayed on retry.
+  const appliedOperations = results
+    .filter(
+      (r) => r.status === "applied" || r.status === "rollback_failed",
+    )
+    .map((r) => ({ index: r.index, operation: r.operation }));
 
   return {
-    success: true,
-    message: `Processed ${operations.length} operations successfully`,
+    success: false,
+    message: rollbackSuccess
+      ? failureMessage + ". Changes reverted."
+      : failureMessage + ". " + rollbackDetail,
+    results: results,
+    appliedOperations: appliedOperations,
+    rollback: {
+      attempted: true,
+      success: rollbackSuccess,
+      message: rollbackDetail || undefined,
+    },
   };
 }
 
