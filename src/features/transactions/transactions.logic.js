@@ -2,7 +2,7 @@ import { parseAmount, parseDate } from "../../core/utils.js";
 
 export const filterData = (
   data,
-  { selectedCategories, selectedTrips, descriptionSearch }
+  { selectedCategories, selectedTrips, descriptionSearch },
 ) => {
   const NO_TAG = "__NO_TAG__";
 

@@ -1,0 +1,83 @@
+/* src/features/settings/selftest/selftest.css */
+
+.selftest-modal-content {
+  width: 560px;
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+}
+
+.selftest-body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 200px;
+}
+
+.selftest-progress {
+  color: #aaa;
+  font-size: 0.9em;
+  margin-bottom: 10px;
+}
+
+.selftest-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: "SF Mono", "Consolas", "Menlo", monospace;
+  font-size: 0.85em;
+}
+
+.selftest-suite {
+  color: #f0ad4e;
+  font-weight: bold;
+  margin-top: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: inherit;
+}
+
+.selftest-row {
+  padding: 3px 0 3px 12px;
+  color: #ddd;
+}
+
+.selftest-row--pass .selftest-row-mark {
+  color: #5cb85c;
+}
+
+.selftest-row--fail {
+  color: #fff;
+}
+
+.selftest-row--fail .selftest-row-mark {
+  color: #d9534f;
+}
+
+.selftest-row-mark {
+  display: inline-block;
+  width: 1.4em;
+  font-weight: bold;
+}
+
+.selftest-error {
+  color: #d9534f;
+  font-size: 0.9em;
+  padding: 2px 0 4px 2.2em;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.selftest-summary {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: bold;
+}
+
+.selftest-summary--pass {
+  color: #5cb85c;
+}
+
+.selftest-summary--fail {
+  color: #d9534f;
+}

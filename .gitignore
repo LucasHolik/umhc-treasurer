@@ -1,2 +1,6 @@
 .DS_Store
 src/.DS_Store
+
+# pnpm/npx artifacts (no runtime dependencies in this project)
+node_modules/
+pnpm-lock.yaml

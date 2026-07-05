@@ -74,13 +74,16 @@ export default class TagsAddTrip {
     );
 
     // Filter Group
-    const typeFilterSearch = el("input", withSearchInputAttributes({
-      id: "filter-type-search",
-      className: "tag-search-input",
-      "aria-label": "Search types",
-      placeholder: "Search types...",
-      value: this.typeSearchTerm,
-    }));
+    const typeFilterSearch = el(
+      "input",
+      withSearchInputAttributes({
+        id: "filter-type-search",
+        className: "tag-search-input",
+        "aria-label": "Search types",
+        placeholder: "Search types...",
+        value: this.typeSearchTerm,
+      }),
+    );
     typeFilterSearch.addEventListener("input", (e) => {
       this.typeSearchTerm = e.target.value;
       this.renderFilters();
@@ -146,21 +149,24 @@ export default class TagsAddTrip {
     );
 
     // Table Search
-    const tableSearchInput = el("input", withSearchInputAttributes({
-      id: "trip-table-search",
-      className: "tag-search-input",
-      "aria-label": "Search Trip/Events",
-      style: {
-        width: "100%",
-        padding: "12px",
-        boxSizing: "border-box",
-        fontSize: "1em",
-        background: "rgba(0,0,0,0.3)",
-        border: "1px solid rgba(255,255,255,0.2)",
-      },
-      placeholder: "Search Trip/Events...",
-      value: this.tripSearchTerm,
-    }));
+    const tableSearchInput = el(
+      "input",
+      withSearchInputAttributes({
+        id: "trip-table-search",
+        className: "tag-search-input",
+        "aria-label": "Search Trip/Events",
+        style: {
+          width: "100%",
+          padding: "12px",
+          boxSizing: "border-box",
+          fontSize: "1em",
+          background: "rgba(0,0,0,0.3)",
+          border: "1px solid rgba(255,255,255,0.2)",
+        },
+        placeholder: "Search Trip/Events...",
+        value: this.tripSearchTerm,
+      }),
+    );
     tableSearchInput.addEventListener("input", (e) => {
       this.tripSearchTerm = e.target.value;
       if (this.tableComponent) {

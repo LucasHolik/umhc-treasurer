@@ -716,9 +716,7 @@ function _restoreTagSheet(snapshot) {
   const currentLastRow = tagSheet.getLastRow();
 
   if (currentLastRow > 1) {
-    tagSheet
-      .getRange(2, 1, currentLastRow - 1, COL_TYPE_LIST)
-      .clearContent();
+    tagSheet.getRange(2, 1, currentLastRow - 1, COL_TYPE_LIST).clearContent();
   }
 
   if (snapshot.values.length > 0) {
@@ -972,9 +970,7 @@ function _rollbackTagBatch(
   // queue should treat ops surviving the rollback (rollback_failed) as
   // applied so they aren't replayed on retry.
   const appliedOperations = results
-    .filter(
-      (r) => r.status === "applied" || r.status === "rollback_failed",
-    )
+    .filter((r) => r.status === "applied" || r.status === "rollback_failed")
     .map((r) => ({ index: r.index, operation: r.operation }));
 
   return {

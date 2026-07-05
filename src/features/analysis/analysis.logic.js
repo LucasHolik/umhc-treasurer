@@ -487,6 +487,7 @@ class AnalysisLogic {
     // "Unassigned" — trips with no type entry — appended last
     if (keys.has("Unassigned") && !placed.has("Unassigned")) {
       ordered.push("Unassigned");
+      placed.add("Unassigned");
     }
 
     // Safety: any remaining keys not placed (shouldn't normally occur)

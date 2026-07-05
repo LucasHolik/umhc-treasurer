@@ -494,3 +494,6 @@ const ApiService = {
 };
 
 export default ApiService;
+
+// Pure helpers exposed for the built-in self-test suite (Settings → Diagnostics).
+export { canonicalStringify, _validateScriptUrl };

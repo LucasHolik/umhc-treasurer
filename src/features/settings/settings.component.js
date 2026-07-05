@@ -116,6 +116,7 @@ class SettingsComponent {
         ),
         errorSection,
         this.renderPreferencesSection(),
+        this.renderDiagnosticsSection(),
         this.status,
       );
 
@@ -276,6 +277,8 @@ class SettingsComponent {
 
       this.renderPreferencesSection(),
 
+      this.renderDiagnosticsSection(),
+
       this.status,
     );
 
@@ -349,6 +352,88 @@ class SettingsComponent {
         ),
       ),
     );
+  }
+
+  renderDiagnosticsSection() {
+    return el(
+      "div",
+      {
+        style: {
+          marginTop: "30px",
+        },
+      },
+      el(
+        "div",
+        { className: "transactions-header" },
+        el("h2", {}, "Diagnostics"),
+      ),
+      el(
+        "div",
+        {
+          style: {
+            padding: "20px",
+            backgroundColor: "rgba(255, 255, 255, 0.05)",
+            borderRadius: "8px",
+            display: "flex",
+            alignItems: "center",
+            gap: "20px",
+          },
+        },
+        el(
+          "div",
+          { style: { flex: "1" } },
+          el(
+            "div",
+            {
+              style: {
+                display: "block",
+                color: "#fff",
+                fontWeight: "bold",
+                marginBottom: "5px",
+              },
+            },
+            "Self-Test",
+          ),
+          el(
+            "div",
+            {
+              id: "selftest-description",
+              style: { color: "#aaa", fontSize: "0.9em" },
+            },
+            "Runs built-in checks on calculations, filtering and data processing. Read-only — makes no changes to your data.",
+          ),
+        ),
+        el(
+          "button",
+          {
+            id: "run-self-test",
+            className: "secondary-btn",
+            "aria-describedby": "selftest-description",
+            onclick: () => this.handleRunSelfTests(),
+          },
+          "🧪 Run Self-Test",
+        ),
+      ),
+    );
+  }
+
+  async handleRunSelfTests() {
+    let runSelfTests;
+    try {
+      ({ runSelfTests } = await import("./selftest/selftest.index.js"));
+    } catch (error) {
+      console.error("Self-test failed to load:", error);
+      await this.modal.alert("Failed to load the self-test suite.");
+      return;
+    }
+    try {
+      await runSelfTests();
+    } catch (error) {
+      console.error("Self-test crashed while running:", error);
+      await this.modal.alert(
+        "The self-test suite hit an unexpected error while running. See the browser console for details.",
+      );
+    }
   }
 
   renderSavingState() {

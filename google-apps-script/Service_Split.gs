@@ -991,7 +991,8 @@ function _validateSplitRequest(original, splits) {
 
   // Signed-net check: each split contributes +Amount (Income) or -Amount
   // (Expense). Their signed sum must match the parent's signed net.
-  const parentNet = (incomeVal !== null ? incomeVal : 0) -
+  const parentNet =
+    (incomeVal !== null ? incomeVal : 0) -
     (expenseVal !== null ? expenseVal : 0);
   const signedSum = splits.reduce(
     (sum, split) =>
@@ -1455,9 +1456,7 @@ function _sweepStalePending(splitSheet) {
   // Only read the two columns we need — full-sheet reads dominate latency
   // for large Split sheets.
   const numDataRows = lastRow - 1;
-  const types = splitSheet
-    .getRange(2, typeCol, numDataRows, 1)
-    .getValues();
+  const types = splitSheet.getRange(2, typeCol, numDataRows, 1).getValues();
 
   const PENDING = Service_Split.SPLIT_TYPE_PENDING;
   const pendingOffsets = [];
@@ -1466,16 +1465,15 @@ function _sweepStalePending(splitSheet) {
   }
   if (pendingOffsets.length === 0) return; // Fast path: nothing to sweep.
 
-  const dates = splitSheet
-    .getRange(2, dateCol, numDataRows, 1)
-    .getValues();
+  const dates = splitSheet.getRange(2, dateCol, numDataRows, 1).getValues();
 
   const cutoff = Date.now() - Service_Split.PENDING_SWEEP_MS;
   // Delete bottom-up so row indices stay stable.
   for (let i = pendingOffsets.length - 1; i >= 0; i--) {
     const offset = pendingOffsets[i];
     const rawDate = dates[offset][0];
-    const ts = rawDate instanceof Date ? rawDate.getTime() : Date.parse(rawDate);
+    const ts =
+      rawDate instanceof Date ? rawDate.getTime() : Date.parse(rawDate);
     if (isNaN(ts) || ts < cutoff) {
       splitSheet.deleteRow(offset + 2);
     }

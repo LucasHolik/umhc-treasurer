@@ -5,7 +5,9 @@
   "main": "src/App.js",
   "scripts": {
     "start": "echo \"This is a client-side app. Open index.html in your browser or serve with a static server (e.g., 'python3 -m http.server').\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Run the built-in test suite from the app: Settings -> Diagnostics -> Run Self-Test\" && exit 1",
+    "format": "npx -y prettier@3 --write .",
+    "format:check": "npx -y prettier@3 --check ."
   },
   "keywords": [
     "treasurer",

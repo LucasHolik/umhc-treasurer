@@ -73,7 +73,7 @@ const createStore = (initialState = {}) => {
         } catch (error) {
           console.error(
             `Error in subscriber callback for key "${key}":`,
-            error
+            error,
           );
         }
       });
