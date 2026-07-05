@@ -151,7 +151,9 @@ const rejectIfReadOnly = () => {
 const requestMutating = (action, params = {}, options = {}) => {
   const rejected = rejectIfReadOnly();
   if (rejected) return rejected;
-  return request(action, params, options);
+  // Mutating requests carry a one-time nonce so a captured request URL cannot be
+  // replayed within the timestamp window. See request() for how it is signed.
+  return request(action, params, { ...options, withNonce: true });
 };
 
 /**
@@ -203,6 +205,18 @@ const request = (action, params = {}, options = {}) => {
     });
 
   const requestKey = `${action}-${JSON.stringify(sortedParams)}`;
+
+  // The signed/transmitted params. A nonce is added for mutating requests only;
+  // it is deliberately kept OUT of requestKey so that de-duplication of
+  // concurrent identical calls (which share one network request, hence one
+  // nonce) still works.
+  const signedParams = { ...sortedParams };
+  if (options.withNonce) {
+    signedParams.nonce =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
 
   if (activeRequests.has(requestKey)) {
     return activeRequests.get(requestKey).promise;
@@ -275,7 +289,7 @@ const request = (action, params = {}, options = {}) => {
         action,
         timestamp,
         signingKey,
-        sortedParams,
+        signedParams,
       );
 
       return new Promise((resolve, reject) => {
@@ -293,8 +307,8 @@ const request = (action, params = {}, options = {}) => {
         url.searchParams.append("timestamp", timestamp);
         url.searchParams.append("signature", signature);
 
-        for (const key in sortedParams) {
-          url.searchParams.append(key, sortedParams[key]);
+        for (const key in signedParams) {
+          url.searchParams.append(key, signedParams[key]);
         }
 
         const callbackName = `jsonp_callback_${Date.now()}_${callbackCounter++}`;

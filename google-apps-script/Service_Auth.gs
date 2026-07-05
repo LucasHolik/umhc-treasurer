@@ -176,6 +176,29 @@ const Service_Auth = {
         return { authorized: false };
       }
 
+      // Replay protection for state-changing actions: each write carries a
+      // one-time nonce (part of the signed payload, so it cannot be tampered
+      // without breaking the signature). Reject a nonce we have already seen.
+      // The nonce record TTL sits just above the +/-300s timestamp window so a
+      // captured request cannot be replayed while its timestamp is still valid.
+      // NOTE: CacheService has no atomic test-and-set, so a sub-millisecond
+      // double-submit could theoretically both pass — this defends against
+      // captured-URL replay, not a tight concurrent race.
+      if (typeof WRITE_ACTIONS !== "undefined" && WRITE_ACTIONS.has(action)) {
+        const nonce = allParams ? allParams.nonce : null;
+        if (!nonce) {
+          console.warn("Write request rejected: missing nonce");
+          return { authorized: false };
+        }
+        const cache = CacheService.getScriptCache();
+        const nonceKey = "nonce_" + nonce;
+        if (cache.get(nonceKey)) {
+          console.warn("Write request rejected: nonce replay");
+          return { authorized: false };
+        }
+        cache.put(nonceKey, "1", 360);
+      }
+
       return {
         authorized: true,
         role: session.role === "admin" ? "admin" : "viewer",

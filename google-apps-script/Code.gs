@@ -58,7 +58,9 @@ function doGet(e) {
         e?.parameter?.callback,
       );
     }
-    const role = authResult.role === "viewer" ? "viewer" : "admin";
+    // Least-privilege default: anything that isn't explicitly "admin" (missing,
+    // misspelled, a future role, or a corrupted session) is treated as viewer.
+    const role = authResult.role === "admin" ? "admin" : "viewer";
 
     if (isKnownAction(action) && !isActionAllowed(action, role)) {
       return createJsonResponse(

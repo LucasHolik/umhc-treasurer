@@ -1086,6 +1086,29 @@ function _revertSplitCore(financeSheet, splitSheet, groupId, financeRowIndex) {
 }
 
 function _processSplitCore(financeSheet, splitSheet, original, splits) {
+  // Reject re-splitting a row that already carries a Split Group ID. Doing so
+  // would overwrite the ID and orphan the previous group's SOURCE/CHILD rows in
+  // Split History forever. This guard is create-only: editSplit legitimately
+  // operates on an already-split row and reverts it separately, so it does not
+  // route through here.
+  const idIndex = CONFIG.HEADERS.indexOf("Split Group ID");
+  const rowIndex = parseInt(original.row);
+  if (idIndex !== -1 && !isNaN(rowIndex) && rowIndex >= 2) {
+    const lastRow = financeSheet.getLastRow();
+    if (rowIndex <= lastRow) {
+      const existingId = financeSheet
+        .getRange(rowIndex, idIndex + 1)
+        .getValue();
+      if (existingId !== "" && existingId != null) {
+        return {
+          success: false,
+          message:
+            "This transaction is already split. Edit or revert the existing split instead.",
+        };
+      }
+    }
+  }
+
   // 1. Prepare Data
   const preparation = _prepareSplitData(financeSheet, original, splits);
   if (!preparation.success) return preparation;
@@ -1108,6 +1131,13 @@ function _prepareSplitData(financeSheet, original, splits) {
   const categoryIndex = CONFIG.HEADERS.indexOf("Category");
   const incomeIndex = CONFIG.HEADERS.indexOf("Income");
   const expenseIndex = CONFIG.HEADERS.indexOf("Expense");
+
+  // Bound the row index against actual sheet data. _validateSplitRequest only
+  // checks rowIndex >= 2; without this upper bound a client could target an
+  // empty row below the data and create a phantom split group.
+  if (rowIndex > financeSheet.getLastRow()) {
+    return { success: false, message: "Row index out of range." };
+  }
 
   // Get Finance Sheet Row Data
   const originalRowRange = financeSheet.getRange(
@@ -1133,6 +1163,59 @@ function _prepareSplitData(financeSheet, original, splits) {
     };
   }
 
+  // Authoritative sum check: validate the splits against the ACTUAL sheet
+  // amount, not the client-supplied original.Income/original.Expense. This is
+  // shared by create and edit; in both cases the Finances source row still
+  // holds the original parent amount, so the children must net to it.
+  const sheetParentNet =
+    (hasIncome ? parseFloat(originalRowValues[incomeIndex]) : 0) -
+    (hasExpense ? parseFloat(originalRowValues[expenseIndex]) : 0);
+  const sheetSignedSum = splits.reduce(
+    (sum, split) =>
+      sum +
+      (split.Type === "Income"
+        ? parseFloat(split.Amount)
+        : -parseFloat(split.Amount)),
+    0,
+  );
+  if (Math.abs(sheetParentNet - sheetSignedSum) > 0.01) {
+    return {
+      success: false,
+      message: `Split net (${sheetSignedSum.toFixed(
+        2,
+      )}) must equal the sheet transaction's net (${sheetParentNet.toFixed(
+        2,
+      )}).`,
+    };
+  }
+
+  // Validate child tag values against the known taxonomy before writing, so a
+  // split cannot seed NEW off-taxonomy Trip/Event or Category values. A value
+  // that matches the source row's existing tag is always allowed, so inheriting
+  // a (rare) orphaned tag from the parent doesn't block splitting.
+  const validTags = Service_Tags.getTags();
+  const validTripEvents = new Set(validTags["Trip/Event"]);
+  const validCategories = new Set(validTags["Category"]);
+  const sourceTrip = String(originalRowValues[tripEventIndex] ?? "");
+  const sourceCategory = String(originalRowValues[categoryIndex] ?? "");
+  for (const split of splits) {
+    if (split.TripEvent) {
+      const t = String(split.TripEvent);
+      if (t !== sourceTrip && !validTripEvents.has(t)) {
+        return {
+          success: false,
+          message: "Invalid Trip/Event tag on a split.",
+        };
+      }
+    }
+    if (split.Category) {
+      const c = String(split.Category);
+      if (c !== sourceCategory && !validCategories.has(c)) {
+        return { success: false, message: "Invalid Category tag on a split." };
+      }
+    }
+  }
+
   // Update ID in the in-memory array for archive rows
   originalRowValues[idIndex] = splitGroupId;
 
@@ -1147,17 +1230,22 @@ function _prepareSplitData(financeSheet, original, splits) {
 
   splits.forEach((split) => {
     const childRow = [...originalRowValues];
-    childRow[descIndex] = split.Description;
+    // Sanitize all user-supplied text before it lands in a cell — otherwise a
+    // description like =IMPORTXML(...) executes as a live formula when the
+    // sheet is opened. Mirrors _sanitizeForSheet usage in every other write path.
+    childRow[descIndex] = _sanitizeForSheet(split.Description);
     if (split.TripEvent !== undefined)
-      childRow[tripEventIndex] = split.TripEvent;
-    if (split.Category !== undefined) childRow[categoryIndex] = split.Category;
+      childRow[tripEventIndex] = _sanitizeForSheet(split.TripEvent);
+    if (split.Category !== undefined)
+      childRow[categoryIndex] = _sanitizeForSheet(split.Category);
 
+    const amount = parseFloat(split.Amount);
     if (split.Type === "Income") {
-      childRow[incomeIndex] = split.Amount;
+      childRow[incomeIndex] = amount;
       childRow[expenseIndex] = "";
     } else {
       childRow[incomeIndex] = "";
-      childRow[expenseIndex] = split.Amount;
+      childRow[expenseIndex] = amount;
     }
     archiveRows.push([...childRow, PENDING, splitDate]);
     finalTypes.push(CHILD);
