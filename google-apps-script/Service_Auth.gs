@@ -84,9 +84,16 @@ const Service_Auth = {
   },
 
   _computeSignatureHex: function (payload, secretKey) {
+    // The charset argument is REQUIRED. Without it this overload does not encode
+    // the strings as UTF-8, so any non-ASCII byte in the payload (a GBP sign or a
+    // curly apostrophe pasted in from a bank export) yields a different digest
+    // than the browser's TextEncoder-based HMAC and the request is rejected as
+    // Unauthorized. Reads never hit this because their signed params are all
+    // ASCII; writes carrying user text did.
     const signatureBytes = Utilities.computeHmacSha256Signature(
       payload,
       secretKey,
+      Utilities.Charset.UTF_8,
     );
     return signatureBytes.reduce(function (str, byte) {
       const v = (byte < 0 ? byte + 256 : byte).toString(16);
@@ -173,6 +180,13 @@ const Service_Auth = {
         session.sessionKey,
       );
       if (!this._isSignatureMatch(signature, expectedSignature)) {
+        // Logged because this is otherwise the only rejection path that leaves
+        // no trace, which makes a client/server signing mismatch invisible in
+        // the execution log. The signatures themselves are deliberately not
+        // logged.
+        console.warn(
+          "Request rejected: Signature mismatch for action " + action,
+        );
         return { authorized: false };
       }
 
