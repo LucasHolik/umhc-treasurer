@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "2f06376a-40ac-4b03-834d-141d80e4c020",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/lucas/Dev/umhc-treasurer/.archify/architecture-umhc-treasurer-20261005-162240/candidate.json",
+  "output": "/Users/lucas/Dev/umhc-treasurer/.archify/architecture-umhc-treasurer-20261005-162240/umhc-treasurer.html",
+  "specification": {
+    "sha256": "a59e636dcf91f7e12fe753538956278a36cce40b54ab25399d7daec481716a06",
+    "bytes": 27982
+  },
+  "artifact": {
+    "sha256": "c5db77b20e5be5f16abeeb265a36827abe6d51c0b56f37f292a3af39ad1764c0",
+    "bytes": 840702
+  }
+}

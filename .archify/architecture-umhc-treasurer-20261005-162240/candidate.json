@@ -1,0 +1,1328 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "UMHC Treasurer — Frontend & Backend",
+    "output": ".archify/architecture-umhc-treasurer-20261005-162240/umhc-treasurer.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "git@github.com:LucasHolik/umhc-treasurer.git",
+      "link_mode": "local-only",
+      "revision": "7b7dfa39dbddb5873fbfa8f5432da9ab8dcbda29"
+    },
+    "views": [
+      {
+        "id": "login-flow",
+        "label": "Login & session",
+        "focus": [
+          "login",
+          "authsvc",
+          "apisvc",
+          "doget",
+          "gasauth",
+          "session",
+          "cache",
+          "configsheet"
+        ],
+        "note": "Passkey signs the login request once; the server returns a 1h session key that signs every later call."
+      },
+      {
+        "id": "data-load",
+        "label": "Initial data load",
+        "focus": [
+          "app",
+          "apisvc",
+          "doget",
+          "sheetsvc",
+          "tagsvc",
+          "splitsvc",
+          "store",
+          "txsvc"
+        ],
+        "note": "getAppData returns expenses, tags, balance and split history; splits are merged client-side."
+      },
+      {
+        "id": "upload-flow",
+        "label": "Bank statement upload",
+        "focus": [
+          "upload",
+          "excelsvc",
+          "xlsxlib",
+          "apisvc",
+          "doget",
+          "sheetsvc",
+          "finances"
+        ],
+        "note": "Excel parsed in-browser, duplicates dropped, then saveData in 20-row chunks."
+      },
+      {
+        "id": "split-flow",
+        "label": "Split transaction",
+        "focus": [
+          "transactions",
+          "apisvc",
+          "doget",
+          "splitsvc",
+          "splitsheet",
+          "finances"
+        ],
+        "note": "PENDING rows appended, Finances row stamped, then promoted to SOURCE/CHILD."
+      },
+      {
+        "id": "tag-flow",
+        "label": "Tag cascade",
+        "focus": [
+          "tags",
+          "apisvc",
+          "doget",
+          "tagsvc",
+          "tagsheet",
+          "sheetsvc",
+          "splitsvc"
+        ],
+        "note": "Batched tag ops rename/delete across Tags, Finances and Split sheets with rollback."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "treasurer",
+      "type": "external",
+      "label": "Treasurer",
+      "sublabel": "admin or viewer passkey",
+      "pos": [
+        180,
+        40
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "sources": [
+        {
+          "path": "README.md",
+          "line": 20,
+          "label": "role-based access"
+        }
+      ]
+    },
+    {
+      "id": "pages",
+      "type": "cloud",
+      "label": "GitHub Pages",
+      "sublabel": "static host, no build step",
+      "pos": [
+        420,
+        40
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "README.md",
+          "line": 21,
+          "end_line": 24,
+          "label": "zero-cost hosting"
+        }
+      ]
+    },
+    {
+      "id": "indexhtml",
+      "type": "frontend",
+      "label": "index.html",
+      "sublabel": "meta CSP · SRI-pinned libs",
+      "pos": [
+        420,
+        170
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "index.html",
+          "line": 5,
+          "end_line": 8,
+          "label": "CSP"
+        },
+        {
+          "path": "index.html",
+          "line": 43,
+          "end_line": 53,
+          "label": "script tags"
+        }
+      ]
+    },
+    {
+      "id": "app",
+      "type": "frontend",
+      "label": "App.js",
+      "sublabel": "auth gate · mounts views · events",
+      "pos": [
+        420,
+        280
+      ],
+      "size": [
+        180,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/App.js",
+          "line": 17,
+          "end_line": 111,
+          "label": "constructor"
+        },
+        {
+          "path": "src/App.js",
+          "line": 552,
+          "end_line": 584,
+          "label": "loadInitialData"
+        }
+      ]
+    },
+    {
+      "id": "router",
+      "type": "frontend",
+      "label": "Hash Router",
+      "sublabel": "#dashboard, #tags…",
+      "pos": [
+        690,
+        287
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "sources": [
+        {
+          "path": "src/core/router.js",
+          "line": 7,
+          "end_line": 66
+        },
+        {
+          "path": "src/App.js",
+          "line": 359,
+          "end_line": 367,
+          "label": "route registration"
+        }
+      ]
+    },
+    {
+      "id": "txsvc",
+      "type": "frontend",
+      "label": "TransactionService",
+      "sublabel": "mergeSplits: SOURCE → CHILD rows",
+      "pos": [
+        880,
+        284
+      ],
+      "size": [
+        240,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/services/transaction.service.js",
+          "line": 12,
+          "end_line": 78
+        },
+        {
+          "path": "src/App.js",
+          "line": 97,
+          "end_line": 111,
+          "label": "subscription"
+        }
+      ]
+    },
+    {
+      "id": "login",
+      "type": "frontend",
+      "label": "Login view",
+      "sublabel": "script URL + passkey",
+      "pos": [
+        40,
+        410
+      ],
+      "size": [
+        135,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/features/login/login.component.js",
+          "line": 40,
+          "end_line": 48
+        },
+        {
+          "path": "src/features/login/login.component.js",
+          "line": 212,
+          "end_line": 225
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "type": "frontend",
+      "label": "Store (state.js)",
+      "sublabel": "pub/sub · deep-clone in/out · equality-gated notify",
+      "pos": [
+        195,
+        410
+      ],
+      "size": [
+        925,
+        76
+      ],
+      "sources": [
+        {
+          "path": "src/core/state.js",
+          "line": 5,
+          "end_line": 126
+        }
+      ]
+    },
+    {
+      "id": "authsvc",
+      "type": "security",
+      "label": "AuthService",
+      "sublabel": "sets currentUser role",
+      "pos": [
+        40,
+        550
+      ],
+      "size": [
+        135,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/services/auth.service.js",
+          "line": 17,
+          "end_line": 116
+        }
+      ]
+    },
+    {
+      "id": "transactions",
+      "type": "frontend",
+      "label": "Transactions",
+      "sublabel": "bulk tag · split · manual",
+      "pos": [
+        195,
+        550
+      ],
+      "size": [
+        135,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/features/transactions/transactions.component.js",
+          "line": 1318,
+          "end_line": 1323,
+          "label": "split"
+        },
+        {
+          "path": "src/features/transactions/transactions.component.js",
+          "line": 1708,
+          "end_line": 1724,
+          "label": "bulk update"
+        },
+        {
+          "path": "src/features/transactions/transactions.component.js",
+          "line": 1448,
+          "end_line": 1449,
+          "label": "manual add"
+        }
+      ]
+    },
+    {
+      "id": "tags",
+      "type": "frontend",
+      "label": "Tags",
+      "sublabel": "rename · delete · trips",
+      "pos": [
+        350,
+        550
+      ],
+      "size": [
+        135,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/features/tags/tags.component.js",
+          "line": 535,
+          "end_line": 561
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "type": "frontend",
+      "label": "Settings",
+      "sublabel": "balance · self-test",
+      "pos": [
+        505,
+        550
+      ],
+      "size": [
+        135,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/features/settings/settings.component.js",
+          "line": 504
+        },
+        {
+          "path": "src/features/settings/settings.component.js",
+          "line": 420,
+          "end_line": 430,
+          "label": "lazy self-test"
+        }
+      ]
+    },
+    {
+      "id": "upload",
+      "type": "frontend",
+      "label": "Upload",
+      "sublabel": "admin only · dedupe",
+      "pos": [
+        660,
+        550
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/features/upload/upload.component.js",
+          "line": 340,
+          "end_line": 361,
+          "label": "markDuplicates"
+        },
+        {
+          "path": "src/features/upload/upload.component.js",
+          "line": 434,
+          "end_line": 465,
+          "label": "chunked save"
+        },
+        {
+          "path": "src/App.js",
+          "line": 343,
+          "end_line": 345,
+          "label": "canEdit only"
+        }
+      ]
+    },
+    {
+      "id": "excelsvc",
+      "type": "frontend",
+      "label": "ExcelService",
+      "sublabel": "rows → clean JSON",
+      "pos": [
+        710,
+        700
+      ],
+      "size": [
+        120,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/services/excel.service.js",
+          "line": 227,
+          "end_line": 243
+        },
+        {
+          "path": "src/services/excel.service.js",
+          "line": 103
+        }
+      ]
+    },
+    {
+      "id": "analysis",
+      "type": "frontend",
+      "label": "Analysis",
+      "sublabel": "charts · pivot table",
+      "pos": [
+        850,
+        550
+      ],
+      "size": [
+        135,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/features/analysis/analysis.component.js",
+          "line": 130,
+          "end_line": 140
+        }
+      ]
+    },
+    {
+      "id": "dashboard",
+      "type": "frontend",
+      "label": "Dashboard",
+      "sublabel": "balance · recent",
+      "pos": [
+        1000,
+        550
+      ],
+      "size": [
+        120,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/features/dashboard/dashboard.component.js",
+          "line": 32,
+          "end_line": 38
+        },
+        {
+          "path": "src/features/dashboard/dashboard.component.js",
+          "line": 427
+        }
+      ]
+    },
+    {
+      "id": "apisvc",
+      "type": "security",
+      "label": "ApiService",
+      "sublabel": "JSONP <script> client · HMAC-SHA256 signing · write nonce · de-dup · 20s timeout · view-only writes blocked",
+      "pos": [
+        40,
+        700
+      ],
+      "size": [
+        650,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/services/api.service.js",
+          "line": 151,
+          "end_line": 157,
+          "label": "requestMutating"
+        },
+        {
+          "path": "src/services/api.service.js",
+          "line": 169,
+          "end_line": 392,
+          "label": "request + sign"
+        },
+        {
+          "path": "src/services/api.service.js",
+          "line": 394,
+          "end_line": 494,
+          "label": "action API"
+        }
+      ]
+    },
+    {
+      "id": "xlsxlib",
+      "type": "frontend",
+      "label": "read-excel-file",
+      "sublabel": "vendored lib",
+      "pos": [
+        710,
+        830
+      ],
+      "size": [
+        120,
+        60
+      ],
+      "sources": [
+        {
+          "path": "index.html",
+          "line": 48,
+          "end_line": 52
+        }
+      ]
+    },
+    {
+      "id": "chartjs",
+      "type": "frontend",
+      "label": "Chart.js",
+      "sublabel": "vendored lib",
+      "pos": [
+        850,
+        700
+      ],
+      "size": [
+        135,
+        60
+      ],
+      "sources": [
+        {
+          "path": "index.html",
+          "line": 43,
+          "end_line": 47
+        },
+        {
+          "path": "src/features/analysis/analysis.chart.js",
+          "line": 203
+        }
+      ]
+    },
+    {
+      "id": "finlogic",
+      "type": "frontend",
+      "label": "financial.logic",
+      "sublabel": "Manual-offset balance",
+      "pos": [
+        1000,
+        700
+      ],
+      "size": [
+        120,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/core/financial.logic.js",
+          "line": 28,
+          "end_line": 63
+        }
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "database",
+      "label": "Browser storage",
+      "sublabel": "session id/key · script_url",
+      "pos": [
+        40,
+        830
+      ],
+      "size": [
+        190,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/services/api.service.js",
+          "line": 78,
+          "end_line": 135
+        }
+      ]
+    },
+    {
+      "id": "gasauth",
+      "type": "security",
+      "label": "Service_Auth",
+      "sublabel": "±5 min clock · const-time compare",
+      "pos": [
+        40,
+        1000
+      ],
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Service_Auth.gs",
+          "line": 118,
+          "end_line": 224,
+          "label": "verifyRequest"
+        },
+        {
+          "path": "google-apps-script/Service_Auth.gs",
+          "line": 27,
+          "end_line": 53,
+          "label": "login"
+        }
+      ]
+    },
+    {
+      "id": "session",
+      "type": "security",
+      "label": "Service_Session",
+      "sublabel": "UUID id + key · revoke",
+      "pos": [
+        40,
+        1140
+      ],
+      "size": [
+        190,
+        60
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Service_Session.gs",
+          "line": 7,
+          "end_line": 63
+        }
+      ]
+    },
+    {
+      "id": "cache",
+      "type": "database",
+      "label": "CacheService",
+      "sublabel": "sessions · nonces · lockout",
+      "pos": [
+        40,
+        1270
+      ],
+      "size": [
+        190,
+        60
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Service_Session.gs",
+          "line": 16,
+          "end_line": 24
+        },
+        {
+          "path": "google-apps-script/Service_Auth.gs",
+          "line": 139,
+          "end_line": 162,
+          "label": "login lockout"
+        },
+        {
+          "path": "google-apps-script/Service_Auth.gs",
+          "line": 201,
+          "end_line": 214,
+          "label": "nonce replay"
+        }
+      ]
+    },
+    {
+      "id": "configsheet",
+      "type": "database",
+      "label": "Config sheet",
+      "sublabel": "passkeys · opening balance",
+      "pos": [
+        40,
+        1410
+      ],
+      "size": [
+        190,
+        60
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Config.gs",
+          "line": 3,
+          "end_line": 14
+        },
+        {
+          "path": "google-apps-script/Service_Sheet.gs",
+          "line": 636
+        }
+      ]
+    },
+    {
+      "id": "doget",
+      "type": "backend",
+      "label": "doGet (Code.gs)",
+      "sublabel": "role gate · validate · JSONP reply",
+      "pos": [
+        490,
+        1000
+      ],
+      "size": [
+        210,
+        70
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Code.gs",
+          "line": 1,
+          "end_line": 40,
+          "label": "action sets"
+        },
+        {
+          "path": "google-apps-script/Code.gs",
+          "line": 43,
+          "end_line": 281,
+          "label": "router"
+        },
+        {
+          "path": "google-apps-script/Code.gs",
+          "line": 347,
+          "end_line": 362,
+          "label": "JSONP output"
+        }
+      ]
+    },
+    {
+      "id": "tagsvc",
+      "type": "backend",
+      "label": "Service_Tags",
+      "sublabel": "script lock · snapshot",
+      "pos": [
+        490,
+        1150
+      ],
+      "size": [
+        210,
+        64
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Service_Tags.gs",
+          "line": 57,
+          "end_line": 75
+        },
+        {
+          "path": "google-apps-script/Service_Tags.gs",
+          "line": 732,
+          "end_line": 760,
+          "label": "_runTagBatch"
+        }
+      ]
+    },
+    {
+      "id": "tagsheet",
+      "type": "database",
+      "label": "Tags sheet",
+      "sublabel": "trips · types · status",
+      "pos": [
+        790,
+        1150
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Service_Tags.gs",
+          "line": 79,
+          "end_line": 103
+        }
+      ]
+    },
+    {
+      "id": "sheetsvc",
+      "type": "backend",
+      "label": "Service_Sheet",
+      "sublabel": "formula-injection guard",
+      "pos": [
+        270,
+        1300
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Service_Sheet.gs",
+          "line": 2,
+          "end_line": 125,
+          "label": "saveData"
+        },
+        {
+          "path": "google-apps-script/Service_Sheet.gs",
+          "line": 196,
+          "end_line": 260,
+          "label": "updateExpenses"
+        },
+        {
+          "path": "google-apps-script/Code.gs",
+          "line": 371,
+          "end_line": 381,
+          "label": "_sanitizeForSheet"
+        }
+      ]
+    },
+    {
+      "id": "splitsvc",
+      "type": "backend",
+      "label": "Service_Split",
+      "sublabel": "split · edit · revert",
+      "pos": [
+        940,
+        1300
+      ],
+      "size": [
+        180,
+        84
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Service_Split.gs",
+          "line": 15,
+          "end_line": 52
+        },
+        {
+          "path": "google-apps-script/Service_Split.gs",
+          "line": 1269,
+          "end_line": 1355,
+          "label": "3-phase write"
+        }
+      ]
+    },
+    {
+      "id": "splitsheet",
+      "type": "database",
+      "label": "Split Transactions",
+      "sublabel": "SOURCE · CHILD · PENDING",
+      "pos": [
+        970,
+        1450
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Service_Split.gs",
+          "line": 1,
+          "end_line": 6
+        },
+        {
+          "path": "google-apps-script/Service_Split.gs",
+          "line": 861,
+          "end_line": 920
+        }
+      ]
+    },
+    {
+      "id": "finances",
+      "type": "database",
+      "label": "Finances sheet",
+      "sublabel": "one row per transaction",
+      "pos": [
+        270,
+        1450
+      ],
+      "size": [
+        190,
+        60
+      ],
+      "sources": [
+        {
+          "path": "google-apps-script/Config.gs",
+          "line": 15,
+          "end_line": 26
+        },
+        {
+          "path": "google-apps-script/Service_Sheet.gs",
+          "line": 509,
+          "end_line": 520
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Browser · vanilla ES modules (no build)",
+      "wraps": [
+        "indexhtml",
+        "app",
+        "router",
+        "txsvc",
+        "login",
+        "store",
+        "authsvc",
+        "transactions",
+        "tags",
+        "settings",
+        "upload",
+        "excelsvc",
+        "analysis",
+        "dashboard",
+        "apisvc",
+        "xlsxlib",
+        "chartjs",
+        "finlogic",
+        "storage"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Google Apps Script web app + Google Sheets",
+      "wraps": [
+        "doget",
+        "gasauth",
+        "session",
+        "cache",
+        "configsheet",
+        "tagsvc",
+        "tagsheet",
+        "sheetsvc",
+        "splitsvc",
+        "splitsheet",
+        "finances"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Request authentication",
+      "wraps": [
+        "gasauth",
+        "session",
+        "cache"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-https",
+      "from": "treasurer",
+      "to": "pages",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "pages-index",
+      "from": "pages",
+      "to": "indexhtml",
+      "label": "static files",
+      "variant": "emphasis"
+    },
+    {
+      "id": "index-app",
+      "from": "indexhtml",
+      "to": "app",
+      "label": "ES module",
+      "variant": "emphasis"
+    },
+    {
+      "id": "app-router",
+      "from": "app",
+      "to": "router",
+      "label": "register"
+    },
+    {
+      "id": "app-login",
+      "from": "app",
+      "to": "login",
+      "label": "no session"
+    },
+    {
+      "id": "app-store",
+      "from": "app",
+      "to": "store",
+      "label": "setState app data",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "app-api",
+      "from": "app",
+      "to": "apisvc",
+      "label": "getAppData",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "left"
+    },
+    {
+      "id": "store-txsvc",
+      "from": "store",
+      "to": "txsvc",
+      "label": "on change",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "txsvc-store",
+      "from": "txsvc",
+      "to": "store",
+      "label": "expenses",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "login-auth",
+      "from": "login",
+      "to": "authsvc",
+      "label": "login(passkey)",
+      "variant": "security"
+    },
+    {
+      "id": "store-transactions",
+      "from": "store",
+      "to": "transactions",
+      "label": "expenses · tags",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "store-tags",
+      "from": "store",
+      "to": "tags",
+      "label": "tags · expenses",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "store-settings",
+      "from": "store",
+      "to": "settings",
+      "label": "balance",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "store-upload",
+      "from": "store",
+      "to": "upload",
+      "label": "rawExpenses",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "store-analysis",
+      "from": "store",
+      "to": "analysis",
+      "label": "expenses · tags",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "store-dashboard",
+      "from": "store",
+      "to": "dashboard",
+      "label": "expenses · balance",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "upload-excel",
+      "from": "upload",
+      "to": "excelsvc",
+      "label": "parseFile",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "excel-lib",
+      "from": "excelsvc",
+      "to": "xlsxlib",
+      "label": "readXlsxFile"
+    },
+    {
+      "id": "analysis-chart",
+      "from": "analysis",
+      "to": "chartjs",
+      "label": "new Chart"
+    },
+    {
+      "id": "dashboard-fin",
+      "from": "dashboard",
+      "to": "finlogic",
+      "label": "calculateFinancials"
+    },
+    {
+      "id": "auth-api",
+      "from": "authsvc",
+      "to": "apisvc",
+      "label": "login · ping · logout",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "transactions-api",
+      "from": "transactions",
+      "to": "apisvc",
+      "label": "update · split · add",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "tags-api",
+      "from": "tags",
+      "to": "apisvc",
+      "label": "tag ops ×10",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "settings-api",
+      "from": "settings",
+      "to": "apisvc",
+      "label": "saveOpeningBalance",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "upload-api",
+      "from": "upload",
+      "to": "apisvc",
+      "label": "saveData ×20",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "api-storage",
+      "from": "apisvc",
+      "to": "storage",
+      "label": "persist session",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "api-doget",
+      "from": "apisvc",
+      "to": "doget",
+      "label": "signed JSONP GET",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "doget-auth",
+      "from": "doget",
+      "to": "gasauth",
+      "label": "verifyRequest",
+      "variant": "security"
+    },
+    {
+      "id": "auth-session",
+      "from": "gasauth",
+      "to": "session",
+      "label": "create / get",
+      "variant": "security"
+    },
+    {
+      "id": "session-cache",
+      "from": "session",
+      "to": "cache",
+      "label": "1h TTL"
+    },
+    {
+      "id": "auth-cache",
+      "from": "gasauth",
+      "to": "cache",
+      "label": "nonce · lockout",
+      "fromSide": "left",
+      "toSide": "left"
+    },
+    {
+      "id": "auth-config",
+      "from": "gasauth",
+      "to": "configsheet",
+      "label": "read passkeys",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "left"
+    },
+    {
+      "id": "doget-tags",
+      "from": "doget",
+      "to": "tagsvc",
+      "label": "tag actions"
+    },
+    {
+      "id": "doget-sheet",
+      "from": "doget",
+      "to": "sheetsvc",
+      "label": "data · balance"
+    },
+    {
+      "id": "doget-split",
+      "from": "doget",
+      "to": "splitsvc",
+      "label": "split actions"
+    },
+    {
+      "id": "tags-tagsheet",
+      "from": "tagsvc",
+      "to": "tagsheet",
+      "label": "snapshot"
+    },
+    {
+      "id": "tags-sheet",
+      "from": "tagsvc",
+      "to": "sheetsvc",
+      "label": "cascade",
+      "variant": "dashed"
+    },
+    {
+      "id": "tags-split",
+      "from": "tagsvc",
+      "to": "splitsvc",
+      "label": "cascade",
+      "variant": "dashed"
+    },
+    {
+      "id": "sheet-split",
+      "from": "sheetsvc",
+      "to": "splitsvc",
+      "label": "re-tag CHILD rows",
+      "variant": "dashed"
+    },
+    {
+      "id": "sheet-finances",
+      "from": "sheetsvc",
+      "to": "finances",
+      "label": "append · sort"
+    },
+    {
+      "id": "sheet-config",
+      "from": "sheetsvc",
+      "to": "configsheet",
+      "label": "balance"
+    },
+    {
+      "id": "split-splitsheet",
+      "from": "splitsvc",
+      "to": "splitsheet",
+      "label": "3-phase write"
+    },
+    {
+      "id": "split-finances",
+      "from": "splitsvc",
+      "to": "finances",
+      "label": "stamp group ID"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Request security",
+      "items": [
+        "Login: signed with the passkey; server tries admin then viewer key, 10 failures / 10 min locks login globally",
+        "Every other call: HMAC over action|timestamp|canonical params with the 1h session key",
+        "Writes carry a one-time nonce (cached 6 min); viewer role is limited to READ_ACTIONS",
+        "\"Unauthorized\" reply clears the session and fires sessionExpired → logout"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Data flow",
+      "items": [
+        "Views never fetch on load: App.js calls getAppData and seeds the Store",
+        "Store → TransactionService swaps SOURCE rows for CHILD splits",
+        "Mutations dispatch dataUploaded, which re-runs getAppData",
+        "Analysis, Dashboard and Settings compute balances with financial.logic"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Write safety (GAS)",
+      "items": [
+        "LockService script lock (30s) around sheet writes",
+        "Split: append PENDING → stamp Finances → promote; failed phases undo",
+        "Tag batch: snapshot Tags sheet, compensate Finances/Split on failure",
+        "Values starting with = + - @ are prefixed with ' before writing"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Delivery",
+      "items": [
+        "No npm build: Chart.js and read-excel-file vendored with SRI hashes",
+        "Push to main mirrors the repo to UMHC/umhc-treasury via GitHub Actions",
+        "Self-test suite loads on demand from Settings → Diagnostics"
+      ]
+    }
+  ]
+}
