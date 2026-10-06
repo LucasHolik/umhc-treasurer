@@ -1,4 +1,8 @@
 import { parseAmount, parseDate } from "../../core/utils.js";
+import {
+  getTripStatusStyle,
+  partitionTripsByStatus,
+} from "../../core/trip-status.js";
 
 export const filterData = (
   data,
@@ -77,4 +81,38 @@ export const sortData = (data, field, ascending) => {
     if (valA > valB) return ascending ? 1 : -1;
     return 0;
   });
+};
+
+/**
+ * Builds TagSelector options for a tag type. Trip/Event tags are split into
+ * current tags (listed) and past tags (behind "See past tags", each with its
+ * status label as a hint). Other types keep the selector's default list.
+ *
+ * @param {string} type - "Trip/Event" | "Category" | ...
+ * @param {Object} tagsData - store.tags
+ * @returns {{customOptions: string[]|null, pastOptions: Array<{value: string, hint: string}>}}
+ */
+export const buildTagSelectorOptions = (type, tagsData) => {
+  if (type !== "Trip/Event") return { customOptions: null, pastOptions: [] };
+  return buildTripSelectorOptions(tagsData);
+};
+
+/**
+ * @param {Object} tagsData - store.tags
+ * @returns {{customOptions: string[], pastOptions: Array<{value: string, hint: string}>}}
+ */
+export const buildTripSelectorOptions = (tagsData) => {
+  const tags = tagsData || {};
+  const tripStatusMap = tags.TripStatusMap || {};
+  const { current, past } = partitionTripsByStatus(
+    tags["Trip/Event"] || [],
+    tripStatusMap,
+  );
+  return {
+    customOptions: current,
+    pastOptions: past.map((trip) => ({
+      value: trip,
+      hint: getTripStatusStyle(tripStatusMap[trip]).label,
+    })),
+  };
 };
