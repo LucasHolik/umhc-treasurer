@@ -11,6 +11,24 @@ import {
 } from "../../shared/mobile-data-card.component.js";
 import { withSearchInputAttributes } from "../../shared/search-input.js";
 import { el, replace } from "../../core/dom.js";
+import {
+  TRIP_STATUS,
+  TRIP_STATUSES,
+  getTripStatusStyle,
+  getNextTripStatus,
+  normaliseTripStatus,
+} from "../../core/trip-status.js";
+
+const STATUS_DESCRIPTIONS = {
+  [TRIP_STATUS.ACTIVE]:
+    "The trip or event is currently being planned or is in progress.",
+  [TRIP_STATUS.COMPLETED]:
+    "The trip is finished and all expenses are finalized. Hidden from the tagging box by default.",
+  [TRIP_STATUS.INVESTMENT]:
+    "This tag tracks a long-term investment or asset, not a regular trip.",
+  [TRIP_STATUS.COMPLETED_INVESTMENT]:
+    "The investment has ended (sold, written off or fully paid off). Hidden from the tagging box by default.",
+};
 
 export default class TagsList {
   constructor(element, callbacks) {
@@ -512,7 +530,7 @@ export default class TagsList {
 
       if (type === "Trip/Event") {
         row.tripType = this.tripTypeMap?.[tag] || "";
-        row.status = tripStatusMap[tag] || "Active";
+        row.status = normaliseTripStatus(tripStatusMap[tag]);
       }
 
       return row;
@@ -553,13 +571,8 @@ export default class TagsList {
         type: "custom",
         class: "text-center",
         render: (item) => {
-          const status = item.status || "Active";
-          const styles = {
-            Active: { icon: "◯", color: "#888", title: "Active" },
-            Completed: { icon: "✅", color: "#5cb85c", title: "Completed" },
-            Investment: { icon: "🚀", color: "#5bc0de", title: "Investment" },
-          };
-          const s = styles[status] || styles["Active"];
+          const status = normaliseTripStatus(item.status);
+          const s = getTripStatusStyle(status);
 
           const span = el(
             "span",
@@ -572,7 +585,7 @@ export default class TagsList {
                 cursor: canChangeStatus ? "pointer" : "not-allowed",
                 opacity: canChangeStatus ? "1" : "0.7",
               },
-              title: canChangeStatus ? `${s.title} - Click to cycle` : s.title,
+              title: canChangeStatus ? `${s.label} - Click to cycle` : s.label,
               dataset: { tag: item.tag, status: status },
               tabIndex: canChangeStatus ? "0" : "-1",
               role: "button",
@@ -828,7 +841,8 @@ export default class TagsList {
   }
 
   createMobileCard(type, item) {
-    const status = item.status || "Active";
+    const status = normaliseTripStatus(item.status);
+    const statusStyle = getTripStatusStyle(status);
     const canOpenDetails =
       !this.isEditMode && typeof this.callbacks.onTagClick === "function";
 
@@ -843,12 +857,7 @@ export default class TagsList {
             {
               className: "status-toggle-btn",
               style: {
-                color:
-                  {
-                    Active: "#888",
-                    Completed: "#5cb85c",
-                    Investment: "#5bc0de",
-                  }[status] || "#888",
+                color: statusStyle.color,
                 fontWeight: "bold",
                 fontSize: "1.2em",
                 cursor:
@@ -862,7 +871,7 @@ export default class TagsList {
               tabindex: this.canEdit && !this.isEditMode ? "0" : "-1",
               role: "button",
             },
-            { Active: "◯", Completed: "✅", Investment: "🚀" }[status] || "◯",
+            statusStyle.icon,
           ),
         }),
         createMobileDataDetail({
@@ -1055,53 +1064,26 @@ export default class TagsList {
         el(
           "ul",
           { style: { listStyle: "none", paddingLeft: "0" } },
-          el(
-            "li",
-            { style: { marginBottom: "8px" } },
-            el(
-              "span",
-              {
-                style: { color: "#888", fontWeight: "bold", fontSize: "1.2em" },
-              },
-              "◯",
-            ),
-            el("strong", {}, " Active:"),
-            " The trip or event is currently being planned or is in progress.",
-          ),
-          el(
-            "li",
-            { style: { marginBottom: "8px" } },
-            el(
-              "span",
-              {
-                style: {
-                  color: "#5cb85c",
-                  fontWeight: "bold",
-                  fontSize: "1.2em",
+          ...TRIP_STATUSES.map((status) => {
+            const s = getTripStatusStyle(status);
+            return el(
+              "li",
+              { style: { marginBottom: "8px" } },
+              el(
+                "span",
+                {
+                  style: {
+                    color: s.color,
+                    fontWeight: "bold",
+                    fontSize: "1.2em",
+                  },
                 },
-              },
-              "✅",
-            ),
-            el("strong", {}, " Completed:"),
-            " The trip is finished and all expenses are finalized.",
-          ),
-          el(
-            "li",
-            { style: { marginBottom: "8px" } },
-            el(
-              "span",
-              {
-                style: {
-                  color: "#5bc0de",
-                  fontWeight: "bold",
-                  fontSize: "1.2em",
-                },
-              },
-              "🚀",
-            ),
-            el("strong", {}, " Investment:"),
-            " This tag tracks a long-term investment or asset, not a regular trip.",
-          ),
+                s.icon,
+              ),
+              el("strong", {}, ` ${s.label}:`),
+              ` ${STATUS_DESCRIPTIONS[status]}`,
+            );
+          }),
         ),
         el(
           "p",
@@ -1144,12 +1126,7 @@ export default class TagsList {
       e.stopPropagation();
       const tag = target.dataset.tag;
       const currentStatus = target.dataset.status;
-      const nextStatus =
-        {
-          Active: "Completed",
-          Completed: "Investment",
-          Investment: "Active",
-        }[currentStatus] || "Active";
+      const nextStatus = getNextTripStatus(currentStatus);
 
       if (this.callbacks.onUpdateTripStatus) {
         this.callbacks.onUpdateTripStatus(tag, nextStatus);

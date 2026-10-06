@@ -8,6 +8,10 @@ import {
   createMobileDataMetric,
 } from "../../shared/mobile-data-card.component.js";
 import { el, replace } from "../../core/dom.js";
+import {
+  getTripStatusStyle,
+  normaliseTripStatus,
+} from "../../core/trip-status.js";
 
 export default class TagsSubList {
   constructor(element, callbacks) {
@@ -80,7 +84,7 @@ export default class TagsSubList {
         const net = income - expense;
         return {
           tag: trip,
-          status: tripStatusMap[trip] || "Active",
+          status: normaliseTripStatus(tripStatusMap[trip]),
           income: income,
           expense: expense,
           net: net,
@@ -182,17 +186,12 @@ export default class TagsSubList {
         type: "custom",
         class: "text-center",
         render: (item) => {
-          const styles = {
-            Active: { icon: "◯", color: "#888", title: "Active" },
-            Completed: { icon: "✅", color: "#5cb85c", title: "Completed" },
-            Investment: { icon: "🚀", color: "#5bc0de", title: "Investment" },
-          };
-          const s = styles[item.status] || styles["Active"];
+          const s = getTripStatusStyle(item.status);
 
           const span = el(
             "span",
             {
-              title: s.title,
+              title: s.label,
               style: { color: s.color, fontWeight: "bold", fontSize: "1.2em" },
             },
             s.icon,
@@ -288,12 +287,7 @@ export default class TagsSubList {
   }
 
   createMobileCard(item) {
-    const statusConfig = {
-      Active: { icon: "◯", color: "#888", title: "Active" },
-      Completed: { icon: "✅", color: "#5cb85c", title: "Completed" },
-      Investment: { icon: "🚀", color: "#5bc0de", title: "Investment" },
-    };
-    const status = statusConfig[item.status] || statusConfig.Active;
+    const status = getTripStatusStyle(item.status);
 
     const card = createMobileDataCard({
       className: "tags-detail-mobile-card tags-detail-mobile-card--sublist",
@@ -314,7 +308,7 @@ export default class TagsSubList {
           value: el(
             "span",
             {
-              title: status.title,
+              title: status.label,
               style: {
                 color: status.color,
                 fontWeight: "bold",
