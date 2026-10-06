@@ -280,68 +280,48 @@ function doGet(e) {
   }
 }
 
+// Reads everything under ONE script lock so expenses, tags, opening balance
+// and splits all come from the same moment: entirely before a write or
+// entirely after it. The services' own locks nest inside it (Service_Lock).
+// If any part fails, the whole load fails: the client keeps its last good
+// state rather than showing partial data as if it were correct.
 function getAppData() {
-  try {
-    const expenses = Service_Sheet.getData();
-    if (!expenses.success) {
-      throw new Error(expenses.message || "Failed to fetch expenses");
-    }
-
-    let tags = {
-      "Trip/Event": [],
-      Category: [],
-      Type: [],
-      TripTypeMap: {},
-      TripStatusMap: {},
-    };
+  return Service_Lock.withScriptLock(() => {
+    let part = "expenses";
     try {
-      tags = Service_Tags.getTags();
-    } catch (tagError) {
-      console.error("Error fetching tags:", tagError.toString());
-    }
+      const expenses = Service_Sheet.getData();
+      if (!expenses.success) throw new Error(expenses.message);
 
-    let openingBalance = { success: true, balance: 0 };
-    try {
-      openingBalance = Service_Sheet.getOpeningBalance();
-    } catch (balanceError) {
-      console.error("Error fetching opening balance:", balanceError.toString());
-    }
+      part = "tags";
+      const tags = Service_Tags.getTags();
 
-    let splitTransactions = { success: true, data: [] };
-    try {
-      splitTransactions = Service_Split.getAllSplitHistory();
+      part = "opening balance";
+      const openingBalance = Service_Sheet.getOpeningBalance();
+      if (!openingBalance.success) throw new Error(openingBalance.message);
+
+      part = "split transactions";
+      const splitTransactions = Service_Split.getAllSplitHistory();
       if (!splitTransactions.success) {
-        console.error(
-          "Failed to fetch split transactions:",
-          splitTransactions.message,
-        );
-        // Don't throw, just log and return empty array for splits
-        splitTransactions.data = [];
+        throw new Error(splitTransactions.message);
       }
-    } catch (splitError) {
-      console.error(
-        "Error fetching split transactions:",
-        splitError.toString(),
-      );
-      splitTransactions.data = [];
-    }
 
-    return {
-      success: true,
-      data: {
-        expenses: expenses.data,
-        tags: tags,
-        openingBalance: openingBalance.success ? openingBalance.balance : 0,
-        splitTransactions: splitTransactions.data,
-      },
-    };
-  } catch (error) {
-    console.error("Error in getAppData: " + error.toString());
-    return {
-      success: false,
-      message: "Error loading app data",
-    };
-  }
+      return {
+        success: true,
+        data: {
+          expenses: expenses.data,
+          tags: tags,
+          openingBalance: openingBalance.balance,
+          splitTransactions: splitTransactions.data,
+        },
+      };
+    } catch (error) {
+      console.error("Error in getAppData (" + part + "): " + error.toString());
+      return {
+        success: false,
+        message: "Error loading app data",
+      };
+    }
+  });
 }
 
 function createJsonResponse(data, callback) {

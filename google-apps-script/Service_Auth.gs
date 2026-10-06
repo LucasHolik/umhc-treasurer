@@ -26,6 +26,13 @@ const Service_Auth = {
 
   login: function (role) {
     const sessionRole = role === "viewer" ? "viewer" : "admin";
+    // Layout upkeep (legacy migration, title cells) happens here rather than
+    // on every read. Login always precedes reads, so they see the new layout.
+    try {
+      _ensureConfigSheetLayout();
+    } catch (e) {
+      console.error("Error updating Config sheet layout: " + e.message);
+    }
     const passkeys = this.getPasskeys();
 
     if (sessionRole === "admin" && !passkeys.admin) {

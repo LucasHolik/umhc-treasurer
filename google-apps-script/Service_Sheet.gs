@@ -139,51 +139,53 @@ const Service_Sheet = {
   },
 
   getData: function () {
-    try {
-      const financeSheet = _getFinanceSheet();
-      const lastRow = financeSheet.getLastRow();
+    return Service_Lock.withScriptLock(() => {
+      try {
+        const financeSheet = _getFinanceSheet();
+        const lastRow = financeSheet.getLastRow();
 
-      if (lastRow <= 1) {
-        return { success: true, data: [] };
-      }
-
-      const range = financeSheet.getRange(
-        2,
-        1,
-        lastRow - 1,
-        CONFIG.HEADERS.length,
-      );
-      const values = range.getValues();
-      const tz = financeSheet.getParent().getSpreadsheetTimeZone();
-
-      const data = values.map((row, index) => {
-        const obj = { row: index + 2 }; // Add row number for unique identification
-        for (let i = 0; i < CONFIG.HEADERS.length; i++) {
-          obj[CONFIG.HEADERS[i]] = row[i];
+        if (lastRow <= 1) {
+          return { success: true, data: [] };
         }
-        if (obj["Date"] instanceof Date) {
-          obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
-        } else if (typeof obj["Date"] === "string" && obj["Date"]) {
-          // Date is already a string.
-          const result = _parseAndNormalizeDateString(
-            obj["Date"],
-            "row " + obj.row,
-          );
-          if (result.normalized) {
-            obj["Date"] = result.normalized;
+
+        const range = financeSheet.getRange(
+          2,
+          1,
+          lastRow - 1,
+          CONFIG.HEADERS.length,
+        );
+        const values = range.getValues();
+        const tz = financeSheet.getParent().getSpreadsheetTimeZone();
+
+        const data = values.map((row, index) => {
+          const obj = { row: index + 2 }; // Add row number for unique identification
+          for (let i = 0; i < CONFIG.HEADERS.length; i++) {
+            obj[CONFIG.HEADERS[i]] = row[i];
           }
-        }
-        return obj;
-      });
+          if (obj["Date"] instanceof Date) {
+            obj["Date"] = Utilities.formatDate(obj["Date"], tz, "yyyy-MM-dd");
+          } else if (typeof obj["Date"] === "string" && obj["Date"]) {
+            // Date is already a string.
+            const result = _parseAndNormalizeDateString(
+              obj["Date"],
+              "row " + obj.row,
+            );
+            if (result.normalized) {
+              obj["Date"] = result.normalized;
+            }
+          }
+          return obj;
+        });
 
-      return { success: true, data: data, count: data.length };
-    } catch (error) {
-      console.error("Error getting data:", error);
-      return {
-        success: false,
-        message: "Failed to retrieve data. Please try again.",
-      };
-    }
+        return { success: true, data: data, count: data.length };
+      } catch (error) {
+        console.error("Error getting data:", error);
+        return {
+          success: false,
+          message: "Failed to retrieve data. Please try again.",
+        };
+      }
+    });
   },
 
   updateExpenses: function (e) {
@@ -300,13 +302,11 @@ const Service_Sheet = {
     try {
       const configSheet = _getConfigSheet();
 
-      const balanceCell = configSheet.getRange(CONFIG.OPENING_BALANCE_CELL);
-      let balance = balanceCell.getValue();
-
-      if (balance === "" || balance === null || balance === undefined) {
-        balanceCell.setValue(0);
-        balance = 0;
-      }
+      // Read-only: an empty cell reads as 0 without writing it back, so a
+      // load never forces a flush.
+      const balance = configSheet
+        .getRange(CONFIG.OPENING_BALANCE_CELL)
+        .getValue();
 
       return { success: true, balance: parseFloat(balance) || 0 };
     } catch (error) {
@@ -328,7 +328,7 @@ const Service_Sheet = {
         return { success: false, message: "Invalid balance value" };
       }
 
-      const configSheet = _getConfigSheet();
+      const configSheet = _ensureConfigSheetLayout();
       configSheet.getRange(CONFIG.OPENING_BALANCE_CELL).setValue(balance);
 
       return { success: true, message: "Opening balance saved successfully" };
@@ -604,6 +604,8 @@ function _sortSheetByDate() {
   }
 }
 
+// Read-only access to the Config sheet; creates it only if it is missing.
+// Safe on read paths (getAppData, request verification).
 function _getConfigSheet() {
   let configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
     CONFIG.CONFIG_SHEET,
@@ -613,6 +615,14 @@ function _getConfigSheet() {
       CONFIG.CONFIG_SHEET,
     );
   }
+  return configSheet;
+}
+
+// Brings the Config sheet up to the current layout: legacy B->C balance
+// migration plus the title cells. It writes, so call it only from write/auth
+// paths (login, saveOpeningBalance), never from a read. Returns the sheet.
+function _ensureConfigSheetLayout() {
+  const configSheet = _getConfigSheet();
 
   // Legacy migration:
   // Old layout used B1/B2 for Initial Balance. New layout uses C1/C2.
