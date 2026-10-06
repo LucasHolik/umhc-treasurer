@@ -1,6 +1,6 @@
 # PLAN: FIX BACKEND DATA LOADING AFTER TAG CHANGES
 # Branch: claude/funny-babbage-m7lmwr
-# Status: PLANNED (nothing implemented yet)
+# Status: IMPLEMENTED (phases 1-5). Manual checks in 7d still need a GAS redeploy.
 
 ================================================================================
 1. PROBLEM SUMMARY
