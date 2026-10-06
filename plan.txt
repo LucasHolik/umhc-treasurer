@@ -267,7 +267,8 @@ paste into the GAS project) and to info.txt section 2 and section 7.
       - Section 4D: timeout is 30 s for reads and 60 s for writes (it
         currently says "15 seconds", which is stale), plus the TIMEOUT
         error code.
-      - Section 7: Service_Lock, lock-free reads, getAppData fails loudly.
+      - Section 7: Service_Lock, getAppData reads under one lock and fails
+        loudly.
       - Section 2: add Service_Lock.gs to the tree.
     google-apps-script/README.md
       - Add Service_Lock.gs, and note that the web app must be REDEPLOYED
