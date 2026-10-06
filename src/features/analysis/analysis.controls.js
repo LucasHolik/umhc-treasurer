@@ -1,5 +1,6 @@
 import { el, replace } from "../../core/dom.js";
 import MobileDisclosureComponent from "../../shared/mobile-disclosure.component.js";
+import { TRIP_STATUSES } from "../../core/trip-status.js";
 
 export default class AnalysisControls {
   constructor(element, callbacks, options = {}) {
@@ -46,9 +47,10 @@ export default class AnalysisControls {
       { id: "analysis-trip-status-select", className: "control-input" },
       ...this.createOptions([
         { value: "All", label: "All" },
-        { value: "Active", label: "Active Only" },
-        { value: "Completed", label: "Completed Only" },
-        { value: "Investment", label: "Investment Only" },
+        ...TRIP_STATUSES.map((status) => ({
+          value: status,
+          label: `${status} Only`,
+        })),
       ]),
     );
     statusSelect.addEventListener("change", (e) => {
