@@ -26,6 +26,8 @@ Follow these steps to set up your own backend instance.
    - `Service_Tags.gs`
 4. Click the **Save** icon (disk) or press `Cmd/Ctrl + S`.
 
+> **Updating an existing deployment:** after pasting changed `.gs` files (or adding a new one such as `Service_Lock.gs`), the web app keeps serving the old code until you **redeploy**: **Deploy** > **Manage deployments** > edit (pencil) > **Version: New version** > **Deploy**. Editing the existing deployment keeps the same Web App URL.
+
 ### 3. Configure the Spreadsheet
 
 The script requires a specific "Config" sheet to handle authentication and settings.

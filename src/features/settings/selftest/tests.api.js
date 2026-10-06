@@ -7,6 +7,7 @@ import { test, assertEqual } from "./selftest.runner.js";
 import {
   canonicalStringify,
   _validateScriptUrl,
+  resolveTimeout,
 } from "../../../services/api.service.js";
 
 const SUITE = "API helpers";
@@ -61,4 +62,18 @@ test(SUITE, "_validateScriptUrl rejects everything else", () => {
   assertEqual(_validateScriptUrl("not a url"), null);
   assertEqual(_validateScriptUrl(""), null);
   assertEqual(_validateScriptUrl(null), null);
+});
+
+test(SUITE, "resolveTimeout gives reads 30 s by default", () => {
+  assertEqual(resolveTimeout(), 30000);
+  assertEqual(resolveTimeout({ skipLoading: true }), 30000);
+});
+
+test(SUITE, "resolveTimeout gives mutating requests 60 s", () => {
+  assertEqual(resolveTimeout({ withNonce: true }), 60000);
+});
+
+test(SUITE, "resolveTimeout honours an explicit timeoutMs", () => {
+  assertEqual(resolveTimeout({ timeoutMs: 5000 }), 5000);
+  assertEqual(resolveTimeout({ withNonce: true, timeoutMs: 90000 }), 90000);
 });
