@@ -37,6 +37,7 @@ No npm / no build step. All dependencies are vendored locally.
       state.js                  # Pub/Sub store (subscribe, setState, getState)
       utils.js                  # Formatting, date helpers, deepEqual, deepClone, debounce
       financial.logic.js        # Opening balance + manual-offset reconciliation
+      trip-status.js            # Trip/Event status constants + pure helpers
 
     /services                   # Logic that touches external things
       api.service.js            # JSONP client with HMAC-SHA256 signing
@@ -55,7 +56,7 @@ No npm / no build step. All dependencies are vendored locally.
         transactions.component.js   # Main list + inline editing
         transactions.bulk.js        # Bulk-tag selection mode
         transactions.filters.js     # Category/Trip/Description filter bar
-        transactions.logic.js       # filterData(), sortData()
+        transactions.logic.js       # filterData(), sortData(), tag box options
         transactions.manual.js      # Add manual (historical) transaction modal
         transactions.split-history.js # View/edit/revert past splits
         split-transaction.modal.js  # Split-creation modal (one row → many)
@@ -149,8 +150,14 @@ Tags (returned by getAppData):
     "Trip/Event":   string[],
     "Type":         string[],
     "TripTypeMap":  { [tripName]: string[] },    // allowed Types per Trip
-    "TripStatusMap":{ [tripName]: "Active" | "Completed" | "Investment" }
+    "TripStatusMap":{ [tripName]: "Active" | "Completed" | "Investment"
+                                  | "Completed Investment" }
   }
+  Trip statuses (src/core/trip-status.js):
+    CURRENT = "Active" | "Investment"
+    PAST    = "Completed" | "Completed Investment"
+    A missing or unrecognised status counts as "Active" (current), so a typo
+    in the sheet can never hide a tag. Only Trip/Event tags have a status.
 
 Store (central state object):
   {
@@ -338,12 +345,17 @@ The most complex feature. Composed of several sub-modules:
   transactions.component.js     Main container + orchestration
   transactions.bulk.js          Bulk-select mode for applying tags to many rows
   transactions.filters.js       Category / Trip / Description filter bar
-  transactions.logic.js         Pure functions: filterData(), sortData()
+  transactions.logic.js         Pure functions: filterData(), sortData(),
+                                buildTripSelectorOptions()
 
 Capabilities:
   - Filter: Category, Trip/Event, Description search, "No Tag" magic value
   - Sort: Date, Description, Income, Expense, Net (type-aware)
   - Inline tag editing: click a tag pill to open TagSelector dropdown
+  - Tag box shows current Trip/Events only; "See past tags" reveals
+    Completed / Completed Investment (muted, with a status hint). The same
+    applies in the split modal and the bulk "Set Trip/Event..." dropdown.
+    The filter bar still lists every trip.
   - Pending changes: edits batched client-side, saved in one API call
   - Bulk tag mode: select rows → apply tag to all at once
   - Split transaction: break one row into multiple with different categories
@@ -363,7 +375,9 @@ Manages the three tag taxonomies: Categories, Trips/Events, Types.
 Operations: add · rename · delete
 Also manages:
   - TripTypeMap: which Types are allowed for each Trip
-  - TripStatusMap: Active / Completed / Investment per Trip
+  - TripStatusMap: Active / Completed / Investment / Completed Investment
+    per Trip. Click the status icon to cycle in that order. Icons, colours
+    and labels come from TRIP_STATUS_STYLES in src/core/trip-status.js
   - Pending-operations queue: edits batched client-side (virtual lists
     rendered via tags.logic.js) and committed in one processTagOperations
     call; server runs the batch atomically and rolls Expenses back on failure
@@ -384,6 +398,9 @@ Metrics:        Balance · Income · Expenses · Net Income
 X-axis grouping:Date (Daily/Weekly/Monthly/Yearly) · Category ·
                 Trip · Trip Type · None (summary)
 Filters:        Timeframe · Trip Status · specific Categories · specific Trips
+Trip Status:    All · Active Only · Completed Only · Investment Only ·
+                Completed Investment Only (exact match, so "Investment Only"
+                means investments that are still running)
 
 Sub-components:
   AnalysisControls  — chart type + metric selectors
@@ -435,6 +452,14 @@ ModalComponent (src/shared/modal.component.js)
 TagSelector (src/shared/tag-selector.component.js)
   Dropdown picker with search input.
   Dynamic screen-edge avoidance. Click-outside + Escape to dismiss.
+  show(target, type, currentVal, onSelect, customOptions = null,
+       { pastOptions = [] } = {})
+    - customOptions: tags to list; null reads store.tags[type]
+    - pastOptions: [{ value, hint }] kept behind a "See past tags (N)"
+      toggle at the foot of the box. The selector does not know what a
+      status is: the caller builds both lists (see
+      transactions.logic.buildTripSelectorOptions). The toggle state is
+      view state for the open box and resets every time it opens.
 
 MobileDataCard (src/shared/mobile-data-card.component.js)
   Card layout for mobile lists. Props: eyebrow, title, details[], metrics[].
@@ -511,6 +536,9 @@ Service_Sheet.gs — The ONLY file that touches SpreadsheetApp
 Service_Tags.gs
   - Maintains Category, Trip/Event, Type lists
   - TripTypeMap and TripStatusMap stored in a dedicated Tags sheet
+  - Valid statuses (_updateTripStatus): "Active", "Completed",
+    "Investment", "Completed Investment". Redeploy the backend before (or
+    with) a frontend that adds a status, or saves fail with "Invalid status"
   - Bulk operation support (add/delete/rename in one call)
 
 Service_Split.gs

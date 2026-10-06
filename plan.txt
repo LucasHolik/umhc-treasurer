@@ -1,6 +1,6 @@
 # PLAN: HIDE PAST TRIP/EVENT TAGS WHEN TAGGING + "COMPLETED INVESTMENT" STATUS
 # Branch: claude/confident-ptolemy-0qqk7l
-# Status: PLANNED (not yet implemented)
+# Status: IMPLEMENTED (GAS redeploy + manual checks against the live backend outstanding)
 
 ================================================================================
 1. GOAL
