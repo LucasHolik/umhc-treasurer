@@ -550,7 +550,14 @@ class App {
   }
 
   async loadInitialData() {
-    if (this._loadingData) return;
+    // A request that arrives mid-load (e.g. "dataUploaded" after a save, or
+    // Refresh) may need data newer than the load already in flight. Remember
+    // it and run one more load when this one finishes, so the store ends up
+    // matching the server after the LAST mutation.
+    if (this._loadingData) {
+      this._reloadPending = true;
+      return;
+    }
     this._loadingData = true;
     store.setState("isLoading", true);
 
@@ -580,6 +587,10 @@ class App {
     } finally {
       this._loadingData = false;
       store.setState("isLoading", false);
+      if (this._reloadPending) {
+        this._reloadPending = false;
+        if (AuthService.isLoggedIn()) this.loadInitialData();
+      }
     }
   }
 

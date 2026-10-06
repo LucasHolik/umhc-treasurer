@@ -1723,9 +1723,17 @@ class TransactionsComponent {
 
       document.dispatchEvent(new CustomEvent("dataUploaded"));
     } catch (error) {
-      store.setState("error", `Failed to save tag changes: ${error.message}`);
+      store.setState(
+        "error",
+        error.code === "TIMEOUT"
+          ? "Tag changes may not have saved (the server did not respond in time) — data reloaded. Please check them."
+          : `Failed to save tag changes: ${error.message}`,
+      );
       store.setState("isTagging", false);
       store.setState("taggingSource", null);
+      // Earlier chunks may already be committed: refresh from the server.
+      // Unsaved edits stay pending; the reload drops only those it confirms.
+      document.dispatchEvent(new CustomEvent("dataUploaded"));
     }
   }
 
@@ -1806,9 +1814,16 @@ class TransactionsComponent {
       document.dispatchEvent(new CustomEvent("dataUploaded"));
     } catch (error) {
       console.error("Bulk tagging failed:", error);
-      store.setState("error", `Failed to apply bulk tags: ${error.message}`);
+      store.setState(
+        "error",
+        error.code === "TIMEOUT"
+          ? "Bulk tags may not have saved (the server did not respond in time) — data reloaded. Please check them."
+          : `Failed to apply bulk tags: ${error.message}`,
+      );
       store.setState("isTagging", false);
       store.setState("taggingSource", null);
+      // Earlier chunks may already be committed: refresh from the server.
+      document.dispatchEvent(new CustomEvent("dataUploaded"));
     }
   }
 
