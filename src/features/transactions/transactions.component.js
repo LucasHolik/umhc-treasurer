@@ -699,6 +699,12 @@ class TransactionsComponent {
               }),
             ),
             el("div", { className: "tag-selector", id: "bulk-trip-list" }),
+            el("button", {
+              type: "button",
+              className: "tag-selector-toggle-past",
+              id: "bulk-trip-toggle-past",
+              style: { display: "none" },
+            }),
           ),
         ),
         // Custom Category Dropdown
