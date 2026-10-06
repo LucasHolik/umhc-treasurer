@@ -1,0 +1,303 @@
+# PLAN: FIX BACKEND DATA LOADING AFTER TAG CHANGES
+# Branch: claude/funny-babbage-m7lmwr
+# Status: PLANNED (nothing implemented yet)
+
+================================================================================
+1. PROBLEM SUMMARY
+================================================================================
+
+Symptom: loading backend data fails or hangs. This happens most often when
+opening Transactions (or pressing Refresh) straight after saving tags.
+
+Root cause: the client's time limit and the server's lock wait don't match.
+
+  - Every JSONP request gives up after 20 s (api.service.js:318).
+  - Every server-side lock waits up to 30 s (tryLock(30000), 30 call sites).
+  - A tag batch holds the script lock for its whole run
+    (Service_Tags.gs:_runTagBatch). Adding a tag is slow because it reads and
+    writes the sheet several times, so a batch can run past 20 s. The client
+    then reports "Request timed out" while the server keeps going and keeps
+    holding the lock.
+  - getAppData is a READ, but it takes the same lock through
+    Service_Split.getAllSplitHistory. So it queues behind the unfinished
+    batch and times out on the client too ("Failed to load application
+    data").
+  - If the lock wait reaches 30 s, getAppData hides the failure and returns
+    splitTransactions: [] (Code.gs:310-327). The UI then shows SOURCE rows
+    instead of their split children, with no error.
+
+Contributing defects:
+
+  C1. Nested locks. _runTagBatch holds the script lock, then calls
+      removeTagFromExpenses / updateExpensesWithTag / removeTagFromSplits /
+      updateTagInSplits / restoreTag*. Each of these takes and releases the
+      lock again. GAS documents neither nesting nor reentrancy. So either
+      every Trip/Event or Category rename/delete in a batch waits 30 s and
+      fails, or the first inner releaseLock() drops the batch's lock halfway
+      through. Both are wrong. Service_Sheet.updateExpenses has the same
+      problem through Service_Split.updateSplitRowTag.
+  C2. App.loadInitialData silently drops a reload request that arrives
+      while a load is already running (App.js:553), which leaves stale data
+      on screen.
+  C3. After a timeout, TagsComponent.handleSave guesses which operations
+      were applied (tags.component.js:566-575). The server may in fact have
+      applied all of them, so a retry fails with "Tag already exists" and
+      the whole batch rolls back.
+  C4. Raw write-backs skip _sanitizeForSheet. A tag starting with = + - @
+      is turned into a formula (#ERROR!) when it is written back. Affected:
+      _sortTags, _restoreTagSheet, updateExpensesWithTag,
+      restoreTagInExpenses, updateTagInSplits, restoreTagInSplits,
+      _updateTripType.
+  C5. Read paths write to the sheet. _getConfigSheet rewrites three title
+      cells, and getOpeningBalance writes 0, on every getAppData call. This
+      forces a flush and slows down every load.
+  C6. _addTag reads the same column twice and makes one sheet call per cell
+      it writes, which makes each tag batch slower than it needs to be.
+
+
+================================================================================
+2. DESIGN CONSTRAINTS (from info.txt — must be kept)
+================================================================================
+
+  - Strict one-way flow: User Action -> Service -> Store -> UI re-render.
+  - Code.gs stays a router with no business logic. Locking policy goes in a
+    service, not in doGet's switch.
+  - Components never call the backend for data. They dispatch "dataUploaded"
+    and App.loadInitialData refreshes the store. The store is the truth.
+  - All JSONP, signing and timeouts live in api.service.js.
+  - Pure, testable logic goes in *.logic.js files and gets covered by the
+    in-app self-test suite (Settings -> Diagnostics).
+  - No npm, no build step, no new dependencies. Vanilla ES modules and plain
+    .gs files.
+  - No innerHTML. Build UI with el() / replace().
+  - Each change stays minimal. No unrelated refactors.
+
+
+================================================================================
+3. PHASE 1 — ONE LOCK HELPER, SAFE TO NEST (fixes C1)
+================================================================================
+
+New file: google-apps-script/Service_Lock.gs
+
+  const Service_Lock = {
+    // Runs fn while holding the script lock. If this execution already
+    // holds it (a nested call), runs fn directly without taking or
+    // releasing the lock, so an inner call can never release an outer
+    // lock early.
+    withScriptLock: function (fn, timeoutMs) { ... }
+  };
+
+  - A module-level flag (_scriptLockDepth) records whether this execution
+    holds the lock. GAS gives each execution its own global scope, so the
+    flag is per request. This makes nesting explicit instead of depending
+    on undocumented LockService behaviour.
+  - Default wait: CONFIG.LOCK_TIMEOUT_MS (new key in Config.gs, 10000).
+    It must stay well below the client's write timeout (Phase 3).
+  - If the lock can't be taken, returns
+    { success: false, message: "System is busy. Please try again." },
+    the same shape and message as today, so callers don't change.
+  - Releases in a finally block, and only at the outermost level.
+
+Use it in place of the hand-written lock boilerplate:
+
+  Service_Sheet.gs:  saveData, removeTagFromExpenses, restoreTagInExpenses,
+                     updateExpensesWithTag, updateExpenses (currently
+                     unlocked — wrap the whole loop so updateSplitRowTag
+                     nests inside it)
+  Service_Split.gs:  processSplit, removeTagFromSplits, restoreTagInSplits,
+                     updateTagInSplits, updateSplitRowTag, revertSplit,
+                     editSplit
+  Service_Tags.gs:   _runTagBatch, plus the single-op public entry points
+                     addTag / deleteTag / renameTag (today addTag doesn't
+                     lock at all)
+
+Each helper keeps its existing behaviour and return value. Only the
+lock/try/finally boilerplate changes.
+
+Docs: add Service_Lock.gs to google-apps-script/README.md (the file list to
+paste into the GAS project) and to info.txt section 2 and section 7.
+
+
+================================================================================
+4. PHASE 2 — READS NEVER WAIT ON WRITES, AND NEVER FAIL SILENTLY (root cause, C5)
+================================================================================
+
+4a. Take the lock off the read paths in Service_Split.gs:
+      getAllSplitHistory, getSplitHistory, getSplitGroup.
+    It's safe: split writes already use the PENDING marker and then
+    promote rows, and reads already skip PENDING rows. A read during a
+    write sees either the old group or the new one, never half a group.
+
+4b. getAppData (Code.gs:283) fails loudly. If expenses, tags, opening
+    balance or splits fail to load, return
+      { success: false, message: "Error loading app data" }
+    and log which part failed. The client already handles this: it shows
+    the error banner and keeps the last good store state, which is better
+    than showing partial data as if it were correct. No new frontend code
+    is needed.
+
+4c. Read paths stop writing (Service_Sheet.gs):
+    - Split _getConfigSheet() into:
+        _getConfigSheet()          read-only; creates the sheet only if it
+                                   is missing
+        _ensureConfigSheetLayout() legacy B->C migration + title cells
+    - Call _ensureConfigSheetLayout() only from write/auth paths:
+      saveOpeningBalance and Service_Auth login (Service_Auth.gs:4).
+    - getOpeningBalance returns 0 for an empty cell without writing 0.
+
+
+================================================================================
+5. PHASE 3 — CLIENT TIMEOUTS AND RECOVERY (root cause, C2, C3)
+================================================================================
+
+5a. api.service.js — timeout per request
+    - Replace the fixed 20000 with a resolveTimeout(action, options) helper
+      that is exported for the self-tests:
+        options.timeoutMs if given
+        else WRITE_TIMEOUT_MS (60000) for requestMutating
+        else READ_TIMEOUT_MS  (30000)
+    - Invariant (comment in both files): client write timeout >
+      server LOCK_TIMEOUT_MS + worst-case batch time. GAS's own hard limit
+      is 6 minutes.
+    - On timeout, reject with an Error that has err.code = "TIMEOUT". The
+      outcome is unknown, so callers can tell this apart from a definite
+      server rejection.
+
+5b. App.js — coalesce reloads instead of dropping them (C2)
+    - If loadInitialData is called while a load is running, set
+      this._reloadPending = true and return.
+    - In finally, if _reloadPending is set, clear it and call
+      loadInitialData() once more. This guarantees the store ends up
+      matching the server after the LAST mutation.
+
+5c. Tags — handle "outcome unknown" (C3)
+    - Add to tags.logic.js a pure function:
+        resolveSaveFailure(queue, processedCount, error)
+          -> { remainingQueue, exitEditMode, message }
+      Rules:
+        error.code === "TIMEOUT"  -> outcome unknown: drop the local queue,
+                                     leave edit mode, tell the user the save
+                                     may have completed and data is being
+                                     reloaded, and ask them to check before
+                                     retrying.
+        server rejected (rollback) -> current behaviour: keep the unapplied
+                                     tail of the queue
+                                     (processedCount + appliedCount).
+    - TagsComponent.handleSave and handleAddTripSave call it, and ALWAYS
+      dispatch "dataUploaded" in the failure path too. Earlier chunks may
+      already be committed, so the store must refresh from the server.
+    - The component stays thin: decisions in tags.logic.js, state via the
+      store, refresh via the usual event.
+
+5d. Transactions — same refresh rule
+    - savePendingChanges and applyBulkTags (transactions.component.js):
+      in catch, also dispatch "dataUploaded" so committed chunks show up.
+      Keep the existing error banner. For err.code === "TIMEOUT", word it
+      as "may not have saved — data reloaded".
+
+
+================================================================================
+6. PHASE 4 — DATA INTEGRITY AND SPEED (C4, C6)
+================================================================================
+
+6a. Sanitise every write of a tag value, using the existing
+    _sanitizeForSheet (Code.gs):
+      Service_Tags.gs:  _sortTags (setValues of the sorted list),
+                        _restoreTagSheet (string cells only),
+                        _updateTripType
+      Service_Sheet.gs: updateExpensesWithTag (newTag),
+                        restoreTagInExpenses
+      Service_Split.gs: updateTagInSplits, restoreTagInSplits
+    Comparisons keep working because Sheets stores the text without the
+    leading apostrophe, so getValues() returns the original value.
+
+6b. Make _addTag cheaper (Service_Tags.gs:165-246):
+    - Read the target column once. Reuse it for the duplicate check and to
+      find the first empty row.
+    - Read the Type List column only when a Trip/Event has a type.
+    - Write a Trip/Event's A:C cells with one setValues call instead of
+      three setValue calls.
+    Same behaviour and return values.
+
+    Optional follow-up (not in this change): pass the tag Sets already
+    checked in updateExpenses into updateSplitRowTag, so it doesn't call
+    Service_Tags.getTags() once per split row.
+
+
+================================================================================
+7. PHASE 5 — TESTS, DOCS, VERIFICATION
+================================================================================
+
+7a. In-app self-tests (src/features/settings/selftest/):
+    tests.api.js
+      - resolveTimeout: read default, write default, explicit override.
+    tests.tags.js
+      - resolveSaveFailure: TIMEOUT drops the queue and leaves edit mode.
+      - resolveSaveFailure: rejection with appliedCount keeps the right
+        tail of the queue.
+      - resolveSaveFailure: rejection with no applied ops keeps the full
+        unprocessed tail.
+
+7b. Docs:
+    info.txt
+      - Section 4D: timeout is 30 s for reads and 60 s for writes (it
+        currently says "15 seconds", which is stale), plus the TIMEOUT
+        error code.
+      - Section 7: Service_Lock, lock-free reads, getAppData fails loudly.
+      - Section 2: add Service_Lock.gs to the tree.
+    google-apps-script/README.md
+      - Add Service_Lock.gs, and note that the web app must be REDEPLOYED
+        (new version) for the backend fixes to take effect.
+
+7c. Checks before pushing:
+    - npm run format:check (Prettier is the repo's only automated check).
+    - Run the self-test suite in the browser (python3 -m http.server,
+      Settings -> Diagnostics); all suites pass.
+    - Re-read the diff for leftover LockService.getScriptLock() calls.
+      After this change, grep should find them only in Service_Lock.gs.
+
+7d. Manual checks on a test copy of the spreadsheet (needs the user's GAS
+    deployment):
+    1. Add 10+ tags in one save -> it completes, Transactions loads
+       straight away, and the new tags appear in the filters.
+    2. Rename and delete a Category used by expenses and by split children
+       in the same batch -> it completes in seconds (no 30 s stall), and
+       Expenses/Splits are updated.
+    3. Start a large tag save in one tab and press Refresh in another ->
+       the refresh returns without waiting for the save, and split
+       transactions are still merged correctly.
+    4. Add a Category named "-Misc" -> after saving and sorting it still
+       reads "-Misc", not #ERROR!.
+    5. Apps Script -> Executions: getAppData no longer logs "System is
+       busy", and processTagOperations duration has dropped.
+
+
+================================================================================
+8. COMMIT SEQUENCE
+================================================================================
+
+  1. Add Service_Lock and replace nested/duplicate script locks (Phase 1)
+  2. Make split reads lock-free; getAppData fails loudly; read paths stop
+     writing (Phase 2)
+  3. Per-request client timeouts, reload coalescing, timeout-aware tag
+     save recovery (Phase 3)
+  4. Sanitise tag write-backs and streamline _addTag (Phase 4)
+  5. Self-tests and docs (Phase 5)
+
+Each commit leaves the app working on its own. Backend commits 1, 2 and 4
+need a GAS redeploy. Frontend commit 3 is safe to ship before or after the
+backend, because the longer timeouts only help.
+
+
+================================================================================
+9. OUT OF SCOPE / RISKS
+================================================================================
+
+  - Purely numeric or date-like tag names (e.g. "2025") are still converted
+    by Sheets into numbers/dates. Fixing that means writing every tag as
+    forced text and migrating existing cells. Track it separately.
+  - Lock-free reads can briefly show the state just before a write
+    completes. That's acceptable: the post-write "dataUploaded" reload
+    (now guaranteed by 5b) corrects it.
+  - The 60 s write timeout makes the UI wait longer in a genuine outage.
+    The progress overlays already show while this happens.
