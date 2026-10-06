@@ -12,7 +12,7 @@ opening Transactions (or pressing Refresh) straight after saving tags.
 Root cause: the client's time limit and the server's lock wait don't match.
 
   - Every JSONP request gives up after 20 s (api.service.js:318).
-  - Every server-side lock waits up to 30 s (tryLock(30000), 30 call sites).
+  - Every server-side lock waits up to 30 s (tryLock(30000), 15 call sites).
   - A tag batch holds the script lock for its whole run
     (Service_Tags.gs:_runTagBatch). Adding a tag is slow because it reads and
     writes the sheet several times, so a batch can run past 20 s. The client
@@ -106,10 +106,17 @@ Use it in place of the hand-written lock boilerplate:
                      nests inside it)
   Service_Split.gs:  processSplit, removeTagFromSplits, restoreTagInSplits,
                      updateTagInSplits, updateSplitRowTag, revertSplit,
-                     editSplit
+                     editSplit, and the three reads that lock today:
+                     getSplitGroup, getSplitHistory, getAllSplitHistory
+                     (getAllSplitHistory must be converted here so it can
+                     nest inside getAppData's lock in Phase 2)
   Service_Tags.gs:   _runTagBatch, plus the single-op public entry points
-                     addTag / deleteTag / renameTag (today addTag doesn't
-                     lock at all)
+                     addTag / deleteTag / renameTag (none of them take the
+                     lock today; deleteTag/renameTag only lock piecemeal
+                     through the nested Expenses/Splits helpers)
+
+restoreTagInExpenses and restoreTagInSplits keep their early "No rows to
+restore" return before the lock is taken.
 
 Each helper keeps its existing behaviour and return value. Only the
 lock/try/finally boilerplate changes.
@@ -126,8 +133,9 @@ paste into the GAS project) and to info.txt section 2 and section 7.
     Service_Lock.withScriptLock, so expenses, tags, opening balance and
     splits all come from the same moment: entirely before a write or
     entirely after it. getAllSplitHistory's own lock nests inside it
-    (Phase 1). Route getData, getSplitGroup and getSplitHistory through
-    Service_Lock too.
+    (converted in Phase 1). Also wrap getData, which is unlocked today.
+    getSplitGroup and getSplitHistory already go through Service_Lock
+    after Phase 1.
 
     Why the reads must stay locked (NOT lock-free):
     - Reverting a split (and editing one, which reverts first) deletes the
@@ -166,8 +174,18 @@ paste into the GAS project) and to info.txt section 2 and section 7.
                                    is missing
         _ensureConfigSheetLayout() legacy B->C migration + title cells
     - Call _ensureConfigSheetLayout() only from write/auth paths:
-      saveOpeningBalance and Service_Auth login (Service_Auth.gs:4).
+      saveOpeningBalance and Service_Auth.login (Service_Auth.gs:27), which
+      runs only after the login signature is verified. NOT from
+      getPasskeys (Service_Auth.gs:4): verifyRequest calls that before
+      authentication, on every login attempt, so unauthenticated requests
+      would keep writing to the sheet.
+    - getPasskeys uses the read-only _getConfigSheet().
     - getOpeningBalance returns 0 for an empty cell without writing 0.
+    - Legacy B->C migration now runs on the next login or balance save
+      instead of the next read. A legacy deployment whose user still holds
+      a session would show balance 0 until then. Existing deployments
+      should already be migrated; the GAS README redeploy note (7b) says
+      to log in again after redeploying.
 
 
 ================================================================================
@@ -179,6 +197,8 @@ paste into the GAS project) and to info.txt section 2 and section 7.
       that is exported for the self-tests:
         options.timeoutMs if given
         else WRITE_TIMEOUT_MS (60000) for requestMutating
+             (detected by options.withNonce, which only requestMutating
+             sets)
         else READ_TIMEOUT_MS  (30000)
     - Invariant (comment in both files): client write timeout >
       server LOCK_TIMEOUT_MS + worst-case batch time. GAS's own hard limit
@@ -186,6 +206,12 @@ paste into the GAS project) and to info.txt section 2 and section 7.
     - On timeout, reject with an Error that has err.code = "TIMEOUT". The
       outcome is unknown, so callers can tell this apart from a definite
       server rejection.
+    - On a server response with success: false, attach the response to the
+      Error (err.response = data) before rejecting. Today the callback
+      rejects with only data.message, so appliedOperations never reaches
+      TagsComponent: its `if (!result.success)` branch is dead code and
+      err.appliedCount is always 0. Ops left in place by a failed rollback
+      (rollback_failed) are then replayed on retry.
 
 5b. App.js — coalesce reloads instead of dropping them (C2)
     - If loadInitialData is called while a load is running, set
@@ -193,20 +219,28 @@ paste into the GAS project) and to info.txt section 2 and section 7.
     - In finally, if _reloadPending is set, clear it and call
       loadInitialData() once more. This guarantees the store ends up
       matching the server after the LAST mutation.
+    - Skip that follow-up load if the session has gone (logout or
+      sessionExpired during the first load, ApiService.hasSession()), so
+      it can't show an auth error on the login screen.
 
 5c. Tags — handle "outcome unknown" (C3)
     - Add to tags.logic.js a pure function:
-        resolveSaveFailure(queue, processedCount, error)
+        resolveSaveFailure(queue, processedCount, chunkSize, error)
           -> { remainingQueue, exitEditMode, message }
       Rules:
         error.code === "TIMEOUT"  -> outcome unknown: drop the local queue,
                                      leave edit mode, tell the user the save
                                      may have completed and data is being
                                      reloaded, and ask them to check before
-                                     retrying.
+                                     retrying. The message gives the counts:
+                                     processedCount saved, up to chunkSize
+                                     unknown, and the rest never sent (those
+                                     must be re-entered).
         server rejected (rollback) -> current behaviour: keep the unapplied
                                      tail of the queue
-                                     (processedCount + appliedCount).
+                                     (processedCount + appliedCount, with
+                                     appliedCount read from
+                                     err.response.appliedOperations, 5a).
     - TagsComponent.handleSave and handleAddTripSave call it, and ALWAYS
       dispatch "dataUploaded" in the failure path too. Earlier chunks may
       already be committed, so the store must refresh from the server.
@@ -228,10 +262,28 @@ paste into the GAS project) and to info.txt section 2 and section 7.
     _sanitizeForSheet (Code.gs):
       Service_Tags.gs:  _sortTags (setValues of the sorted list),
                         _restoreTagSheet (string cells only),
-                        _updateTripType
-      Service_Sheet.gs: updateExpensesWithTag (newTag),
+                        _updateTripType,
+                        _addTag's Type cell (typeValue, folded into the
+                        single setValues of 6b)
+      Service_Sheet.gs: updateExpensesWithTag, removeTagFromExpenses,
                         restoreTagInExpenses
-      Service_Split.gs: updateTagInSplits, restoreTagInSplits
+      Service_Split.gs: updateTagInSplits, removeTagFromSplits,
+                        restoreTagInSplits
+    The column-rewrite helpers (updateExpensesWithTag,
+    removeTagFromExpenses, updateTagInSplits, removeTagFromSplits) read a
+    whole column with getValues() and write ALL of it back with
+    setValues(). Sanitising only newTag is not enough: every OTHER string
+    cell in that column (e.g. an existing "-Misc") is written back raw and
+    becomes a formula. Sanitise every string cell in the array before
+    setValues, the same rule as _restoreTagSheet.
+
+    Service_Sheet.updateExpenses passes already-sanitised values to
+    updateSplitRowTag, which checks them against the tag list ("'-Misc" is
+    not in it, so the row is rejected) and then sanitises again. It also
+    ignores the result, so the failure is silent. Pass the raw tripVal /
+    catVal instead, and push a failure if updateSplitRowTag returns
+    success: false.
+
     Comparisons keep working because Sheets stores the text without the
     leading apostrophe, so getValues() returns the original value.
 
@@ -256,7 +308,8 @@ paste into the GAS project) and to info.txt section 2 and section 7.
     tests.api.js
       - resolveTimeout: read default, write default, explicit override.
     tests.tags.js
-      - resolveSaveFailure: TIMEOUT drops the queue and leaves edit mode.
+      - resolveSaveFailure: TIMEOUT drops the queue and leaves edit mode,
+        and the message counts saved / unknown / never-sent operations.
       - resolveSaveFailure: rejection with appliedCount keeps the right
         tail of the queue.
       - resolveSaveFailure: rejection with no applied ops keeps the full
@@ -272,7 +325,9 @@ paste into the GAS project) and to info.txt section 2 and section 7.
       - Section 2: add Service_Lock.gs to the tree.
     google-apps-script/README.md
       - Add Service_Lock.gs, and note that the web app must be REDEPLOYED
-        (new version) for the backend fixes to take effect.
+        (new version) for the backend fixes to take effect, and that
+        users should log in again afterwards (runs the Config layout
+        check, 4c).
 
 7c. Checks before pushing:
     - npm run format:check (Prettier is the repo's only automated check).
@@ -295,7 +350,9 @@ paste into the GAS project) and to info.txt section 2 and section 7.
        tab shows either the full split or the original row, never a split
        with some children missing.
     4. Add a Category named "-Misc" -> after saving and sorting it still
-       reads "-Misc", not #ERROR!.
+       reads "-Misc", not #ERROR!. Tag a normal row AND a split child
+       with it, then rename a different Category: every "-Misc" cell in
+       Finances and Split Transactions still reads "-Misc".
     5. Apps Script -> Executions: getAppData no longer logs "System is
        busy", and processTagOperations duration has dropped.
 
