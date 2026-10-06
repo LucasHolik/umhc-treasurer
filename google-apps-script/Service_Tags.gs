@@ -181,17 +181,12 @@ function _addTag(type, value, skipSort, extraData) {
     return { success: false, message: "Invalid tag type." };
   }
 
-  let existingTags = [];
-  if (lastRow > 1) {
-    existingTags = tagSheet
-      .getRange(2, column, lastRow - 1, 1)
-      .getValues()
-      .flat()
-      .map(String);
-
-    if (existingTags.includes(value)) {
-      return { success: false, message: "Tag already exists." };
-    }
+  // Read the target column once (from row 2, skipping the header). It serves
+  // both the duplicate check and finding the first empty row.
+  const columnValues =
+    lastRow > 1 ? tagSheet.getRange(2, column, lastRow - 1, 1).getValues() : [];
+  if (columnValues.some((r) => String(r[0]) === value)) {
+    return { success: false, message: "Tag already exists." };
   }
 
   // Validate typeValue before writing anything
@@ -221,9 +216,6 @@ function _addTag(type, value, skipSort, extraData) {
     }
   }
 
-  // Start from row 2 (skip header)
-  const columnValues =
-    lastRow > 1 ? tagSheet.getRange(2, column, lastRow - 1, 1).getValues() : [];
   let nextEmptyRow = lastRow + 1;
 
   // Find first empty cell in column
@@ -234,12 +226,16 @@ function _addTag(type, value, skipSort, extraData) {
     }
   }
 
-  tagSheet.getRange(nextEmptyRow, column).setValue(_sanitizeForSheet(value));
-
-  // If adding a Trip/Event, we must set its Type (Col 2) and Status (Col 3)
   if (type === "Trip/Event") {
-    tagSheet.getRange(nextEmptyRow, COL_TYPE).setValue(typeValue);
-    tagSheet.getRange(nextEmptyRow, COL_STATUS).setValue("Active"); // Default status
+    // A Trip/Event also needs its Type (Col B) and default Status (Col C):
+    // write A:C in one call.
+    tagSheet
+      .getRange(nextEmptyRow, COL_TRIP_EVENT, 1, 3)
+      .setValues([
+        [_sanitizeForSheet(value), _sanitizeForSheet(typeValue), "Active"],
+      ]);
+  } else {
+    tagSheet.getRange(nextEmptyRow, column).setValue(_sanitizeForSheet(value));
   }
 
   if (!skipSort) {
@@ -382,7 +378,7 @@ function _deleteTag(type, value) {
       return r;
     });
     if (updated) {
-      tripTypesRange.setValues(newTripTypes);
+      tripTypesRange.setValues(_sanitizeGridForSheet(newTripTypes));
     }
   }
 
@@ -478,7 +474,7 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       return r;
     });
     if (updated) {
-      tripTypesRange.setValues(newTripTypes);
+      tripTypesRange.setValues(_sanitizeGridForSheet(newTripTypes));
     }
   }
 
@@ -490,7 +486,9 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       !Service_Sheet.updateExpensesWithTag
     ) {
       // ROLLBACK Step 1
-      tagSheet.getRange(updateRow, column).setValue(oldValue);
+      tagSheet
+        .getRange(updateRow, column)
+        .setValue(_sanitizeForSheet(oldValue));
       return {
         success: false,
         message: "Service_Sheet dependency not available. Tag NOT renamed.",
@@ -502,7 +500,9 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       !Service_Split.updateTagInSplits
     ) {
       // ROLLBACK Step 1
-      tagSheet.getRange(updateRow, column).setValue(oldValue);
+      tagSheet
+        .getRange(updateRow, column)
+        .setValue(_sanitizeForSheet(oldValue));
       return {
         success: false,
         message: "Service_Split dependency not available. Tag NOT renamed.",
@@ -537,7 +537,9 @@ function _renameTag(type, oldValue, newValue, skipSort) {
 
       // --- ROLLBACK ---
       // 1. Revert Master Sheet (Optimistic Update)
-      tagSheet.getRange(updateRow, column).setValue(oldValue);
+      tagSheet
+        .getRange(updateRow, column)
+        .setValue(_sanitizeForSheet(oldValue));
 
       // 2. Revert Expenses Sheet (Compensating Transaction)
       if (expensesUpdated) {
@@ -641,7 +643,7 @@ function _updateTripType(tripName, typeName) {
   }
 
   // Update Col B at row index+2
-  tagSheet.getRange(index + 2, COL_TYPE).setValue(typeName);
+  tagSheet.getRange(index + 2, COL_TYPE).setValue(_sanitizeForSheet(typeName));
   return { success: true, message: "Trip type updated." };
 }
 
@@ -726,7 +728,7 @@ function _restoreTagSheet(snapshot) {
   if (snapshot.values.length > 0) {
     tagSheet
       .getRange(2, 1, snapshot.values.length, COL_TYPE_LIST)
-      .setValues(snapshot.values);
+      .setValues(_sanitizeGridForSheet(snapshot.values));
   }
 }
 
@@ -1020,7 +1022,7 @@ function _sortTags(type) {
     tags.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
     range.clearContent();
-    const output = tags.map((t) => [t]);
+    const output = tags.map((t) => [_sanitizeForSheet(t)]);
     tagSheet.getRange(2, column, output.length, 1).setValues(output);
   }
 }

@@ -250,11 +250,16 @@ const Service_Sheet = {
               failures.push({ row, reason: "Service_Split unavailable" });
               continue;
             }
-            Service_Split.updateSplitRowTag(
+            // Pass the raw values: updateSplitRowTag validates them against the
+            // tag list and sanitises them itself.
+            const splitResult = Service_Split.updateSplitRowTag(
               row,
-              sanitizedTripVal,
-              sanitizedCatVal,
+              tripVal,
+              catVal,
             );
+            if (!splitResult.success) {
+              failures.push({ row, reason: splitResult.message });
+            }
           } else if (typeof row === "number" && row >= 2 && row <= lastRow) {
             // Handle Standard Row (numeric) — bounds-checked against actual sheet data
             if (tripEventCol > 0) {
@@ -370,7 +375,7 @@ const Service_Sheet = {
         }
 
         if (modifiedRows.length > 0) {
-          range.setValues(values);
+          range.setValues(_sanitizeGridForSheet(values));
         }
         return {
           success: true,
@@ -421,7 +426,9 @@ const Service_Sheet = {
         }
 
         for (let i = 0; i < rowIndices.length; i++) {
-          financeSheet.getRange(rowIndices[i], column).setValue(value);
+          financeSheet
+            .getRange(rowIndices[i], column)
+            .setValue(_sanitizeForSheet(value));
         }
 
         return { success: true, message: "Tag restored successfully." };
@@ -462,7 +469,7 @@ const Service_Sheet = {
           }
         }
 
-        range.setValues(values);
+        range.setValues(_sanitizeGridForSheet(values));
         return { success: true, message: "Expenses updated successfully." };
       } catch (error) {
         console.error("Error updating expenses with tag:", error);
@@ -587,7 +594,7 @@ function _sortSheetByDate() {
     sortedValues.length,
     CONFIG.HEADERS.length,
   );
-  newRange.setValues(sortedValues);
+  newRange.setValues(_sanitizeGridForSheet(sortedValues));
   newRange.offset(0, dateIndex, sortedValues.length, 1).setNumberFormat("@");
 
   // Clear any remaining rows if the data shrunk (shouldn't happen in sort, but good for robustness)

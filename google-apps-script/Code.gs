@@ -360,6 +360,22 @@ function _sanitizeForSheet(value) {
   return str;
 }
 
+/**
+ * Applies _sanitizeForSheet to every string cell of a getValues()-style grid
+ * before it is written back with setValues. getValues() returns stored text
+ * without the protective apostrophe, so writing a grid back raw would turn a
+ * value such as "-Misc" or "=..." into a formula (#ERROR! or worse) in every
+ * untouched cell. Numbers, dates and booleans are left as they are, and
+ * already-sanitised strings pass through unchanged.
+ * @param {Array<Array<*>>} values
+ * @returns {Array<Array<*>>}
+ */
+function _sanitizeGridForSheet(values) {
+  return values.map((row) =>
+    row.map((v) => (typeof v === "string" ? _sanitizeForSheet(v) : v)),
+  );
+}
+
 function validateJsonParameter(jsonString, expectedType) {
   try {
     if (!jsonString) return { valid: false, message: "Missing content" };

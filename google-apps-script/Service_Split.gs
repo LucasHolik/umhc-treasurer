@@ -86,7 +86,7 @@ const Service_Split = {
         }
 
         if (modifiedRows.length > 0) {
-          range.setValues(values);
+          range.setValues(_sanitizeGridForSheet(values));
         }
         return { success: true, modifiedRows: modifiedRows };
       } catch (error) {
@@ -151,7 +151,9 @@ const Service_Split = {
         }
 
         for (let i = 0; i < rowIndices.length; i++) {
-          splitSheet.getRange(rowIndices[i], colIndex).setValue(value);
+          splitSheet
+            .getRange(rowIndices[i], colIndex)
+            .setValue(_sanitizeForSheet(value));
         }
 
         return { success: true, message: "Tag restored successfully." };
@@ -210,7 +212,7 @@ const Service_Split = {
         }
 
         if (changed) {
-          range.setValues(values);
+          range.setValues(_sanitizeGridForSheet(values));
         }
         return { success: true };
       } catch (error) {
@@ -1212,7 +1214,7 @@ function _writeSplitData(financeSheet, splitSheet, preparation) {
     numRows = archiveRows.length;
     splitSheet
       .getRange(startRow, 1, numRows, archiveRows[0].length)
-      .setValues(archiveRows);
+      .setValues(_sanitizeGridForSheet(archiveRows));
   } catch (phase1Error) {
     console.error("Phase 1 (append pending) failed:", phase1Error);
     return {
@@ -1336,7 +1338,7 @@ function _restoreSplitData(
         existingSplitData.length,
         existingSplitData[0].length,
       )
-      .setValues(existingSplitData);
+      .setValues(_sanitizeGridForSheet(existingSplitData));
   }
 
   if (financeRowIndex && financeRowIndex !== -1) {
