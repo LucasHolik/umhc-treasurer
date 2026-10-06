@@ -417,3 +417,52 @@ export const formatOperationsForApi = (queue) => {
     })
     .filter((op) => op !== null);
 };
+
+/**
+ * Decides how TagsComponent recovers after a tag save fails part-way.
+ *
+ * - error.code "TIMEOUT": the outcome of the chunk in flight is unknown. The
+ *   server may have applied it, so replaying the queue could fail ("Tag
+ *   already exists") and roll the whole batch back. Drop the queue and leave
+ *   edit mode; the caller reloads data so the user can check what was saved.
+ *   Chunks after the one in flight were never sent and must be re-entered.
+ * - anything else: the server rejected the chunk and rolled it back. Keep the
+ *   operations it did not apply (everything after the confirmed chunks plus
+ *   any it reports as applied).
+ *
+ * @param {Array} queue - pending operations, 1:1 with what was sent
+ * @param {number} processedCount - operations in chunks the server confirmed
+ * @param {number} chunkSize - operations sent per request
+ * @param {Error} error - the failure (see api.service.js for code/response)
+ * @returns {{ remainingQueue: Array, exitEditMode: boolean, message: string }}
+ */
+export const resolveSaveFailure = (queue, processedCount, chunkSize, error) => {
+  if (error?.code === "TIMEOUT") {
+    const unconfirmed = queue.length - processedCount;
+    const unknown = Math.min(chunkSize, unconfirmed);
+    return {
+      remainingQueue: [],
+      exitEditMode: true,
+      message:
+        "The server did not confirm the save in time.\n\n" +
+        `${processedCount} of ${queue.length} operations were saved. ` +
+        `The next ${unknown} may or may not have been saved, and ` +
+        `${unconfirmed - unknown} were never sent and must be re-entered.\n\n` +
+        "The latest data is being reloaded. Please check your tags before " +
+        "retrying anything.",
+    };
+  }
+
+  const appliedCount =
+    error?.appliedCount ?? error?.response?.appliedOperations?.length ?? 0;
+  const savedCount = Math.min(processedCount + appliedCount, queue.length);
+  return {
+    remainingQueue: queue.slice(savedCount),
+    exitEditMode: false,
+    message:
+      `Failed to save tags: ${error?.message || "Unknown error"}\n\n` +
+      `${savedCount} of ${queue.length} operations were saved. ` +
+      "The latest data has been reloaded and the rest are still pending, " +
+      "so you can review them and save again.",
+  };
+};

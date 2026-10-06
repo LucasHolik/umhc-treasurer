@@ -12,6 +12,10 @@ const CONFIG = {
   API_KEY_TITLE: "Passkey",
   VIEW_ONLY_API_KEY_TITLE: "View Only Passkey",
   OPENING_BALANCE_TITLE: "Initial Balance",
+  // How long a request waits for the script lock (Service_Lock). Must stay
+  // well below the client timeouts in src/services/api.service.js
+  // (30 s reads, 60 s writes).
+  LOCK_TIMEOUT_MS: 10000,
   HEADERS: [
     "Document",
     "Time-uploaded",

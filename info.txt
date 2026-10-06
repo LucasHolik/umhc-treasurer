@@ -104,6 +104,7 @@ No npm / no build step. All dependencies are vendored locally.
     Code.gs                     # doGet() router — no business logic
     Config.gs                   # Server-side constants
     Service_Auth.gs             # HMAC-SHA256 signature verification
+    Service_Lock.gs             # withScriptLock(): the only LockService user; nests safely
     Service_Session.gs          # Session token creation/validation
     Service_Sheet.gs            # All SpreadsheetApp access
     Service_Tags.gs             # Tag CRUD + TripTypeMap management
@@ -233,8 +234,18 @@ Session Storage:
 Request Deduplication:
   - Concurrent calls with identical params share one in-flight promise
 
-Timeout: 15 seconds. JSONP script tags and callbacks cleaned up on
-completion, error, or timeout.
+Timeouts (resolveTimeout): 30 s for reads, 60 s for mutating requests, or
+options.timeoutMs. Both stay above the server's 10 s lock wait
+(CONFIG.LOCK_TIMEOUT_MS), so a request that queues behind a write gets
+"System is busy" rather than timing out. JSONP script tags and callbacks
+are cleaned up on completion, error, or timeout.
+
+Errors:
+  - Timeout: rejects with err.code = "TIMEOUT". The server may still have
+    applied the request, so the outcome is unknown; callers reload data
+    instead of guessing (see tags.logic.resolveSaveFailure).
+  - Server rejection ({ success: false }): rejects with err.message from
+    the server and the full response on err.response.
 
 Key methods:
   login(apiKey)                      // exchange passkey for session
@@ -352,6 +363,10 @@ Also manages:
   - Pending-operations queue: edits batched client-side (virtual lists
     rendered via tags.logic.js) and committed in one processTagOperations
     call; server runs the batch atomically and rolls Expenses back on failure
+  - Save failure: data is always reloaded (earlier chunks may be
+    committed); tags.logic.resolveSaveFailure keeps the unapplied tail of
+    the queue on a server rejection, or drops it and leaves edit mode on a
+    timeout, when the outcome is unknown
   - Timeframe filter for transaction counts
 
 E. Analysis (src/features/analysis/)
@@ -435,6 +450,10 @@ localStorage. All requests must carry a valid HMAC-SHA256 signature.
 
 Code.gs — Router (no business logic)
   doGet(e) → routes on e.parameter.action
+  getAppData() reads expenses, tags, opening balance and splits under ONE
+  script lock, so they all come from the same moment (entirely before or
+  after any write). If any part fails it returns { success: false } and
+  logs which part; it never returns partial data. Read paths never write.
 
   READ actions (admin + viewer):
     ping · getData · getAppData · getOpeningBalance ·
@@ -448,7 +467,18 @@ Code.gs — Router (no business logic)
   AUTH actions:
     login — exchange passkey for sessionId + sessionKey + role
 
-Config.gs — Server-side constants (passkey hash, sheet names, column indices)
+Config.gs — Server-side constants (passkey hash, sheet names, column indices,
+            LOCK_TIMEOUT_MS)
+
+Service_Lock.gs
+  - withScriptLock(fn, timeoutMs): the only code that calls LockService.
+    Waits up to CONFIG.LOCK_TIMEOUT_MS (10 s), else returns
+    { success: false, message: "System is busy. Please try again." }.
+  - Safe to nest: a per-execution depth counter makes an inner call (e.g.
+    a tag batch calling removeTagFromExpenses) run straight through under
+    the caller's lock, never waiting on it or releasing it early.
+  - Invariant: LOCK_TIMEOUT_MS < client read timeout (30 s), and
+    LOCK_TIMEOUT_MS + worst-case write time < client write timeout (60 s).
 
 Service_Auth.gs
   - Verifies HMAC-SHA256 signatures on every request
@@ -460,6 +490,11 @@ Service_Session.gs
 
 Service_Sheet.gs — The ONLY file that touches SpreadsheetApp
   - Read/write rows in the "Finances" sheet
+  - Every write of user text goes through _sanitizeForSheet, and every
+    read-modify-write grid through _sanitizeGridForSheet (Code.gs), so a
+    value like "-Misc" or "=..." stays text when written back
+  - _getConfigSheet() is read-only; _ensureConfigSheetLayout() (legacy
+    B->C migration + title cells) runs only on login and saveOpeningBalance
   - Opening balance in Config sheet cell C2
   - Finances column mapping:
       Document(A) Time-uploaded(B) Date(C) Description(D)

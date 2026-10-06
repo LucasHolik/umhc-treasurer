@@ -9,6 +9,7 @@ import {
   calculateTagStats,
   optimizeQueue,
   formatOperationsForApi,
+  resolveSaveFailure,
 } from "../../tags/tags.logic.js";
 
 const SUITE = "Tags logic";
@@ -421,3 +422,65 @@ test(SUITE, "formatOperationsForApi produces positional arrays", () => {
     ["Snowdon", "Completed", "updateTripStatus", "Trip/Event"],
   ]);
 });
+
+const SAVE_QUEUE = [
+  { type: "add", tagType: "Category", value: "A" },
+  { type: "add", tagType: "Category", value: "B" },
+  { type: "add", tagType: "Category", value: "C" },
+  { type: "add", tagType: "Category", value: "D" },
+];
+
+const timeoutError = () => {
+  const err = new Error("Request timed out.");
+  err.code = "TIMEOUT";
+  return err;
+};
+
+test(
+  SUITE,
+  "resolveSaveFailure: TIMEOUT drops the queue, leaves edit mode, counts ops",
+  () => {
+    const queue = [...SAVE_QUEUE, ...SAVE_QUEUE]; // 8 ops, chunks of 3
+    const result = resolveSaveFailure(queue, 3, 3, timeoutError());
+    assertEqual(result.remainingQueue, []);
+    assertEqual(result.exitEditMode, true);
+    assert(/3 of 8 operations were saved/.test(result.message), result.message);
+    assert(/next 3 may or may not/.test(result.message), result.message);
+    assert(/2 were never sent/.test(result.message), result.message);
+  },
+);
+
+test(SUITE, "resolveSaveFailure: TIMEOUT on the last chunk", () => {
+  const result = resolveSaveFailure(SAVE_QUEUE, 2, 10, timeoutError());
+  assert(/next 2 may or may not/.test(result.message), result.message);
+  assert(/0 were never sent/.test(result.message), result.message);
+});
+
+test(
+  SUITE,
+  "resolveSaveFailure: rejection with appliedOperations keeps the right tail",
+  () => {
+    const err = new Error("Operation failed at index 1");
+    err.response = { success: false, appliedOperations: [{ index: 0 }] };
+    const result = resolveSaveFailure(SAVE_QUEUE, 2, 2, err);
+    assertEqual(result.remainingQueue, SAVE_QUEUE.slice(3));
+    assertEqual(result.exitEditMode, false);
+    assert(/3 of 4 operations were saved/.test(result.message), result.message);
+  },
+);
+
+test(
+  SUITE,
+  "resolveSaveFailure: rejection with no applied ops keeps the unprocessed tail",
+  () => {
+    const result = resolveSaveFailure(
+      SAVE_QUEUE,
+      2,
+      2,
+      new Error("Tag already exists."),
+    );
+    assertEqual(result.remainingQueue, SAVE_QUEUE.slice(2));
+    assertEqual(result.exitEditMode, false);
+    assert(/Tag already exists/.test(result.message), result.message);
+  },
+);

@@ -6,7 +6,11 @@ import TagsList from "./tags.list.js";
 import TagsDetails from "./tags.details.js";
 import TagsSubList from "./tags.sublist.js";
 import TagsAddTrip from "./tags.add-trip.js";
-import { calculateTagStats, formatOperationsForApi } from "./tags.logic.js";
+import {
+  calculateTagStats,
+  formatOperationsForApi,
+  resolveSaveFailure,
+} from "./tags.logic.js";
 import { el, replace } from "../../core/dom.js";
 
 class TagsComponent {
@@ -320,9 +324,18 @@ class TagsComponent {
       }
     } catch (err) {
       console.error(err);
-      await this.modal.alert("Error: " + err.message);
+      const recovery = resolveSaveFailure(
+        operations,
+        0,
+        operations.length,
+        err,
+      );
+      // The server may have committed the change: refresh the store from it.
+      document.dispatchEvent(new CustomEvent("dataUploaded"));
+      await this.modal.alert(recovery.message, "Error");
       store.setState("isTagging", false);
       store.setState("taggingSource", null);
+      if (recovery.exitEditMode) this.handleAddTripBack();
     }
   }
 
@@ -565,14 +578,21 @@ class TagsComponent {
       this.queue = [];
     } catch (error) {
       console.error("Failed to save tags:", error);
-      processedCount += error.appliedCount || 0;
-      this.queue = this.queue.slice(processedCount);
-      await this.modal.alert(
-        `Failed to save tags: ${error.message}\n\n` +
-          `${processedCount} of ${formattedOperations.length} operations were saved. ` +
-          `Please refresh the page to see the current state and retry.`,
-        "Error",
+      const recovery = resolveSaveFailure(
+        this.queue,
+        processedCount,
+        chunkSize,
+        error,
       );
+      this.queue = recovery.remainingQueue;
+      if (recovery.exitEditMode) {
+        this.isEditMode = false;
+        this.localTags = null;
+      }
+      // Earlier chunks may already be committed: refresh the store from the
+      // server rather than trusting local state.
+      document.dispatchEvent(new CustomEvent("dataUploaded"));
+      await this.modal.alert(recovery.message, "Error");
     } finally {
       store.setState("savingTags", false);
     }

@@ -15,6 +15,27 @@ const SESSION_KEY_KEY = "umhc_treasurer_session_key";
 const READ_ONLY_MESSAGE =
   "View-only mode: this action is only available with the full-access passkey.";
 
+// Client-side time limits per request.
+// INVARIANT: WRITE_TIMEOUT_MS > server CONFIG.LOCK_TIMEOUT_MS (10 s, see
+// google-apps-script/Config.gs) + the worst-case time of a write batch, so a
+// slow write reports its real result instead of timing out with the outcome
+// unknown. READ_TIMEOUT_MS must also exceed the lock wait, so a read that
+// queues behind a write answers "System is busy" rather than timing out.
+// GAS itself stops any execution after 6 minutes.
+const READ_TIMEOUT_MS = 30000;
+const WRITE_TIMEOUT_MS = 60000;
+
+/**
+ * How long to wait for a request before giving up.
+ * @param {object} options - request options; timeoutMs overrides, withNonce
+ *   marks a mutating request (set by requestMutating).
+ * @returns {number} milliseconds
+ */
+const resolveTimeout = (options = {}) => {
+  if (options.timeoutMs) return options.timeoutMs;
+  return options.withNonce ? WRITE_TIMEOUT_MS : READ_TIMEOUT_MS;
+};
+
 /*
  * SECURITY NOTE:
  * This application uses JSONP to communicate with Google Apps Script.
@@ -315,7 +336,7 @@ const request = (action, params = {}, options = {}) => {
         url.searchParams.append("callback", callbackName);
 
         const script = document.createElement("script");
-        const timeout = 20000; // 20 seconds
+        const timeout = resolveTimeout(options);
         let cleanedUp = false;
         let timeoutId;
 
@@ -346,7 +367,12 @@ const request = (action, params = {}, options = {}) => {
 
         timeoutId = setTimeout(() => {
           cleanup();
-          reject(new Error("Request timed out."));
+          // The server may still finish (or already have finished) the
+          // request, so the outcome is unknown. The code lets callers tell
+          // this apart from a definite server rejection.
+          const err = new Error("Request timed out.");
+          err.code = "TIMEOUT";
+          reject(err);
         }, timeout);
 
         window[callbackName] = (data) => {
@@ -358,7 +384,9 @@ const request = (action, params = {}, options = {}) => {
               clearSession();
               document.dispatchEvent(new CustomEvent("sessionExpired"));
             }
-            reject(new Error(data.message || "API request failed."));
+            const err = new Error(data.message || "API request failed.");
+            err.response = data; // e.g. appliedOperations on a tag batch
+            reject(err);
           }
         };
 
@@ -496,4 +524,4 @@ const ApiService = {
 export default ApiService;
 
 // Pure helpers exposed for the built-in self-test suite (Settings → Diagnostics).
-export { canonicalStringify, _validateScriptUrl };
+export { canonicalStringify, _validateScriptUrl, resolveTimeout };

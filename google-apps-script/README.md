@@ -19,11 +19,14 @@ Follow these steps to set up your own backend instance.
    - `Code.gs`
    - `Config.gs`
    - `Service_Auth.gs`
+   - `Service_Lock.gs`
    - `Service_Session.gs`
    - `Service_Sheet.gs`
    - `Service_Split.gs`
    - `Service_Tags.gs`
 4. Click the **Save** icon (disk) or press `Cmd/Ctrl + S`.
+
+> **Updating an existing deployment:** after pasting changed `.gs` files (or adding a new one such as `Service_Lock.gs`), the web app keeps serving the old code until you **redeploy**: **Deploy** > **Manage deployments** > edit (pencil) > **Version: New version** > **Deploy**. Editing the existing deployment keeps the same Web App URL. Afterwards, log out and back in once: login runs the Config sheet layout check (legacy balance migration and title cells), which reads no longer do.
 
 ### 3. Configure the Spreadsheet
 
@@ -71,6 +74,7 @@ This backend uses a custom security layer designed for "Serverless" static sites
 - **`Code.gs`**: The main entry point (`doGet`). Routes requests to the appropriate service.
 - **`Config.gs`**: Central configuration (Sheet names, column constants).
 - **`Service_Auth.gs`**: Handles login, signature verification, and security checks.
+- **`Service_Lock.gs`**: The one place that takes the script lock (`withScriptLock`). Safe to nest, so a write that calls other locked helpers keeps a single lock throughout.
 - **`Service_Session.gs`**: Manages temporary session tokens.
 - **`Service_Sheet.gs`**: Interactions with the main "Finances" ledger.
 - **`Service_Tags.gs`**: Manages the "Tags" sheet (Categories, Trips, Types).
