@@ -142,7 +142,12 @@ services/api.service.js
 App.js
   - loadInitialData: a call that arrives while a load is running sets
     _reloadPending instead of being dropped. When the running load
-    finishes, one more load runs if ApiService.hasSession() is still true.
+    finishes, one more load runs.
+  - loadInitialData does nothing without a session. The failure paths below
+    always dispatch "dataUploaded", including after an "Unauthorized" reply
+    has already logged the user out. Without the check, that reload replaced
+    "Session expired" on the login screen with "Failed to load application
+    data". The same check covers the follow-up load.
 
 features/tags/tags.logic.js
   - resolveSaveFailure(queue, processedCount, chunkSize, error) (NEW, pure)

@@ -550,6 +550,11 @@ class App {
   }
 
   async loadInitialData() {
+    // Nothing to load once the session has gone. A save that fails with
+    // "Unauthorized" still dispatches "dataUploaded" after sessionExpired has
+    // logged out; loading then would replace "Session expired" on the login
+    // screen with a load error.
+    if (!ApiService.hasSession()) return;
     // A request that arrives mid-load (e.g. "dataUploaded" after a save, or
     // Refresh) may need data newer than the load already in flight. Remember
     // it and run one more load when this one finishes, so the store ends up
@@ -589,9 +594,9 @@ class App {
       store.setState("isLoading", false);
       if (this._reloadPending) {
         this._reloadPending = false;
-        // Skip it if the session has gone (logout or expiry mid-load), so
-        // it can't show an auth error on the login screen.
-        if (ApiService.hasSession()) this.loadInitialData();
+        // Skipped by the session check above if the user logged out or the
+        // session expired mid-load.
+        this.loadInitialData();
       }
     }
   }
