@@ -589,7 +589,9 @@ class App {
       store.setState("isLoading", false);
       if (this._reloadPending) {
         this._reloadPending = false;
-        if (AuthService.isLoggedIn()) this.loadInitialData();
+        // Skip it if the session has gone (logout or expiry mid-load), so
+        // it can't show an auth error on the login screen.
+        if (ApiService.hasSession()) this.loadInitialData();
       }
     }
   }

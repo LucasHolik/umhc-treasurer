@@ -438,14 +438,23 @@ const timeoutError = () => {
 
 test(
   SUITE,
-  "resolveSaveFailure: TIMEOUT drops the queue, leaves edit mode",
+  "resolveSaveFailure: TIMEOUT drops the queue, leaves edit mode, counts ops",
   () => {
-    const result = resolveSaveFailure(SAVE_QUEUE, 2, timeoutError());
+    const queue = [...SAVE_QUEUE, ...SAVE_QUEUE]; // 8 ops, chunks of 3
+    const result = resolveSaveFailure(queue, 3, 3, timeoutError());
     assertEqual(result.remainingQueue, []);
     assertEqual(result.exitEditMode, true);
-    assert(/may have been saved/.test(result.message), result.message);
+    assert(/3 of 8 operations were saved/.test(result.message), result.message);
+    assert(/next 3 may or may not/.test(result.message), result.message);
+    assert(/2 were never sent/.test(result.message), result.message);
   },
 );
+
+test(SUITE, "resolveSaveFailure: TIMEOUT on the last chunk", () => {
+  const result = resolveSaveFailure(SAVE_QUEUE, 2, 10, timeoutError());
+  assert(/next 2 may or may not/.test(result.message), result.message);
+  assert(/0 were never sent/.test(result.message), result.message);
+});
 
 test(
   SUITE,
@@ -453,7 +462,7 @@ test(
   () => {
     const err = new Error("Operation failed at index 1");
     err.response = { success: false, appliedOperations: [{ index: 0 }] };
-    const result = resolveSaveFailure(SAVE_QUEUE, 2, err);
+    const result = resolveSaveFailure(SAVE_QUEUE, 2, 2, err);
     assertEqual(result.remainingQueue, SAVE_QUEUE.slice(3));
     assertEqual(result.exitEditMode, false);
     assert(/3 of 4 operations were saved/.test(result.message), result.message);
@@ -466,6 +475,7 @@ test(
   () => {
     const result = resolveSaveFailure(
       SAVE_QUEUE,
+      2,
       2,
       new Error("Tag already exists."),
     );

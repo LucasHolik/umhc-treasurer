@@ -324,7 +324,12 @@ class TagsComponent {
       }
     } catch (err) {
       console.error(err);
-      const recovery = resolveSaveFailure(operations, 0, err);
+      const recovery = resolveSaveFailure(
+        operations,
+        0,
+        operations.length,
+        err,
+      );
       // The server may have committed the change: refresh the store from it.
       document.dispatchEvent(new CustomEvent("dataUploaded"));
       await this.modal.alert(recovery.message, "Error");
@@ -573,7 +578,12 @@ class TagsComponent {
       this.queue = [];
     } catch (error) {
       console.error("Failed to save tags:", error);
-      const recovery = resolveSaveFailure(this.queue, processedCount, error);
+      const recovery = resolveSaveFailure(
+        this.queue,
+        processedCount,
+        chunkSize,
+        error,
+      );
       this.queue = recovery.remainingQueue;
       if (recovery.exitEditMode) {
         this.isEditMode = false;
