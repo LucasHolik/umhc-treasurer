@@ -37,6 +37,8 @@ const Service_Lock = {
 
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(timeoutMs || CONFIG.LOCK_TIMEOUT_MS)) {
+      // The client matches this exact text (SERVER_BUSY_MESSAGE in
+      // src/services/api.service.js); change both together.
       return { success: false, message: "System is busy. Please try again." };
     }
     _scriptLockDepth = 1;

@@ -585,10 +585,21 @@ class App {
       }
     } catch (error) {
       console.error("Load initial data error:", error);
-      store.setState(
-        "error",
-        "Failed to load application data. Please try refreshing.",
-      );
+      // "Unauthorized" has already logged out and shown "Session expired".
+      if (!ApiService.hasSession()) return;
+      const loadError =
+        error.code === "BUSY"
+          ? "The server is busy saving other changes, so the data could not be loaded. Please refresh in a moment."
+          : "Failed to load application data. Please try refreshing.";
+      // Keep an error that is already showing (e.g. why a save failed, which
+      // triggered this reload) and add to it. Replace only an earlier load
+      // error, so repeated refreshes don't pile up messages.
+      const shown = store.getState("error");
+      this._loadError =
+        shown && shown !== this._loadError
+          ? `${shown} ${loadError}`
+          : loadError;
+      store.setState("error", this._loadError);
     } finally {
       this._loadingData = false;
       store.setState("isLoading", false);

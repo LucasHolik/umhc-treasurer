@@ -135,6 +135,9 @@ services/api.service.js
     timeout. It is exported for the self-tests. A comment states the
     invariant against the server's LOCK_TIMEOUT_MS.
   - A timeout rejects with err.code = "TIMEOUT" (outcome unknown).
+  - A network error (script onerror) rejects with err.code = "NETWORK"
+    (outcome also unknown). A "System is busy" reply sets
+    err.code = "BUSY".
   - A server { success: false } rejects with err.response = data, so
     tag-batch appliedOperations now reach the caller (before, they were
     always lost).
@@ -148,6 +151,11 @@ App.js
     has already logged the user out. Without the check, that reload replaced
     "Session expired" on the login screen with "Failed to load application
     data". The same check covers the follow-up load.
+  - A failed load no longer replaces an error that is already showing
+    (e.g. why a save failed); it adds its own message after it. It still
+    replaces an earlier load error, so repeated refreshes don't pile up
+    messages. A BUSY reply explains that the server is busy with other
+    changes instead of the generic "Failed to load application data".
 
 features/tags/tags.logic.js
   - resolveSaveFailure(queue, processedCount, chunkSize, error) (NEW, pure)
@@ -155,6 +163,11 @@ features/tags/tags.logic.js
       TIMEOUT: drop the queue and leave edit mode. The message counts the
         operations saved, the chunk whose outcome is unknown, and those
         never sent (which must be re-entered).
+      NETWORK: keep every unconfirmed operation (nothing is lost). The
+        message says the in-flight chunk may or may not have saved, and
+        that saving again is safe: each chunk is atomic, so a chunk that
+        was already applied fails ("already exists" / "not found") and
+        changes nothing.
       Rejection: keep queue.slice(processedCount + appliedCount).
         appliedCount comes from err.appliedCount or
         err.response.appliedOperations.
@@ -167,8 +180,9 @@ features/tags/tags.component.js
 
 features/transactions/transactions.component.js
   - savePendingChanges and applyBulkTags: when a save fails, also dispatch
-    "dataUploaded". A TIMEOUT error banner reads "... may not have saved
-    ... data reloaded". Unsaved edits stay pending; the reload removes only
+    "dataUploaded". On TIMEOUT or NETWORK the error banner reads "... may
+    not have saved (no reply from the server). Please check them once the
+    data has reloaded." Unsaved edits stay pending; the reload removes only
     the ones it can see were saved.
 
 features/settings/selftest/
@@ -176,7 +190,8 @@ features/settings/selftest/
     override.
   - tests.tags.js: resolveSaveFailure on TIMEOUT (queue dropped, edit mode
     left, saved / unknown / never-sent counts), TIMEOUT on the last chunk,
-    rejection with appliedOperations, and rejection with none applied.
+    rejection with appliedOperations, rejection with none applied, and
+    NETWORK (every unconfirmed op kept pending).
 
 
 ================================================================================

@@ -14,6 +14,9 @@ const SESSION_ID_KEY = "umhc_treasurer_session_id";
 const SESSION_KEY_KEY = "umhc_treasurer_session_key";
 const READ_ONLY_MESSAGE =
   "View-only mode: this action is only available with the full-access passkey.";
+// Sent by the server (Service_Lock.gs) when it could not get the script lock.
+// The request was not run, so it is safe to retry.
+const SERVER_BUSY_MESSAGE = "System is busy. Please try again.";
 
 // Client-side time limits per request.
 // INVARIANT: WRITE_TIMEOUT_MS > server CONFIG.LOCK_TIMEOUT_MS (10 s, see
@@ -386,13 +389,19 @@ const request = (action, params = {}, options = {}) => {
             }
             const err = new Error(data.message || "API request failed.");
             err.response = data; // e.g. appliedOperations on a tag batch
+            if (data.message === SERVER_BUSY_MESSAGE) err.code = "BUSY";
             reject(err);
           }
         };
 
         script.onerror = () => {
           cleanup();
-          reject(new Error("Network error during API request."));
+          // No readable reply: the connection failed or the server sent an
+          // error page. The request may or may not have run, so the outcome
+          // is unknown, as with a timeout.
+          const err = new Error("Network error during API request.");
+          err.code = "NETWORK";
+          reject(err);
         };
 
         // Final check: if we were cancelled or timed out during the signing/setup phase

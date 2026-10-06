@@ -484,3 +484,18 @@ test(
     assert(/Tag already exists/.test(result.message), result.message);
   },
 );
+
+test(
+  SUITE,
+  "resolveSaveFailure: NETWORK keeps every unconfirmed op pending",
+  () => {
+    const err = new Error("Network error during API request.");
+    err.code = "NETWORK";
+    const queue = [...SAVE_QUEUE, ...SAVE_QUEUE]; // 8 ops, chunks of 3
+    const result = resolveSaveFailure(queue, 3, 3, err);
+    assertEqual(result.remainingQueue, queue.slice(3));
+    assertEqual(result.exitEditMode, false);
+    assert(/3 of 8 operations were saved/.test(result.message), result.message);
+    assert(/next 3 may or may not/.test(result.message), result.message);
+  },
+);

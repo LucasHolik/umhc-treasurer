@@ -244,8 +244,12 @@ Errors:
   - Timeout: rejects with err.code = "TIMEOUT". The server may still have
     applied the request, so the outcome is unknown; callers reload data
     instead of guessing (see tags.logic.resolveSaveFailure).
+  - Network error (no readable reply): rejects with err.code = "NETWORK".
+    The outcome is also unknown.
   - Server rejection ({ success: false }): rejects with err.message from
-    the server and the full response on err.response.
+    the server and the full response on err.response. "System is busy"
+    (the server could not get the lock, so nothing ran) also sets
+    err.code = "BUSY".
 
 Key methods:
   login(apiKey)                      // exchange passkey for session
@@ -366,7 +370,9 @@ Also manages:
   - Save failure: data is always reloaded (earlier chunks may be
     committed); tags.logic.resolveSaveFailure keeps the unapplied tail of
     the queue on a server rejection, or drops it and leaves edit mode on a
-    timeout, when the outcome is unknown
+    timeout, when the outcome is unknown. On a network error it keeps
+    every unconfirmed operation: replaying is safe because each chunk is
+    atomic, so an already-applied chunk fails and changes nothing
   - Timeframe filter for transaction counts
 
 E. Analysis (src/features/analysis/)

@@ -1725,8 +1725,8 @@ class TransactionsComponent {
     } catch (error) {
       store.setState(
         "error",
-        error.code === "TIMEOUT"
-          ? "Tag changes may not have saved (the server did not respond in time) — data reloaded. Please check them."
+        error.code === "TIMEOUT" || error.code === "NETWORK"
+          ? "Tag changes may not have saved (no reply from the server). Please check them once the data has reloaded."
           : `Failed to save tag changes: ${error.message}`,
       );
       store.setState("isTagging", false);
@@ -1816,8 +1816,8 @@ class TransactionsComponent {
       console.error("Bulk tagging failed:", error);
       store.setState(
         "error",
-        error.code === "TIMEOUT"
-          ? "Bulk tags may not have saved (the server did not respond in time) — data reloaded. Please check them."
+        error.code === "TIMEOUT" || error.code === "NETWORK"
+          ? "Bulk tags may not have saved (no reply from the server). Please check them once the data has reloaded."
           : `Failed to apply bulk tags: ${error.message}`,
       );
       store.setState("isTagging", false);
