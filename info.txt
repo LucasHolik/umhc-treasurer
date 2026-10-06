@@ -104,6 +104,7 @@ No npm / no build step. All dependencies are vendored locally.
     Code.gs                     # doGet() router — no business logic
     Config.gs                   # Server-side constants
     Service_Auth.gs             # HMAC-SHA256 signature verification
+    Service_Lock.gs             # withScriptLock(): the only LockService user; nests safely
     Service_Session.gs          # Session token creation/validation
     Service_Sheet.gs            # All SpreadsheetApp access
     Service_Tags.gs             # Tag CRUD + TripTypeMap management

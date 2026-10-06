@@ -1,148 +1,141 @@
 const Service_Sheet = {
   saveData: function (e) {
-    const lock = LockService.getScriptLock();
-    let lockAcquired = false;
-    try {
-      if (!lock.tryLock(30000)) {
-        return { success: false, message: "System is busy. Please try again." };
-      }
-      lockAcquired = true;
-
-      if (!e || !e.parameter) {
-        return { success: false, message: "Invalid request parameters." };
-      }
-      let data;
+    return Service_Lock.withScriptLock(() => {
       try {
-        data = JSON.parse(e.parameter.data || "[]");
-      } catch (parseError) {
-        return { success: false, message: "Invalid JSON data format." };
-      }
-
-      if (data.length === 0) {
-        return { success: true, message: "No data to save.", added: 0 };
-      }
-
-      // Validate all dates before processing
-      const invalidDates = data.filter((row) => {
-        if (!row.date) return false;
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) return true;
-
-        const [year, month, day] = row.date.split("-").map(Number);
-        if (month < 1 || month > 12 || day < 1 || day > 31) return true;
-
-        // Check if date is valid by creating a Date object and comparing
-        const date = new Date(year, month - 1, day);
-        return (
-          date.getFullYear() !== year ||
-          date.getMonth() !== month - 1 ||
-          date.getDate() !== day
-        );
-      });
-      if (invalidDates.length > 0) {
-        return {
-          success: false,
-          message: "Invalid date format. Expected yyyy-MM-dd.",
-        };
-      }
-
-      const financeSheet = _getFinanceSheet();
-
-      // Validate required columns exist
-      const requiredColumns = [
-        "Document",
-        "Time-uploaded",
-        "Date",
-        "Description",
-        "Trip/Event",
-        "Category",
-        "Income",
-        "Expense",
-        "Type",
-        "Split Group ID",
-      ];
-      const missingColumns = requiredColumns.filter(
-        (col) => !CONFIG.HEADERS.includes(col),
-      );
-      if (missingColumns.length > 0) {
-        return {
-          success: false,
-          message: "Missing required columns: " + missingColumns.join(", "),
-        };
-      }
-
-      const startRow = financeSheet.getLastRow() + 1;
-      const recordsToAdd = data.map((row) => {
-        const record = new Array(CONFIG.HEADERS.length).fill("");
-        record[CONFIG.HEADERS.indexOf("Document")] = _sanitizeForSheet(
-          row.document,
-        );
-        record[CONFIG.HEADERS.indexOf("Time-uploaded")] = new Date();
-        record[CONFIG.HEADERS.indexOf("Date")] = row.date || "";
-        record[CONFIG.HEADERS.indexOf("Description")] = _sanitizeForSheet(
-          row.description,
-        );
-        record[CONFIG.HEADERS.indexOf("Trip/Event")] = _sanitizeForSheet(
-          row.tripEvent,
-        );
-        record[CONFIG.HEADERS.indexOf("Category")] = _sanitizeForSheet(
-          row.category,
-        );
-        const cashIn = parseFloat(row.cashIn);
-        const cashOut = parseFloat(row.cashOut);
-        record[CONFIG.HEADERS.indexOf("Income")] = isNaN(cashIn) ? "" : cashIn;
-        record[CONFIG.HEADERS.indexOf("Expense")] = isNaN(cashOut)
-          ? ""
-          : cashOut;
-        record[CONFIG.HEADERS.indexOf("Type")] = row.isManual
-          ? "Manual"
-          : row.isUploaded
-            ? "Uploaded"
-            : "";
-        record[CONFIG.HEADERS.indexOf("Split Group ID")] =
-          row.splitGroupId || "";
-        return record;
-      });
-
-      if (recordsToAdd.length > 0) {
-        // Format date column
-        const dateCol = CONFIG.HEADERS.indexOf("Date") + 1;
-        if (dateCol > 0) {
-          const dateColumnRange = financeSheet.getRange(
-            startRow,
-            dateCol,
-            recordsToAdd.length,
-            1,
-          );
-          dateColumnRange.setNumberFormat("@");
+        if (!e || !e.parameter) {
+          return { success: false, message: "Invalid request parameters." };
+        }
+        let data;
+        try {
+          data = JSON.parse(e.parameter.data || "[]");
+        } catch (parseError) {
+          return { success: false, message: "Invalid JSON data format." };
         }
 
-        // Set values for all columns
-        financeSheet
-          .getRange(startRow, 1, recordsToAdd.length, CONFIG.HEADERS.length)
-          .setValues(recordsToAdd);
-      }
+        if (data.length === 0) {
+          return { success: true, message: "No data to save.", added: 0 };
+        }
 
-      _sortSheetByDate();
+        // Validate all dates before processing
+        const invalidDates = data.filter((row) => {
+          if (!row.date) return false;
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) return true;
 
-      return {
-        success: true,
-        message:
-          "Successfully added " +
-          recordsToAdd.length +
-          " new records to the sheet.",
-        added: recordsToAdd.length,
-      };
-    } catch (error) {
-      console.error("Error saving data:", error);
-      return {
-        success: false,
-        message: "Failed to save data. Please try again.",
-      };
-    } finally {
-      if (lockAcquired) {
-        lock.releaseLock();
+          const [year, month, day] = row.date.split("-").map(Number);
+          if (month < 1 || month > 12 || day < 1 || day > 31) return true;
+
+          // Check if date is valid by creating a Date object and comparing
+          const date = new Date(year, month - 1, day);
+          return (
+            date.getFullYear() !== year ||
+            date.getMonth() !== month - 1 ||
+            date.getDate() !== day
+          );
+        });
+        if (invalidDates.length > 0) {
+          return {
+            success: false,
+            message: "Invalid date format. Expected yyyy-MM-dd.",
+          };
+        }
+
+        const financeSheet = _getFinanceSheet();
+
+        // Validate required columns exist
+        const requiredColumns = [
+          "Document",
+          "Time-uploaded",
+          "Date",
+          "Description",
+          "Trip/Event",
+          "Category",
+          "Income",
+          "Expense",
+          "Type",
+          "Split Group ID",
+        ];
+        const missingColumns = requiredColumns.filter(
+          (col) => !CONFIG.HEADERS.includes(col),
+        );
+        if (missingColumns.length > 0) {
+          return {
+            success: false,
+            message: "Missing required columns: " + missingColumns.join(", "),
+          };
+        }
+
+        const startRow = financeSheet.getLastRow() + 1;
+        const recordsToAdd = data.map((row) => {
+          const record = new Array(CONFIG.HEADERS.length).fill("");
+          record[CONFIG.HEADERS.indexOf("Document")] = _sanitizeForSheet(
+            row.document,
+          );
+          record[CONFIG.HEADERS.indexOf("Time-uploaded")] = new Date();
+          record[CONFIG.HEADERS.indexOf("Date")] = row.date || "";
+          record[CONFIG.HEADERS.indexOf("Description")] = _sanitizeForSheet(
+            row.description,
+          );
+          record[CONFIG.HEADERS.indexOf("Trip/Event")] = _sanitizeForSheet(
+            row.tripEvent,
+          );
+          record[CONFIG.HEADERS.indexOf("Category")] = _sanitizeForSheet(
+            row.category,
+          );
+          const cashIn = parseFloat(row.cashIn);
+          const cashOut = parseFloat(row.cashOut);
+          record[CONFIG.HEADERS.indexOf("Income")] = isNaN(cashIn)
+            ? ""
+            : cashIn;
+          record[CONFIG.HEADERS.indexOf("Expense")] = isNaN(cashOut)
+            ? ""
+            : cashOut;
+          record[CONFIG.HEADERS.indexOf("Type")] = row.isManual
+            ? "Manual"
+            : row.isUploaded
+              ? "Uploaded"
+              : "";
+          record[CONFIG.HEADERS.indexOf("Split Group ID")] =
+            row.splitGroupId || "";
+          return record;
+        });
+
+        if (recordsToAdd.length > 0) {
+          // Format date column
+          const dateCol = CONFIG.HEADERS.indexOf("Date") + 1;
+          if (dateCol > 0) {
+            const dateColumnRange = financeSheet.getRange(
+              startRow,
+              dateCol,
+              recordsToAdd.length,
+              1,
+            );
+            dateColumnRange.setNumberFormat("@");
+          }
+
+          // Set values for all columns
+          financeSheet
+            .getRange(startRow, 1, recordsToAdd.length, CONFIG.HEADERS.length)
+            .setValues(recordsToAdd);
+        }
+
+        _sortSheetByDate();
+
+        return {
+          success: true,
+          message:
+            "Successfully added " +
+            recordsToAdd.length +
+            " new records to the sheet.",
+          added: recordsToAdd.length,
+        };
+      } catch (error) {
+        console.error("Error saving data:", error);
+        return {
+          success: false,
+          message: "Failed to save data. Please try again.",
+        };
       }
-    }
+    });
   },
 
   getData: function () {
@@ -194,107 +187,113 @@ const Service_Sheet = {
   },
 
   updateExpenses: function (e) {
-    try {
-      if (!e || !e.parameter) {
-        return { success: false, message: "Invalid request parameters." };
-      }
-      let updates;
+    // One lock around the whole loop: split rows go through
+    // Service_Split.updateSplitRowTag, which nests inside it.
+    return Service_Lock.withScriptLock(() => {
       try {
-        updates = JSON.parse(e.parameter.data || "[]");
-      } catch (parseError) {
-        return { success: false, message: "Invalid JSON data format." };
-      }
-      if (updates.length === 0) {
-        return { success: true, message: "No updates to save." };
-      }
-
-      const financeSheet = _getFinanceSheet();
-      const lastRow = financeSheet.getLastRow();
-      const tripEventCol = CONFIG.HEADERS.indexOf("Trip/Event") + 1;
-      const categoryCol = CONFIG.HEADERS.indexOf("Category") + 1;
-      const failures = [];
-
-      // Fetch valid tags once to validate values before writing (issue 12)
-      const validTags = Service_Tags.getTags();
-      const validTripEvents = new Set(validTags["Trip/Event"]);
-      const validCategories = new Set(validTags["Category"]);
-
-      for (const update of updates) {
-        const row = update.row;
-        const tripVal = update.tripEvent || "";
-        const catVal = update.category || "";
-
-        // Validate tag values against the known taxonomy
-        if (tripVal && !validTripEvents.has(tripVal)) {
-          console.warn("Invalid Trip/Event tag rejected:", tripVal);
-          failures.push({ row, reason: "Invalid Trip/Event tag" });
-          continue;
+        if (!e || !e.parameter) {
+          return { success: false, message: "Invalid request parameters." };
         }
-        if (catVal && !validCategories.has(catVal)) {
-          console.warn("Invalid Category tag rejected:", catVal);
-          failures.push({ row, reason: "Invalid Category tag" });
-          continue;
+        let updates;
+        try {
+          updates = JSON.parse(e.parameter.data || "[]");
+        } catch (parseError) {
+          return { success: false, message: "Invalid JSON data format." };
+        }
+        if (updates.length === 0) {
+          return { success: true, message: "No updates to save." };
         }
 
-        const sanitizedTripVal = _sanitizeForSheet(tripVal);
-        const sanitizedCatVal = _sanitizeForSheet(catVal);
+        const financeSheet = _getFinanceSheet();
+        const lastRow = financeSheet.getLastRow();
+        const tripEventCol = CONFIG.HEADERS.indexOf("Trip/Event") + 1;
+        const categoryCol = CONFIG.HEADERS.indexOf("Category") + 1;
+        const failures = [];
 
-        if (typeof row === "string" && row.startsWith("S-")) {
-          // Handle Split Transaction Row
-          if (
-            typeof Service_Split === "undefined" ||
-            !Service_Split.updateSplitRowTag
-          ) {
-            console.warn(
-              "Skipping split row update due to missing Service_Split:",
-              row,
-            );
-            failures.push({ row, reason: "Service_Split unavailable" });
+        // Fetch valid tags once to validate values before writing (issue 12)
+        const validTags = Service_Tags.getTags();
+        const validTripEvents = new Set(validTags["Trip/Event"]);
+        const validCategories = new Set(validTags["Category"]);
+
+        for (const update of updates) {
+          const row = update.row;
+          const tripVal = update.tripEvent || "";
+          const catVal = update.category || "";
+
+          // Validate tag values against the known taxonomy
+          if (tripVal && !validTripEvents.has(tripVal)) {
+            console.warn("Invalid Trip/Event tag rejected:", tripVal);
+            failures.push({ row, reason: "Invalid Trip/Event tag" });
             continue;
           }
-          Service_Split.updateSplitRowTag(
-            row,
-            sanitizedTripVal,
-            sanitizedCatVal,
-          );
-        } else if (typeof row === "number" && row >= 2 && row <= lastRow) {
-          // Handle Standard Row (numeric) — bounds-checked against actual sheet data
-          if (tripEventCol > 0) {
-            financeSheet.getRange(row, tripEventCol).setValue(sanitizedTripVal);
-          } else {
-            console.warn(
-              "Trip/Event column not found, skipping update for row:",
-              row,
-            );
-            failures.push({ row, reason: "Trip/Event column not found" });
+          if (catVal && !validCategories.has(catVal)) {
+            console.warn("Invalid Category tag rejected:", catVal);
+            failures.push({ row, reason: "Invalid Category tag" });
+            continue;
           }
-          if (categoryCol > 0) {
-            financeSheet.getRange(row, categoryCol).setValue(sanitizedCatVal);
-          } else {
-            console.warn(
-              "Category column not found, skipping update for row:",
-              row,
-            );
-            failures.push({ row, reason: "Category column not found" });
-          }
-        } else if (row) {
-          console.error("Invalid or out-of-range row identifier:", row);
-          failures.push({ row, reason: "Invalid row identifier" });
-        }
-      }
 
-      const message =
-        failures.length > 0
-          ? `Updated with ${failures.length} failures`
-          : "Expenses updated successfully.";
-      return { success: failures.length === 0, message, failures };
-    } catch (error) {
-      console.error("Error updating expenses:", error);
-      return {
-        success: false,
-        message: "Failed to update expenses. Please try again.",
-      };
-    }
+          const sanitizedTripVal = _sanitizeForSheet(tripVal);
+          const sanitizedCatVal = _sanitizeForSheet(catVal);
+
+          if (typeof row === "string" && row.startsWith("S-")) {
+            // Handle Split Transaction Row
+            if (
+              typeof Service_Split === "undefined" ||
+              !Service_Split.updateSplitRowTag
+            ) {
+              console.warn(
+                "Skipping split row update due to missing Service_Split:",
+                row,
+              );
+              failures.push({ row, reason: "Service_Split unavailable" });
+              continue;
+            }
+            Service_Split.updateSplitRowTag(
+              row,
+              sanitizedTripVal,
+              sanitizedCatVal,
+            );
+          } else if (typeof row === "number" && row >= 2 && row <= lastRow) {
+            // Handle Standard Row (numeric) — bounds-checked against actual sheet data
+            if (tripEventCol > 0) {
+              financeSheet
+                .getRange(row, tripEventCol)
+                .setValue(sanitizedTripVal);
+            } else {
+              console.warn(
+                "Trip/Event column not found, skipping update for row:",
+                row,
+              );
+              failures.push({ row, reason: "Trip/Event column not found" });
+            }
+            if (categoryCol > 0) {
+              financeSheet.getRange(row, categoryCol).setValue(sanitizedCatVal);
+            } else {
+              console.warn(
+                "Category column not found, skipping update for row:",
+                row,
+              );
+              failures.push({ row, reason: "Category column not found" });
+            }
+          } else if (row) {
+            console.error("Invalid or out-of-range row identifier:", row);
+            failures.push({ row, reason: "Invalid row identifier" });
+          }
+        }
+
+        const message =
+          failures.length > 0
+            ? `Updated with ${failures.length} failures`
+            : "Expenses updated successfully.";
+        return { success: failures.length === 0, message, failures };
+      } catch (error) {
+        console.error("Error updating expenses:", error);
+        return {
+          success: false,
+          message: "Failed to update expenses. Please try again.",
+        };
+      }
+    });
   },
 
   getOpeningBalance: function () {
@@ -343,164 +342,136 @@ const Service_Sheet = {
   },
 
   removeTagFromExpenses: function (type, value) {
-    const lock = LockService.getScriptLock();
-    let lockAcquired = false;
-    try {
-      if (!lock.tryLock(30000)) {
-        return { success: false, message: "System is busy. Please try again." };
-      }
-      lockAcquired = true;
+    return Service_Lock.withScriptLock(() => {
+      try {
+        const financeSheet = _getFinanceSheet();
+        const lastRow = financeSheet.getLastRow();
+        if (lastRow <= 1) {
+          return { success: true, message: "No expenses to update." };
+        }
 
-      const financeSheet = _getFinanceSheet();
-      const lastRow = financeSheet.getLastRow();
-      if (lastRow <= 1) {
-        return { success: true, message: "No expenses to update." };
-      }
+        const column = CONFIG.HEADERS.indexOf(type) + 1;
+        if (column <= 0) {
+          return {
+            success: false,
+            message: "Invalid type parameter or column not found.",
+          };
+        }
 
-      const column = CONFIG.HEADERS.indexOf(type) + 1;
-      if (column <= 0) {
+        const range = financeSheet.getRange(2, column, lastRow - 1, 1);
+        const values = range.getValues();
+        const modifiedRows = [];
+
+        for (let i = 0; i < values.length; i++) {
+          if (values[i][0] === value) {
+            values[i][0] = "";
+            modifiedRows.push(i + 2); // 1-based sheet row
+          }
+        }
+
+        if (modifiedRows.length > 0) {
+          range.setValues(values);
+        }
+        return {
+          success: true,
+          message: "Tag removed successfully.",
+          modifiedRows: modifiedRows,
+        };
+      } catch (error) {
+        console.error("Error removing tag from expenses:", error);
         return {
           success: false,
-          message: "Invalid type parameter or column not found.",
+          message: "Failed to remove tag. Please try again.",
         };
       }
-
-      const range = financeSheet.getRange(2, column, lastRow - 1, 1);
-      const values = range.getValues();
-      const modifiedRows = [];
-
-      for (let i = 0; i < values.length; i++) {
-        if (values[i][0] === value) {
-          values[i][0] = "";
-          modifiedRows.push(i + 2); // 1-based sheet row
-        }
-      }
-
-      if (modifiedRows.length > 0) {
-        range.setValues(values);
-      }
-      return {
-        success: true,
-        message: "Tag removed successfully.",
-        modifiedRows: modifiedRows,
-      };
-    } catch (error) {
-      console.error("Error removing tag from expenses:", error);
-      return {
-        success: false,
-        message: "Failed to remove tag. Please try again.",
-      };
-    } finally {
-      if (lockAcquired) {
-        lock.releaseLock();
-      }
-    }
+    });
   },
 
   restoreTagInExpenses: function (type, value, rowIndices) {
-    const lock = LockService.getScriptLock();
-    let lockAcquired = false;
-    try {
-      if (!Array.isArray(rowIndices) || rowIndices.length === 0) {
-        return { success: true, message: "No rows to restore." };
-      }
-
-      if (!lock.tryLock(30000)) {
-        return { success: false, message: "System is busy. Please try again." };
-      }
-      lockAcquired = true;
-
-      const financeSheet = _getFinanceSheet();
-      const lastRow = financeSheet.getLastRow();
-      if (lastRow <= 1) {
-        return {
-          success: false,
-          message: "Expenses sheet is empty; cannot restore tag.",
-        };
-      }
-
-      const column = CONFIG.HEADERS.indexOf(type) + 1;
-      if (column <= 0) {
-        return {
-          success: false,
-          message: "Invalid type parameter or column not found.",
-        };
-      }
-
-      for (let i = 0; i < rowIndices.length; i++) {
-        const row = rowIndices[i];
-        if (row < 2 || row > lastRow) {
+    if (!Array.isArray(rowIndices) || rowIndices.length === 0) {
+      return { success: true, message: "No rows to restore." };
+    }
+    return Service_Lock.withScriptLock(() => {
+      try {
+        const financeSheet = _getFinanceSheet();
+        const lastRow = financeSheet.getLastRow();
+        if (lastRow <= 1) {
           return {
             success: false,
-            message: "Row index out of range: " + row,
+            message: "Expenses sheet is empty; cannot restore tag.",
           };
         }
-      }
 
-      for (let i = 0; i < rowIndices.length; i++) {
-        financeSheet.getRange(rowIndices[i], column).setValue(value);
-      }
+        const column = CONFIG.HEADERS.indexOf(type) + 1;
+        if (column <= 0) {
+          return {
+            success: false,
+            message: "Invalid type parameter or column not found.",
+          };
+        }
 
-      return { success: true, message: "Tag restored successfully." };
-    } catch (error) {
-      console.error("Error restoring tag in expenses:", error);
-      return {
-        success: false,
-        message: "Failed to restore tag. Please try again.",
-      };
-    } finally {
-      if (lockAcquired) {
-        lock.releaseLock();
+        for (let i = 0; i < rowIndices.length; i++) {
+          const row = rowIndices[i];
+          if (row < 2 || row > lastRow) {
+            return {
+              success: false,
+              message: "Row index out of range: " + row,
+            };
+          }
+        }
+
+        for (let i = 0; i < rowIndices.length; i++) {
+          financeSheet.getRange(rowIndices[i], column).setValue(value);
+        }
+
+        return { success: true, message: "Tag restored successfully." };
+      } catch (error) {
+        console.error("Error restoring tag in expenses:", error);
+        return {
+          success: false,
+          message: "Failed to restore tag. Please try again.",
+        };
       }
-    }
+    });
   },
 
   updateExpensesWithTag: function (oldTag, newTag, type) {
-    const lock = LockService.getScriptLock();
-    let lockAcquired = false;
-    try {
-      if (!lock.tryLock(30000)) {
-        return { success: false, message: "System is busy. Please try again." };
-      }
-      lockAcquired = true;
+    return Service_Lock.withScriptLock(() => {
+      try {
+        const financeSheet = _getFinanceSheet();
+        const lastRow = financeSheet.getLastRow();
 
-      const financeSheet = _getFinanceSheet();
-      const lastRow = financeSheet.getLastRow();
+        if (lastRow <= 1) {
+          return { success: true, message: "No expenses to update." };
+        }
 
-      if (lastRow <= 1) {
-        return { success: true, message: "No expenses to update." };
-      }
+        const column = CONFIG.HEADERS.indexOf(type) + 1;
+        if (column <= 0) {
+          return {
+            success: false,
+            message: "Invalid type parameter or column not found.",
+          };
+        }
 
-      const column = CONFIG.HEADERS.indexOf(type) + 1;
-      if (column <= 0) {
+        const range = financeSheet.getRange(2, column, lastRow - 1, 1);
+        const values = range.getValues();
+
+        for (let i = 0; i < values.length; i++) {
+          if (values[i][0] === oldTag) {
+            values[i][0] = newTag;
+          }
+        }
+
+        range.setValues(values);
+        return { success: true, message: "Expenses updated successfully." };
+      } catch (error) {
+        console.error("Error updating expenses with tag:", error);
         return {
           success: false,
-          message: "Invalid type parameter or column not found.",
+          message: "Failed to update expenses. Please try again.",
         };
       }
-
-      const range = financeSheet.getRange(2, column, lastRow - 1, 1);
-      const values = range.getValues();
-
-      for (let i = 0; i < values.length; i++) {
-        if (values[i][0] === oldTag) {
-          values[i][0] = newTag;
-        }
-      }
-
-      range.setValues(values);
-      return { success: true, message: "Expenses updated successfully." };
-    } catch (error) {
-      console.error("Error updating expenses with tag:", error);
-      return {
-        success: false,
-        message: "Failed to update expenses. Please try again.",
-      };
-    } finally {
-      if (lockAcquired) {
-        lock.releaseLock();
-      }
-    }
+    });
   },
 };
 

@@ -20,7 +20,9 @@ const Service_Tags = {
         message: "Invalid extraData: must be a string or null/undefined",
       };
     }
-    return _addTag(type, value, false, extraData);
+    return Service_Lock.withScriptLock(() =>
+      _addTag(type, value, false, extraData),
+    );
   },
 
   deleteTag: function (e) {
@@ -35,7 +37,7 @@ const Service_Tags = {
         message: "Missing required parameters: type and value",
       };
     }
-    return _deleteTag(type, value);
+    return Service_Lock.withScriptLock(() => _deleteTag(type, value));
   },
 
   renameTag: function (e) {
@@ -51,7 +53,9 @@ const Service_Tags = {
         message: "Missing required parameters: type, oldValue, and newValue",
       };
     }
-    return _renameTag(type, oldValue, newValue);
+    return Service_Lock.withScriptLock(() =>
+      _renameTag(type, oldValue, newValue),
+    );
   },
 
   processTagOperations: function (e) {
@@ -730,14 +734,9 @@ function _restoreTagSheet(snapshot) {
 // Tags sheet (plus any Expenses/Splits touched by rename/delete) is restored
 // to its pre-batch state. Returns a per-operation result array.
 function _runTagBatch(operations) {
-  const lock = LockService.getScriptLock();
-  let lockAcquired = false;
-  try {
-    if (!lock.tryLock(30000)) {
-      return { success: false, message: "System is busy. Please try again." };
-    }
-    lockAcquired = true;
-
+  // The helpers below (removeTagFromExpenses, updateTagInSplits, ...) take the
+  // lock themselves; under this outer lock they nest and run straight through.
+  return Service_Lock.withScriptLock(() => {
     const snapshot = _snapshotTagSheet();
     const compensations = [];
     const results = [];
@@ -857,9 +856,7 @@ function _runTagBatch(operations) {
       message: "Processed " + operations.length + " operations successfully",
       results: results,
     };
-  } finally {
-    if (lockAcquired) lock.releaseLock();
-  }
+  });
 }
 
 function _rollbackTagBatch(
