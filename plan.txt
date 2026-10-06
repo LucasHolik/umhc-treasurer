@@ -119,14 +119,38 @@ paste into the GAS project) and to info.txt section 2 and section 7.
 
 
 ================================================================================
-4. PHASE 2 — READS NEVER WAIT ON WRITES, AND NEVER FAIL SILENTLY (root cause, C5)
+4. PHASE 2 — READS GET A CONSISTENT SNAPSHOT, AND NEVER FAIL SILENTLY (root cause, C5)
 ================================================================================
 
-4a. Take the lock off the read paths in Service_Split.gs:
-      getAllSplitHistory, getSplitHistory, getSplitGroup.
-    It's safe: split writes already use the PENDING marker and then
-    promote rows, and reads already skip PENDING rows. A read during a
-    write sees either the old group or the new one, never half a group.
+4a. Take the lock ONCE around the whole of getAppData, using
+    Service_Lock.withScriptLock, so expenses, tags, opening balance and
+    splits all come from the same moment: entirely before a write or
+    entirely after it. getAllSplitHistory's own lock nests inside it
+    (Phase 1). Route getData, getSplitGroup and getSplitHistory through
+    Service_Lock too.
+
+    Why the reads must stay locked (NOT lock-free):
+    - Reverting a split (and editing one, which reverts first) deletes the
+      group's rows one at a time (Service_Split.gs:_revertSplitCore,
+      deleteRow in a loop). An unlocked read can see the SOURCE row with
+      only some of its CHILD rows, so the merged list and the balance are
+      wrong.
+    - Tag batches change the Tags, Finances and Splits sheets one after
+      another, and can roll back. An unlocked read can see changes that
+      are later undone, and other tabs keep them until they refresh.
+    - Today only the split read is locked, so getAppData can already mix
+      Finances/Tags from before a write with Splits from after it.
+
+    Why this is now safe to do:
+    - The lock wait is CONFIG.LOCK_TIMEOUT_MS (10 s), below the client
+      read timeout (30 s, Phase 3). A load during a long write either waits
+      and returns the post-write data, or returns "System is busy". The
+      client keeps the last good store state. It no longer hangs or shows
+      partial data.
+    - Reload coalescing (5b) guarantees a final load after the user's own
+      save has released the lock.
+    - Reads also queue behind each other. That is acceptable at club scale:
+      getAppData is four bulk getValues calls.
 
 4b. getAppData (Code.gs:283) fails loudly. If expenses, tags, opening
     balance or splits fail to load, return
@@ -264,8 +288,11 @@ paste into the GAS project) and to info.txt section 2 and section 7.
        in the same batch -> it completes in seconds (no 30 s stall), and
        Expenses/Splits are updated.
     3. Start a large tag save in one tab and press Refresh in another ->
-       the refresh returns without waiting for the save, and split
-       transactions are still merged correctly.
+       the refresh either waits and returns the post-save data, or shows
+       "System is busy" and keeps the previous data. It never shows a mix.
+    3b. Revert a split in one tab while refreshing in another -> the other
+       tab shows either the full split or the original row, never a split
+       with some children missing.
     4. Add a Category named "-Misc" -> after saving and sorting it still
        reads "-Misc", not #ERROR!.
     5. Apps Script -> Executions: getAppData no longer logs "System is
@@ -277,7 +304,7 @@ paste into the GAS project) and to info.txt section 2 and section 7.
 ================================================================================
 
   1. Add Service_Lock and replace nested/duplicate script locks (Phase 1)
-  2. Make split reads lock-free; getAppData fails loudly; read paths stop
+  2. getAppData reads under one lock; it fails loudly; read paths stop
      writing (Phase 2)
   3. Per-request client timeouts, reload coalescing, timeout-aware tag
      save recovery (Phase 3)
@@ -296,8 +323,13 @@ backend, because the longer timeouts only help.
   - Purely numeric or date-like tag names (e.g. "2025") are still converted
     by Sheets into numbers/dates. Fixing that means writing every tag as
     forced text and migrating existing cells. Track it separately.
-  - Lock-free reads can briefly show the state just before a write
-    completes. That's acceptable: the post-write "dataUploaded" reload
-    (now guaranteed by 5b) corrects it.
+  - A load that starts during a long write waits up to 10 s, then may show
+    "System is busy" and keep the last good data. This is deliberate: it is
+    better than showing data from halfway through a write.
+  - Pre-existing, not caused by this plan: transactions are identified by
+    sheet row number. saveData re-sorts the Finances sheet and reverting a
+    split deletes rows, so row numbers shift. A client with stale data can
+    then save a tag change to the wrong row. Fixing that needs stable IDs
+    per row. Track it separately.
   - The 60 s write timeout makes the UI wait longer in a genuine outage.
     The progress overlays already show while this happens.
