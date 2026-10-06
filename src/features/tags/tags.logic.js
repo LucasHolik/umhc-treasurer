@@ -426,6 +426,11 @@ export const formatOperationsForApi = (queue) => {
  *   already exists") and roll the whole batch back. Drop the queue and leave
  *   edit mode; the caller reloads data so the user can check what was saved.
  *   Chunks after the one in flight were never sent and must be re-entered.
+ * - error.code "NETWORK": also unknown, but usually the connection dropped
+ *   before the server saw the request. Keep everything not confirmed, so
+ *   nothing is lost. Replaying is safe: each chunk is atomic, so if the chunk
+ *   was applied, its replay fails ("already exists" / "not found") and is
+ *   rolled back, changing nothing.
  * - anything else: the server rejected the chunk and rolled it back. Keep the
  *   operations it did not apply (everything after the confirmed chunks plus
  *   any it reports as applied).
@@ -450,6 +455,22 @@ export const resolveSaveFailure = (queue, processedCount, chunkSize, error) => {
         `${unconfirmed - unknown} were never sent and must be re-entered.\n\n` +
         "The latest data is being reloaded. Please check your tags before " +
         "retrying anything.",
+    };
+  }
+
+  if (error?.code === "NETWORK") {
+    const unknown = Math.min(chunkSize, queue.length - processedCount);
+    return {
+      remainingQueue: queue.slice(processedCount),
+      exitEditMode: false,
+      message:
+        "The connection to the server failed.\n\n" +
+        `${processedCount} of ${queue.length} operations were saved. ` +
+        `The next ${unknown} may or may not have been saved, so they are ` +
+        "still pending, along with the rest.\n\n" +
+        'Saving again is safe. If it fails with an "already exists" or ' +
+        '"not found" error, those changes were already saved: cancel edit ' +
+        "mode and check the tags.",
     };
   }
 

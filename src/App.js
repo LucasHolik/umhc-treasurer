@@ -550,6 +550,11 @@ class App {
   }
 
   async loadInitialData() {
+    // Nothing to load once the session has gone. A save that fails with
+    // "Unauthorized" still dispatches "dataUploaded" after sessionExpired has
+    // logged out; loading then would replace "Session expired" on the login
+    // screen with a load error.
+    if (!ApiService.hasSession()) return;
     // A request that arrives mid-load (e.g. "dataUploaded" after a save, or
     // Refresh) may need data newer than the load already in flight. Remember
     // it and run one more load when this one finishes, so the store ends up
@@ -580,18 +585,29 @@ class App {
       }
     } catch (error) {
       console.error("Load initial data error:", error);
-      store.setState(
-        "error",
-        "Failed to load application data. Please try refreshing.",
-      );
+      // "Unauthorized" has already logged out and shown "Session expired".
+      if (!ApiService.hasSession()) return;
+      const loadError =
+        error.code === "BUSY"
+          ? "The server is busy saving other changes, so the data could not be loaded. Please refresh in a moment."
+          : "Failed to load application data. Please try refreshing.";
+      // Keep an error that is already showing (e.g. why a save failed, which
+      // triggered this reload) and add to it. Replace only an earlier load
+      // error, so repeated refreshes don't pile up messages.
+      const shown = store.getState("error");
+      this._loadError =
+        shown && shown !== this._loadError
+          ? `${shown} ${loadError}`
+          : loadError;
+      store.setState("error", this._loadError);
     } finally {
       this._loadingData = false;
       store.setState("isLoading", false);
       if (this._reloadPending) {
         this._reloadPending = false;
-        // Skip it if the session has gone (logout or expiry mid-load), so
-        // it can't show an auth error on the login screen.
-        if (ApiService.hasSession()) this.loadInitialData();
+        // Skipped by the session check above if the user logged out or the
+        // session expired mid-load.
+        this.loadInitialData();
       }
     }
   }
