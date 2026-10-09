@@ -1,0 +1,267 @@
+# CHANGES: HIDE PAST TRIP/EVENT TAGS WHEN TAGGING + "COMPLETED INVESTMENT"
+# Branch: claude/confident-ptolemy-0qqk7l
+# Implements plan.txt (sections 3A-3H, 4 and 5).
+
+================================================================================
+1. SUMMARY
+================================================================================
+
+The tag box listed every Trip/Event ever created, so finished trips cluttered
+it more every year. Now every way of tagging a transaction (the inline tag
+box, the split modal and the bulk "Set Trip/Event..." dropdown) lists only
+CURRENT trips by default. A "See past tags (N)" button at the bottom of the
+box reveals the rest, greyed out with their status beside them.
+
+A fourth status, "Completed Investment", separates investments that have
+ended from ones that are still running ("Investment").
+
+  CURRENT status = "Active" | "Investment"
+  PAST status    = "Completed" | "Completed Investment"
+  A missing or unrecognised status counts as "Active", so a typo in the
+  sheet can never hide a tag someone needs.
+
+ACTION NEEDED: paste google-apps-script/Service_Tags.gs into Apps Script and
+deploy a NEW VERSION of the web app BEFORE (or together with) the frontend.
+An old backend rejects "Completed Investment" with "Invalid status". Nothing
+is corrupted (the existing save-failure path reports it), but the status
+does not save.
+
+
+================================================================================
+2. COMMITS
+================================================================================
+
+  40ac89f  Add trip-status module and accept Completed Investment on the
+           server
+  55069bd  Tags page: use shared trip-status styles and add Completed
+           Investment
+  6e65a99  TagSelector: optional past tags behind a "See past tags" toggle
+  59a1337  Transactions: hide past Trip/Event tags in the tag box and split
+           modal
+  e53bd6b  Bulk tagging: hide past Trip/Event tags behind a toggle
+  167b5a7  Analysis: add a "Completed Investment Only" trip status filter
+  5f7dc3b  Document trip statuses, past-tag hiding and TagSelector
+           pastOptions
+
+
+================================================================================
+3. BACKEND (google-apps-script/)
+================================================================================
+
+Service_Tags.gs
+  - _updateTripStatus: validStatuses is now
+      ["Active", "Completed", "Investment", "Completed Investment"]
+  - Nothing else changes. _getTags already passes any status string
+    through, processTagOperations / updateTripStatus keep their shapes, and
+    status is still stored as text in column C of the Tags sheet, so no
+    migration is needed. Existing "Investment" trips stay running
+    investments until the treasurer marks them "Completed Investment".
+
+
+================================================================================
+4. FRONTEND (src/)
+================================================================================
+
+core/trip-status.js (NEW, pure: no DOM, no store)
+  - TRIP_STATUS: { ACTIVE, COMPLETED, INVESTMENT, COMPLETED_INVESTMENT }
+  - TRIP_STATUSES (display order) and PAST_TRIP_STATUSES.
+  - TRIP_STATUS_STYLES: { icon, color, label } per status. Replaces the
+    five copies of the same map that were in tags.list.js and
+    tags.sublist.js. The new status is 🏦 in gold (#c9a227); all four icons
+    differ, for accessibility mode.
+  - NEXT_TRIP_STATUS: click-to-cycle order on the Tags page,
+    Active -> Completed -> Investment -> Completed Investment -> Active.
+  - normaliseTripStatus(status): known status -> itself; missing or
+    unknown -> "Active".
+  - isPastTripStatus(status): true only for Completed and Completed
+    Investment.
+  - getTripStatusStyle(status), getNextTripStatus(status): both normalise
+    first, so an unknown status displays and cycles as Active.
+  - partitionTripsByStatus(trips, tripStatusMap) -> { current, past }:
+    keeps input order and drops non-strings (the same guard the
+    TagSelector already used).
+
+shared/tag-selector.component.js
+  - show() gains an optional last argument, { pastOptions = [] }, a list of
+    { value, hint } items. Every existing call keeps working unchanged
+    (the Tags-page Type selector is one of them).
+  - this.showPast is view state for the open box only. It resets to false
+    in show() and close(), so it does not belong in the Store.
+  - renderList(): lists current options, plus past options when showPast is
+    on, filtered by search and sorted together as before. Past items get
+    the class "tag-selector-item--past" and a status hint. onSelect still
+    receives the plain string value.
+  - When the search matches no current tags but does match hidden past
+    ones, the empty state reads "No current tags match — N past tags do".
+  - A real <button type="button"> at the foot of the box reads
+    "See past tags (N)" / "Hide past tags" (with aria-expanded). It is
+    built once, so it keeps keyboard focus when the list re-renders, and it
+    only shows when there are past options. Clicking it re-renders the list
+    and calls updatePosition(), because the taller box may need to flip
+    upwards. Tab reaches it; Enter and Space work by default; Escape still
+    closes the box.
+  - The selector does not know what a status is: the caller builds both
+    lists.
+
+shared/tag-selector.css
+  - .tag-selector-item--past (muted text), .tag-selector-item-label,
+    .tag-selector-item-hint (small italic right-aligned status) and
+    .tag-selector-toggle-past (full-width text button with a top border and
+    the #f0ad4e hover/focus outline used by .add-tag-placeholder). The list
+    keeps its 150px max-height and scrolls.
+
+features/transactions/transactions.logic.js
+  - buildTripSelectorOptions(tagsData) (NEW, pure) ->
+      { customOptions: currentTrips, pastOptions: [{ value, hint }] }
+    where hint is the status label. Shared by the tag box, the split modal
+    and the bulk dropdown, so all three behave the same.
+  - buildTagSelectorOptions(type, tagsData) (NEW, pure): the builder above
+    for "Trip/Event"; { customOptions: null, pastOptions: [] } for any other
+    type, so Category boxes read the store exactly as before.
+
+features/transactions/transactions.component.js
+  - The three near-identical tagSelector.show() calls (click on "+", click
+    on a pill, keyboard) now go through one openTagSelector(target, rowId,
+    type, currentVal) method.
+  - The bulk toolbar markup gains a hidden #bulk-trip-toggle-past button
+    after the trip list.
+
+features/transactions/split-transaction.modal.js
+  - The four tagSelector.show() calls (pill click/key, placeholder
+    click/key) go through one openSelector() helper using
+    buildTagSelectorOptions.
+
+features/transactions/transactions.bulk.js
+  - bulkTripState gains showPast: false. It resets when the dropdown closes
+    and when selection mode is switched off.
+  - renderBulkTagList() lists current trips and, when showPast is on, past
+    trips with the class "tag-item-option--past" and a status hint. Other
+    tag types are unchanged.
+  - The toggle sits OUTSIDE the role="listbox" list, so arrow-key focus
+    indices only ever count real options. Toggling resets focusedIndex and
+    clears aria-activedescendant, because the list length changes. Escape
+    on the toggle closes the dropdown and returns focus to the trigger.
+  - openBulkDropdown(): if the chosen value is already a past trip (e.g.
+    from a Tags-page prefill), the dropdown opens with past tags shown, so
+    the selected item can be seen and highlighted.
+  - The empty state uses the same "No current tags match — N past tags do"
+    wording as the tag box.
+  - The new toggle's listeners are removed in destroy().
+
+features/transactions/transactions.css
+  - .tag-item-option--past (flex, muted) and a darker hint on a selected
+    past item so it stays readable on the orange background.
+
+features/tags/tags.list.js
+  - The status column, the mobile card and the click-to-cycle map use
+    normaliseTripStatus / getTripStatusStyle / getNextTripStatus instead of
+    inline maps.
+  - The legend modal is built from TRIP_STATUSES, so it gains the
+    Completed Investment entry ("The investment has ended (sold, written off
+    or fully paid off).") and both past statuses now say "Hidden from the
+    tagging box by default."
+
+features/tags/tags.sublist.js
+  - Status column and mobile card use getTripStatusStyle.
+
+features/tags/tags.component.js, features/tags/tags.logic.js
+  - The "Active" defaults (handleUpdateTripStatus, getVirtualTripStatusMap)
+    use TRIP_STATUS.ACTIVE. Behaviour is unchanged.
+
+features/analysis/analysis.controls.js, analysis.component.js
+  - The Trip Status <select> options and STATUS_LABELS are built from
+    TRIP_STATUSES, which adds "Completed Investment Only".
+
+features/analysis/analysis.logic.js
+  - JSDoc status lists updated. No logic change: matching is exact, so
+    "Investment Only" still means running investments only. Effective
+    Balance still counts "Active" trips only. Presets are unchanged.
+
+features/settings/selftest/
+  - tests.trip-status.js (NEW, registered in selftest.index.js), 7 tests:
+    normaliseTripStatus on known, empty, undefined, null, unknown and
+    wrong-case values; isPastTripStatus; partitionTripsByStatus (mixed map,
+    input order, trips missing from the map, a near-miss typo,
+    non-strings, bad input, prototype names such as "toString");
+    NEXT_TRIP_STATUS cycling back to Active; every status has a complete
+    style and all icons differ.
+  - tests.tags.js: getVirtualTripStatusMap carries "Completed Investment"
+    through a status update and a rename.
+  - tests.analysis.js: isTransactionInTripStatus and getVisibleTrips with
+    "Completed Investment", including that "Investment" does not match it.
+  - tests.transactions.js: buildTripSelectorOptions splits current trips
+    and past { value, hint } options, copes with missing tag data, and
+    buildTagSelectorOptions leaves Category to the default.
+
+
+================================================================================
+5. UNCHANGED (BY DESIGN)
+================================================================================
+
+  - Transactions FILTER bar: filtering covers past data, so every trip
+    stays listed.
+  - Analysis trip pickers: already driven by the Trip Status filter.
+  - Tags page "Type" selector: Types have no status.
+  - Pill display: a transaction already tagged with a completed trip still
+    shows that tag as normal.
+  - Category and Type tags: always shown in full, with no toggle.
+  - No new store keys and no new API calls.
+
+
+================================================================================
+6. DOCS
+================================================================================
+
+  info.txt
+    - Section 2: src/core/trip-status.js added; transactions.logic.js
+      described as also building tag box options.
+    - Section 3: TripStatusMap gains "Completed Investment", plus which
+      statuses count as current and past.
+    - Section 5C: tag box behaviour, split modal and bulk dropdown.
+    - Section 5D: the four statuses and their click order.
+    - Section 5E: the Trip Status filter list.
+    - Section 6: TagSelector's new { pastOptions } argument.
+    - Section 7: Service_Tags.gs valid statuses and the redeploy order.
+  plan.txt
+    - Status line set to IMPLEMENTED.
+
+
+================================================================================
+7. VERIFICATION
+================================================================================
+
+  - In-app self-test suite (run in headless Chromium): 156/156 pass,
+    including the new tests. No page errors.
+  - The real Transactions and Tags components were driven in headless
+    Chromium with sample data (not the live backend):
+      tag box lists only Active/Investment trips; the toggle shows
+      "See past tags (2)", reveals past trips muted with hints, and flips
+      back; search works in both modes, including the "No current tags
+      match" message; Tab reaches the toggle and Enter flips it; picking a
+      past tag creates the pending change and closes the box; reopening
+      starts hidden again; Escape closes; the Category box has no toggle;
+      bulk dropdown hides past trips, toggles, keeps arrow keys and Enter
+      working, and opens with a prefilled past trip shown and selected;
+      at 375px wide the box stays on screen with no sideways scroll; the
+      split modal behaves the same; the Tags page cycles one trip through
+      all four statuses with the right icons; the legend lists all four.
+  - npm run format:check passes on every changed file.
+  - Still to do: redeploy the GAS web app, then save a status change
+    through it and check it survives a reload (plan.txt section 4 manual
+    check 1), and run the manual checks as both admin and viewer.
+
+
+================================================================================
+8. BEYOND THE ORIGINAL PLAN / NOTES
+================================================================================
+
+  - Colour for Completed Investment: #c9a227 (gold) instead of the
+    suggested #8a6d3b, which was hard to read on the dark green background.
+  - Added getNextTripStatus() and buildTagSelectorOptions() so no screen
+    repeats the "is this a trip?" check or the cycle lookup.
+  - The Analysis status options and labels are generated from
+    TRIP_STATUSES rather than adding one more hard-coded entry, so a future
+    status cannot be left out.
+  - partitionTripsByStatus looks statuses up with hasOwnProperty, so a trip
+    named like an Object prototype property (e.g. "toString") is never
+    mistaken for having a status.
