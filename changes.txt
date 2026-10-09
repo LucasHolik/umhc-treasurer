@@ -106,9 +106,10 @@ shared/tag-selector.component.js
 shared/tag-selector.css
   - .tag-selector-item--past (muted text), .tag-selector-item-label,
     .tag-selector-item-hint (small italic right-aligned status) and
-    .tag-selector-toggle-past (full-width text button with a top border and
-    the #f0ad4e hover/focus outline used by .add-tag-placeholder). The list
-    keeps its 150px max-height and scrolls.
+    .tag-selector-toggle-past (full-width text button with a top border).
+    Hover and focus turn the text #f0ad4e. The #f0ad4e outline shows for
+    keyboard focus only (:focus-visible), never after a mouse click or tap.
+    The list keeps its 150px max-height and scrolls.
 
 features/transactions/transactions.logic.js
   - buildTripSelectorOptions(tagsData) (NEW, pure) ->

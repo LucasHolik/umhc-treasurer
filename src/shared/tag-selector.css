@@ -211,9 +211,14 @@
   color: #f0ad4e;
 }
 
-.tag-selector-toggle-past:focus,
+/* Orange text is enough feedback for a click; the outline is for keyboard
+   focus only, so it never appears after a mouse or tap. */
+.tag-selector-toggle-past:focus {
+  outline: none;
+  color: #f0ad4e;
+}
+
 .tag-selector-toggle-past:focus-visible {
   outline: 2px solid #f0ad4e;
   outline-offset: 2px;
-  color: #f0ad4e;
 }
