@@ -8,6 +8,7 @@ import "./tests.utils.js";
 import "./tests.financial.js";
 import "./tests.transactions.js";
 import "./tests.tags.js";
+import "./tests.trip-status.js";
 import "./tests.state.js";
 import "./tests.dom.js";
 import "./tests.excel.js";

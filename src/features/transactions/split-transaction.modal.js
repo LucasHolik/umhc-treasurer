@@ -6,6 +6,8 @@ import {
 import ModalComponent from "../../shared/modal.component.js";
 import TagSelector from "../../shared/tag-selector.component.js";
 import { el, replace } from "../../core/dom.js";
+import store from "../../core/state.js";
+import { buildTagSelectorOptions } from "./transactions.logic.js";
 
 export default class SplitTransactionModal {
   constructor() {
@@ -390,6 +392,16 @@ export default class SplitTransactionModal {
       this.renderSplits();
     };
 
+    const openSelector = (target) => {
+      const { customOptions, pastOptions } = buildTagSelectorOptions(
+        type,
+        store.getState("tags") || {},
+      );
+      this.tagSelector.show(target, type, value, writeBack, customOptions, {
+        pastOptions,
+      });
+    };
+
     if (value) {
       const pill = el(
         "span",
@@ -419,14 +431,14 @@ export default class SplitTransactionModal {
           return;
         }
         e.stopPropagation();
-        this.tagSelector.show(pill, type, value, writeBack);
+        openSelector(pill);
       });
 
       pill.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           e.stopPropagation();
-          this.tagSelector.show(pill, type, value, writeBack);
+          openSelector(pill);
         }
       });
 
@@ -446,14 +458,14 @@ export default class SplitTransactionModal {
 
     placeholder.addEventListener("click", (e) => {
       e.stopPropagation();
-      this.tagSelector.show(placeholder, type, "", writeBack);
+      openSelector(placeholder);
     });
 
     placeholder.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         e.stopPropagation();
-        this.tagSelector.show(placeholder, type, "", writeBack);
+        openSelector(placeholder);
       }
     });
 

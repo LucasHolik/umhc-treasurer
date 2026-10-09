@@ -1,6 +1,7 @@
 import store from "../../core/state.js";
 import ModalComponent from "../../shared/modal.component.js";
 import { el, replace } from "../../core/dom.js";
+import { buildTripSelectorOptions } from "./transactions.logic.js";
 
 export default class TransactionsBulk {
   static NO_TAG_VALUE = "__REMOVE__";
@@ -15,6 +16,7 @@ export default class TransactionsBulk {
       search: "",
       isOpen: false,
       focusedIndex: -1,
+      showPast: false,
     };
     this.bulkCategoryState = {
       value: null,
@@ -118,6 +120,9 @@ export default class TransactionsBulk {
         searchInputHandler,
         searchKeydownHandler,
         contentClickHandler,
+        pastToggle,
+        pastToggleClickHandler,
+        pastToggleKeydownHandler,
       } = handlers;
 
       if (trigger) {
@@ -130,6 +135,10 @@ export default class TransactionsBulk {
       }
       if (content) {
         content.removeEventListener("click", contentClickHandler);
+      }
+      if (pastToggle) {
+        pastToggle.removeEventListener("click", pastToggleClickHandler);
+        pastToggle.removeEventListener("keydown", pastToggleKeydownHandler);
       }
     });
     this.dropdownHandlers = {};
@@ -174,6 +183,7 @@ export default class TransactionsBulk {
         search: "",
         isOpen: false,
         focusedIndex: -1,
+        showPast: false,
       };
       this.bulkCategoryState = {
         value: null,
@@ -338,6 +348,37 @@ export default class TransactionsBulk {
     };
     content.addEventListener("click", contentClickHandler);
 
+    // "See past tags" toggle (Trip/Event only). It sits outside the listbox
+    // so arrow-key option indices only ever count real options.
+    const pastToggle = this.element.querySelector(`#bulk-${type}-toggle-past`);
+    let pastToggleClickHandler = null;
+    let pastToggleKeydownHandler = null;
+    if (pastToggle) {
+      pastToggleClickHandler = () => {
+        const state =
+          type === "trip" ? this.bulkTripState : this.bulkCategoryState;
+        state.showPast = !state.showPast;
+        // The option list changes length, so any arrow-key focus is stale.
+        state.focusedIndex = -1;
+        search.removeAttribute("aria-activedescendant");
+        this.renderBulkTagList(
+          tagName,
+          type === "trip" ? "#bulk-trip-list" : "#bulk-category-list",
+          state,
+          type,
+        );
+      };
+      pastToggleKeydownHandler = (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          this.closeBulkDropdown(type);
+          trigger.focus();
+        }
+      };
+      pastToggle.addEventListener("click", pastToggleClickHandler);
+      pastToggle.addEventListener("keydown", pastToggleKeydownHandler);
+    }
+
     // Store handlers for cleanup
     this.dropdownHandlers[type] = {
       trigger,
@@ -348,6 +389,9 @@ export default class TransactionsBulk {
       searchInputHandler,
       searchKeydownHandler,
       contentClickHandler,
+      pastToggle,
+      pastToggleClickHandler,
+      pastToggleKeydownHandler,
     };
   }
 
@@ -379,6 +423,16 @@ export default class TransactionsBulk {
     if (content) {
       content.style.display = "block";
       state.isOpen = true;
+      if (type === "trip") {
+        // A past trip already chosen (e.g. via prefill) must stay visible
+        // and highlighted, so open with past tags shown.
+        const { pastOptions } = buildTripSelectorOptions(
+          store.getState("tags") || {},
+        );
+        state.showPast = pastOptions.some(
+          (option) => option.value === state.value,
+        );
+      }
       if (trigger) trigger.setAttribute("aria-expanded", "true");
 
       // Register global click handler if not already
@@ -411,6 +465,7 @@ export default class TransactionsBulk {
       content.style.display = "none";
       state.isOpen = false;
       state.focusedIndex = -1; // Reset focus
+      state.showPast = false;
       if (trigger) trigger.setAttribute("aria-expanded", "false");
     }
   }
@@ -438,11 +493,22 @@ export default class TransactionsBulk {
     // ID already matches (bulk-trip-list / bulk-category-list)
 
     const tagsData = store.getState("tags") || {};
-    const tags = tagsData[tagName] || [];
-    const sortedTags = [...tags].sort();
-    const visibleTags = sortedTags.filter((tag) =>
-      tag.toLowerCase().includes(stateObj.search),
+    const { customOptions, pastOptions } =
+      tagName === "Trip/Event"
+        ? buildTripSelectorOptions(tagsData)
+        : { customOptions: tagsData[tagName] || [], pastOptions: [] };
+
+    const matchesSearch = (tag) =>
+      typeof tag === "string" && tag.toLowerCase().includes(stateObj.search);
+    const currentItems = customOptions
+      .filter(matchesSearch)
+      .map((tag) => ({ value: tag, hint: null }));
+    const pastItems = pastOptions.filter((option) =>
+      matchesSearch(option.value),
     );
+    const visibleItems = (
+      stateObj.showPast ? [...currentItems, ...pastItems] : currentItems
+    ).sort((a, b) => (a.value < b.value ? -1 : a.value > b.value ? 1 : 0));
 
     const children = [];
 
@@ -469,35 +535,65 @@ export default class TransactionsBulk {
     );
     children.push(noTagDiv);
 
-    if (visibleTags.length === 0) {
+    if (visibleItems.length === 0) {
+      const hiddenMatches = stateObj.showPast ? 0 : pastItems.length;
       children.push(
         el(
           "div",
           { style: { padding: "5px", color: "#ccc" } },
-          "No matches found",
+          hiddenMatches > 0
+            ? `No current tags match — ${hiddenMatches} past tag${
+                hiddenMatches === 1 ? " does" : "s do"
+              }`
+            : "No matches found",
         ),
       );
     }
 
-    visibleTags.forEach((tag, index) => {
+    visibleItems.forEach(({ value, hint }, index) => {
+      const isPast = hint !== null;
       const optionId = `${typePrefix}-option-${index}`;
       const div = el(
         "div",
         {
           id: optionId,
-          className: `tag-item-option ${
-            stateObj.value === tag ? "selected" : ""
+          className: `tag-item-option${isPast ? " tag-item-option--past" : ""} ${
+            stateObj.value === value ? "selected" : ""
           }`,
           role: "option",
-          "aria-selected": stateObj.value === tag ? "true" : "false",
-          onclick: () => this.handleBulkSelection(tagName, tag, stateObj),
+          "aria-selected": stateObj.value === value ? "true" : "false",
+          onclick: () => this.handleBulkSelection(tagName, value, stateObj),
         },
-        tag,
+        isPast
+          ? [
+              el("span", { className: "tag-selector-item-label" }, value),
+              el("span", { className: "tag-selector-item-hint" }, hint),
+            ]
+          : value,
       );
       children.push(div);
     });
 
     replace(container, ...children);
+    this.renderPastToggle(typePrefix, pastOptions.length, stateObj);
+  }
+
+  renderPastToggle(typePrefix, pastCount, stateObj) {
+    const toggle = this.element.querySelector(
+      `#bulk-${typePrefix}-toggle-past`,
+    );
+    if (!toggle) return;
+
+    if (pastCount === 0) {
+      toggle.style.display = "none";
+      return;
+    }
+
+    toggle.style.display = "";
+    toggle.setAttribute("aria-expanded", String(stateObj.showPast));
+    toggle.textContent = stateObj.showPast
+      ? "Hide past tags"
+      : `See past tags (${pastCount})`;
   }
 
   handleBulkSelection(tagName, value, stateObj) {

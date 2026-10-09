@@ -1,7 +1,12 @@
 // src/features/settings/selftest/tests.transactions.js
 
 import { test, assert, assertEqual } from "./selftest.runner.js";
-import { filterData, sortData } from "../../transactions/transactions.logic.js";
+import {
+  filterData,
+  sortData,
+  buildTagSelectorOptions,
+  buildTripSelectorOptions,
+} from "../../transactions/transactions.logic.js";
 import TransactionService from "../../../services/transaction.service.js";
 
 const SUITE = "Transactions logic";
@@ -55,6 +60,50 @@ test(SUITE, "filterData combines all filters with AND", () => {
   });
   assertEqual(result.length, 1);
   assertEqual(result[0].Description, "Hut fees");
+});
+
+test(SUITE, "buildTripSelectorOptions hides past trips behind hints", () => {
+  const result = buildTripSelectorOptions({
+    "Trip/Event": ["Snowdon", "Scafell", "Kit Fund", "Old Kit", "Ben Nevis"],
+    TripStatusMap: {
+      Snowdon: "Completed",
+      Scafell: "Active",
+      "Kit Fund": "Investment",
+      "Old Kit": "Completed Investment",
+    },
+  });
+  assertEqual(result.customOptions, ["Scafell", "Kit Fund", "Ben Nevis"]);
+  assertEqual(result.pastOptions, [
+    { value: "Snowdon", hint: "Completed" },
+    { value: "Old Kit", hint: "Completed Investment" },
+  ]);
+});
+
+test(SUITE, "buildTripSelectorOptions copes with missing tag data", () => {
+  assertEqual(buildTripSelectorOptions(undefined), {
+    customOptions: [],
+    pastOptions: [],
+  });
+  assertEqual(buildTripSelectorOptions({ "Trip/Event": ["A"] }), {
+    customOptions: ["A"],
+    pastOptions: [],
+  });
+});
+
+test(SUITE, "buildTagSelectorOptions leaves Category to the default", () => {
+  const tagsData = {
+    Category: ["Food"],
+    "Trip/Event": ["Snowdon"],
+    TripStatusMap: { Snowdon: "Completed" },
+  };
+  assertEqual(buildTagSelectorOptions("Category", tagsData), {
+    customOptions: null,
+    pastOptions: [],
+  });
+  assertEqual(
+    buildTagSelectorOptions("Trip/Event", tagsData),
+    buildTripSelectorOptions(tagsData),
+  );
 });
 
 test(SUITE, "filterData with empty filters passes everything", () => {

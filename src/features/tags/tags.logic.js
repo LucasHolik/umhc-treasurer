@@ -2,6 +2,7 @@ import {
   filterTransactionsByTimeframe,
   parseAmount,
 } from "../../core/utils.js";
+import { TRIP_STATUS } from "../../core/trip-status.js";
 
 /**
  * Calculates a "virtual" TripTypeMap by applying pending queue operations
@@ -100,7 +101,7 @@ export const getVirtualTripStatusMap = (originalMap, queue) => {
     }
     // Handle renames/deletes for Status Map
     if (op.type === "rename" && op.tagType === "Trip/Event") {
-      const status = virtualMap[op.oldValue] || "Active";
+      const status = virtualMap[op.oldValue] || TRIP_STATUS.ACTIVE;
       delete virtualMap[op.oldValue];
       virtualMap[op.newValue] = status;
     }
@@ -109,7 +110,7 @@ export const getVirtualTripStatusMap = (originalMap, queue) => {
     }
     // New trips default to Active
     if (op.type === "add" && op.tagType === "Trip/Event") {
-      virtualMap[op.value] = "Active";
+      virtualMap[op.value] = TRIP_STATUS.ACTIVE;
     }
   });
 

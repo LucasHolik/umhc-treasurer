@@ -12,6 +12,7 @@ import {
   resolveSaveFailure,
 } from "./tags.logic.js";
 import { el, replace } from "../../core/dom.js";
+import { TRIP_STATUS } from "../../core/trip-status.js";
 
 class TagsComponent {
   getCanEdit() {
@@ -516,7 +517,7 @@ class TagsComponent {
     const originalStatus =
       originalTags.TripStatusMap && originalTags.TripStatusMap[tripName]
         ? originalTags.TripStatusMap[tripName]
-        : "Active";
+        : TRIP_STATUS.ACTIVE;
 
     // Only queue if different from original
     if (newStatus !== originalStatus) {

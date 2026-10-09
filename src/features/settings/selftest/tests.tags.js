@@ -169,6 +169,27 @@ test(SUITE, "getVirtualTripStatusMap carries status through renames", () => {
   assertEqual(deleted, {});
 });
 
+test(
+  SUITE,
+  "getVirtualTripStatusMap handles Completed Investment through a rename",
+  () => {
+    const updated = getVirtualTripStatusMap({ "Kit Fund": "Investment" }, [
+      {
+        type: "updateTripStatus",
+        oldValue: "Kit Fund",
+        newValue: "Completed Investment",
+      },
+      {
+        type: "rename",
+        tagType: "Trip/Event",
+        oldValue: "Kit Fund",
+        newValue: "Kit Fund 2023",
+      },
+    ]);
+    assertEqual(updated, { "Kit Fund 2023": "Completed Investment" });
+  },
+);
+
 test(SUITE, "calculateDetailStats sums count, income and expense", () => {
   const stats = calculateDetailStats([
     { Income: "10.50", Expense: 0 },

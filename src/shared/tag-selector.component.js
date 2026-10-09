@@ -23,8 +23,10 @@ function computePopoverPlacement(triggerRect, popoverSize, viewport, gap = 5) {
 export default class TagSelector {
   constructor() {
     this.isOpen = false;
-    this.currentConfig = null; // { x, y, type, onSelect, currentVal }
+    this.currentConfig = null; // { type, onSelect, currentVal, customOptions, pastOptions }
     this.searchTerm = "";
+    // View state for the open box only: resets every time it opens.
+    this.showPast = false;
 
     this.element = el("div", {
       className: "tag-selector-popover",
@@ -88,8 +90,21 @@ export default class TagSelector {
 
     this.listContainer = el("div", { className: "tag-selector-list" });
 
+    // Built once so it keeps keyboard focus when the list re-renders.
+    this.pastToggleBtn = el("button", {
+      type: "button",
+      className: "tag-selector-toggle-past",
+      style: { display: "none" },
+      onclick: () => {
+        this.showPast = !this.showPast;
+        this.renderList();
+        this.updatePosition();
+      },
+    });
+
     this.element.appendChild(searchWrapper);
     this.element.appendChild(this.listContainer);
+    this.element.appendChild(this.pastToggleBtn);
 
     // Prevent closing when clicking inside
     this.element.addEventListener("click", (e) => e.stopPropagation());
@@ -102,11 +117,35 @@ export default class TagSelector {
     });
   }
 
-  show(targetElement, type, currentVal, onSelect, customOptions = null) {
-    this.currentConfig = { type, onSelect, currentVal, customOptions };
+  /**
+   * @param {HTMLElement} targetElement - Element the box is anchored to.
+   * @param {string} type - Tag type ("Trip/Event", "Category", ...).
+   * @param {string} currentVal - The current value (unused by the list).
+   * @param {function(string)} onSelect - Called with the chosen tag.
+   * @param {string[]|null} customOptions - Tags to list; null reads the store.
+   * @param {Object} [options]
+   * @param {Array<{value: string, hint: string}>} [options.pastOptions] -
+   *   Tags hidden behind a "See past tags" toggle. The hint explains why.
+   */
+  show(
+    targetElement,
+    type,
+    currentVal,
+    onSelect,
+    customOptions = null,
+    { pastOptions = [] } = {},
+  ) {
+    this.currentConfig = {
+      type,
+      onSelect,
+      currentVal,
+      customOptions,
+      pastOptions: Array.isArray(pastOptions) ? pastOptions : [],
+    };
     this.targetElement = targetElement;
     this.searchTerm = "";
     this.searchInput.value = "";
+    this.showPast = false;
 
     this.renderList();
 
@@ -145,6 +184,7 @@ export default class TagSelector {
     this.element.style.display = "none";
     this.currentConfig = null;
     this.targetElement = null;
+    this.showPast = false;
 
     window.removeEventListener("scroll", this.repositionHandler, true);
     window.removeEventListener("resize", this.repositionHandler);
@@ -161,7 +201,7 @@ export default class TagSelector {
   renderList() {
     if (!this.currentConfig) return;
 
-    const { type, onSelect, customOptions } = this.currentConfig;
+    const { type, onSelect, customOptions, pastOptions } = this.currentConfig;
     let tags = [];
 
     if (customOptions) {
@@ -173,44 +213,84 @@ export default class TagSelector {
       tags = tagsData[type] || [];
     }
 
-    const filteredTags = tags
-      .filter(
-        (tag) =>
-          typeof tag === "string" &&
-          tag.toLowerCase().includes(this.searchTerm),
-      )
-      .sort();
+    const matchesSearch = (tag) =>
+      typeof tag === "string" && tag.toLowerCase().includes(this.searchTerm);
+
+    const currentItems = tags
+      .filter(matchesSearch)
+      .map((tag) => ({ value: tag, hint: null }));
+    const pastItems = pastOptions
+      .filter((option) => option && matchesSearch(option.value))
+      .map((option) => ({ value: option.value, hint: option.hint || "" }));
+
+    const visibleItems = (
+      this.showPast ? [...currentItems, ...pastItems] : currentItems
+    ).sort((a, b) => (a.value < b.value ? -1 : a.value > b.value ? 1 : 0));
 
     clear(this.listContainer);
 
-    if (filteredTags.length === 0) {
+    if (visibleItems.length === 0) {
+      const hiddenMatches = this.showPast ? 0 : pastItems.length;
       this.listContainer.appendChild(
-        el("div", { className: "tag-selector-item empty" }, "No matching tags"),
+        el(
+          "div",
+          { className: "tag-selector-item empty" },
+          hiddenMatches > 0
+            ? `No current tags match — ${hiddenMatches} past tag${
+                hiddenMatches === 1 ? " does" : "s do"
+              }`
+            : "No matching tags",
+        ),
       );
     }
 
-    filteredTags.forEach((tag) => {
+    visibleItems.forEach(({ value, hint }) => {
+      const isPast = hint !== null;
       const item = el(
         "div",
         {
-          className: "tag-selector-item",
+          className: `tag-selector-item${isPast ? " tag-selector-item--past" : ""}`,
           tabindex: "0",
           role: "button",
           onclick: () => {
-            onSelect(tag);
+            onSelect(value);
             this.close();
           },
           onkeydown: (e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onSelect(tag);
+              onSelect(value);
               this.close();
             }
           },
         },
-        tag,
+        isPast
+          ? [
+              el("span", { className: "tag-selector-item-label" }, value),
+              el("span", { className: "tag-selector-item-hint" }, hint),
+            ]
+          : value,
       );
       this.listContainer.appendChild(item);
     });
+
+    this.renderPastToggle();
+  }
+
+  renderPastToggle() {
+    const pastCount = this.currentConfig
+      ? this.currentConfig.pastOptions.length
+      : 0;
+
+    if (pastCount === 0) {
+      this.pastToggleBtn.style.display = "none";
+      return;
+    }
+
+    this.pastToggleBtn.style.display = "";
+    this.pastToggleBtn.setAttribute("aria-expanded", String(this.showPast));
+    this.pastToggleBtn.textContent = this.showPast
+      ? "Hide past tags"
+      : `See past tags (${pastCount})`;
   }
 }

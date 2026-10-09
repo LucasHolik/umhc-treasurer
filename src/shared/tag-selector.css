@@ -169,3 +169,56 @@
 .tag-selector-item.empty:hover {
   background-color: transparent;
 }
+
+/* Past (Completed / Completed Investment) tags, shown on request */
+.tag-selector-item--past {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: rgba(238, 238, 238, 0.65);
+}
+
+.tag-selector-item-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tag-selector-item-hint {
+  flex-shrink: 0;
+  font-size: 0.8em;
+  font-style: italic;
+  color: #aaa;
+  text-align: right;
+}
+
+.tag-selector-toggle-past {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 8px 2px;
+  background: none;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  color: #aaa;
+  font-size: 0.85em;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.tag-selector-toggle-past:hover {
+  color: #f0ad4e;
+}
+
+/* Orange text is enough feedback for a click; the outline is for keyboard
+   focus only, so it never appears after a mouse or tap. */
+.tag-selector-toggle-past:focus {
+  outline: none;
+  color: #f0ad4e;
+}
+
+.tag-selector-toggle-past:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+}

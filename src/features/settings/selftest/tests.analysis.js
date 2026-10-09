@@ -69,6 +69,32 @@ test(SUITE, "isTransactionInTripStatus truth table", () => {
   );
 });
 
+test(SUITE, "isTransactionInTripStatus handles Completed Investment", () => {
+  const map = { "Kit Fund": "Investment", "Old Kit": "Completed Investment" };
+  assert(
+    analysis.isTransactionInTripStatus(
+      { "Trip/Event": "Old Kit" },
+      map,
+      "Completed Investment",
+    ),
+  );
+  assert(
+    !analysis.isTransactionInTripStatus(
+      { "Trip/Event": "Old Kit" },
+      map,
+      "Investment",
+    ),
+    "Investment does not match Completed Investment",
+  );
+  assert(
+    !analysis.isTransactionInTripStatus(
+      { "Trip/Event": "Kit Fund" },
+      map,
+      "Completed Investment",
+    ),
+  );
+});
+
 const emptyFilter = () => ({
   startDate: "2024-03-01",
   endDate: "2024-03-31",
@@ -338,6 +364,20 @@ test(SUITE, "getVisibleTrips filters by trip status", () => {
   const map = { T1: "Active", T2: "Completed" };
   assertEqual(analysis.getVisibleTrips(trips, map, "Active"), ["T1"]);
   assertEqual(analysis.getVisibleTrips(trips, map, "All"), trips);
+});
+
+test(SUITE, "getVisibleTrips separates the two investment statuses", () => {
+  const trips = ["T1", "T2", "T3"];
+  const map = {
+    T1: "Investment",
+    T2: "Completed Investment",
+    T3: "Completed",
+  };
+  assertEqual(analysis.getVisibleTrips(trips, map, "Investment"), ["T1"]);
+  assertEqual(analysis.getVisibleTrips(trips, map, "Completed Investment"), [
+    "T2",
+  ]);
+  assertEqual(analysis.getVisibleTrips(trips, map, "Completed"), ["T3"]);
 });
 
 test(SUITE, "calculateTagFilterState computes type checkbox states", () => {

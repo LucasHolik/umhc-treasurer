@@ -656,7 +656,12 @@ function _updateTripStatus(tripName, status) {
   }
 
   // Validate status value
-  const validStatuses = ["Active", "Completed", "Investment"];
+  const validStatuses = [
+    "Active",
+    "Completed",
+    "Investment",
+    "Completed Investment",
+  ];
   if (!validStatuses.includes(status)) {
     return {
       success: false,

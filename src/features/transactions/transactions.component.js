@@ -239,9 +239,7 @@ class TransactionsComponent {
 
       if (!rowId || !type) return;
 
-      this.tagSelector.show(target, type, "", (newVal) => {
-        this.updatePendingChange(rowId, type, newVal);
-      });
+      this.openTagSelector(target, rowId, type, "");
       return;
     }
 
@@ -257,9 +255,7 @@ class TransactionsComponent {
       const tagTextEl = pill.querySelector(".tag-text");
       const currentVal = tagTextEl ? tagTextEl.textContent : "";
 
-      this.tagSelector.show(pill, type, currentVal, (newVal) => {
-        this.updatePendingChange(rowId, type, newVal);
-      });
+      this.openTagSelector(pill, rowId, type, currentVal);
     }
   }
 
@@ -304,11 +300,25 @@ class TransactionsComponent {
           currentVal = tagTextEl ? tagTextEl.textContent : "";
         }
 
-        this.tagSelector.show(target, type, currentVal, (newVal) => {
-          this.updatePendingChange(rowId, type, newVal);
-        });
+        this.openTagSelector(target, rowId, type, currentVal);
       }
     }
+  }
+
+  openTagSelector(target, rowId, type, currentVal) {
+    const { customOptions, pastOptions } =
+      TransactionsLogic.buildTagSelectorOptions(
+        type,
+        store.getState("tags") || {},
+      );
+    this.tagSelector.show(
+      target,
+      type,
+      currentVal,
+      (newVal) => this.updatePendingChange(rowId, type, newVal),
+      customOptions,
+      { pastOptions },
+    );
   }
 
   updatePendingChange(rowId, type, value) {
@@ -689,6 +699,12 @@ class TransactionsComponent {
               }),
             ),
             el("div", { className: "tag-selector", id: "bulk-trip-list" }),
+            el("button", {
+              type: "button",
+              className: "tag-selector-toggle-past",
+              id: "bulk-trip-toggle-past",
+              style: { display: "none" },
+            }),
           ),
         ),
         // Custom Category Dropdown

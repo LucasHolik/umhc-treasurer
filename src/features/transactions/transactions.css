@@ -400,6 +400,19 @@
   font-weight: bold;
 }
 
+/* Past (Completed / Completed Investment) trips, shown on request */
+.tag-item-option--past {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.tag-item-option--past.selected .tag-selector-item-hint {
+  color: #333;
+}
+
 /* Table Selection */
 .row-select {
   cursor: pointer;

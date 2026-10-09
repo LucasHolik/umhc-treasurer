@@ -7,6 +7,7 @@ import {
 import ModalComponent from "../../shared/modal.component.js";
 import AnalysisLogic from "./analysis.logic.js";
 import { calculateFinancials } from "../../core/financial.logic.js";
+import { TRIP_STATUSES } from "../../core/trip-status.js";
 
 import AnalysisControls from "./analysis.controls.js";
 import AnalysisFilters from "./analysis.filters.js";
@@ -26,9 +27,9 @@ const TIMEFRAME_LABELS = {
 
 const STATUS_LABELS = {
   All: "All Trips",
-  Active: "Active Only",
-  Completed: "Completed Only",
-  Investment: "Investment Only",
+  ...Object.fromEntries(
+    TRIP_STATUSES.map((status) => [status, `${status} Only`]),
+  ),
 };
 
 const METRIC_LABELS = {
@@ -90,7 +91,7 @@ class AnalysisComponent {
       timeframe: "past_30_days",
       startDate: "",
       endDate: "",
-      tripStatusFilter: "All", // 'All', 'Active', 'Completed', 'Investment'
+      tripStatusFilter: "All", // 'All' or a TRIP_STATUS value
 
       // Split Tag Filters
       selectedCategories: new Set(),
