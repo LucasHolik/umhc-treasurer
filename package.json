@@ -1,13 +1,15 @@
 {
   "name": "umhc-treasurer",
   "version": "1.0.0",
+  "type": "module",
   "description": "UMHC Treasurer website using GitHub Pages for hosting and Google Sheets as the backend/database.",
   "main": "src/App.js",
   "scripts": {
     "start": "echo \"This is a client-side app. Open index.html in your browser or serve with a static server (e.g., 'python3 -m http.server').\"",
-    "test": "echo \"Run the built-in test suite from the app: Settings -> Diagnostics -> Run Self-Test\" && exit 1",
+    "test": "node --import ./tests/setup.js --test \"tests/**/*.test.js\"",
     "format": "npx -y prettier@3 --write .",
-    "format:check": "npx -y prettier@3 --check ."
+    "format:check": "npx -y prettier@3 --check .",
+    "test:watch": "node --import ./tests/setup.js --test --watch \"tests/**/*.test.js\""
   },
   "keywords": [
     "treasurer",
@@ -22,5 +24,8 @@
   "private": true,
   "directories": {
     "lib": "src/lib"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "^21.0.3"
   }
 }

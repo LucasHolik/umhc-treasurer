@@ -532,5 +532,5 @@ const ApiService = {
 
 export default ApiService;
 
-// Pure helpers exposed for the built-in self-test suite (Settings → Diagnostics).
+// Pure helpers exported for the dev tests (tests/services/).
 export { canonicalStringify, _validateScriptUrl, resolveTimeout };
