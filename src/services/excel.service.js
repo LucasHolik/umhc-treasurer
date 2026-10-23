@@ -244,5 +244,5 @@ const ExcelService = {
 
 export default ExcelService;
 
-// Pure helpers exposed for the built-in self-test suite (Settings → Diagnostics).
+// Pure helpers exported for the dev tests (tests/services/).
 export { normalizeDateString, parseExcelNumber, parseAndCleanData };

@@ -14,7 +14,11 @@ Strict unidirectional data flow:
 2. The Store is the single source of truth. All application state lives here.
 3. Services handle the dirty work: API calls, signing, Excel parsing, merging.
 
-No npm / no build step. All dependencies are vendored locally.
+No build step and no runtime npm dependencies: everything the app loads is
+vendored in src/lib. npm is used only for dev tooling (the tests).
+
+The design rules (deep modules, SOLID where it pays, layering) and the testing
+rules live in CLAUDE.md. Read it before changing code.
 
 
 ================================================================================
@@ -23,6 +27,8 @@ No npm / no build step. All dependencies are vendored locally.
 
 /project-root
   index.html                    # Single HTML shell — minimal skeleton
+  CLAUDE.md                     # Design philosophy + testing rules
+  package.json                  # Dev-only scripts and dependencies (npm test)
   logo.jpg
   favicon.ico
 
@@ -110,6 +116,11 @@ No npm / no build step. All dependencies are vendored locally.
     Service_Sheet.gs            # All SpreadsheetApp access
     Service_Tags.gs             # Tag CRUD + TripTypeMap management
     Service_Split.gs            # Split transaction creation, revert, history
+
+  /tests                        # Dev-only tests (node:test); mirrors /src
+    setup.js                    # Preloaded: browser-like globals via happy-dom
+    /helpers                    # Shared test helpers (assertClose)
+    /core  /services  /features # e.g. tests/core/utils.test.js
 
   .github/workflows/            # GitHub Actions (auto-deploy to GitHub Pages)
 
@@ -649,6 +660,8 @@ Example: "Budget Goals"
      - on success, call store.setState("budgets", newData)
 6. Router: register "#budgets" in router.js.
 7. Nav: add a sidebar link in index.html.
+8. Tests: tests/features/budgets/budgets.logic.test.js (and a test for each
+   new service), run with npm test.
 
 No existing feature files need to be touched.
 
@@ -667,3 +680,18 @@ Backend:
   3. Deploy as Web App (Execute as: Me, Access: Anyone).
   4. Copy the Web App URL.
   5. Paste URL into the app on first login (stored in localStorage).
+
+
+================================================================================
+13. TESTING
+================================================================================
+
+  npm install        # once (dev-only: happy-dom)
+  npm test           # every tests/**/*.test.js file
+  npm run test:watch
+
+Tests use node:test + node:assert/strict and run in Node with happy-dom
+providing document/window/storage. They are never loaded by the app. There is
+no CI by choice: run npm test locally before committing. Full rules, and the
+coverage still planned (services against fakes, backend .gs in a Node vm,
+end-to-end), are in CLAUDE.md.
