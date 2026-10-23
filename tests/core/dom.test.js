@@ -14,12 +14,12 @@ test("el sets tag, className, style, dataset and attributes", () => {
     id: "x",
     title: "hi",
   });
-  assert.deepEqual(node.tagName, "BUTTON");
-  assert.deepEqual(node.className, "a b");
-  assert.deepEqual(node.style.color, "red");
-  assert.deepEqual(node.dataset.row, "7");
-  assert.deepEqual(node.id, "x");
-  assert.deepEqual(node.getAttribute("title"), "hi");
+  assert.equal(node.tagName, "BUTTON");
+  assert.equal(node.className, "a b");
+  assert.equal(node.style.color, "red");
+  assert.equal(node.dataset.row, "7");
+  assert.equal(node.id, "x");
+  assert.equal(node.getAttribute("title"), "hi");
 });
 
 test("el treats booleans as presence attributes", () => {
@@ -29,8 +29,8 @@ test("el treats booleans as presence attributes", () => {
   assert.ok(!node.hasAttribute("foo"));
 });
 
-test("el throws on plain-object attribute values", async () => {
-  assert.throws(() => el("div", { foo: { bad: true } }));
+test("el throws on plain-object attribute values", () => {
+  assert.throws(() => el("div", { foo: { bad: true } }), /has object value/);
 });
 
 test("el flattens child arrays and skips null/undefined/false", () => {
@@ -44,13 +44,13 @@ test("el flattens child arrays and skips null/undefined/false", () => {
     ["b", ["c"]],
     el("span", {}, "d"),
   );
-  assert.deepEqual(node.textContent, "abcd");
-  assert.deepEqual(node.querySelectorAll("span").length, 1);
+  assert.equal(node.textContent, "abcd");
+  assert.equal(node.querySelectorAll("span").length, 1);
 });
 
 test("el defaults form controls to autocomplete off", () => {
-  assert.deepEqual(el("input").getAttribute("autocomplete"), "off");
-  assert.deepEqual(
+  assert.equal(el("input").getAttribute("autocomplete"), "off");
+  assert.equal(
     el("input", { type: "password" }).getAttribute("autocomplete"),
     "new-password",
   );
@@ -60,10 +60,10 @@ test("cleanup removes event listeners added via el", () => {
   let clicks = 0;
   const node = el("button", { onclick: () => clicks++ });
   node.dispatchEvent(new Event("click"));
-  assert.deepEqual(clicks, 1);
+  assert.equal(clicks, 1);
   cleanup(node);
   node.dispatchEvent(new Event("click"));
-  assert.deepEqual(clicks, 1, "listener must be gone after cleanup");
+  assert.equal(clicks, 1, "listener must be gone after cleanup");
 });
 
 test("replace keeps reused children alive, cleans removed ones", () => {
@@ -76,11 +76,11 @@ test("replace keeps reused children alive, cleans removed ones", () => {
   replace(parent, kept, el("span", {}, "new"));
 
   kept.dispatchEvent(new Event("click"));
-  assert.deepEqual(keptClicks, 1, "reused child must keep its listener");
+  assert.equal(keptClicks, 1, "reused child must keep its listener");
 
   removed.dispatchEvent(new Event("click"));
-  assert.deepEqual(removedClicks, 0, "removed child must be cleaned up");
-  assert.deepEqual(parent.children.length, 2);
+  assert.equal(removedClicks, 0, "removed child must be cleaned up");
+  assert.equal(parent.children.length, 2);
 });
 
 test("clear empties an element and cleans its children", () => {
@@ -88,7 +88,7 @@ test("clear empties an element and cleans its children", () => {
   const child = el("button", { onclick: () => clicks++ });
   const parent = el("div", {}, child);
   clear(parent);
-  assert.deepEqual(parent.children.length, 0);
+  assert.equal(parent.children.length, 0);
   child.dispatchEvent(new Event("click"));
-  assert.deepEqual(clicks, 0);
+  assert.equal(clicks, 0);
 });

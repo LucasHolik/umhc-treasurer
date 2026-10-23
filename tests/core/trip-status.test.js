@@ -21,15 +21,11 @@ test("normaliseTripStatus keeps known statuses", () => {
 });
 
 test("normaliseTripStatus defaults missing/unknown to Active", () => {
-  assert.deepEqual(normaliseTripStatus(""), "Active");
-  assert.deepEqual(normaliseTripStatus(undefined), "Active");
-  assert.deepEqual(normaliseTripStatus(null), "Active");
-  assert.deepEqual(normaliseTripStatus("Foo"), "Active");
-  assert.deepEqual(
-    normaliseTripStatus("completed"),
-    "Active",
-    "case-sensitive",
-  );
+  assert.equal(normaliseTripStatus(""), "Active");
+  assert.equal(normaliseTripStatus(undefined), "Active");
+  assert.equal(normaliseTripStatus(null), "Active");
+  assert.equal(normaliseTripStatus("Foo"), "Active");
+  assert.equal(normaliseTripStatus("completed"), "Active", "case-sensitive");
 });
 
 test("isPastTripStatus is true for the two past statuses only", () => {
@@ -91,11 +87,7 @@ test("NEXT_TRIP_STATUS cycles through all four statuses", () => {
     "Investment",
     "Completed Investment",
   ]);
-  assert.deepEqual(
-    getNextTripStatus("Foo"),
-    "Completed",
-    "unknown acts as Active",
-  );
+  assert.equal(getNextTripStatus("Foo"), "Completed", "unknown acts as Active");
 });
 
 test("every status has a style and all icons differ", () => {

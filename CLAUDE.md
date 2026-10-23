@@ -114,6 +114,10 @@ dependencies.
   keys, globals, storage); use a test-only store key.
 - When code is expected to log, mock it with `t.mock.method(console, ...)`
   and assert the call, so a passing run prints nothing.
+- Give `assert.throws` the expected error (a regex or class), so an
+  unrelated error cannot make the test pass.
+- Never wait on real time. Use `t.mock.timers` for timeouts and debounces,
+  and pass dates in rather than relying on today's date where possible.
 - At boundaries (API transport, storage, clock, spreadsheet), prefer small
   in-memory fakes that honour the real contract over call-by-call mocks.
 

@@ -187,7 +187,7 @@ test("calculateDetailStats sums count, income and expense", () => {
     { Income: "10.50", Expense: 0 },
     { Income: 0, Expense: "5.25" },
   ]);
-  assert.deepEqual(stats.count, 2);
+  assert.equal(stats.count, 2);
   assertClose(stats.income, 10.5);
   assertClose(stats.expense, 5.25);
 });
@@ -291,7 +291,7 @@ test("calculateTagStats rename merges into an existing tag", () => {
     income: 100,
     expense: 65,
   });
-  assert.deepEqual(stats["Category"]["Food"], undefined);
+  assert.equal(stats["Category"]["Food"], undefined);
 });
 
 test("calculateTagStats rename into a new tag moves the stats", () => {
@@ -314,13 +314,13 @@ test("calculateTagStats rename into a new tag moves the stats", () => {
     income: 100,
     expense: 40,
   });
-  assert.deepEqual(stats["Trip/Event"]["Snowdon"], undefined);
-  assert.deepEqual(
+  assert.equal(stats["Trip/Event"]["Snowdon"], undefined);
+  assert.equal(
     tripTypeMap["Yr Wyddfa"],
     "Day Walk",
     "type mapping must follow the rename",
   );
-  assert.deepEqual(
+  assert.equal(
     stats["Type"]["Day Walk"].count,
     3,
     "type rollup must still see renamed trips",
@@ -335,7 +335,7 @@ test("calculateTagStats delete removes a tag's stats", () => {
     "all_time",
     queue,
   );
-  assert.deepEqual(stats["Category"]["Food"], undefined);
+  assert.equal(stats["Category"]["Food"], undefined);
 });
 
 test("optimizeQueue cancels add followed by delete of a new tag", () => {
@@ -352,9 +352,9 @@ test("optimizeQueue keeps delete when the tag existed originally", () => {
     { type: "delete", tagType: "Category", value: "Food" },
   ];
   const result = optimizeQueue(queue, { Category: ["Food"] });
-  assert.deepEqual(result.length, 1);
-  assert.deepEqual(result[0].type, "delete");
-  assert.deepEqual(result[0].value, "Food");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].type, "delete");
+  assert.equal(result[0].value, "Food");
 });
 
 test("optimizeQueue collapses chained renames", () => {
@@ -363,9 +363,9 @@ test("optimizeQueue collapses chained renames", () => {
     { type: "rename", tagType: "Category", oldValue: "B", newValue: "C" },
   ];
   const result = optimizeQueue(queue);
-  assert.deepEqual(result.length, 1);
-  assert.deepEqual(result[0].oldValue, "A");
-  assert.deepEqual(result[0].newValue, "C");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].oldValue, "A");
+  assert.equal(result[0].newValue, "C");
 });
 
 test("optimizeQueue removes circular renames entirely", () => {
@@ -382,9 +382,9 @@ test("optimizeQueue turns rename+delete into delete of the original", () => {
     { type: "delete", tagType: "Category", value: "B" },
   ];
   const result = optimizeQueue(queue);
-  assert.deepEqual(result.length, 1);
-  assert.deepEqual(result[0].type, "delete");
-  assert.deepEqual(result[0].value, "A");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].type, "delete");
+  assert.equal(result[0].value, "A");
 });
 
 test("optimizeQueue turns add+rename into add of the new name", () => {
@@ -393,9 +393,9 @@ test("optimizeQueue turns add+rename into add of the new name", () => {
     { type: "rename", tagType: "Category", oldValue: "A", newValue: "B" },
   ];
   const result = optimizeQueue(queue);
-  assert.deepEqual(result.length, 1);
-  assert.deepEqual(result[0].type, "add");
-  assert.deepEqual(result[0].value, "B");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].type, "add");
+  assert.equal(result[0].value, "B");
 });
 
 test("optimizeQueue keeps only the last trip type/status update", () => {
@@ -403,15 +403,15 @@ test("optimizeQueue keeps only the last trip type/status update", () => {
     { type: "updateTripType", oldValue: "Snowdon", newValue: "Day Walk" },
     { type: "updateTripType", oldValue: "Snowdon", newValue: "Weekend" },
   ]);
-  assert.deepEqual(typeResult.length, 1);
-  assert.deepEqual(typeResult[0].newValue, "Weekend");
+  assert.equal(typeResult.length, 1);
+  assert.equal(typeResult[0].newValue, "Weekend");
 
   const statusResult = optimizeQueue([
     { type: "updateTripStatus", oldValue: "Snowdon", newValue: "Completed" },
     { type: "updateTripStatus", oldValue: "Snowdon", newValue: "Investment" },
   ]);
-  assert.deepEqual(statusResult.length, 1);
-  assert.deepEqual(statusResult[0].newValue, "Investment");
+  assert.equal(statusResult.length, 1);
+  assert.equal(statusResult[0].newValue, "Investment");
 });
 
 test("formatOperationsForApi produces positional arrays", () => {
@@ -449,19 +449,16 @@ test("resolveSaveFailure: TIMEOUT drops the queue, leaves edit mode, counts ops"
   const queue = [...SAVE_QUEUE, ...SAVE_QUEUE]; // 8 ops, chunks of 3
   const result = resolveSaveFailure(queue, 3, 3, timeoutError());
   assert.deepEqual(result.remainingQueue, []);
-  assert.deepEqual(result.exitEditMode, true);
-  assert.ok(
-    /3 of 8 operations were saved/.test(result.message),
-    result.message,
-  );
-  assert.ok(/next 3 may or may not/.test(result.message), result.message);
-  assert.ok(/2 were never sent/.test(result.message), result.message);
+  assert.equal(result.exitEditMode, true);
+  assert.match(result.message, /3 of 8 operations were saved/);
+  assert.match(result.message, /next 3 may or may not/);
+  assert.match(result.message, /2 were never sent/);
 });
 
 test("resolveSaveFailure: TIMEOUT on the last chunk", () => {
   const result = resolveSaveFailure(SAVE_QUEUE, 2, 10, timeoutError());
-  assert.ok(/next 2 may or may not/.test(result.message), result.message);
-  assert.ok(/0 were never sent/.test(result.message), result.message);
+  assert.match(result.message, /next 2 may or may not/);
+  assert.match(result.message, /0 were never sent/);
 });
 
 test("resolveSaveFailure: rejection with appliedOperations keeps the right tail", () => {
@@ -469,11 +466,8 @@ test("resolveSaveFailure: rejection with appliedOperations keeps the right tail"
   err.response = { success: false, appliedOperations: [{ index: 0 }] };
   const result = resolveSaveFailure(SAVE_QUEUE, 2, 2, err);
   assert.deepEqual(result.remainingQueue, SAVE_QUEUE.slice(3));
-  assert.deepEqual(result.exitEditMode, false);
-  assert.ok(
-    /3 of 4 operations were saved/.test(result.message),
-    result.message,
-  );
+  assert.equal(result.exitEditMode, false);
+  assert.match(result.message, /3 of 4 operations were saved/);
 });
 
 test("resolveSaveFailure: rejection with no applied ops keeps the unprocessed tail", () => {
@@ -484,8 +478,8 @@ test("resolveSaveFailure: rejection with no applied ops keeps the unprocessed ta
     new Error("Tag already exists."),
   );
   assert.deepEqual(result.remainingQueue, SAVE_QUEUE.slice(2));
-  assert.deepEqual(result.exitEditMode, false);
-  assert.ok(/Tag already exists/.test(result.message), result.message);
+  assert.equal(result.exitEditMode, false);
+  assert.match(result.message, /Tag already exists/);
 });
 
 test("resolveSaveFailure: NETWORK keeps every unconfirmed op pending", () => {
@@ -494,10 +488,7 @@ test("resolveSaveFailure: NETWORK keeps every unconfirmed op pending", () => {
   const queue = [...SAVE_QUEUE, ...SAVE_QUEUE]; // 8 ops, chunks of 3
   const result = resolveSaveFailure(queue, 3, 3, err);
   assert.deepEqual(result.remainingQueue, queue.slice(3));
-  assert.deepEqual(result.exitEditMode, false);
-  assert.ok(
-    /3 of 8 operations were saved/.test(result.message),
-    result.message,
-  );
-  assert.ok(/next 3 may or may not/.test(result.message), result.message);
+  assert.equal(result.exitEditMode, false);
+  assert.match(result.message, /3 of 8 operations were saved/);
+  assert.match(result.message, /next 3 may or may not/);
 });

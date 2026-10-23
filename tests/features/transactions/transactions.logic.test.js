@@ -25,29 +25,29 @@ const sample = () => [
 
 test("filterData matches description case-insensitively", () => {
   const result = filterData(sample(), { descriptionSearch: "bus to" });
-  assert.deepEqual(result.length, 1);
-  assert.deepEqual(result[0].Description, "Bus to Snowdon");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].Description, "Bus to Snowdon");
 });
 
 test("filterData filters by category set", () => {
   const result = filterData(sample(), {
     selectedCategories: new Set(["Transport"]),
   });
-  assert.deepEqual(result.length, 1);
-  assert.deepEqual(result[0].Category, "Transport");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].Category, "Transport");
 });
 
 test("filterData __NO_TAG__ matches untagged rows", () => {
   const byCat = filterData(sample(), {
     selectedCategories: new Set(["__NO_TAG__"]),
   });
-  assert.deepEqual(byCat.length, 1);
-  assert.deepEqual(byCat[0].Description, "Membership");
+  assert.equal(byCat.length, 1);
+  assert.equal(byCat[0].Description, "Membership");
 
   const byTrip = filterData(sample(), {
     selectedTrips: new Set(["__NO_TAG__", "Snowdon"]),
   });
-  assert.deepEqual(byTrip.length, 3);
+  assert.equal(byTrip.length, 3);
 });
 
 test("filterData combines all filters with AND", () => {
@@ -56,8 +56,8 @@ test("filterData combines all filters with AND", () => {
     selectedTrips: new Set(["Snowdon"]),
     descriptionSearch: "hut",
   });
-  assert.deepEqual(result.length, 1);
-  assert.deepEqual(result[0].Description, "Hut fees");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].Description, "Hut fees");
 });
 
 test("buildTripSelectorOptions hides past trips behind hints", () => {
@@ -105,7 +105,7 @@ test("buildTagSelectorOptions leaves Category to the default", () => {
 });
 
 test("filterData with empty filters passes everything", () => {
-  assert.deepEqual(
+  assert.equal(
     filterData(sample(), {
       selectedCategories: new Set(),
       selectedTrips: new Set(),
@@ -119,8 +119,8 @@ test("sortData returns a new array and keeps input order", () => {
   const data = [{ Date: "2024-02-01" }, { Date: "2024-01-01" }];
   const sorted = sortData(data, "Date", true);
   assert.ok(sorted !== data, "must not return the input array");
-  assert.deepEqual(data[0].Date, "2024-02-01", "input order must be untouched");
-  assert.deepEqual(sorted[0].Date, "2024-01-01");
+  assert.equal(data[0].Date, "2024-02-01", "input order must be untouched");
+  assert.equal(sorted[0].Date, "2024-01-01");
 });
 
 test("sortData sorts dates ascending and descending", () => {
@@ -142,8 +142,8 @@ test("sortData sorts dates ascending and descending", () => {
 test("sortData puts unparseable dates last when ascending", () => {
   const data = [{ Date: "garbage" }, { Date: "2024-01-01" }];
   const sorted = sortData(data, "Date", true);
-  assert.deepEqual(sorted[0].Date, "2024-01-01");
-  assert.deepEqual(sorted[1].Date, "garbage");
+  assert.equal(sorted[0].Date, "2024-01-01");
+  assert.equal(sorted[1].Date, "garbage");
 });
 
 test("sortData Net sorts by income minus expense", () => {

@@ -12,24 +12,24 @@ import {
 } from "../../src/services/api.service.js";
 
 test("canonicalStringify sorts object keys recursively", () => {
-  assert.deepEqual(
+  assert.equal(
     canonicalStringify({ b: 1, a: { d: 2, c: 3 } }),
     '{"a":{"c":3,"d":2},"b":1}',
   );
 });
 
 test("canonicalStringify keeps array order, sorts nested objects", () => {
-  assert.deepEqual(
+  assert.equal(
     canonicalStringify([{ b: 1, a: 2 }, 3, "x"]),
     '[{"a":2,"b":1},3,"x"]',
   );
 });
 
 test("canonicalStringify matches JSON.stringify for primitives", () => {
-  assert.deepEqual(canonicalStringify("text"), '"text"');
-  assert.deepEqual(canonicalStringify(42), "42");
-  assert.deepEqual(canonicalStringify(null), "null");
-  assert.deepEqual(canonicalStringify(true), "true");
+  assert.equal(canonicalStringify("text"), '"text"');
+  assert.equal(canonicalStringify(42), "42");
+  assert.equal(canonicalStringify(null), "null");
+  assert.equal(canonicalStringify(true), "true");
 });
 
 test("canonicalStringify is stable regardless of insertion order", () => {
@@ -44,33 +44,30 @@ test("_validateScriptUrl accepts only Apps Script web app URLs", () => {
 });
 
 test("_validateScriptUrl rejects everything else", () => {
-  assert.deepEqual(_validateScriptUrl("https://evil.com/macros/s/x"), null);
-  assert.deepEqual(
+  assert.equal(_validateScriptUrl("https://evil.com/macros/s/x"), null);
+  assert.equal(
     _validateScriptUrl("https://evil.script.google.com/macros/s/x"),
     null,
   );
-  assert.deepEqual(
+  assert.equal(
     _validateScriptUrl("https://script.google.com/other/path"),
     null,
   );
-  assert.deepEqual(_validateScriptUrl("not a url"), null);
-  assert.deepEqual(_validateScriptUrl(""), null);
-  assert.deepEqual(_validateScriptUrl(null), null);
+  assert.equal(_validateScriptUrl("not a url"), null);
+  assert.equal(_validateScriptUrl(""), null);
+  assert.equal(_validateScriptUrl(null), null);
 });
 
 test("resolveTimeout gives reads 30 s by default", () => {
-  assert.deepEqual(resolveTimeout(), 30000);
-  assert.deepEqual(resolveTimeout({ skipLoading: true }), 30000);
+  assert.equal(resolveTimeout(), 30000);
+  assert.equal(resolveTimeout({ skipLoading: true }), 30000);
 });
 
 test("resolveTimeout gives mutating requests 60 s", () => {
-  assert.deepEqual(resolveTimeout({ withNonce: true }), 60000);
+  assert.equal(resolveTimeout({ withNonce: true }), 60000);
 });
 
 test("resolveTimeout honours an explicit timeoutMs", () => {
-  assert.deepEqual(resolveTimeout({ timeoutMs: 5000 }), 5000);
-  assert.deepEqual(
-    resolveTimeout({ withNonce: true, timeoutMs: 90000 }),
-    90000,
-  );
+  assert.equal(resolveTimeout({ timeoutMs: 5000 }), 5000);
+  assert.equal(resolveTimeout({ withNonce: true, timeoutMs: 90000 }), 90000);
 });

@@ -48,7 +48,7 @@ test("mergeSplits replaces SOURCE rows with their children", () => {
     descriptions.includes("Part 1") && descriptions.includes("Part 2"),
     "child rows must be injected",
   );
-  assert.deepEqual(result.length, 3);
+  assert.equal(result.length, 3);
 });
 
 test("mergeSplits keeps a SOURCE row that has no children", (t) => {
@@ -69,8 +69,8 @@ test("mergeSplits keeps a SOURCE row that has no children", (t) => {
     },
   ];
   const result = TransactionService.mergeSplits(raw, history);
-  assert.deepEqual(result.length, 1);
-  assert.deepEqual(result[0].Description, "Orphan source");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].Description, "Orphan source");
   assert.equal(consoleWarn.mock.callCount(), 1);
 });
 
@@ -89,8 +89,8 @@ test("mergeSplits injects each group's children only once", () => {
     },
   ];
   const result = TransactionService.mergeSplits(raw, history);
-  assert.deepEqual(result.length, 1);
-  assert.deepEqual(result[0].Description, "Child");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].Description, "Child");
 });
 
 test("mergeSplits sorts the merged list by date descending", () => {

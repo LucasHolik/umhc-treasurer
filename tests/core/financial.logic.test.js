@@ -7,21 +7,21 @@ import { calculateFinancials } from "../../src/core/financial.logic.js";
 
 test("empty transactions leave the opening balance untouched", () => {
   const r = calculateFinancials(100, []);
-  assert.deepEqual(r.totalIncome, 0);
-  assert.deepEqual(r.totalExpenses, 0);
-  assert.deepEqual(r.manualOffset, 0);
-  assert.deepEqual(r.adjustedOpeningBalance, 100);
-  assert.deepEqual(r.currentBalance, 100);
+  assert.equal(r.totalIncome, 0);
+  assert.equal(r.totalExpenses, 0);
+  assert.equal(r.manualOffset, 0);
+  assert.equal(r.adjustedOpeningBalance, 100);
+  assert.equal(r.currentBalance, 100);
 });
 
 test("null transaction list is treated as empty", () => {
-  assert.deepEqual(calculateFinancials(50, null).currentBalance, 50);
+  assert.equal(calculateFinancials(50, null).currentBalance, 50);
 });
 
 test("opening balance accepts strings, garbage becomes 0", () => {
-  assert.deepEqual(calculateFinancials("250.5", []).currentBalance, 250.5);
-  assert.deepEqual(calculateFinancials("abc", []).currentBalance, 0);
-  assert.deepEqual(calculateFinancials(undefined, []).currentBalance, 0);
+  assert.equal(calculateFinancials("250.5", []).currentBalance, 250.5);
+  assert.equal(calculateFinancials("abc", []).currentBalance, 0);
+  assert.equal(calculateFinancials(undefined, []).currentBalance, 0);
 });
 
 test("totals sum income and expenses including comma strings", () => {

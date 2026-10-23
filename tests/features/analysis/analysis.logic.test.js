@@ -11,7 +11,7 @@ import { calculateFinancials } from "../../../src/core/financial.logic.js";
 import { formatDateForInput } from "../../../src/core/utils.js";
 
 test("calculateDateRange returns null for custom", () => {
-  assert.deepEqual(analysis.calculateDateRange("custom", []), null);
+  assert.equal(analysis.calculateDateRange("custom", []), null);
 });
 
 test("calculateDateRange all_time starts at the earliest transaction", () => {
@@ -19,12 +19,12 @@ test("calculateDateRange all_time starts at the earliest transaction", () => {
     { Date: "2024-01-01" },
     { Date: "2023-05-10" },
   ]);
-  assert.deepEqual(formatDateForInput(range.start), "2023-05-10");
+  assert.equal(formatDateForInput(range.start), "2023-05-10");
 });
 
 test("calculateDateRange all_time with no data falls back to 2000", () => {
   const range = analysis.calculateDateRange("all_time", []);
-  assert.deepEqual(formatDateForInput(range.start), "2000-01-01");
+  assert.equal(formatDateForInput(range.start), "2000-01-01");
 });
 
 test("isTransactionInTripStatus truth table", () => {
@@ -119,8 +119,8 @@ test("getFilteredData applies category, trip and status filters", () => {
     { ...emptyFilter(), selectedCategories: new Set(["A"]) },
     {},
   );
-  assert.deepEqual(byCategory.length, 1);
-  assert.deepEqual(byCategory[0].Category, "A");
+  assert.equal(byCategory.length, 1);
+  assert.equal(byCategory[0].Category, "A");
 
   const byStatus = analysis.getFilteredData(
     expenses,
@@ -130,8 +130,8 @@ test("getFilteredData applies category, trip and status filters", () => {
     },
     { T1: "Active" },
   );
-  assert.deepEqual(byStatus.length, 1);
-  assert.deepEqual(byStatus[0]["Trip/Event"], "T1");
+  assert.equal(byStatus.length, 1);
+  assert.equal(byStatus[0]["Trip/Event"], "T1");
 });
 
 test("getFilteredData returns empty list for an invalid window", (t) => {
@@ -263,6 +263,28 @@ test("aggregateData cumulative balance ends at the current balance", () => {
   );
 });
 
+test("aggregateData cumulative balance counts a first-day transaction once", () => {
+  const allExpenses = [
+    { Date: "2023-12-31", Income: 20, Expense: 0 },
+    { Date: "2024-01-01", Income: 50, Expense: 0 },
+  ];
+  const { datasets } = analysis.aggregateData(
+    allExpenses.filter((t) => t.Date >= "2024-01-01"),
+    {
+      primaryGroup: "date",
+      secondaryGroup: "none",
+      metric: "balance",
+      timeUnit: "day",
+      startDate: "2024-01-01",
+      endDate: "2024-01-01",
+      skipEmptyPeriods: true,
+    },
+    allExpenses,
+    100,
+  );
+  assert.deepEqual(datasets[0].data, [170]);
+});
+
 test("aggregateData secondary grouping builds stacked datasets", () => {
   const { labels, datasets } = analysis.aggregateData(
     [
@@ -287,7 +309,7 @@ test("aggregateData secondary grouping builds stacked datasets", () => {
   );
   assert.deepEqual(datasets[0].data, [-5, 0]);
   assert.deepEqual(datasets[1].data, [10, 20]);
-  assert.deepEqual(datasets[0].stack, "stack1");
+  assert.equal(datasets[0].stack, "stack1");
 });
 
 test("aggregateData prunes zero-value tags for non-date groups", () => {
@@ -329,7 +351,7 @@ test("calculateSummaryStats totals the filtered data", () => {
   assertClose(stats.totalIncome, 100.5);
   assertClose(stats.totalExpense, 40);
   assertClose(stats.netChange, 60.5);
-  assert.deepEqual(stats.transactionCount, 2);
+  assert.equal(stats.transactionCount, 2);
 });
 
 test("calculateEffectiveBalance subtracts active-trip net only", () => {
@@ -381,17 +403,17 @@ test("calculateTagFilterState computes type checkbox states", () => {
   );
   assert.deepEqual(partial.visibleTrips, ["T1", "T2"]);
   assert.deepEqual(partial.visibleTypes, ["X"]);
-  assert.deepEqual(partial.typeStatusMap["X"], "indeterminate");
+  assert.equal(partial.typeStatusMap["X"], "indeterminate");
 
   const all = analysis.calculateTagFilterState(
     tagsData,
     "Active",
     new Set(["T1", "T2"]),
   );
-  assert.deepEqual(all.typeStatusMap["X"], "checked");
+  assert.equal(all.typeStatusMap["X"], "checked");
 
   const none = analysis.calculateTagFilterState(tagsData, "Active", new Set());
-  assert.deepEqual(none.typeStatusMap["X"], "unchecked");
+  assert.equal(none.typeStatusMap["X"], "unchecked");
   assert.deepEqual(none.filteredTagsData["Trip/Event"], ["T1", "T2"]);
 });
 
@@ -406,7 +428,7 @@ test("generateCSV writes headers and rows without secondary group", () => {
       timeUnit: "month",
     },
   );
-  assert.deepEqual(csv, "Date (month),Income\n2024-01,10");
+  assert.equal(csv, "Date (month),Income\n2024-01,10");
 });
 
 test("generateCSV escapes commas/quotes and adds a Total column", () => {
@@ -423,20 +445,20 @@ test("generateCSV escapes commas/quotes and adds a Total column", () => {
       timeUnit: "month",
     },
   );
-  assert.deepEqual(csv, 'Category,"Cat ""X""",Y,Total\n"A,B",1,2,3');
+  assert.equal(csv, 'Category,"Cat ""X""",Y,Total\n"A,B",1,2,3');
 });
 
 test("getPresetState returns presets and fresh defaults", () => {
   const preset = analysis.getPresetState("monthly_trend");
-  assert.deepEqual(preset.timeframe, "past_year");
-  assert.deepEqual(preset.metric, "net");
-  assert.deepEqual(preset.primaryGroup, "date");
-  assert.deepEqual(preset.timeUnit, "month");
+  assert.equal(preset.timeframe, "past_year");
+  assert.equal(preset.metric, "net");
+  assert.equal(preset.primaryGroup, "date");
+  assert.equal(preset.timeUnit, "month");
 
   const unknown = analysis.getPresetState("does_not_exist");
-  assert.deepEqual(unknown.tripStatusFilter, "All");
-  assert.deepEqual(unknown.secondaryGroup, "none");
-  assert.deepEqual(unknown.selectedCategories.size, 0);
+  assert.equal(unknown.tripStatusFilter, "All");
+  assert.equal(unknown.secondaryGroup, "none");
+  assert.equal(unknown.selectedCategories.size, 0);
 
   const again = analysis.getPresetState("does_not_exist");
   assert.ok(

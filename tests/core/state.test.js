@@ -23,7 +23,7 @@ test("getState returns a clone, not the internal object", () => {
     store.setState(KEY, { a: 1 });
     const out = store.getState(KEY);
     out.a = 99;
-    assert.deepEqual(store.getState(KEY).a, 1);
+    assert.equal(store.getState(KEY).a, 1);
   } finally {
     store.setState(KEY, null);
   }
@@ -34,7 +34,7 @@ test("setState clones its input, detaching the caller's object", () => {
     const src = { a: 1 };
     store.setState(KEY, src);
     src.a = 99;
-    assert.deepEqual(store.getState(KEY).a, 1);
+    assert.equal(store.getState(KEY).a, 1);
   } finally {
     store.setState(KEY, null);
   }
@@ -43,9 +43,9 @@ test("setState clones its input, detaching the caller's object", () => {
 test("primitives pass through unchanged", () => {
   try {
     store.setState(KEY, 42);
-    assert.deepEqual(store.getState(KEY), 42);
+    assert.equal(store.getState(KEY), 42);
     store.setState(KEY, "text");
-    assert.deepEqual(store.getState(KEY), "text");
+    assert.equal(store.getState(KEY), "text");
   } finally {
     store.setState(KEY, null);
   }
@@ -61,14 +61,14 @@ test("subscribers are notified once, deep-equal sets are skipped", () => {
       lastValue = value;
     });
     store.setState(KEY, { count: 1 });
-    assert.deepEqual(calls, 1);
+    assert.equal(calls, 1);
     assert.deepEqual(lastValue, { count: 1 });
 
     store.setState(KEY, { count: 1 });
-    assert.deepEqual(calls, 1, "deep-equal value must not re-notify");
+    assert.equal(calls, 1, "deep-equal value must not re-notify");
 
     store.setState(KEY, { count: 2 });
-    assert.deepEqual(calls, 2);
+    assert.equal(calls, 2);
   } finally {
     if (sub) sub.unsubscribe();
     store.setState(KEY, null);
@@ -82,18 +82,25 @@ test("unsubscribe stops notifications and is idempotent", () => {
     sub.unsubscribe();
     sub.unsubscribe();
     store.setState(KEY, { fresh: Math.random() });
-    assert.deepEqual(calls, 0);
+    assert.equal(calls, 0);
   } finally {
     store.setState(KEY, null);
   }
 });
 
-test("reserved and invalid keys are rejected", async () => {
-  assert.throws(() => store.setState("__proto__", { polluted: true }));
-  assert.throws(() => store.getState("constructor"));
-  assert.throws(() => store.subscribe("prototype", () => {}));
-  assert.throws(() => store.setState("", 1));
-  assert.throws(() => store.subscribe(KEY, "not a function"));
+test("reserved and invalid keys are rejected", () => {
+  const reserved = /reserved property name/;
+  assert.throws(
+    () => store.setState("__proto__", { polluted: true }),
+    reserved,
+  );
+  assert.throws(() => store.getState("constructor"), reserved);
+  assert.throws(() => store.subscribe("prototype", () => {}), reserved);
+  assert.throws(() => store.setState("", 1), /non-empty string/);
+  assert.throws(
+    () => store.subscribe(KEY, "not a function"),
+    /Callback must be a function/,
+  );
 });
 
 test("a throwing subscriber does not block later subscribers", (t) => {

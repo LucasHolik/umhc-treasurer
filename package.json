@@ -6,10 +6,10 @@
   "main": "src/App.js",
   "scripts": {
     "start": "echo \"This is a client-side app. Open index.html in your browser or serve with a static server (e.g., 'python3 -m http.server').\"",
-    "test": "node --import ./tests/setup.js --test \"tests/**/*.test.js\"",
+    "test": "node --disable-warning=ExperimentalWarning --import ./tests/setup.js --test \"tests/**/*.test.js\"",
     "format": "npx -y prettier@3 --write .",
     "format:check": "npx -y prettier@3 --check .",
-    "test:watch": "node --import ./tests/setup.js --test --watch \"tests/**/*.test.js\""
+    "test:watch": "node --disable-warning=ExperimentalWarning --import ./tests/setup.js --test --watch \"tests/**/*.test.js\""
   },
   "keywords": [
     "treasurer",

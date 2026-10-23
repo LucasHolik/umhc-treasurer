@@ -2,7 +2,6 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertClose } from "../helpers/assert.js";
 import {
   formatCurrency,
   parseAmount,
@@ -23,45 +22,45 @@ import {
 } from "../../src/core/utils.js";
 
 test("formatCurrency formats numbers to 2dp", () => {
-  assert.deepEqual(formatCurrency(4), "4.00");
-  assert.deepEqual(formatCurrency("4.5"), "4.50");
-  assert.deepEqual(formatCurrency(-5), "-5.00");
-  assert.deepEqual(formatCurrency(0), "0.00");
+  assert.equal(formatCurrency(4), "4.00");
+  assert.equal(formatCurrency("4.5"), "4.50");
+  assert.equal(formatCurrency(-5), "-5.00");
+  assert.equal(formatCurrency(0), "0.00");
 });
 
 test("formatCurrency strips thousand separators", () => {
-  assert.deepEqual(formatCurrency("1,234"), "1234.00");
-  assert.deepEqual(formatCurrency("1,234,567.89"), "1234567.89");
+  assert.equal(formatCurrency("1,234"), "1234.00");
+  assert.equal(formatCurrency("1,234,567.89"), "1234567.89");
 });
 
 test("formatCurrency returns empty string for invalid input", () => {
-  assert.deepEqual(formatCurrency(null), "");
-  assert.deepEqual(formatCurrency(undefined), "");
-  assert.deepEqual(formatCurrency("   "), "");
-  assert.deepEqual(formatCurrency("abc"), "");
+  assert.equal(formatCurrency(null), "");
+  assert.equal(formatCurrency(undefined), "");
+  assert.equal(formatCurrency("   "), "");
+  assert.equal(formatCurrency("abc"), "");
 });
 
 test("parseAmount handles numbers, strings and commas", () => {
-  assert.deepEqual(parseAmount(42.5), 42.5);
-  assert.deepEqual(parseAmount("1,234.56"), 1234.56);
-  assert.deepEqual(parseAmount("-10"), -10);
+  assert.equal(parseAmount(42.5), 42.5);
+  assert.equal(parseAmount("1,234.56"), 1234.56);
+  assert.equal(parseAmount("-10"), -10);
 });
 
 test("parseAmount returns 0 for empty or invalid input", () => {
-  assert.deepEqual(parseAmount(null), 0);
-  assert.deepEqual(parseAmount(undefined), 0);
-  assert.deepEqual(parseAmount(""), 0);
-  assert.deepEqual(parseAmount("abc"), 0);
-  assert.deepEqual(parseAmount(Infinity), 0);
-  assert.deepEqual(parseAmount(NaN), 0);
+  assert.equal(parseAmount(null), 0);
+  assert.equal(parseAmount(undefined), 0);
+  assert.equal(parseAmount(""), 0);
+  assert.equal(parseAmount("abc"), 0);
+  assert.equal(parseAmount(Infinity), 0);
+  assert.equal(parseAmount(NaN), 0);
 });
 
 test("parseDate parses YYYY-MM-DD as local midnight", () => {
   const d = parseDate("2024-03-05");
-  assert.deepEqual(d.getFullYear(), 2024);
-  assert.deepEqual(d.getMonth(), 2);
-  assert.deepEqual(d.getDate(), 5);
-  assert.deepEqual(d.getHours(), 0);
+  assert.equal(d.getFullYear(), 2024);
+  assert.equal(d.getMonth(), 2);
+  assert.equal(d.getDate(), 5);
+  assert.equal(d.getHours(), 0);
 });
 
 test("parseDate passes Date instances through unchanged", () => {
@@ -71,29 +70,29 @@ test("parseDate passes Date instances through unchanged", () => {
 
 test("parseDate handles slash formats and rejects garbage", () => {
   const d = parseDate("2024/03/05");
-  assert.deepEqual(formatDateForInput(d), "2024-03-05");
-  assert.deepEqual(parseDate("not a date"), null);
-  assert.deepEqual(parseDate(""), null);
-  assert.deepEqual(parseDate(null), null);
+  assert.equal(formatDateForInput(d), "2024-03-05");
+  assert.equal(parseDate("not a date"), null);
+  assert.equal(parseDate(""), null);
+  assert.equal(parseDate(null), null);
 });
 
 test("formatDateForInput pads and round-trips", () => {
-  assert.deepEqual(formatDateForInput(new Date(2024, 0, 5)), "2024-01-05");
-  assert.deepEqual(formatDateForInput(parseDate("2024-12-31")), "2024-12-31");
+  assert.equal(formatDateForInput(new Date(2024, 0, 5)), "2024-01-05");
+  assert.equal(formatDateForInput(parseDate("2024-12-31")), "2024-12-31");
 });
 
 test("formatDateForInput returns empty string for invalid input", () => {
-  assert.deepEqual(formatDateForInput(new Date("garbage")), "");
-  assert.deepEqual(formatDateForInput("2024-01-01"), "");
-  assert.deepEqual(formatDateForInput(null), "");
+  assert.equal(formatDateForInput(new Date("garbage")), "");
+  assert.equal(formatDateForInput("2024-01-01"), "");
+  assert.equal(formatDateForInput(null), "");
 });
 
 test("getCurrentMonthRange spans the whole current month", () => {
   const { start, end } = getCurrentMonthRange();
   const now = new Date();
-  assert.deepEqual(start.getDate(), 1);
-  assert.deepEqual(start.getHours(), 0);
-  assert.deepEqual(end.getMilliseconds(), 999);
+  assert.equal(start.getDate(), 1);
+  assert.equal(start.getHours(), 0);
+  assert.equal(end.getMilliseconds(), 999);
   assert.deepEqual(end.getMonth(), start.getMonth());
   assert.ok(start <= now && now <= end, "now should fall inside the range");
 });
@@ -106,23 +105,23 @@ test("getPastDaysRange(30) starts 30 days back at midnight", () => {
     end.getDate() - 30,
   );
   assert.deepEqual(start.getTime(), expectedStart.getTime());
-  assert.deepEqual(end.getHours(), 23);
-  assert.deepEqual(end.getMilliseconds(), 999);
+  assert.equal(end.getHours(), 23);
+  assert.equal(end.getMilliseconds(), 999);
 });
 
 test("getPastMonthsRange snaps to the 1st of the month", () => {
   const { start, end } = getPastMonthsRange(3);
-  assert.deepEqual(start.getDate(), 1);
-  assert.deepEqual(start.getHours(), 0);
+  assert.equal(start.getDate(), 1);
+  assert.equal(start.getHours(), 0);
   const monthsApart =
     (end.getFullYear() - start.getFullYear()) * 12 +
     (end.getMonth() - start.getMonth());
-  assert.deepEqual(monthsApart, 3);
+  assert.equal(monthsApart, 3);
 });
 
 test("getPastYearRange starts on the 1st, one year back", () => {
   const { start, end } = getPastYearRange();
-  assert.deepEqual(start.getDate(), 1);
+  assert.equal(start.getDate(), 1);
   assert.deepEqual(start.getMonth(), end.getMonth());
   assert.deepEqual(start.getFullYear(), end.getFullYear() - 1);
 });
@@ -139,19 +138,19 @@ test("getDateRange falls back to past 30 days for unknown keys", () => {
 
 test("getLocalDayBounds expands to full local days", () => {
   const bounds = getLocalDayBounds("2024-03-01", "2024-03-05");
-  assert.deepEqual(formatDateForInput(bounds.start), "2024-03-01");
-  assert.deepEqual(formatDateForInput(bounds.end), "2024-03-05");
-  assert.deepEqual(bounds.start.getHours(), 0);
-  assert.deepEqual(bounds.end.getHours(), 23);
-  assert.deepEqual(bounds.end.getMilliseconds(), 999);
+  assert.equal(formatDateForInput(bounds.start), "2024-03-01");
+  assert.equal(formatDateForInput(bounds.end), "2024-03-05");
+  assert.equal(bounds.start.getHours(), 0);
+  assert.equal(bounds.end.getHours(), 23);
+  assert.equal(bounds.end.getMilliseconds(), 999);
 });
 
 test("getLocalDayBounds rejects invalid input, keeps inputs intact", () => {
-  assert.deepEqual(getLocalDayBounds("garbage", "2024-03-05"), null);
-  assert.deepEqual(getLocalDayBounds(null, "2024-03-05"), null);
+  assert.equal(getLocalDayBounds("garbage", "2024-03-05"), null);
+  assert.equal(getLocalDayBounds(null, "2024-03-05"), null);
   const d = new Date(2024, 2, 5, 12, 30);
   getLocalDayBounds(d, d);
-  assert.deepEqual(d.getHours(), 12, "caller's Date must not be mutated");
+  assert.equal(d.getHours(), 12, "caller's Date must not be mutated");
 });
 
 test("filterTransactionsByTimeframe all_time returns same array", () => {
@@ -172,26 +171,26 @@ test("filterTransactionsByTimeframe keeps in-range, drops the rest", () => {
     { Date: "not a date" },
   ];
   const result = filterTransactionsByTimeframe(txns, "current_month");
-  assert.deepEqual(result.length, 1);
+  assert.equal(result.length, 1);
   assert.deepEqual(result[0].Date, today);
 });
 
 test("escapeHtml escapes all five special characters", () => {
-  assert.deepEqual(
+  assert.equal(
     escapeHtml(`<a href="x">Tom & Jerry's</a>`),
     "&lt;a href=&quot;x&quot;&gt;Tom &amp; Jerry&#39;s&lt;/a&gt;",
   );
 });
 
 test("escapeHtml passes clean strings through, coerces non-strings", () => {
-  assert.deepEqual(escapeHtml("hello world"), "hello world");
-  assert.deepEqual(escapeHtml(5), "5");
+  assert.equal(escapeHtml("hello world"), "hello world");
+  assert.equal(escapeHtml(5), "5");
 });
 
 test("sanitizeForId strips and collapses special characters", () => {
-  assert.deepEqual(sanitizeForId("Hello, World!"), "Hello-World");
-  assert.deepEqual(sanitizeForId("--a--b--"), "a-b");
-  assert.deepEqual(sanitizeForId(null), "");
+  assert.equal(sanitizeForId("Hello, World!"), "Hello-World");
+  assert.equal(sanitizeForId("--a--b--"), "a-b");
+  assert.equal(sanitizeForId(null), "");
 });
 
 test("deepEqual compares nested objects and arrays", () => {
@@ -245,11 +244,7 @@ test("deepClone produces an independent copy", () => {
   const src = { a: { b: [1, 2, { c: 3 }] } };
   const copy = deepClone(src);
   copy.a.b[2].c = 99;
-  assert.deepEqual(
-    src.a.b[2].c,
-    3,
-    "source must be unaffected by clone mutation",
-  );
+  assert.equal(src.a.b[2].c, 3, "source must be unaffected by clone mutation");
 });
 
 test("deepClone clones Date, Map, Set and circular refs", () => {
@@ -268,27 +263,38 @@ test("deepClone clones Date, Map, Set and circular refs", () => {
   assert.ok(cCopy.self === cCopy, "circular structure must be preserved");
 });
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-test("debounce fires once with the last arguments", async () => {
+test("debounce fires once with the last arguments", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   const calls = [];
   const d = debounce((v) => calls.push(v), 30);
   d(1);
   d(2);
   d(3);
-  await sleep(80);
+  t.mock.timers.tick(29);
+  assert.deepEqual(calls, [], "must not fire before the delay");
+  t.mock.timers.tick(1);
   assert.deepEqual(calls, [3]);
 });
 
-test("debounce cancel prevents the pending call", async () => {
+test("debounce restarts the delay on every call", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const calls = [];
+  const d = debounce((v) => calls.push(v), 30);
+  d(1);
+  t.mock.timers.tick(20);
+  d(2);
+  t.mock.timers.tick(20);
+  assert.deepEqual(calls, [], "the second call must reset the timer");
+  t.mock.timers.tick(10);
+  assert.deepEqual(calls, [2]);
+});
+
+test("debounce cancel prevents the pending call", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   const calls = [];
   const d = debounce((v) => calls.push(v), 30);
   d("x");
   d.cancel();
-  await sleep(80);
+  t.mock.timers.tick(100);
   assert.deepEqual(calls, []);
-});
-
-test("assertClose sanity check on float sums", () => {
-  assertClose(0.1 + 0.2, 0.3);
 });
