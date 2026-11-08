@@ -350,6 +350,120 @@ test("a mid-batch write failure rolls the whole batch back", (t) => {
   );
 });
 
+test("an unexpected write throw rolls the whole batch back", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+  const warn = t.mock.method(console, "warn", () => {});
+  const log = t.mock.method(console, "log", () => {});
+
+  // The delete moves Tag cells with copyTo/clearContent, so the next Tags
+  // setValue is the Travel add. The batch therefore reaches the add with the
+  // delete already applied, and the throw must roll that delete back. The
+  // trailing operation proves that operations after the failure are skipped.
+  const operations = [
+    ["Food", null, "delete", "Category"],
+    ["", "Travel", "add", "Category"],
+    ["Winter Trip", "Social", "updateTripType", null],
+  ];
+
+  backend.helpers.failNextWrite("Tags", "setValue");
+  const response = backend.request("processTagOperations", { operations });
+
+  assert.equal(response.success, false);
+  assert.match(response.message, /Unexpected error/);
+  assert.match(response.message, /Changes reverted/);
+  assert.deepEqual(response.appliedOperations, []);
+  assert.equal(response.rollback.attempted, true);
+  assert.equal(response.rollback.success, true);
+  assert.equal(response.rollback.message, undefined);
+
+  assert.deepEqual(
+    response.results.map(({ index, operation, status }) => ({
+      index,
+      operation,
+      status,
+    })),
+    [
+      { index: 0, operation: operations[0], status: "rolled_back" },
+      { index: 1, operation: operations[1], status: "failed" },
+      { index: 2, operation: operations[2], status: "skipped" },
+    ],
+  );
+  assert.match(response.results[1].message, /Unexpected error at index 1/);
+
+  // The delete changed Tags, Finances and Split Transactions before the add
+  // threw, so every one of those writes must be undone.
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(backend.sheets.get("Finances"), FINANCES);
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+
+  // The rollback runs inside the lock, so the lock is free by the time the
+  // response reaches the caller.
+  assert.equal(backend.helpers.isScriptLockHeld(), false);
+  assert.equal(backend.helpers.getScriptLockDepth(), 0);
+
+  assert.equal(error.mock.calls.length, 0, "a clean rollback logs no error");
+  assert.equal(warn.mock.calls.length, 0, "a clean rollback logs no warning");
+  assert.equal(log.mock.calls.length, 0, "a clean rollback logs nothing");
+
+  // The injected fault is one-shot, so the same batch succeeds on retry.
+  const retry = backend.request("processTagOperations", { operations });
+  assert.equal(retry.success, true);
+  assert.deepEqual(
+    retry.results.map((result) => result.status),
+    ["applied", "applied", "applied"],
+  );
+  assert.deepEqual(backend.sheets.get("Tags"), [
+    TAG_HEADERS,
+    ["Winter Trip", "Social", "Active", "Transport", "Competitive"],
+    ["Summer Trip", "Social", "Completed", "Travel", "Social"],
+  ]);
+  assert.equal(backend.sheets.get("Finances")[1][5], "");
+  assert.equal(backend.sheets.get("Split Transactions")[1][5], "");
+});
+
+test("a throw in the post-loop sort rolls the batch back", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+  const warn = t.mock.method(console, "warn", () => {});
+  const log = t.mock.method(console, "log", () => {});
+
+  // A single Category add writes its row with setValue. The post-loop sort then
+  // clears and rewrites the Category column with setValues, so a setValues fault
+  // lands in the sort after the add applied and the sort's clearContent ran.
+  const operations = [["", "Travel", "add", "Category"]];
+
+  backend.helpers.failNextWrite("Tags", "setValues");
+  const response = backend.request("processTagOperations", { operations });
+
+  assert.equal(response.success, false);
+  assert.match(response.message, /Unexpected error/);
+  assert.match(response.message, /Changes reverted/);
+  assert.deepEqual(response.appliedOperations, []);
+  assert.equal(response.rollback.attempted, true);
+  assert.equal(response.rollback.success, true);
+
+  // The sort throws after index 0 applied, so index 0 carries both the flipped
+  // rolled_back result and the failed result for the sort. The duplicate is
+  // cosmetic: appliedOperations stays empty.
+  assert.deepEqual(
+    response.results.map(({ index, status }) => ({ index, status })),
+    [
+      { index: 0, status: "rolled_back" },
+      { index: 0, status: "failed" },
+    ],
+  );
+  assert.match(response.results[1].message, /Unexpected error at index 0/);
+
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.equal(backend.helpers.isScriptLockHeld(), false);
+  assert.equal(backend.helpers.getScriptLockDepth(), 0);
+
+  assert.equal(error.mock.calls.length, 0, "a clean rollback logs no error");
+  assert.equal(warn.mock.calls.length, 0, "a clean rollback logs no warning");
+  assert.equal(log.mock.calls.length, 0, "a clean rollback logs nothing");
+});
+
 test("renaming a tag updates expense rows and split-history rows", (t) => {
   const backend = createTestBackend(t);
 

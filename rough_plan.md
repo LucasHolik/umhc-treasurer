@@ -39,9 +39,16 @@ Approved on 2026-11-08 and completed in the Phase 3 pull request.
 and has 47 tests covering the router, roles, auth, sanitisation, locking, tag
 batches, splits and the B-002 fix.
 
-### Phase 4 and beyond
+### Phase 4: Backend hardening (approved, in progress)
+
+Fix the three open backend bugs: B-004 (a tag batch can be left half-applied
+when a write throws), B-003 (a reserved-word JSONP callback is not replaced)
+and B-005 (split history `total` counts hidden PENDING rows). Definition of
+done: all three fixed with regression tests, `npm test` green, and the bugs
+recorded as fixed.
+
+### Phase 5 and beyond
 
 To be agreed with the user. Backup and restore is dropped (D-016), and the
-stale `origin/test` branch is left in place. The open bugs are candidates for
-the next phase; see `bugs.md`. Features go here before any code is written,
-and this file is updated whenever direction or scope changes.
+stale `origin/test` branch is left in place. Features go here before any code
+is written, and this file is updated whenever direction or scope changes.

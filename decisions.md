@@ -413,3 +413,23 @@ left in place, unused.
 is. Deleting the branch is unnecessary when it is harmless to keep.
 
 **Decided by.** User, 2026-11-08.
+
+### D-017: Remove the split history `total` field
+
+**Question.** How should B-005 be fixed?
+
+**Context.** `getSplitHistory` returns `total` as every physical row, but
+filters PENDING rows out of `data`. The only known client paginates on
+`hasMore` and ignores `total`. A visible count would still be wrong for the
+current row-based paging unless the whole sheet were read and repaginated.
+
+**Options.** (a) Remove `total`. (b) Return a visible count. (c) Document it
+as physical rows and leave it.
+
+**Choice.** Option (a). `total` is removed from the response. `hasMore` stays
+the pagination contract.
+
+**Reason.** It is honest, needs no extra sheet scan, and no known client reads
+it. This is a wire-shape change, approved with the Phase 4 plan.
+
+**Decided by.** User, 2026-11-08.

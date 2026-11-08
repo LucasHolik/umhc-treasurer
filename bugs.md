@@ -31,38 +31,6 @@ PENDING row: one visible row, `hasMore` false, and no `total` field. If the
 wire shape must stay, document that `total` is physical rows. Low priority;
 defer if scope is tight.
 
-### B-004: An unexpected write error leaves a tag batch half-applied
-
-**Description.** `_runTagBatch` has no `try`/`catch` around its operation
-switch. An uncaught throw from `_addTag`, `_deleteTag`, `_renameTag`,
-`_updateTripType`, `_updateTripStatus` or `_sortTags` escapes to the outer
-catch in `processTagOperations` (lines 72 to 78), which returns a generic
-failure without calling `_rollbackTagBatch`. The Tags sheet and the expense or
-split rows can be left half-changed. `_snapshotTagSheet` fails before any
-change, and `_restoreTagSheet` runs inside `_rollbackTagBatch`'s own
-`try`/`catch`, so neither can escape this way.
-
-**Steps to reproduce.** In the backend harness, fail the next `Tags`
-`setValue` write and send `[["Food", null, "delete", "Category"],
-["", "Travel", "add", "Category"]]`. The response is the generic failure,
-Food is gone from Tags and Finances, and Travel was not added.
-
-**Severity.** Medium. It needs a transient or quota-style write failure, but
-the result is a half-applied batch.
-
-**Where.** `google-apps-script/Service_Tags.gs:743` (`_runTagBatch`), with the
-outer catch at `Service_Tags.gs:72`.
-
-**Status.** Open. Found while building the part 3 rollback test; not fixed.
-
-**Suggested fix.** Put the `try` inside the `withScriptLock` callback, after the
-snapshot and the batch bookkeeping, wrapping the operation loop and the final
-`_sortTags`. Track the current index; in the catch, push a failed result for it
-and call `_rollbackTagBatch`, returning its structured result. Cover it with
-`failNextWrite("Tags", "setValue")` in `tests/backend/tags.test.js` and assert
-the rollback, the unchanged sheets and the released lock. A helper that throws
-after changing expenses but before returning still leaves that narrow window.
-
 ### B-003: A reserved-word JSONP callback is not replaced
 
 **Description.** `createJsonResponse` validates the callback with a regex that
@@ -85,6 +53,34 @@ the result is a broken response rather than script injection.
 `callback`; the reply must stay callable. Test `requestRaw("ping", {},
 { callback: "false" })` in `tests/backend/code.test.js`, plus `"null"` and
 `"undefined"`; the valid custom name is already covered.
+
+### B-006: A throw inside a tag helper can still leave external rows changed
+
+**Description.** The B-004 fix rolls back when the operation switch or the final
+sort throws. But if `_deleteTag` or `_renameTag` changes Finances or Split
+Transactions and then its Tags write throws, the helper never returns, so
+`_runTagBatch` records no compensation. `_rollbackTagBatch` restores the Tags
+sheet and reports "Changes reverted", while the external Category cells stay
+cleared.
+
+**Steps to reproduce.** In the backend harness, call
+`failNextWrite("Tags", "copyTo")` with the batch
+`[["Food", null, "delete", "Category"], ["", "Travel", "add", "Category"]]`.
+Tags has Food back, but the Food Category cells in Finances and Split
+Transactions are empty, and the response says the changes were reverted.
+
+**Severity.** Medium. The window is narrow, but the response claims a complete
+rollback when external rows are still changed.
+
+**Where.** `google-apps-script/Service_Tags.gs`, `_deleteTag`/`_renameTag` and
+the compensation recording in `_runTagBatch`.
+
+**Status.** Open. Found during the Phase 4 part 1 review; not fixed.
+
+**Suggested fix.** Make the helpers report the external rows they changed even
+when they fail, and record a compensation for those rows before returning; or
+write the Tags row before the external rows so a failure leaves less to undo.
+Regression test with `failNextWrite("Tags", "copyTo")`.
 
 ## Fixed
 
@@ -131,3 +127,31 @@ of 1,200 is read as 1200" and "getAppData reports a comma-formatted opening
 balance as 1200" (`tests/backend/opening-balance.test.js`). The read strips
 thousands separators before `parseFloat`; empty and non-numeric cells still
 give 0, and the cell is not rewritten.
+
+### B-004: An unexpected write error leaves a tag batch half-applied
+
+**Description.** `_runTagBatch` has no `try`/`catch` around its operation
+switch. An uncaught throw from `_addTag`, `_deleteTag`, `_renameTag`,
+`_updateTripType`, `_updateTripStatus` or `_sortTags` escapes to the outer
+catch in `processTagOperations` (lines 72 to 78), which returns a generic
+failure without calling `_rollbackTagBatch`. The Tags sheet and the expense or
+split rows can be left half-changed. `_snapshotTagSheet` fails before any
+change, and `_restoreTagSheet` runs inside `_rollbackTagBatch`'s own
+`try`/`catch`, so neither can escape this way.
+
+**Steps to reproduce.** In the backend harness, fail the next `Tags`
+`setValue` write and send `[["Food", null, "delete", "Category"],
+["", "Travel", "add", "Category"]]`. The response is the generic failure,
+Food is gone from Tags and Finances, and Travel was not added.
+
+**Severity.** Medium. It needs a transient or quota-style write failure, but
+the result is a half-applied batch.
+
+**Where.** `google-apps-script/Service_Tags.gs:743` (`_runTagBatch`), with the
+outer catch at `Service_Tags.gs:72`.
+
+**Status.** Fixed in Phase 4, part 1. Test: "an unexpected write throw rolls the
+whole batch back" (`tests/backend/tags.test.js`). The operation loop and the
+final sort are wrapped inside the lock, and an unexpected throw now calls
+`_rollbackTagBatch` and returns its structured result. A helper that throws
+after changing external rows but before returning is still a gap; see B-006.

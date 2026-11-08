@@ -748,82 +748,19 @@ function _runTagBatch(operations) {
     const compensations = [];
     const results = [];
     const modifiedTypes = new Set();
+    let currentIndex = -1;
 
-    for (let i = 0; i < operations.length; i++) {
-      const operation = operations[i];
+    try {
+      for (let i = 0; i < operations.length; i++) {
+        currentIndex = i;
+        const operation = operations[i];
 
-      if (!Array.isArray(operation) || operation.length !== 4) {
-        results.push({
-          index: i,
-          operation: operation,
-          status: "failed",
-          message: "Invalid operation shape",
-        });
-        return _rollbackTagBatch(
-          snapshot,
-          compensations,
-          results,
-          operations,
-          i,
-          "Invalid operation at index " + i,
-        );
-      }
-
-      const [rawOldValue, rawNewValue, operationType, tagType] = operation;
-      const oldValue = rawOldValue !== null ? String(rawOldValue) : null;
-      const newValue = rawNewValue !== null ? String(rawNewValue) : null;
-
-      let result;
-      let compensation = null;
-
-      switch (operationType) {
-        case "add":
-          result = _addTag(tagType, newValue, true);
-          if (result.success) modifiedTypes.add(tagType);
-          break;
-        case "delete":
-          result = _deleteTag(tagType, oldValue);
-          if (
-            result.success &&
-            (tagType === "Trip/Event" || tagType === "Category")
-          ) {
-            compensation = {
-              kind: "delete",
-              type: tagType,
-              value: oldValue,
-              expenseRows: result.modifiedExpenseRows || [],
-              splitRows: result.modifiedSplitRows || [],
-            };
-          }
-          break;
-        case "rename":
-          result = _renameTag(tagType, oldValue, newValue, true);
-          if (result.success) {
-            modifiedTypes.add(tagType);
-            if (tagType === "Trip/Event" || tagType === "Category") {
-              compensation = {
-                kind: "rename",
-                type: tagType,
-                oldValue: oldValue,
-                newValue: newValue,
-                expensesUpdated: !!result.expensesUpdated,
-                splitsUpdated: !!result.splitsUpdated,
-              };
-            }
-          }
-          break;
-        case "updateTripType":
-          result = _updateTripType(oldValue, newValue);
-          break;
-        case "updateTripStatus":
-          result = _updateTripStatus(oldValue, newValue);
-          break;
-        default:
+        if (!Array.isArray(operation) || operation.length !== 4) {
           results.push({
             index: i,
             operation: operation,
             status: "failed",
-            message: "Unknown operation type: " + operationType,
+            message: "Invalid operation shape",
           });
           return _rollbackTagBatch(
             snapshot,
@@ -831,32 +768,122 @@ function _runTagBatch(operations) {
             results,
             operations,
             i,
-            "Unknown operation type: " + operationType,
+            "Invalid operation at index " + i,
           );
+        }
+
+        const [rawOldValue, rawNewValue, operationType, tagType] = operation;
+        const oldValue = rawOldValue !== null ? String(rawOldValue) : null;
+        const newValue = rawNewValue !== null ? String(rawNewValue) : null;
+
+        let result;
+        let compensation = null;
+
+        switch (operationType) {
+          case "add":
+            result = _addTag(tagType, newValue, true);
+            if (result.success) modifiedTypes.add(tagType);
+            break;
+          case "delete":
+            result = _deleteTag(tagType, oldValue);
+            if (
+              result.success &&
+              (tagType === "Trip/Event" || tagType === "Category")
+            ) {
+              compensation = {
+                kind: "delete",
+                type: tagType,
+                value: oldValue,
+                expenseRows: result.modifiedExpenseRows || [],
+                splitRows: result.modifiedSplitRows || [],
+              };
+            }
+            break;
+          case "rename":
+            result = _renameTag(tagType, oldValue, newValue, true);
+            if (result.success) {
+              modifiedTypes.add(tagType);
+              if (tagType === "Trip/Event" || tagType === "Category") {
+                compensation = {
+                  kind: "rename",
+                  type: tagType,
+                  oldValue: oldValue,
+                  newValue: newValue,
+                  expensesUpdated: !!result.expensesUpdated,
+                  splitsUpdated: !!result.splitsUpdated,
+                };
+              }
+            }
+            break;
+          case "updateTripType":
+            result = _updateTripType(oldValue, newValue);
+            break;
+          case "updateTripStatus":
+            result = _updateTripStatus(oldValue, newValue);
+            break;
+          default:
+            results.push({
+              index: i,
+              operation: operation,
+              status: "failed",
+              message: "Unknown operation type: " + operationType,
+            });
+            return _rollbackTagBatch(
+              snapshot,
+              compensations,
+              results,
+              operations,
+              i,
+              "Unknown operation type: " + operationType,
+            );
+        }
+
+        if (!result.success) {
+          results.push({
+            index: i,
+            operation: operation,
+            status: "failed",
+            message: result.message,
+          });
+          return _rollbackTagBatch(
+            snapshot,
+            compensations,
+            results,
+            operations,
+            i,
+            "Operation failed at index " + i + ": " + result.message,
+          );
+        }
+
+        results.push({ index: i, operation: operation, status: "applied" });
+        if (compensation) compensations.push(compensation);
       }
 
-      if (!result.success) {
-        results.push({
-          index: i,
-          operation: operation,
-          status: "failed",
-          message: result.message,
-        });
-        return _rollbackTagBatch(
-          snapshot,
-          compensations,
-          results,
-          operations,
-          i,
-          "Operation failed at index " + i + ": " + result.message,
-        );
-      }
-
-      results.push({ index: i, operation: operation, status: "applied" });
-      if (compensation) compensations.push(compensation);
+      // The final sort is part of the batch: if it throws, every operation that
+      // was applied must be rolled back. The last index stops _rollbackTagBatch
+      // marking those already-applied operations as skipped.
+      currentIndex = operations.length - 1;
+      modifiedTypes.forEach((type) => _sortTags(type));
+    } catch (error) {
+      const detail =
+        error && error.message ? String(error.message) : String(error);
+      const failureMessage =
+        "Unexpected error at index " + currentIndex + ": " + detail;
+      results.push({
+        index: currentIndex,
+        operation: operations[currentIndex],
+        status: "failed",
+        message: failureMessage,
+      });
+      return _rollbackTagBatch(
+        snapshot,
+        compensations,
+        results,
+        operations,
+        currentIndex,
+        failureMessage,
+      );
     }
-
-    modifiedTypes.forEach((type) => _sortTags(type));
 
     return {
       success: true,
