@@ -52,3 +52,16 @@ the same pull request. Deferred: backend `.gs` tests in a Node `vm`, service
 contract tests and Playwright journeys, all listed as planned coverage in
 `CLAUDE.md`. This phase was merged without a `plan.md` entry; the re-check in
 section 6 of `AGENTS.md` caught the planning files up afterwards.
+
+## Documentation consolidation
+
+After Phase 2, the user retired the two supporting documents. `CLAUDE.md` was
+merged into `AGENTS.md` and deleted (D-012): section 2 gained the missing rules
+for deep modules, and section 10 now holds the layering and code rules, known
+debt, test layout and style, what else needs tests, and planned coverage.
+`info.txt` was deleted (D-013), leaving `architecture.md` as the only
+architecture map. `README.md` now points at `AGENTS.md`.
+
+In the same pass, the approved happy-dom advisory was fixed (D-011): `npm audit
+fix` moved the lockfile to happy-dom 21.0.4, `npm audit` reports no
+vulnerabilities, and the suite still passes 159 tests.

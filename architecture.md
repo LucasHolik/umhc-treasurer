@@ -1,9 +1,8 @@
 # Architecture
 
 A quick map of the code as it is. Read this before changing anything, then
-follow the links for detail. `info.txt` is the longer reference, with known
-drift listed at the end of this file; this is the short agent map. The design
-and testing rules are in [`CLAUDE.md`](CLAUDE.md).
+follow the links for detail. The design and testing rules are in
+[`AGENTS.md`](AGENTS.md) sections 2, 3 and 10.
 
 ## Shape of the system
 
@@ -33,15 +32,15 @@ components call `ApiService` directly, so do not treat the rule as enforced.
 
 ### Core
 
-| Module                                                       | Responsibility                                                                     | Main interface                                                                                                                    |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/core/state.js`](src/core/state.js)                     | Pub/sub store. Clones values in and out, compares before notifying.                | `store.subscribe(key, fn)`, `store.setState(key, value)`, `store.getState(key)`                                                   |
-| [`src/core/dom.js`](src/core/dom.js)                         | Declarative DOM building, no `innerHTML`. Tracks listeners so they can be removed. | `el(tag, attrs, ...children)`, `replace(el, ...children)`, `cleanup(el)`, `clear(el)`                                             |
-| [`src/core/router.js`](src/core/router.js)                   | Hash router. Toggles the `active` class; does not render anything.                 | `router.register(hash, element)`, `navigate(hash)`, `start()`, `reset()`                                                          |
-| [`src/core/utils.js`](src/core/utils.js)                     | Currency, dates, timeframes, deep clone and equality, escaping.                    | `formatCurrency`, `parseAmount`, `parseDate`, `filterTransactionsByTimeframe`, `deepClone`, `deepEqual`, `escapeHtml`, `debounce` |
-| [`src/core/financial.logic.js`](src/core/financial.logic.js) | Balance maths, including the inversion for `Manual` historical rows.               | `calculateFinancials(openingBalance, transactions)` -> totals and balance                                                         |
-| [`src/core/trip-status.js`](src/core/trip-status.js)         | The four Trip/Event statuses and the rules for current versus past.                | `normaliseTripStatus`, `isPastTripStatus`, `getTripStatusStyle`, `getNextTripStatus`, `partitionTripsByStatus(trips, statusMap)`  |
-| [`src/core/config.js`](src/core/config.js)                   | Paths for the logo and the chart library.                                          | `CONFIG`                                                                                                                          |
+| Module                                                       | Responsibility                                                                               | Main interface                                                                                                                    |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/core/state.js`](src/core/state.js)                     | Pub/sub store. Clones values in and out, compares before notifying.                          | `store.subscribe(key, fn)`, `store.setState(key, value)`, `store.getState(key)`                                                   |
+| [`src/core/dom.js`](src/core/dom.js)                         | Declarative DOM building, no `innerHTML`. Tracks listeners so they can be removed.           | `el(tag, attrs, ...children)`, `replace(el, ...children)`, `cleanup(el)`, `clear(el)`                                             |
+| [`src/core/router.js`](src/core/router.js)                   | Hash router. Toggles the `active` class; `App.js` owns nav state, titles and role redirects. | `router.register(hash, element)`, `navigate(hash)`, `start()`, `reset()`                                                          |
+| [`src/core/utils.js`](src/core/utils.js)                     | Currency, dates, timeframes, deep clone and equality, escaping.                              | `formatCurrency`, `parseAmount`, `parseDate`, `filterTransactionsByTimeframe`, `deepClone`, `deepEqual`, `escapeHtml`, `debounce` |
+| [`src/core/financial.logic.js`](src/core/financial.logic.js) | Balance maths, including the inversion for `Manual` historical rows.                         | `calculateFinancials(openingBalance, transactions)` -> totals and balance                                                         |
+| [`src/core/trip-status.js`](src/core/trip-status.js)         | The four Trip/Event statuses and the rules for current versus past.                          | `normaliseTripStatus`, `isPastTripStatus`, `getTripStatusStyle`, `getNextTripStatus`, `partitionTripsByStatus(trips, statusMap)`  |
+| [`src/core/config.js`](src/core/config.js)                   | Paths for the logo and the chart library.                                                    | `CONFIG`                                                                                                                          |
 
 ### Services
 
@@ -56,7 +55,7 @@ components call `ApiService` directly, so do not treat the rule as enforced.
 
 Each feature is a class that takes its mount element, subscribes to the store
 and exposes `destroy()`. [`src/App.js`](src/App.js) builds the shell, chooses
-login or app, and owns the initial load.
+login or app, owns the initial load and enforces role-based routing.
 
 | Feature                                                               | Responsibility                                                                                                      |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -69,9 +68,10 @@ login or app, and owns the initial load.
 | [`settings`](src/features/settings/settings.component.js)             | Opening balance and accessibility mode.                                                                             |
 
 Pure helpers sit beside the components: `transactions.logic.js` (`filterData`,
-`sortData`, `buildTagSelectorOptions`), `tags.logic.js` (virtual tag lists,
-stats, queue optimisation, `resolveSaveFailure`) and `analysis.logic.js` (date
-ranges, filtering, aggregation, CSV).
+`sortData`, `buildTagSelectorOptions`) and `tags.logic.js` (virtual tag lists,
+stats, queue optimisation, `resolveSaveFailure`). `analysis.logic.js` (date
+ranges, filtering, aggregation, CSV) imports the store, so it is not pure; see
+`AGENTS.md` section 10.2.
 
 ### Shared UI
 
@@ -149,10 +149,10 @@ themselves. `tests/setup.js` registers a browser-like environment with
 happy-dom, so browser modules import cleanly.
 
 Run it with `npm install` once and then `npm test` (Node 22.6 or later);
-`npm run test:watch` re-runs on change. The tests need no browser and no backend. They are
-development only: nothing in `src/` imports `tests/` or `node_modules/`, and
-the app still has no build step. There is no test CI, by choice (see
-`CLAUDE.md`).
+`npm run test:watch` re-runs on change. The tests need no browser and no
+backend. They are development only: nothing in `src/` imports `tests/` or
+`node_modules/`, and the app still has no build step. There is no test CI, by
+choice (see `AGENTS.md` section 10).
 
 ## Deployment and configuration
 
@@ -166,37 +166,16 @@ the app still has no build step. There is no test CI, by choice (see
   are entered by the user and stored in the sheet's Config tab, in plain text;
   they are not in this repository.
 
-## Where the old write-up is wrong
-
-`info.txt` is still useful for detail, but these points differ from the code:
-
-- The workflow mirrors to the UMHC organisation repository; it does not deploy
-  to GitHub Pages from this repository.
-- The router does not enforce roles or update the sidebar. `App.js` does both.
-- Passkeys are plain text in the sheet, not hashes in `Config.gs`.
-- `Service_Sheet.gs` is not the only file that touches `SpreadsheetApp`; the
-  Tags and Split services do too, and Auth reaches the Config sheet through
-  `_getConfigSheet()`.
-- The split sheet is called `Split Transactions`, not `Split History`.
-- Several feature components call `ApiService` directly, despite the intended
-  separation.
-- `.archify/` is not described there.
-
-`CLAUDE.md` asks for `info.txt` to be kept in step, so the remaining drift above
-is debt to fix when that area is next touched.
-
-## Where the code and `CLAUDE.md` disagree
+## Where the code and `AGENTS.md` disagree
 
 These are rule violations, not behaviour to copy:
 
-- `CLAUDE.md` says `Service_Sheet.gs` is the only file that touches
+- `AGENTS.md` says `Service_Sheet.gs` is the only file that touches
   `SpreadsheetApp`. `Service_Tags.gs` and `Service_Split.gs` also call it
   directly.
-- `CLAUDE.md` says `Code.gs` routes only. It also holds `getAppData`, the action
+- `AGENTS.md` says `Code.gs` routes only. It also holds `getAppData`, the action
   allow-lists and the sheet sanitisation helpers.
 
-The frontend debt that `CLAUDE.md` lists (the transactions component, the store
-import in `analysis.logic.js`, the feature import in `transaction.service.js`,
-the `dataUploaded` event and direct `ApiService` imports) still matches the
-code. The two backend items are not in that list and should be added when the
-rules are next revised.
+Both are listed under Known debt in `AGENTS.md` section 10.2, along with the
+frontend debt. This section exists so the disagreement is visible from the
+architecture map.
