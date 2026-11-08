@@ -240,7 +240,7 @@ Keep it short. The detail lives in the planning files; the report should point t
 - **Language and framework**: Vanilla JavaScript (ES modules), no framework and no build step; plain CSS. Backend: Google Apps Script (V8). No TypeScript. Tests: Node's built-in test runner with happy-dom, development only.
 - **Target platforms**: Web. Current Chrome, Edge, Firefox and Safari on desktop, and Chrome on Android and Safari on iOS (about Safari 14.1 and later). Tests run under Node 22.6 or later on macOS (Apple Silicon), Windows 11 and Linux; interface checks are manual in a browser. No GPU or hardware-specific tests (D-008).
 - **Install dependencies**: `npm install` (development only: `@happy-dom/global-registrator`; the app has no runtime dependencies).
-- **Run tests**: `npm test` (159 tests, no browser or backend). `npm run test:watch` re-runs on change.
+- **Run tests**: `npm test` (the full suite, no browser or backend). `npm run test:watch` re-runs on change.
 - **Run slow or hardware-specific tests**: None. The suite takes under a second.
 - **Lint and format**: `npm run format:check` to check, `npm run format` to write (Prettier 3). There is no linter.
 - **Type check**: None. Plain JavaScript with JSDoc comments only.

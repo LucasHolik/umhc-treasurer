@@ -48,10 +48,13 @@ account or a deployed web app.
   - `options.sheets` seeds the fake spreadsheet; the default has a Config sheet
     with test passkeys and opening balance 0, and a Finances sheet with headers.
   - `options.secrets` defaults to a known admin and viewer passkey.
-  - Returns `{ request, sheets, cache, helpers, close }`.
-  - `request(action, params, { role, signed, callback })` builds the JSONP
-    parameter object, signs it with HMAC-SHA256, calls `doGet`, parses the JSONP
-    reply and returns the response object.
+  - Returns `{ request, requestRaw, sheets, cache, helpers, close }`.
+  - `request(action, params, { role, signed, callback, signature })` builds the
+    JSONP parameter object, signs it with HMAC-SHA256, calls `doGet`, parses the
+    JSONP reply and returns the response object. `signature` is a test-only
+    override for wrong-signature tests, and `signed: false` sends none.
+  - `requestRaw` returns `{ raw, mimeType, response }` for exact JSONP and MIME
+    assertions.
   - `helpers` exposes the pure backend functions the tests need, such as
     `_sanitizeForSheet`. Each export is marked in a comment as test-only.
   - Loads every `.gs` file into one `vm` script, so the files share scope
@@ -60,10 +63,14 @@ account or a deployed web app.
   - An unsigned request returns `Unauthorized`.
   - A signed admin `ping` returns success and role admin.
   - A signed viewer write returns `Forbidden`.
+  - A wrong signature on a read is `Unauthorized`.
+  - A wrong signature on a write is `Unauthorized` and changes no cell.
+  - A valid custom callback is honoured, and the MIME type is
+    `application/javascript`.
   - An unsafe JSONP callback name falls back to `callback`.
 - No production changes.
 
-**Tests.** The four above, plus the existing 159.
+**Tests.** The eight above, plus the existing 159.
 
 **Acceptance criteria.**
 
@@ -74,7 +81,7 @@ account or a deployed web app.
 
 **Existing tests affected.** None.
 
-**Status.** todo
+**Status.** done
 
 ### Part 2: Auth, replay and sanitisation
 
@@ -83,8 +90,10 @@ account or a deployed web app.
 **Changes.**
 
 - New `tests/backend/auth.test.js`:
-  - Login as admin and as viewer; a wrong passkey is rejected; a missing
-    passkey is a server misconfiguration.
+  - Login as admin and as viewer; a wrong passkey is rejected; the login for a
+    role whose passkey is missing is rejected as `Unauthorized` before
+    `Service_Auth.login` runs (its "Server misconfigured" branch is
+    unreachable for that role through `doGet`; see D-014).
   - Ten failed logins lock out further attempts; a successful login resets the
     counter.
   - Logout invalidates the session, and the old session key stops working.

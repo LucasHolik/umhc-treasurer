@@ -6,6 +6,24 @@ straight away. A fixed bug names the regression test that covers it.
 
 ## Open
 
+### B-003: A reserved-word JSONP callback is not replaced
+
+**Description.** `createJsonResponse` validates the callback with a regex that
+accepts JavaScript reserved words. A request with `callback=false` or
+`callback=null` produces `false(json)` or `null(json)`, which is not a callable
+wrapper, instead of falling back to `callback`.
+
+**Steps to reproduce.** Call `doGet` with `callback=false`. The reply is not
+valid JSONP.
+
+**Severity.** Low. The browser client always generates a safe identifier, and
+the result is a broken response rather than script injection.
+
+**Where.** `google-apps-script/Code.gs:330`, the callback regex.
+
+**Status.** Open. Found while building the backend harness; not fixed, because
+production code is out of scope for Phase 3 part 1.
+
 ### B-002: A comma-formatted opening balance is read as 1
 
 **Description.** `Service_Sheet.getOpeningBalance()` parses Config!C2 with

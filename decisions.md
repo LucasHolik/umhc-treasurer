@@ -339,3 +339,28 @@ remains in git history if it is ever needed.
 map is more useful than two that disagree.
 
 **Decided by.** User, 2026-11-08. Supersedes D-007 and D-006.
+
+### D-014: A missing passkey is rejected before `Service_Auth.login`
+
+**Question.** Should part 2 of Phase 3 assert "Server misconfigured" for a
+missing passkey?
+
+**Context.** `doGet` verifies the request signature before routing. For
+`login`, `verifyRequest` can only authorise when the signature matches a
+configured passkey, so `Service_Auth.login` never runs for the role whose
+passkey is missing.
+Its "Server misconfigured" branch is unreachable through the public route.
+Reaching it would need a direct call to the service, which breaks the
+test-through-the-public-interface rule.
+
+**Options.** (a) Assert `Unauthorized` through `doGet` and leave the branch as
+defensive code. (b) Test `Service_Auth.login` directly. (c) Change production
+code.
+
+**Choice.** Option (a). Part 2 asserts `Unauthorized`. The branch stays as
+defence in depth and is noted here.
+
+**Reason.** The public interface is what clients see, and `Unauthorized` is the
+secure outcome. Reshaping production code is out of scope for this phase.
+
+**Decided by.** Overseer, 2026-11-08.
