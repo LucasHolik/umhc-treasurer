@@ -5,5 +5,5 @@ Detailed plan for the current phase only. The grand plan is in
 
 No phase is planned yet.
 
-Phase 4 of `rough_plan.md`, backup and restore, is next. It waits on the
-user's decision about the stale `origin/test` branch before it is planned.
+Backup and restore is dropped (D-016). The open bugs are candidates for the
+next phase; see [`bugs.md`](bugs.md).

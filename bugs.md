@@ -21,7 +21,12 @@ affects pagination metadata.
 
 **Where.** `google-apps-script/Service_Split.gs:580` and the return at line 661.
 
-**Status.** Open. Found while writing the split tests; not fixed.
+**Status.** Open. Found while writing the split tests; not fixed. The client
+reads only `hasMore`, so this affects only callers that read `total`.
+
+**Suggested fix.** Return the visible (non-PENDING) count as `total`, or drop
+`total` from the response. Test with a seeded PENDING row and assert the count
+matches `data`. Low priority.
 
 ### B-004: An unexpected write error leaves a tag batch half-applied
 
@@ -45,10 +50,11 @@ the result is a half-applied batch.
 **Where.** `google-apps-script/Service_Tags.gs:743` (`_runTagBatch`), with the
 outer catch at `Service_Tags.gs:72`.
 
-**Status.** Open. Found while building the part 3 rollback test; not fixed in
-this phase. A fix should wrap the operation loop in a `try`/`catch` that calls
-`_rollbackTagBatch`, with a regression test using `failNextWrite("Tags",
-"setValue")`.
+**Status.** Open. Found while building the part 3 rollback test; not fixed.
+
+**Suggested fix.** Wrap the operation loop in `_runTagBatch` in a `try`/`catch`
+that records the failed index and calls `_rollbackTagBatch`, then cover it with
+`failNextWrite("Tags", "setValue")` in `tests/backend/tags.test.js`.
 
 ### B-003: A reserved-word JSONP callback is not replaced
 
@@ -65,8 +71,11 @@ the result is a broken response rather than script injection.
 
 **Where.** `google-apps-script/Code.gs:330`, the callback regex.
 
-**Status.** Open. Found while building the backend harness; not fixed, because
-production code is out of scope for Phase 3 part 1.
+**Status.** Open. Found while building the backend harness; not fixed.
+
+**Suggested fix.** Reject reserved words in `createJsonResponse` before using
+the callback, falling back to `callback`; test with `requestRaw("ping", {},
+{ callback: "false" })` in `tests/backend/code.test.js`.
 
 ## Fixed
 
