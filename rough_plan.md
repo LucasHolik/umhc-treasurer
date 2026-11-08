@@ -17,7 +17,7 @@ anything; and nobody pays for hosting or a database.
 
 ## Phases
 
-### Phase 1: Adopt the agent workflow
+### Phase 1: Adopt the agent workflow (done)
 
 Add `AGENTS.md` and the seven planning files, fill in the project-specific
 section, and make the checks it documents pass. Definition of done: the change

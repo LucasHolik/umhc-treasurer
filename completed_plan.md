@@ -21,5 +21,15 @@ summarised here so a successor knows what already exists.
 
 ## Phase 1: Adopt the agent workflow
 
-Not retired yet. The phase is in `plan.md`; it is retired here once its pull
-request is merged.
+Merged in pull request #5 (merge commit `ef6814e`). What was built:
+
+- `AGENTS.md` at the root, with section 10 filled in for this repository.
+- The seven planning files, seeded from a fresh read of the code.
+- `.archify/` added to `.prettierignore`, so `pnpm format:check` passes.
+
+Key decisions: D-001 (adopt the workflow), D-002 (no `[skip ci]` on `main`),
+D-004 (web target platforms), D-005 (ignore generated `.archify` output) and
+D-006 (`architecture.md` is the maintained map). Deferred: D-003, how the
+self-test suite should run outside a browser, which blocks Phase 2. B-002 (a
+comma-formatted opening balance is read as 1) was found during review and
+recorded, not fixed.
