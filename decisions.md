@@ -394,3 +394,22 @@ concurrency. Write faults are one-shot and match sheet plus method, with an
 optional skip count.
 
 **Decided by.** Overseer, 2026-11-08, within the approved phase.
+
+### D-016: Drop backup and restore
+
+**Question.** Should the proposed backup and restore phase go ahead?
+
+**Context.** `origin/test` holds an unmerged backup and restore attempt from
+before the current split, tag and security work. Phase 4 was only to decide
+whether it was still wanted.
+
+**Options.** (a) Plan and rebuild the feature. (b) Drop it and leave the stale
+branch. (c) Drop it and delete the branch.
+
+**Choice.** Option (b). No backup and restore work. The `origin/test` branch is
+left in place, unused.
+
+**Reason.** The user does not want the feature and is happy with the app as it
+is. Deleting the branch is unnecessary when it is harmless to keep.
+
+**Decided by.** User, 2026-11-08.

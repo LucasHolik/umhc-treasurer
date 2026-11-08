@@ -39,15 +39,9 @@ Approved on 2026-11-08 and completed in the Phase 3 pull request.
 and has 47 tests covering the router, roles, auth, sanitisation, locking, tag
 batches, splits and the B-002 fix.
 
-### Phase 4: Decide the future of backup and restore (proposed, needs agreement)
+### Phase 4 and beyond
 
-An unmerged backup and restore attempt lives on the `origin/test` branch. It
-predates the current split, tag and security work, so it cannot be merged as it
-stands. Decide whether the feature is still wanted and, if it is, plan it as its
-own phase. Definition of done: a closed decision records the answer, and either
-a phase is planned or the stale branch is removed.
-
-### Phase 5 and beyond
-
-To be agreed with the user. Features go here before any code is written, and
-this file is updated whenever direction or scope changes.
+To be agreed with the user. Backup and restore is dropped (D-016), and the
+stale `origin/test` branch is left in place. The open bugs are candidates for
+the next phase; see `bugs.md`. Features go here before any code is written,
+and this file is updated whenever direction or scope changes.
