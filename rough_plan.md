@@ -32,16 +32,12 @@ Diagnostics screen were replaced by a Node suite in `tests/`, which mirrors
 without a browser or backend. Definition of done met: one command runs all 159
 tests. The planning files were aligned with the merged work afterwards.
 
-### Phase 3: Backend test harness (approved, in progress)
+### Phase 3: Backend test harness (done)
 
-Approved by the user on 2026-11-08; `plan.md` holds the five parts.
-
-`AGENTS.md` section 10.5 plans tests for the Apps Script backend by loading the
-`.gs` files into a Node `vm` with in-memory fakes for `SpreadsheetApp`,
-`LockService` and `CacheService`. That harness is also where B-002's regression
-test belongs, and where split, tag rollback and signature behaviour can be
-pinned down. Definition of done: the harness exists, the first backend
-behaviours are tested, and `npm test` runs them.
+Approved on 2026-11-08 and completed in the Phase 3 pull request.
+`tests/backend/` loads the `.gs` files into a Node `vm` with in-memory fakes
+and has 47 tests covering the router, roles, auth, sanitisation, locking, tag
+batches, splits and the B-002 fix.
 
 ### Phase 4: Decide the future of backup and restore (proposed, needs agreement)
 

@@ -146,7 +146,8 @@ The suite is in [`tests/`](tests/), which mirrors `src/`, plus
 [`tests/backend/`](tests/backend/harness.js) for the Apps Script backend. It
 covers utils, financial logic, transactions, tags, trip status, state, DOM,
 Excel parsing, API helpers, analysis, the test helpers themselves, and the
-backend router, auth and sheet fakes. `tests/setup.js` registers a browser-like
+backend router, roles, auth, sanitisation, locking, tag batches, splits and
+opening balance. `tests/setup.js` registers a browser-like
 environment with happy-dom, so browser modules import cleanly; the backend
 harness loads the `.gs` files into a Node `vm`.
 

@@ -364,3 +364,33 @@ defence in depth and is noted here.
 secure outcome. Reshaping production code is out of scope for this phase.
 
 **Decided by.** Overseer, 2026-11-08.
+
+### D-015: Backend tests use a private `vm` harness
+
+**Question.** How should the Apps Script backend be tested in Node?
+
+**Context.** Phase 3 needed tests for the router, auth, locking, tags and
+splits without a Google account or a deployed web app.
+
+**Options.** (a) Call the service functions directly. (b) Drive a deployed web
+app. (c) Load all `.gs` files into one `vm` with in-memory fakes and go through
+`doGet`.
+
+**Choice.** Option (c). `tests/backend/harness.js` loads every `.gs` file into
+one script, exposes `request`/`requestRaw`/`login`/`sheets`/`cache`/`helpers`,
+signs independently, and offers test-only clock, lock and one-shot write-fault
+hooks. `tests/backend/fakes.js` models the Apps Script services.
+
+**Reason.** It exercises the real router, auth and sheet code, keeps the tests
+fast and offline, and makes the fake contract explicit. Direct service calls
+would miss the routing and auth boundary; a deployed app would be slow and
+need credentials.
+
+**Assumptions.** The two-argument `Utilities.computeHmacSha256Signature` is
+modelled as latin1 because the real default is undocumented and production
+always passes `Charset.UTF_8`. The fake A1 parser handles single cells only,
+which is all production uses. The fake lock ignores the timeout and has no
+concurrency. Write faults are one-shot and match sheet plus method, with an
+optional skip count.
+
+**Decided by.** Overseer, 2026-11-08, within the approved phase.

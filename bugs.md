@@ -68,30 +68,6 @@ the result is a broken response rather than script injection.
 **Status.** Open. Found while building the backend harness; not fixed, because
 production code is out of scope for Phase 3 part 1.
 
-### B-002: A comma-formatted opening balance is read as 1
-
-**Description.** `Service_Sheet.getOpeningBalance()` parses Config!C2 with
-`parseFloat`, which stops at a comma. If the cell holds `"1,200"` as text, the
-server returns 1. `calculateFinancials` then receives that number, so its own
-`parseFloat` cannot recover the lost digits. Every balance is wrong by 1199.
-
-**Steps to reproduce.** Format Config cell C2 as plain text, enter `1,200` and
-reload. Settings shows the Base Opening Balance as 1, and the dashboard Current
-Balance is 1 while there are no transactions.
-
-**Severity.** Low. The settings form rejects a comma (it uses `Number()`), and
-a General-format cell coerces `1,200` to a number, so this needs a manually
-formatted text cell.
-
-**Where.** The primary fault is `google-apps-script/Service_Sheet.gs:316`.
-`src/core/financial.logic.js:29` is a secondary defensive parse and cannot fix
-the value on its own.
-
-**Status.** Open. Found during the Phase 1 review and recorded, not fixed. A fix
-belongs in the backend parser, with a regression test that fails without it.
-That test needs the backend harness planned in `AGENTS.md` section 10.5; the
-current Node suite covers only the frontend modules.
-
 ## Fixed
 
 ### B-001: `npm run format:check` fails on `main`
@@ -112,3 +88,28 @@ not pass.
 **Status.** Fixed in Phase 1, part 3 by adding `.archify/` to `.prettierignore`
 (see D-005). There is no unit test for this: `npm run format:check` is the
 check itself, and it now passes on the whole repository.
+
+### B-002: A comma-formatted opening balance is read as 1
+
+**Description.** `Service_Sheet.getOpeningBalance()` parses Config!C2 with
+`parseFloat`, which stops at a comma. If the cell holds `"1,200"` as text, the
+server returns 1. `calculateFinancials` then receives that number, so its own
+`parseFloat` cannot recover the lost digits. Every balance is wrong by 1199.
+
+**Steps to reproduce.** Format Config cell C2 as plain text, enter `1,200` and
+reload. Settings shows the Base Opening Balance as 1, and the dashboard Current
+Balance is 1 while there are no transactions.
+
+**Severity.** Low. The settings form rejects a comma (it uses `Number()`), and
+a General-format cell coerces `1,200` to a number, so this needs a manually
+formatted text cell.
+
+**Where.** The primary fault was `google-apps-script/Service_Sheet.gs:320`.
+`src/core/financial.logic.js:29` is a secondary defensive parse and could not
+fix the value on its own.
+
+**Status.** Fixed in Phase 3, part 5. Regression tests: "a text opening balance
+of 1,200 is read as 1200" and "getAppData reports a comma-formatted opening
+balance as 1200" (`tests/backend/opening-balance.test.js`). The read strips
+thousands separators before `parseFloat`; empty and non-numeric cells still
+give 0, and the cell is not rewritten.

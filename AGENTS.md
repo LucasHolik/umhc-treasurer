@@ -299,9 +299,11 @@ tests in place first.
 - **Before refactoring code without tests,** add characterisation tests that pin down its current behaviour, then refactor.
 - **Money and data integrity get the edge cases:** comma strings, blanks, negatives, manual rows, splits, renames, partial failures and timeouts.
 
-### 10.5 Planned coverage
+### 10.5 Coverage and remaining work
 
-- Services against fakes: `api.service.js` (signing, timeouts, error codes) with a fake JSONP transport, plus `auth.service.js`.
-- Backend: load the `.gs` files into a Node `vm` context with in-memory fakes for `SpreadsheetApp`, `LockService` and `CacheService`. Priorities: split create, revert and edit; tag batch rollback; nested locking; signature and replay checks; sheet sanitisation.
-- Contract tests: client signing and server verification checked against the same fixtures.
-- A few end-to-end journeys in a real browser (Playwright) against a fake backend.
+- Frontend: `tests/` mirrors `src/` and covers the logic modules.
+- Backend: `tests/backend/` loads the `.gs` files into a Node `vm` with
+  in-memory fakes. It covers the router and roles, auth, sanitisation,
+  locking, tag batches, splits and the opening balance.
+- Still planned: `api.service.js` and `auth.service.js` against fakes,
+  client/server signing contract tests, and a few Playwright journeys.
