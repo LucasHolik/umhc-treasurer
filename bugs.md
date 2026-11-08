@@ -24,9 +24,12 @@ affects pagination metadata.
 **Status.** Open. Found while writing the split tests; not fixed. The client
 reads only `hasMore`, so this affects only callers that read `total`.
 
-**Suggested fix.** Return the visible (non-PENDING) count as `total`, or drop
-`total` from the response. Test with a seeded PENDING row and assert the count
-matches `data`. Low priority.
+**Suggested fix.** Remove `total` from the response. The client paginates on
+`hasMore` only, and a visible count would still be wrong for row-based paging
+unless the whole sheet is read and repaginated. Test with one SOURCE and one
+PENDING row: one visible row, `hasMore` false, and no `total` field. If the
+wire shape must stay, document that `total` is physical rows. Low priority;
+defer if scope is tight.
 
 ### B-004: An unexpected write error leaves a tag batch half-applied
 
@@ -52,9 +55,13 @@ outer catch at `Service_Tags.gs:72`.
 
 **Status.** Open. Found while building the part 3 rollback test; not fixed.
 
-**Suggested fix.** Wrap the operation loop in `_runTagBatch` in a `try`/`catch`
-that records the failed index and calls `_rollbackTagBatch`, then cover it with
-`failNextWrite("Tags", "setValue")` in `tests/backend/tags.test.js`.
+**Suggested fix.** Put the `try` inside the `withScriptLock` callback, after the
+snapshot and the batch bookkeeping, wrapping the operation loop and the final
+`_sortTags`. Track the current index; in the catch, push a failed result for it
+and call `_rollbackTagBatch`, returning its structured result. Cover it with
+`failNextWrite("Tags", "setValue")` in `tests/backend/tags.test.js` and assert
+the rollback, the unchanged sheets and the released lock. A helper that throws
+after changing expenses but before returning still leaves that narrow window.
 
 ### B-003: A reserved-word JSONP callback is not replaced
 
@@ -73,9 +80,11 @@ the result is a broken response rather than script injection.
 
 **Status.** Open. Found while building the backend harness; not fixed.
 
-**Suggested fix.** Reject reserved words in `createJsonResponse` before using
-the callback, falling back to `callback`; test with `requestRaw("ping", {},
-{ callback: "false" })` in `tests/backend/code.test.js`.
+**Suggested fix.** Treat reserved names (`false`, `null`, `undefined`, `NaN`,
+`Infinity` and the keywords) like any other invalid callback and fall back to
+`callback`; the reply must stay callable. Test `requestRaw("ping", {},
+{ callback: "false" })` in `tests/backend/code.test.js`, plus `"null"` and
+`"undefined"`; the valid custom name is already covered.
 
 ## Fixed
 
