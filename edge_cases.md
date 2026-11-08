@@ -200,11 +200,11 @@ Transactions, then its Tags write throws before the helper returns.
 **Expected.** The batch restores every changed row, or the response admits
 that the external rows were not reverted.
 
-**Status.** Partly handled. B-006 now restores external rows for a late Tags
-write during delete and for partial external writes during rename. A throw
-inside `removeTagFromSplits` after a partial split write still cannot report
-rows, and its guard is unreachable today because the helper catches its own
-write errors. B-007 covers a missing restore helper.
+**Status.** Handled for the late Tags write during delete and for partial
+external writes during rename (B-006). A throw inside `removeTagFromSplits`
+after a partial split write still cannot report rows, and its guard is
+unreachable today because the helper catches its own write errors. B-007
+covers a missing restore helper.
 
 ### E-031: The post-loop tag sort throws
 

@@ -6,36 +6,6 @@ straight away. A fixed bug names the regression test that covers it.
 
 ## Open
 
-### B-006: A late tag write can leave external rows changed
-
-**Description.** `_deleteTag` removes the tag from Finances and Split
-Transactions, then writes the Tags sheet. If that Tags write throws, the
-helper never returns, so `_runTagBatch` records no compensation.
-`_rollbackTagBatch` restores the Tags sheet and reports "Changes reverted",
-while the external cells stay cleared. `_renameTag` has a narrower version:
-if an external update throws after a partial write, its success flag is still
-false, so the catch reverts the master but not the partially changed rows.
-
-**Steps to reproduce.** In the backend harness, call
-`failNextWrite("Tags", "copyTo")` with the batch
-`[["Food", null, "delete", "Category"], ["", "Travel", "add", "Category"]]`.
-Tags has Food back, but the Food Category cells in Finances and Split
-Transactions are empty, and the response says the changes were reverted.
-
-**Severity.** Medium. The window is narrow, but the response claims a complete
-rollback when external rows are still changed.
-
-**Where.** `google-apps-script/Service_Tags.gs`, `_deleteTag` Step 2 and the
-external updates in `_renameTag`.
-
-**Status.** Open. Found during the Phase 4 part 1 review; scheduled as Phase 5.
-
-**Suggested fix.** In `_deleteTag`, wrap the Tags-sheet writes in a
-`try`/`catch` and restore the recorded expense and split rows before
-returning failure. In `_renameTag`, mark expenses and splits as attempted
-before the calls and revert each independently in the catch. Add a
-fail-after-write harness option for the rename test.
-
 ### B-007: Batch rollback treats a missing split restore helper as success
 
 **Description.** In `_rollbackTagBatch`, when a compensation has non-empty
@@ -167,3 +137,33 @@ affects pagination metadata.
 **Status.** Fixed in Phase 4, part 2 (D-017). Test: "history has no total field
 and paginates on hasMore alone" (`tests/backend/split.test.js`). `total` is
 removed from all three returns; the client paginates on `hasMore` only.
+
+### B-006: A late tag write can leave external rows changed
+
+**Description.** `_deleteTag` removes the tag from Finances and Split
+Transactions, then writes the Tags sheet. If that Tags write throws, the
+helper never returns, so `_runTagBatch` records no compensation.
+`_rollbackTagBatch` restores the Tags sheet and reports "Changes reverted",
+while the external cells stay cleared. `_renameTag` has a narrower version:
+if an external update throws after a partial write, its success flag is still
+false, so the catch reverts the master but not the partially changed rows.
+
+**Steps to reproduce.** In the backend harness, call
+`failNextWrite("Tags", "copyTo")` with the batch
+`[["Food", null, "delete", "Category"], ["", "Travel", "add", "Category"]]`.
+Tags has Food back, but the Food Category cells in Finances and Split
+Transactions are empty, and the response says the changes were reverted.
+
+**Severity.** Medium. The window is narrow, but the response claims a complete
+rollback when external rows are still changed.
+
+**Where.** `google-apps-script/Service_Tags.gs`, `_deleteTag` Step 2 and the
+external updates in `_renameTag`.
+
+**Status.** Fixed in Phase 5. Regression tests (all in
+`tests/backend/tags.test.js`): "a Tags write throw during delete restores the
+external rows", "a Tags write throw during a direct delete restores both
+external sheets", "a Finances write throw during rename reverts the external
+rows", "a Split Transactions write throw during rename reverts the external
+rows", "a failed compensation reports the rename as inconsistent" and "a
+failed batch compensation reports the rename as inconsistent".

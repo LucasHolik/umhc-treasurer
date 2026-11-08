@@ -583,6 +583,10 @@ function _renameTag(type, oldValue, newValue, skipSort) {
     }
 
     try {
+      // Mark each external write as attempted before the call, so a write that
+      // partially lands and then throws (or reports failure) is still
+      // compensated by the catch below.
+      expensesUpdated = true;
       const expenseResult = Service_Sheet.updateExpensesWithTag(
         oldValue,
         newValue,
@@ -591,8 +595,8 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       if (!expenseResult.success) {
         throw new Error("Expenses update failed: " + expenseResult.message);
       }
-      expensesUpdated = true;
 
+      splitsUpdated = true;
       const splitResult = Service_Split.updateTagInSplits(
         oldValue,
         newValue,
@@ -601,7 +605,6 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       if (!splitResult.success) {
         throw new Error("Splits update failed: " + splitResult.message);
       }
-      splitsUpdated = true;
     } catch (error) {
       console.error(
         "Error updating related data after tag rename. Rolling back...",
@@ -609,10 +612,22 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       );
 
       // --- ROLLBACK ---
+      // Track whether any revert fails: if one does, the caller must not be
+      // told the changes were reverted when a sheet is still changed.
+      let revertFailed = false;
+
       // 1. Revert Master Sheet (Optimistic Update)
-      tagSheet
-        .getRange(updateRow, column)
-        .setValue(_sanitizeForSheet(oldValue));
+      try {
+        tagSheet
+          .getRange(updateRow, column)
+          .setValue(_sanitizeForSheet(oldValue));
+      } catch (masterRollbackError) {
+        console.error(
+          "CRITICAL: Exception during Tags master rollback.",
+          masterRollbackError,
+        );
+        revertFailed = true;
+      }
 
       // 2. Revert Expenses Sheet (Compensating Transaction)
       if (expensesUpdated) {
@@ -627,21 +642,21 @@ function _renameTag(type, oldValue, newValue, skipSort) {
               "CRITICAL: Failed to rollback Expenses sheet during rename failure.",
               revertResult,
             );
-            error.message +=
-              " CRITICAL: Failed to revert Expenses sheet. Data is INCONSISTENT. Manual reconciliation required.";
+            revertFailed = true;
           }
         } catch (rollbackError) {
           console.error(
             "CRITICAL: Exception during Expenses rollback.",
             rollbackError,
           );
-          error.message +=
-            " CRITICAL: Exception during Expenses rollback. Data is INCONSISTENT. Manual reconciliation required.";
+          revertFailed = true;
         }
+      }
 
-        // 3. Revert Splits Sheet (Compensating Transaction)
-        // Even if the initial split update failed, we attempt to revert (New -> Old)
-        // to handle potential partial updates or false-negatives.
+      // 3. Revert Splits Sheet (Compensating Transaction)
+      // The two external reverts are independent: a partial split write must
+      // be reverted even when the Expenses update never succeeded.
+      if (splitsUpdated) {
         try {
           const splitRevert = Service_Split.updateTagInSplits(
             newValue,
@@ -649,23 +664,29 @@ function _renameTag(type, oldValue, newValue, skipSort) {
             type,
           );
           if (!splitRevert.success) {
-            console.warn(
-              "Splits rollback warning (may be expected if initial update failed cleanly): " +
-                splitRevert.message,
+            console.error(
+              "CRITICAL: Failed to rollback Splits sheet during rename failure.",
+              splitRevert,
             );
+            revertFailed = true;
           }
         } catch (splitRollbackError) {
-          console.warn(
-            "Splits rollback exception (ignoring as this is a best-effort cleanup):",
+          console.error(
+            "CRITICAL: Exception during Splits rollback.",
             splitRollbackError,
           );
+          revertFailed = true;
         }
       }
 
       return {
         success: false,
-        message:
-          "Tag rename failed during dependent updates. Changes reverted.",
+        message: revertFailed
+          ? "Tag rename failed and the external rows could not all be restored. Data is INCONSISTENT. Manual reconciliation required."
+          : "Tag rename failed during dependent updates. Changes reverted.",
+        expensesUpdated: expensesUpdated,
+        splitsUpdated: splitsUpdated,
+        revertFailed: revertFailed,
       };
     }
   }
@@ -894,6 +915,23 @@ function _runTagBatch(operations) {
                   splitsUpdated: !!result.splitsUpdated,
                 };
               }
+            } else if (
+              (tagType === "Trip/Event" || tagType === "Category") &&
+              result.revertFailed
+            ) {
+              // The rename's own revert failed, so external rows may still
+              // carry the new value. Record the compensation so the batch
+              // rollback retries the revert instead of trusting its claim.
+              // When the in-helper revert succeeded, recording it would repeat
+              // a write that is no longer needed.
+              compensation = {
+                kind: "rename",
+                type: tagType,
+                oldValue: oldValue,
+                newValue: newValue,
+                expensesUpdated: !!result.expensesUpdated,
+                splitsUpdated: !!result.splitsUpdated,
+              };
             }
             break;
           case "updateTripType":

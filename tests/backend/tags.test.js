@@ -699,3 +699,204 @@ test("renaming a tag updates expense rows and split-history rows", (t) => {
     ["Category", "Meals", "Transport", "Meals"],
   );
 });
+
+test("a Finances write throw during rename reverts the external rows", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+  const warn = t.mock.method(console, "warn", () => {});
+
+  // The expense update applies "Meals" and then throws on the way back. The
+  // helper catches that and reports failure, so the rename cannot rely on the
+  // call returning before it records that the external write was attempted.
+  backend.helpers.failNextWrite("Finances", "setValues", { when: "after" });
+  const response = backend.request("renameTag", {
+    type: "Category",
+    oldValue: "Food",
+    newValue: "Meals",
+  });
+
+  assert.equal(response.success, false);
+  assert.match(response.message, /Tag rename failed/);
+  assert.match(response.message, /Changes reverted/);
+
+  // Every sheet is back to its pre-rename state, including the partial
+  // external write that landed before the fault.
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(backend.sheets.get("Finances"), FINANCES);
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+
+  assert.ok(
+    error.mock.calls.some((call) =>
+      call.arguments.some((argument) =>
+        String(argument).includes("Expenses update failed"),
+      ),
+    ),
+    "the rename reports the failed expense update",
+  );
+  assert.equal(warn.mock.calls.length, 0, "a clean rollback logs no warning");
+  assert.equal(backend.helpers.isScriptLockHeld(), false);
+  assert.equal(backend.helpers.getScriptLockDepth(), 0);
+
+  // The fault is one-shot: a normal retry succeeds and sets Meals.
+  const retry = backend.request("renameTag", {
+    type: "Category",
+    oldValue: "Food",
+    newValue: "Meals",
+  });
+  assert.equal(retry.success, true);
+  assert.deepEqual(backend.sheets.get("Tags"), [
+    TAG_HEADERS,
+    ["Winter Trip", "Competitive", "Active", "Meals", "Competitive"],
+    ["Summer Trip", "Social", "Completed", "Transport", "Social"],
+  ]);
+  assert.deepEqual(
+    backend.sheets.get("Finances").map((row) => row[5]),
+    ["Category", "Meals", "Transport", "Meals"],
+  );
+  assert.deepEqual(
+    backend.sheets.get("Split Transactions").map((row) => row[5]),
+    ["Category", "Meals", "Transport", "Meals"],
+  );
+});
+
+test("a failed compensation reports the rename as inconsistent", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+
+  // Two faults on the Finances column: the expense update applies "Meals" and
+  // then throws, and the compensating write back to "Food" throws before
+  // changing anything. The response must not claim the changes were reverted
+  // while the partial write remains; this test pins that false-claim fix.
+  backend.helpers.failNextWrite("Finances", "setValues", { when: "after" });
+  backend.helpers.failNextWrite("Finances", "setValues");
+  const response = backend.request("renameTag", {
+    type: "Category",
+    oldValue: "Food",
+    newValue: "Meals",
+  });
+
+  assert.equal(response.success, false);
+  assert.match(response.message, /Data is INCONSISTENT/);
+  assert.doesNotMatch(response.message, /Changes reverted/);
+
+  // The Tags master is back to Food and the split history was never reached,
+  // but the partial expense write stays Meals because its revert failed.
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(
+    backend.sheets.get("Finances").map((row) => row[5]),
+    ["Category", "Meals", "Transport", "Meals"],
+  );
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+  assert.equal(backend.helpers.isScriptLockHeld(), false);
+  assert.equal(backend.helpers.getScriptLockDepth(), 0);
+
+  assert.ok(
+    error.mock.calls.some((call) =>
+      String(call.arguments[0]).includes("Failed to rollback Expenses sheet"),
+    ),
+    "the failed expense compensation is logged",
+  );
+});
+
+test("a failed batch compensation reports the rename as inconsistent", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+
+  // This pins the batch path: the rename's expense update applies "Meals" and
+  // then throws, its own revert fails, and the batch's compensation retry
+  // fails too. The batch must not turn the rename's inconsistency into a clean
+  // "Changes reverted" claim.
+  backend.helpers.failNextWrite("Finances", "setValues", { when: "after" });
+  backend.helpers.failNextWrite("Finances", "setValues");
+  backend.helpers.failNextWrite("Finances", "setValues");
+
+  const response = backend.request("processTagOperations", {
+    operations: [["Food", "Meals", "rename", "Category"]],
+  });
+
+  assert.equal(response.success, false);
+  assert.match(response.message, /Data is INCONSISTENT/);
+  assert.doesNotMatch(response.message, /Changes reverted/);
+  assert.equal(response.rollback.attempted, true);
+  assert.equal(response.rollback.success, false);
+
+  // The Tags snapshot is restored; the partial expense write stays "Meals"
+  // because both the rename's own revert and the batch retry failed, and the
+  // split history was never reached.
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(
+    backend.sheets.get("Finances").map((row) => row[5]),
+    ["Category", "Meals", "Transport", "Meals"],
+  );
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+  assert.equal(backend.helpers.isScriptLockHeld(), false);
+  assert.equal(backend.helpers.getScriptLockDepth(), 0);
+
+  assert.ok(
+    error.mock.calls.some((call) =>
+      String(call.arguments[0]).includes("Expenses rename rollback failed"),
+    ),
+    "the batch reports the failed rename rollback",
+  );
+});
+
+test("a Split Transactions write throw during rename reverts the external rows", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+  const warn = t.mock.method(console, "warn", () => {});
+
+  // The expense update succeeds, then the split update applies "Meals" and
+  // throws on the way back. The split helper catches that and reports failure,
+  // so the split revert must not be guarded by the expense flag.
+  backend.helpers.failNextWrite("Split Transactions", "setValues", {
+    when: "after",
+  });
+  const response = backend.request("renameTag", {
+    type: "Category",
+    oldValue: "Food",
+    newValue: "Meals",
+  });
+
+  assert.equal(response.success, false);
+  assert.match(response.message, /Tag rename failed/);
+  assert.match(response.message, /Changes reverted/);
+
+  // The Tags master, the expense rows and the partial split write all return
+  // to the old tag.
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(backend.sheets.get("Finances"), FINANCES);
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+
+  assert.ok(
+    error.mock.calls.some((call) =>
+      call.arguments.some((argument) =>
+        String(argument).includes("Splits update failed"),
+      ),
+    ),
+    "the rename reports the failed split update",
+  );
+  assert.equal(warn.mock.calls.length, 0, "a clean rollback logs no warning");
+  assert.equal(backend.helpers.isScriptLockHeld(), false);
+  assert.equal(backend.helpers.getScriptLockDepth(), 0);
+
+  // The fault is one-shot: a normal retry succeeds and sets Meals.
+  const retry = backend.request("renameTag", {
+    type: "Category",
+    oldValue: "Food",
+    newValue: "Meals",
+  });
+  assert.equal(retry.success, true);
+  assert.deepEqual(backend.sheets.get("Tags"), [
+    TAG_HEADERS,
+    ["Winter Trip", "Competitive", "Active", "Meals", "Competitive"],
+    ["Summer Trip", "Social", "Completed", "Transport", "Social"],
+  ]);
+  assert.deepEqual(
+    backend.sheets.get("Finances").map((row) => row[5]),
+    ["Category", "Meals", "Transport", "Meals"],
+  );
+  assert.deepEqual(
+    backend.sheets.get("Split Transactions").map((row) => row[5]),
+    ["Category", "Meals", "Transport", "Meals"],
+  );
+});
