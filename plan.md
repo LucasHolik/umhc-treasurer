@@ -157,8 +157,8 @@ removed. No production changes. `npm test` and `npm run format:check` pass.
   - A mixed income and expense split keeps the per-child type.
   - Revert clears the group ID and removes the group's rows.
   - Edit replaces the splits and keeps the other tags.
-  - A stale PENDING group is swept, and a failure after PENDING leaves no
-    orphan rows.
+  - Reads hide PENDING rows; the next split write sweeps a stale group. A
+    failure after PENDING leaves no orphan rows.
 
 **Tests.** As above.
 
@@ -167,7 +167,7 @@ values. No production changes. `npm test` and `npm run format:check` pass.
 
 **Existing tests affected.** None.
 
-**Status.** todo
+**Status.** done
 
 ### Part 5: Fix B-002 and add its regression test
 

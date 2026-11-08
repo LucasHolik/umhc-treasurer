@@ -137,10 +137,11 @@ from the ledger.
 **Situation.** The Apps Script execution dies between marking rows PENDING and
 promoting them.
 
-**Expected.** A stale-PENDING sweep removes the half-written group on a later
-run, so no orphan children remain.
+**Expected.** History reads hide PENDING rows. The next split write sweeps
+PENDING rows older than 10 minutes, so no orphan children remain.
 
-**Status.** Handled in `Service_Split.gs`; backend only, no automated test.
+**Status.** Handled. Test: "history reads hide PENDING rows and a later split
+sweeps the stale ones" (`tests/backend/split.test.js`).
 
 ## Tags
 

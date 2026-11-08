@@ -94,7 +94,9 @@ const WRITE_METHODS = new Set([
 // Test-only one-shot write faults. The harness schedules one; the next
 // matching write throws before changing any cell, so the backend sees an
 // ordinary Apps Script write failure and its rollback paths can run. Omitting
-// the method matches any write to that sheet.
+// the method matches any write to that sheet. `skip` lets a test target a
+// later matching write, for example the split promotion after the PENDING
+// append: the first `skip` matches pass through and the next one throws.
 function createWriteFaults() {
   const pending = [];
 
@@ -106,7 +108,7 @@ function createWriteFaults() {
   }
 
   return {
-    schedule(sheetName, method) {
+    schedule(sheetName, method, options = {}) {
       if (typeof sheetName !== "string" || sheetName === "") {
         throw new TypeError(
           "Write-fault sheet name must be a non-empty string",
@@ -117,18 +119,36 @@ function createWriteFaults() {
           throw new TypeError(`Unknown write method: ${String(method)}`);
         }
       }
+      if (
+        options === null ||
+        typeof options !== "object" ||
+        Array.isArray(options)
+      ) {
+        throw new TypeError("Write-fault options must be an object");
+      }
+      const skip = options.skip === undefined ? 0 : options.skip;
+      if (!Number.isInteger(skip) || skip < 0) {
+        throw new TypeError("Write-fault skip must be a non-negative integer");
+      }
       pending.push({
         sheetName: sheetName,
         method: method === undefined || method === null ? null : method,
+        skip: skip,
       });
     },
 
     // Returns the one-shot error to throw, or null when no fault matches.
+    // A matching fault with a remaining skip count is consumed silently.
     take(sheetName, method) {
       const index = pending.findIndex((fault) =>
         matches(fault, sheetName, method),
       );
       if (index === -1) return null;
+      const fault = pending[index];
+      if (fault.skip > 0) {
+        fault.skip -= 1;
+        return null;
+      }
       pending.splice(index, 1);
       return new Error(`Injected write failure: ${method} on ${sheetName}`);
     },

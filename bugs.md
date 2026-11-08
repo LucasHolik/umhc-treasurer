@@ -6,6 +6,23 @@ straight away. A fixed bug names the regression test that covers it.
 
 ## Open
 
+### B-005: Split history total counts hidden PENDING rows
+
+**Description.** `getSplitHistory` filters PENDING rows out of `data` but
+returns `total` as `lastRow - 1`, which still counts them. A caller can see a
+total larger than the rows that are ever returned, and pagination driven by
+`total` overcounts.
+
+**Steps to reproduce.** Seed a PENDING row in Split Transactions and call
+`getSplitHistory`. The row is absent from `data` but included in `total`.
+
+**Severity.** Low. No money or data is changed; the count is cosmetic and
+affects pagination metadata.
+
+**Where.** `google-apps-script/Service_Split.gs:580` and the return at line 661.
+
+**Status.** Open. Found while writing the split tests; not fixed.
+
 ### B-004: An unexpected write error leaves a tag batch half-applied
 
 **Description.** `_runTagBatch` has no `try`/`catch` around its operation
