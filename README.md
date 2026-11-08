@@ -77,7 +77,7 @@ npm install   # once
 npm test
 ```
 
-See [CLAUDE.md](CLAUDE.md) for the design and testing rules.
+See [AGENTS.md](AGENTS.md) for the workflow, design and testing rules.
 
 ## 🏗️ Architecture
 

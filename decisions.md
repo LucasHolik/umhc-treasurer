@@ -6,26 +6,7 @@ agent. A closed decision is only reopened by a new entry that supersedes it.
 
 ## Open
 
-### D-011: happy-dom 21.0.3 has a high-severity advisory
-
-**Question.** How should the development dependency be handled?
-
-**Context.** `npm audit` reports GHSA-834v-8h66-3h79 (CVE-2026-33943) for
-happy-dom 17.0.0 to 21.0.3: an unsanitised import alias can lead to host code
-execution. Version 21.0.4 is available, and `npm audit fix` updates to it
-within the current `^21.0.3` range. happy-dom is development only, is never
-shipped, and the tests import local modules rather than untrusted HTML.
-
-**Options.** (a) Run `npm audit fix`, take 21.0.4 and re-run the tests. (b)
-Stay on 21.0.3 and accept the development-only risk. (c) Replace happy-dom
-with jsdom.
-
-**Recommendation.** Option (a). It is a patch bump inside the existing range,
-so no API change is expected. Options (b) and (c) are more work for a
-development-only tool.
-
-**Status.** Open, needs the user, because it changes `package-lock.json`. The
-`^21.0.3` range already allows 21.0.4, so `package.json` does not change.
+None open.
 
 ## Closed
 
@@ -183,7 +164,7 @@ part, and must not be trusted over the code or `architecture.md`.
 **Reason.** The workflow already updates `architecture.md`. Two maintained maps
 would drift apart, and a stale map is worse than a short current one.
 
-**Superseded by.** D-007.
+**Superseded by.** D-007, then D-013.
 
 **Decided by.** Overseer, 2026-11-08.
 
@@ -210,6 +191,8 @@ useful. The two documents have different jobs, so they do not need to duplicate
 each other.
 
 **Decided by.** User, via `CLAUDE.md`, 2026-11-08. Supersedes D-006.
+
+**Superseded by.** D-013.
 
 ### D-008: Test platforms after the Node suite
 
@@ -284,3 +267,75 @@ Keeping them separate lets each stay readable.
 
 **Decided by.** Overseer, 2026-11-08. The user can merge them later if the split
 becomes annoying.
+
+**Superseded by.** D-012.
+
+### D-011: happy-dom 21.0.3 has a high-severity advisory
+
+**Question.** How should the development dependency be handled?
+
+**Context.** `npm audit` reports GHSA-834v-8h66-3h79 (CVE-2026-33943) for
+happy-dom 17.0.0 to 21.0.3: an unsanitised import alias can lead to host code
+execution. Version 21.0.4 is available, and `npm audit fix` updates to it
+within the current `^21.0.3` range. happy-dom is development only, is never
+shipped, and the tests import local modules rather than untrusted HTML.
+
+**Options.** (a) Run `npm audit fix`, take 21.0.4 and re-run the tests. (b)
+Stay on 21.0.3 and accept the development-only risk. (c) Replace happy-dom
+with jsdom.
+
+**Recommendation.** Option (a). It is a patch bump inside the existing range,
+so no API change is expected. Options (b) and (c) are more work for a
+development-only tool.
+
+**Choice.** Option (a). `npm audit fix` updated happy-dom from 21.0.3 to 21.0.4
+in `package-lock.json`; `package.json` did not change. `npm audit` reports no
+vulnerabilities and `npm test` still passes 159 tests.
+
+**Reason.** It is a lockfile-only patch that clears the advisory without
+changing the API or the dependencies the app ships.
+
+**Decided by.** User, 2026-11-08.
+
+### D-012: Retire `CLAUDE.md` into `AGENTS.md`
+
+**Question.** Should the separate `CLAUDE.md` remain?
+
+**Context.** `CLAUDE.md`, added in PR #4, held the design and testing rules. It
+overlapped `AGENTS.md` sections 2 and 3, pointed at `info.txt`, and split the
+policy across two files. The user asked for one policy file with the repo
+specifics inside `AGENTS.md`.
+
+**Options.** (a) Keep both files. (b) Merge `CLAUDE.md` into `AGENTS.md` and
+delete it.
+
+**Choice.** Option (b). `AGENTS.md` section 2 gained the missing deep-module
+rules, and section 10 now holds the layering and code rules, known debt, test
+layout and style, what else needs tests, and planned coverage.
+`CLAUDE.md` is deleted and `README.md` points at `AGENTS.md`.
+
+**Reason.** One policy file is easier to keep current, and `CLAUDE.md` no longer
+has a separate audience or job.
+
+**Decided by.** User, 2026-11-08. Supersedes D-010.
+
+### D-013: Retire `info.txt`
+
+**Question.** Should `info.txt` remain as a second architecture document?
+
+**Context.** `info.txt` was a 30 KB detailed write-up. D-007 had brought it back
+into the maintained set, but it had already drifted in several places and
+duplicated `architecture.md`. The user said there is no point in keeping it.
+
+**Options.** (a) Keep and maintain both maps. (b) Delete `info.txt` and keep
+`architecture.md` as the only map.
+
+**Choice.** Option (b). `info.txt` is deleted. `architecture.md` is the only
+architecture document, and `AGENTS.md` section 10 holds the rules. The facts
+from `info.txt` that are still useful are in `architecture.md`. The old file
+remains in git history if it is ever needed.
+
+**Reason.** Two maps drifted apart, and the detailed one was stale. One current
+map is more useful than two that disagree.
+
+**Decided by.** User, 2026-11-08. Supersedes D-007 and D-006.

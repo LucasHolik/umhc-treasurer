@@ -25,10 +25,10 @@ formatted text cell.
 `src/core/financial.logic.js:29` is a secondary defensive parse and cannot fix
 the value on its own.
 
-**Status.** Open. Found during the Phase 1 review and recorded, not fixed. A
-fix belongs in the backend parser, with a regression test that fails without
-it. That test needs the backend harness planned in `CLAUDE.md`; the current
-Node suite covers only the frontend modules.
+**Status.** Open. Found during the Phase 1 review and recorded, not fixed. A fix
+belongs in the backend parser, with a regression test that fails without it.
+That test needs the backend harness planned in `AGENTS.md` section 10.5; the
+current Node suite covers only the frontend modules.
 
 ## Fixed
 

@@ -34,10 +34,15 @@ Sessions end, contexts get compacted and containers get reclaimed, so work must 
 Prefer modules with a **small, simple interface** that hide a **large amount of complexity** underneath.
 
 - A caller should be able to use a module correctly by reading its signature and a short docstring, without knowing how it works inside.
+- **The interface is everything a caller must know**, not just the exports: arguments, return shapes, error codes, store keys the caller must set or watch, events it must fire, and the order calls must happen in. Keep all of that small.
+- **Give callers whole jobs.** Prefer `saveTagChanges(changes)` to a set of functions the caller must sequence (build payload, chunk, send, report progress, classify errors, reload).
 - Fewer, more powerful functions beat many shallow ones that each do a little. Avoid pass-through layers and wrappers that add no abstraction.
 - Hide implementation details (data formats, retries, caching, edge cases) inside the module. Do not leak them through parameters or return types.
+- **Hide decisions that are likely to change** (sheet columns, batch sizes, timeouts, wire formats, retry policy) inside exactly one module.
+- **Define errors out of existence where it is safe.** Treat empty or missing input as an empty result, and normalise unknown values to a safe default (as `normaliseTripStatus` does). Throw only when the caller can act on it.
 - Pick sensible defaults so that the common case needs no configuration.
 - If a change forces callers to learn more about a module's internals, treat that as a design smell and rethink the interface.
+- **Warning signs of a shallow module:** callers that need its internal constants, functions that just pass arguments through, calls that must happen in a set order, and several small modules that cannot be used without each other. A large file is not automatically deep: a 1,800-line component whose callers and tests must know its store keys and events is large and shallow.
 
 ### Build for future expansion
 
@@ -58,7 +63,7 @@ Prefer modules with a **small, simple interface** that hide a **large amount of 
 - An intentional behaviour change must be stated explicitly in `plan.md` (which tests change and why) and approved by the user before those tests are touched.
 - If an existing test fails during implementation, the assumption is that the new code is wrong, not the test. Fix the code. If the implementer believes the test itself is wrong, it stops and reports; it does not change the test.
 - Bug fixes must include a new test that fails without the fix.
-- Run the full test suite, not just new tests, before any part is considered done.
+- Run the full test suite, not just new tests, before any part is considered done. Run `npm test` locally before every commit and PR.
 - Linting, formatting and type checks (whichever the project uses, see section 10) must also pass before a part is done. Treat their failures like test failures.
 
 ### Run tests locally, not on CI
@@ -88,7 +93,7 @@ Agents may also be running in a Linux cloud container with no GPU.
 For every part in `plan.md`:
 
 0. **Check the baseline.** Before starting, run the test suite on the current branch. If anything already fails, record it in `bugs.md` and tell the user, so pre-existing failures are not blamed on the new part, and the implementer is not tempted to "fix" tests to get a green run.
-1. **Brief the implementer.** Give it: the part's section of `plan.md`, the relevant excerpt of `architecture.md`, the files it is expected to touch, the relevant entries from `decisions.md`, `bugs.md` and `edge_cases.md`, and the rules in sections 2 and 3 of this file.
+1. **Brief the implementer.** Give it: the part's section of `plan.md`, the relevant excerpt of `architecture.md`, the files it is expected to touch, the relevant entries from `decisions.md`, `bugs.md` and `edge_cases.md`, and the rules in sections 2, 3 and 10 of this file.
 2. **Implementer** builds the part and its tests, runs the full test suite, and reports:
    - What it changed.
    - Any decisions it had to make that the plan did not cover. It makes only obvious ones; a non-obvious decision means it stops and reports instead of guessing.
@@ -232,7 +237,7 @@ Keep it short. The detail lives in the planning files; the report should point t
 ## 10. Project specifics
 
 - **What it is**: A browser app for the UMHC treasurer: dashboard, transactions, tags, analysis and Excel import for the club's accounts. The frontend is static, the API is Google Apps Script and the database is a Google Sheet.
-- **Language and framework**: Vanilla JavaScript (ES modules), no framework and no build step; plain CSS. Backend: Google Apps Script (V8). No TypeScript. Tests: Node's built-in test runner with happy-dom, development only. The design and testing rules are in [`CLAUDE.md`](CLAUDE.md).
+- **Language and framework**: Vanilla JavaScript (ES modules), no framework and no build step; plain CSS. Backend: Google Apps Script (V8). No TypeScript. Tests: Node's built-in test runner with happy-dom, development only.
 - **Target platforms**: Web. Current Chrome, Edge, Firefox and Safari on desktop, and Chrome on Android and Safari on iOS (about Safari 14.1 and later). Tests run under Node 22.6 or later on macOS (Apple Silicon), Windows 11 and Linux; interface checks are manual in a browser. No GPU or hardware-specific tests (D-008).
 - **Install dependencies**: `npm install` (development only: `@happy-dom/global-registrator`; the app has no runtime dependencies).
 - **Run tests**: `npm test` (159 tests, no browser or backend). `npm run test:watch` re-runs on change.
@@ -241,3 +246,62 @@ Keep it short. The detail lives in the planning files; the report should point t
 - **Type check**: None. Plain JavaScript with JSDoc comments only.
 - **Build or run**: No build step. Serve the repository root over HTTP, for example `python3 -m http.server`, then open `http://localhost:8000`. `npm start` only prints a message. `file://` will not work because of ES modules, and a plain HTTP address on the local network will not work because `crypto.subtle` needs a secure context (HTTPS or localhost).
 - **Anything unusual**: Google Apps Script changes need the changed `.gs` files pasted into the editor and the web app redeployed; the app needs a script URL and passkey to log in, but the tests do not. Requests are JSONP and signed with HMAC-SHA256. Tests and their dependencies are development only: nothing in `src/` imports `tests/` or `node_modules/`. The `npm test` script needs Node 22.6 or later: Node 20 does not expand the quoted glob, and Node 22.0 to 22.5 fail three debounce tests in the mock timers. With `node --test tests/`, the suite itself also passes on Node 20. There is no test CI by choice, so run `npm test` locally. Commits to `main` must not carry `[skip ci]`, because the only workflow mirrors `main` to `UMHC/umhc-treasury` and there is no test job to skip (D-002). `src/lib/` is vendored and not formatted; generated `.archify/` output is not formatted either (D-005).
+
+### 10.1 Layering and code rules
+
+Dependencies point one way: `core` <- `services` <- `features`, and
+`shared` <- `features`.
+
+- `src/core/` and `*.logic.js` files are pure: no store, no API, no DOM, no storage. Take inputs, return outputs.
+- `src/services/` and `src/core/` never import from `src/features/`.
+- Components are thin. They render state and turn user actions into a single call on a service or logic module. Batching, retries, error classification and data shaping do not belong in components.
+- Modules talk through the store or explicit callbacks. Do not add new global `document` events.
+- Backend: `Code.gs` routes only, `Service_Sheet.gs` is the only file that touches `SpreadsheetApp`, and `Service_Lock.gs` is the only file that touches `LockService`.
+
+Apply SOLID where it pays:
+
+- **Single responsibility:** one module per concept (tagging, splitting, reconciliation, Excel import), not one per function. Never split a deep module into shallow pieces just to satisfy the rule.
+- **Open/closed:** new features arrive as new files. Prefer extending through data (status tables, column maps, config objects) over growing `if`/`switch` chains.
+- **Liskov substitution:** anything that stands in for a real dependency, including test fakes, must honour the same contract: same return shapes, same error codes (`TIMEOUT`, `NETWORK`, `BUSY`), same edge-case behaviour.
+- **Interface segregation:** export only what callers need. Pure helpers may be exported for tests; say so in a comment next to the export.
+- **Dependency inversion (the one that matters most):** logic depends on what it is given, not on fixed instances. Pass the store, API, clock or storage in (constructor or argument), with the real one as the default, so tests can substitute fakes.
+
+### 10.2 Known debt
+
+The code does not fully follow these rules yet. Do not rewrite everything at
+once: when you change one of these areas, move it towards the rules, with
+tests in place first.
+
+- `src/features/transactions/transactions.component.js` holds business logic (building update payloads, batching saves, classifying errors). Similar batching is repeated in the bulk tagging and upload code.
+- `src/features/analysis/analysis.logic.js` imports the store and calls `setState("error", ...)`, so it is not pure.
+- `src/services/transaction.service.js` imports `sortData` from `src/features/transactions/transactions.logic.js` (wrong direction).
+- Components coordinate reloads through the global `dataUploaded` event.
+- Most components import the store and `ApiService` directly instead of receiving them.
+- Backend: `Code.gs` holds `getAppData`, the action allow-lists and the sheet sanitisation helpers, so it does more than route.
+- Backend: `Service_Tags.gs` and `Service_Split.gs` call `SpreadsheetApp` directly instead of going through `Service_Sheet.gs`.
+
+### 10.3 Test layout and style
+
+- `tests/` mirrors `src/`: `src/core/utils.js` is tested in `tests/core/utils.test.js`.
+- `tests/setup.js` is preloaded for every file and provides a browser-like global environment (happy-dom), so browser modules import cleanly.
+- Shared helpers live in `tests/helpers/`.
+- Use `node:test` and `node:assert/strict`. One test file per module. Name each test after the behaviour it checks.
+- Test through the public interface. If a test needs a private detail, the interface is probably too shallow.
+- Keep tests independent. Restore anything shared that a test changes (store keys, globals, storage); use a test-only store key.
+- When code is expected to log, mock it with `t.mock.method(console, ...)` and assert the call, so a passing run prints nothing.
+- Give `assert.throws` the expected error (a regex or class), so an unrelated error cannot make the test pass.
+- Never wait on real time. Use `t.mock.timers` for timeouts and debounces, and pass dates in rather than relying on today's date where possible.
+- At boundaries (API transport, storage, clock, spreadsheet), prefer small in-memory fakes that honour the real contract over call-by-call mocks.
+
+### 10.4 What else needs tests
+
+- **Every new logic or service module** comes with tests.
+- **Before refactoring code without tests,** add characterisation tests that pin down its current behaviour, then refactor.
+- **Money and data integrity get the edge cases:** comma strings, blanks, negatives, manual rows, splits, renames, partial failures and timeouts.
+
+### 10.5 Planned coverage
+
+- Services against fakes: `api.service.js` (signing, timeouts, error codes) with a fake JSONP transport, plus `auth.service.js`.
+- Backend: load the `.gs` files into a Node `vm` context with in-memory fakes for `SpreadsheetApp`, `LockService` and `CacheService`. Priorities: split create, revert and edit; tag batch rollback; nested locking; signature and replay checks; sheet sanitisation.
+- Contract tests: client signing and server verification checked against the same fixtures.
+- A few end-to-end journeys in a real browser (Playwright) against a fake backend.
