@@ -192,6 +192,29 @@ duplicate.
 **Status.** Handled (`tests/features/tags/tags.logic.test.js`). Test:
 "calculateTagStats rename merges into an existing tag".
 
+### E-030: A tag helper throws after changing external rows
+
+**Situation.** `_deleteTag` or `_renameTag` changes Finances or Split
+Transactions, then its Tags write throws before the helper returns.
+
+**Expected.** The batch restores every changed row, or the response admits
+that the external rows were not reverted.
+
+**Status.** Not handled (B-006). Tags is restored, but the external Category
+cells stay changed while the response says the changes were reverted.
+
+### E-031: The post-loop tag sort throws
+
+**Situation.** Every operation applies, then `_sortTags` throws while writing
+the Tags sheet.
+
+**Expected.** The batch rolls back and the lock is released. The last applied
+operation may appear once as rolled back and once as failed; that duplicate is
+cosmetic and the client reads `appliedOperations`.
+
+**Status.** Handled. Test: "a throw in the post-loop sort rolls the batch
+back" (`tests/backend/tags.test.js`).
+
 ## Excel import
 
 ### E-017: Dates arrive as DD/MM/YYYY, impossible dates, or ISO strings
@@ -277,6 +300,18 @@ user sees "System is busy" rather than a client timeout. Writes get 60 s.
 **Status.** Handled (`tests/services/api.service.test.js`). Tests:
 "resolveTimeout gives reads 30 s by default", "resolveTimeout gives mutating
 requests 60 s".
+
+### E-032: A valid-identifier callback is not callable
+
+**Situation.** A caller sends `callback=arguments`, `callback=window`,
+`callback=Math` or another identifier that passes the regex but is not a
+function.
+
+**Expected.** The reply is callable, or the name falls back to `callback`.
+
+**Status.** Not handled. B-003 covers reserved words only; a finite denylist
+cannot cover every non-callable global. The app always generates a safe name,
+so this needs a hand-made or third-party caller.
 
 ## Roles
 

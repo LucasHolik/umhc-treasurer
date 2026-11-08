@@ -574,7 +574,7 @@ const Service_Split = {
         const lastRow = splitSheet.getLastRow();
         if (lastRow <= 1) {
           // Check if there's any data beyond headers
-          return { success: true, data: [], hasMore: false, total: 0 };
+          return { success: true, data: [], hasMore: false };
         }
 
         const totalRows = lastRow - 1; // Exclude header
@@ -593,7 +593,7 @@ const Service_Split = {
         const numRows = Math.min(pageSize, lastRow - startRowIndex + 1);
 
         if (numRows <= 0) {
-          return { success: true, data: [], hasMore: false, total: totalRows };
+          return { success: true, data: [], hasMore: false };
         }
 
         const configValidation = _validateConfig();
@@ -658,7 +658,6 @@ const Service_Split = {
           success: true,
           data: data,
           hasMore: hasMore,
-          total: totalRows,
           page: page,
         };
       } catch (error) {

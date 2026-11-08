@@ -5,5 +5,5 @@ Detailed plan for the current phase only. The grand plan is in
 
 No phase is planned yet.
 
-Backup and restore is dropped (D-016). The open bugs are candidates for the
-next phase; see [`bugs.md`](bugs.md).
+Phase 5 and beyond is to be agreed. B-006 (medium) is open; see
+[`bugs.md`](bugs.md).

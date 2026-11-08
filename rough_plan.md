@@ -39,9 +39,16 @@ Approved on 2026-11-08 and completed in the Phase 3 pull request.
 and has 47 tests covering the router, roles, auth, sanitisation, locking, tag
 batches, splits and the B-002 fix.
 
-### Phase 4 and beyond
+### Phase 4: Backend hardening (done)
+
+Completed in the Phase 4 pull request. Fixed B-004 (an unexpected write throw
+now rolls the tag batch back inside the lock, including a sort throw), B-003
+(reserved-word JSONP callbacks fall back to `callback`) and B-005
+(`getSplitHistory` no longer returns `total`, which counted hidden PENDING
+rows; D-017). B-006 records a residual tag-helper window.
+
+### Phase 5 and beyond
 
 To be agreed with the user. Backup and restore is dropped (D-016), and the
-stale `origin/test` branch is left in place. The open bugs are candidates for
-the next phase; see `bugs.md`. Features go here before any code is written,
-and this file is updated whenever direction or scope changes.
+stale `origin/test` branch is left in place. Features go here before any code
+is written, and this file is updated whenever direction or scope changes.

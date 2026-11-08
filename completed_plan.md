@@ -85,3 +85,19 @@ Key decisions: D-015 (harness shape). Fixed B-002. Found and recorded B-003
 write throw) and B-005 (split history total counts PENDING). Deferred: the
 service contract tests and Playwright journeys listed in `AGENTS.md` section
 10.5.
+
+## Phase 4: Backend hardening
+
+Merged in the Phase 4 pull request. Fixed three backend bugs with regression
+tests:
+
+- B-004: an unexpected throw in `_runTagBatch` now rolls the batch back inside
+  the lock; the post-loop sort is covered too.
+- B-003: reserved-word JSONP callbacks fall back to `callback`, so the reply
+  stays callable.
+- B-005: `getSplitHistory` no longer returns `total`, which counted hidden
+  PENDING rows (D-017).
+
+The backend suite is now 51 tests and the full suite 210. Found and recorded
+B-006 (a helper that throws after changing external rows can still leave them
+changed). Residual non-callable callback identifiers are recorded as E-032.

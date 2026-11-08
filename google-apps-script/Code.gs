@@ -324,12 +324,70 @@ function getAppData() {
   });
 }
 
+// Reserved words and the non-callable global constants pass the identifier
+// regex but cannot be called, so a reply wrapped in one is not valid JSONP.
+// Treat them as invalid names and fall back to the default callback.
+const RESERVED_CALLBACK_NAMES = new Set([
+  "await",
+  "break",
+  "case",
+  "catch",
+  "class",
+  "const",
+  "continue",
+  "debugger",
+  "default",
+  "delete",
+  "do",
+  "else",
+  "enum",
+  "export",
+  "extends",
+  "false",
+  "finally",
+  "for",
+  "function",
+  "if",
+  "implements",
+  "import",
+  "in",
+  "instanceof",
+  "interface",
+  "let",
+  "new",
+  "null",
+  "package",
+  "private",
+  "protected",
+  "public",
+  "return",
+  "static",
+  "super",
+  "switch",
+  "this",
+  "throw",
+  "true",
+  "try",
+  "typeof",
+  "undefined",
+  "var",
+  "void",
+  "while",
+  "with",
+  "yield",
+  "NaN",
+  "Infinity",
+]);
+
 function createJsonResponse(data, callback) {
   // Validate callback to prevent XSS - only allow safe JavaScript identifiers
   let safeCallback = callback || "callback";
   const callbackRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
 
-  if (!callbackRegex.test(safeCallback)) {
+  if (
+    !callbackRegex.test(safeCallback) ||
+    RESERVED_CALLBACK_NAMES.has(safeCallback)
+  ) {
     // Log the attempt and use default callback
     console.warn("Invalid callback parameter detected: " + safeCallback);
     safeCallback = "callback";
