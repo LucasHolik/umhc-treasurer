@@ -207,6 +207,44 @@ function parseJsonp(output, requestedCallback) {
 }
 
 /**
+ * Test-only fixed clock. The backend reads the current time in two places that
+ * matter here: the five-minute timestamp window and the login lockout bucket
+ * (`Math.floor(Date.now() / 600000)`). A test that drives ten failed logins
+ * would otherwise flake if it straddled a ten-minute boundary. The fake cache
+ * uses the same clock, so a run cannot expire a session or nonce behind the
+ * test's back.
+ *
+ * @param {number} initialNow Milliseconds since the epoch.
+ */
+function createClock(initialNow) {
+  if (!Number.isFinite(initialNow)) {
+    throw new TypeError("now must be a finite number of milliseconds");
+  }
+  return {
+    now() {
+      return initialNow;
+    },
+  };
+}
+
+// A Date stand-in for the vm whose now() and no-argument constructor read the
+// harness clock. Constructing with arguments (including Date.UTC and
+// Date.parse results) behaves exactly like the host Date, and host-created
+// dates still satisfy `instanceof Date` inside the vm because the proxy's
+// target is the host Date.
+function createClockDate(clock) {
+  return new Proxy(Date, {
+    get(target, property, receiver) {
+      if (property === "now") return () => clock.now();
+      return Reflect.get(target, property, receiver);
+    },
+    construct(target, args) {
+      return args.length === 0 ? new target(clock.now()) : new target(...args);
+    },
+  });
+}
+
+/**
  * Builds a fresh backend harness.
  *
  * @param {object} [options]
@@ -218,9 +256,13 @@ function parseJsonp(output, requestedCallback) {
  *   for login, defaulting to "admin-pass" and "viewer-pass". They are also
  *   written into the default Config sheet.
  * @param {string} [options.timeZone] Spreadsheet time zone, default "UTC".
+ * @param {number} [options.now] Test-only: fixed clock in milliseconds since
+ *   the epoch. It drives the backend's Date.now(), `new Date()`, the timestamp
+ *   window and the cache TTL. Defaults to the real time at creation.
  * @returns {{
  *   request: Function,
  *   requestRaw: Function,
+ *   login: Function,
  *   sheets: object,
  *   cache: object,
  *   helpers: object,
@@ -232,14 +274,18 @@ export function createBackend(options = {}) {
     throw new TypeError("createBackend options must be an object");
   }
 
+  const clock = createClock(
+    options.now === undefined ? Date.now() : options.now,
+  );
   const secrets = { ...DEFAULT_SECRETS, ...(options.secrets || {}) };
-  const fakes = createFakes({ timeZone: options.timeZone });
+  const fakes = createFakes({ timeZone: options.timeZone, now: clock.now });
   const sandbox = {
     ...fakes.globals,
     console,
-    // Share Node's Date with the vm so host-seeded dates satisfy the
-    // backend's `instanceof Date` checks, and so tests can control the clock.
-    Date,
+    // The backend's only clock is Date. The proxy keeps the realm's Date
+    // behaviour (including host-seeded dates satisfying `instanceof Date`)
+    // while making Date.now() and `new Date()` follow the harness clock.
+    Date: createClockDate(clock),
   };
   const context = vm.createContext(sandbox, {
     name: "umhc-apps-script-backend",
@@ -295,19 +341,22 @@ export function createBackend(options = {}) {
   function buildParameter(
     action,
     params,
-    { role, signed, callback, sessionId, sessionKey, signature },
+    { role, signed, callback, session, timestamp, nonce, secret, signature },
   ) {
     const transmitted = stringifyParams(params);
     if (action !== "login") {
-      if (!sessionId)
-        throw new Error("Cannot sign a request without a session");
-      transmitted.sessionId = sessionId;
+      if (!session) throw new Error("Cannot sign a request without a session");
+      transmitted.sessionId = session.sessionId;
     }
     if (WRITE_ACTIONS.has(action)) {
-      transmitted.nonce = randomUUID();
+      // Test-only: a caller-supplied nonce lets a test replay the same write.
+      transmitted.nonce = nonce === undefined ? randomUUID() : String(nonce);
     }
 
-    const timestamp = String(Date.now());
+    // Test-only: a caller-supplied timestamp is signed as well as sent, so a
+    // stale but otherwise correct request is rejected for its timestamp only.
+    const timestampString =
+      timestamp === undefined ? String(clock.now()) : String(timestamp);
     const callbackName =
       callback === undefined || callback === null
         ? "callback"
@@ -315,7 +364,7 @@ export function createBackend(options = {}) {
 
     const parameter = {
       action,
-      timestamp,
+      timestamp: timestampString,
       ...transmitted,
       callback: callbackName,
     };
@@ -326,13 +375,19 @@ export function createBackend(options = {}) {
         // prove the server rejects a well-formed but wrong signature.
         parameter.signature = String(signature);
       } else {
-        const secret = action === "login" ? secrets[role] : sessionKey;
-        if (typeof secret !== "string" || secret === "") {
+        // Test-only: `secret` signs a login with a deliberately wrong passkey.
+        const signingSecret =
+          secret !== undefined
+            ? secret
+            : action === "login"
+              ? secrets[role]
+              : session.sessionKey;
+        if (typeof signingSecret !== "string" || signingSecret === "") {
           throw new Error(`No signing secret available for ${role}`);
         }
         parameter.signature = computeSignature(
-          buildPayload(action, timestamp, transmitted),
-          secret,
+          buildPayload(action, timestampString, transmitted),
+          signingSecret,
         );
       }
     }
@@ -344,9 +399,30 @@ export function createBackend(options = {}) {
     return backendApi.doGet({ parameter });
   }
 
-  function ensureSession(role) {
-    if (sessions.has(role)) return sessions.get(role);
+  function rememberSession(response) {
+    const role = response.role === "viewer" ? "viewer" : "admin";
+    const session = {
+      sessionId: response.sessionId,
+      sessionKey: response.sessionKey,
+      role,
+    };
+    sessions.set(role, session);
+    return session;
+  }
 
+  /**
+   * Test-only: logs a role in and returns its session credentials, so a test
+   * can log out and then reuse the old credentials to prove they are dead.
+   * Unlike request(), this throws if the login fails.
+   *
+   * @param {"admin" | "viewer"} role
+   * @returns {{ sessionId: string, sessionKey: string, role: string }}
+   */
+  function login(role) {
+    assertOpen();
+    if (!VALID_ROLES.has(role)) {
+      throw new Error(`Unknown role: ${role}`);
+    }
     const { parameter, callbackName } = buildParameter(
       "login",
       {},
@@ -364,12 +440,38 @@ export function createBackend(options = {}) {
       error.response = response;
       throw error;
     }
+    return rememberSession(response);
+  }
 
-    const session = {
-      sessionId: response.sessionId,
-      sessionKey: response.sessionKey,
-    };
-    sessions.set(response.role === "viewer" ? "viewer" : "admin", session);
+  function ensureSession(role) {
+    return sessions.has(role) ? sessions.get(role) : login(role);
+  }
+
+  // Test-only: a supplied session must be a real login response, so a typo
+  // fails loudly here rather than as a puzzling Unauthorized from the server.
+  function resolveSession(session) {
+    if (
+      session === null ||
+      typeof session !== "object" ||
+      Array.isArray(session)
+    ) {
+      throw new TypeError(
+        "session must be an object with sessionId, sessionKey and role",
+      );
+    }
+    if (
+      typeof session.sessionId !== "string" ||
+      session.sessionId === "" ||
+      typeof session.sessionKey !== "string" ||
+      session.sessionKey === ""
+    ) {
+      throw new TypeError(
+        "session must contain non-empty sessionId and sessionKey strings",
+      );
+    }
+    if (!VALID_ROLES.has(session.role)) {
+      throw new TypeError("session must contain a valid role");
+    }
     return session;
   }
 
@@ -393,45 +495,61 @@ export function createBackend(options = {}) {
       throw new TypeError("request options must be an object");
     }
 
-    const role =
-      requestOptions.role === undefined ? "admin" : requestOptions.role;
-    if (!VALID_ROLES.has(role)) {
-      throw new Error(`Unknown role: ${role}`);
+    const suppliedRole = requestOptions.role;
+    if (suppliedRole !== undefined && !VALID_ROLES.has(suppliedRole)) {
+      throw new Error(`Unknown role: ${suppliedRole}`);
     }
     const signed = requestOptions.signed !== false;
     const callback = requestOptions.callback;
-    // Test-only: a caller-supplied signature string replaces the computed one.
+    // Test-only overrides.
     const signature = requestOptions.signature;
+    const timestamp = requestOptions.timestamp;
+    const nonce = requestOptions.nonce;
+    const secret = requestOptions.secret;
+    const suppliedSession = requestOptions.session;
 
     let output;
     let callbackName;
     let response;
 
     if (action === "login") {
+      const role = suppliedRole === undefined ? "admin" : suppliedRole;
       const built = buildParameter("login", params, {
         role,
         signed,
         callback,
+        timestamp,
+        nonce,
+        secret,
         signature,
       });
       output = callBackend(built.parameter);
       callbackName = built.callbackName;
       ({ response } = parseJsonp(output, callbackName));
-      if (response.success) {
-        sessions.set(response.role === "viewer" ? "viewer" : "admin", {
-          sessionId: response.sessionId,
-          sessionKey: response.sessionKey,
-        });
-      }
+      if (response.success) rememberSession(response);
     } else {
-      const session = ensureSession(role);
+      // Test-only: an explicit session sends those credentials instead of the
+      // harness's cached login, so a test can prove a logged-out session dies.
+      const session =
+        suppliedSession === undefined
+          ? ensureSession(suppliedRole === undefined ? "admin" : suppliedRole)
+          : resolveSession(suppliedSession);
+      // A session carries its own role. Silently ignoring a contradicting
+      // explicit role would hide a test typo, so reject the pair instead.
+      if (suppliedRole !== undefined && suppliedRole !== session.role) {
+        throw new TypeError(
+          `session role "${session.role}" does not match requested role "${suppliedRole}"`,
+        );
+      }
       const built = buildParameter(action, params, {
-        role,
+        role: session.role,
         signed,
         callback,
+        session,
+        timestamp,
+        nonce,
+        secret,
         signature,
-        sessionId: session.sessionId,
-        sessionKey: session.sessionKey,
       });
       output = callBackend(built.parameter);
       callbackName = built.callbackName;
@@ -440,7 +558,11 @@ export function createBackend(options = {}) {
       // Mirror the client: a successful logout drops the local session, so the
       // next request logs in again instead of reusing a revoked session.
       if (action === "logout" && response.success) {
-        sessions.delete(role);
+        for (const [cachedRole, cached] of sessions) {
+          if (cached.sessionId === session.sessionId) {
+            sessions.delete(cachedRole);
+          }
+        }
       }
     }
 
@@ -454,10 +576,15 @@ export function createBackend(options = {}) {
   /**
    * Sends one request through doGet and returns the server's response object.
    *
-   * The `signature` request option is test-only: it sends that exact string as
-   * the signature instead of computing a correct one, so a test can prove the
-   * server rejects a well-formed but wrong signature. `signed: false` still
-   * sends no signature at all.
+   * The `signature`, `timestamp`, `nonce`, `secret` and `session` request
+   * options are test-only. `signature` sends that exact string instead of
+   * computing one; `timestamp` overrides the signed timestamp; `nonce`
+   * overrides the generated write nonce so it can be replayed; `secret`
+   * overrides the signing key (used to log in with a wrong passkey); and
+   * `session` sends explicit credentials instead of the harness's own login.
+   * A supplied session's own role is used, and an explicit `role` that
+   * contradicts it is a TypeError. `signed: false` still sends no signature at
+   * all.
    *
    * @param {string} action
    * @param {object} [params] Parameters to sign and transmit.
@@ -466,6 +593,14 @@ export function createBackend(options = {}) {
    *   signed?: boolean,
    *   callback?: string,
    *   signature?: string,
+   *   timestamp?: number | string,
+   *   nonce?: string,
+   *   secret?: string,
+   *   session?: {
+   *     sessionId: string,
+   *     sessionKey: string,
+   *     role: "admin" | "viewer",
+   *   },
    * }} [requestOptions]
    * @returns {object}
    */
@@ -541,6 +676,7 @@ export function createBackend(options = {}) {
   return {
     request,
     requestRaw,
+    login,
     sheets,
     cache: fakes.cache,
     helpers,

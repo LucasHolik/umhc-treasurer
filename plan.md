@@ -99,8 +99,8 @@ account or a deployed web app.
   - Logout invalidates the session, and the old session key stops working.
   - A timestamp outside the five-minute window is rejected.
   - A replayed write nonce is rejected; a fresh nonce is accepted.
-  - HMAC over UTF-8: a non-ASCII description verifies, so a signed write does
-    not depend on the payload being ASCII.
+  - HMAC over UTF-8: a signed write with a non-ASCII value (for example a tag
+    name) verifies, so the payload does not have to be ASCII.
 - New `tests/backend/sanitise.test.js`:
   - `_sanitizeForSheet` prefixes `=`, `+`, `-`, `@`, tab, CR and LF, and leaves
     other strings alone.
@@ -117,7 +117,7 @@ No production changes. `npm test` and `npm run format:check` pass.
 
 **Existing tests affected.** None.
 
-**Status.** todo
+**Status.** done
 
 ### Part 3: Locking and tag rollback
 

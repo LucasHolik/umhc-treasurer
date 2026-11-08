@@ -366,14 +366,18 @@ class FakeSpreadsheet {
 
 // --- Cache -----------------------------------------------------------------
 
-function createCache() {
+// `now` lets the harness drive cache expiry from the same fixed clock as the
+// backend's Date.now(), so a long test run cannot expire a session or nonce
+// behind the test's back.
+function createCache(now = Date.now) {
   const entries = new Map();
+  const clock = typeof now === "function" ? now : Date.now;
 
   return {
     get(key) {
       const entry = entries.get(String(key));
       if (!entry) return null;
-      if (entry.expiresAt <= Date.now()) {
+      if (entry.expiresAt <= clock()) {
         entries.delete(String(key));
         return null;
       }
@@ -387,7 +391,7 @@ function createCache() {
           : Number(seconds);
       entries.set(String(key), {
         value: String(value),
-        expiresAt: Date.now() + ttl * MILLISECONDS_PER_SECOND,
+        expiresAt: clock() + ttl * MILLISECONDS_PER_SECOND,
       });
     },
 
@@ -517,7 +521,7 @@ const ContentService = { createTextOutput, MimeType };
 /**
  * Creates a fresh set of fakes for one harness instance.
  *
- * @param {{ timeZone?: string }} [options]
+ * @param {{ timeZone?: string, now?: () => number }} [options]
  * @returns {{
  *   spreadsheet: FakeSpreadsheet,
  *   cache: object,
@@ -527,7 +531,7 @@ const ContentService = { createTextOutput, MimeType };
  */
 export function createFakes(options = {}) {
   const spreadsheet = new FakeSpreadsheet(options.timeZone || "UTC");
-  const cache = createCache();
+  const cache = createCache(options.now);
   const lock = createLock();
 
   return {
