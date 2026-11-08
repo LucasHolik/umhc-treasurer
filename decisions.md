@@ -339,3 +339,58 @@ remains in git history if it is ever needed.
 map is more useful than two that disagree.
 
 **Decided by.** User, 2026-11-08. Supersedes D-007 and D-006.
+
+### D-014: A missing passkey is rejected before `Service_Auth.login`
+
+**Question.** Should part 2 of Phase 3 assert "Server misconfigured" for a
+missing passkey?
+
+**Context.** `doGet` verifies the request signature before routing. For
+`login`, `verifyRequest` can only authorise when the signature matches a
+configured passkey, so `Service_Auth.login` never runs for the role whose
+passkey is missing.
+Its "Server misconfigured" branch is unreachable through the public route.
+Reaching it would need a direct call to the service, which breaks the
+test-through-the-public-interface rule.
+
+**Options.** (a) Assert `Unauthorized` through `doGet` and leave the branch as
+defensive code. (b) Test `Service_Auth.login` directly. (c) Change production
+code.
+
+**Choice.** Option (a). Part 2 asserts `Unauthorized`. The branch stays as
+defence in depth and is noted here.
+
+**Reason.** The public interface is what clients see, and `Unauthorized` is the
+secure outcome. Reshaping production code is out of scope for this phase.
+
+**Decided by.** Overseer, 2026-11-08.
+
+### D-015: Backend tests use a private `vm` harness
+
+**Question.** How should the Apps Script backend be tested in Node?
+
+**Context.** Phase 3 needed tests for the router, auth, locking, tags and
+splits without a Google account or a deployed web app.
+
+**Options.** (a) Call the service functions directly. (b) Drive a deployed web
+app. (c) Load all `.gs` files into one `vm` with in-memory fakes and go through
+`doGet`.
+
+**Choice.** Option (c). `tests/backend/harness.js` loads every `.gs` file into
+one script, exposes `request`/`requestRaw`/`login`/`sheets`/`cache`/`helpers`,
+signs independently, and offers test-only clock, lock and one-shot write-fault
+hooks. `tests/backend/fakes.js` models the Apps Script services.
+
+**Reason.** It exercises the real router, auth and sheet code, keeps the tests
+fast and offline, and makes the fake contract explicit. Direct service calls
+would miss the routing and auth boundary; a deployed app would be slow and
+need credentials.
+
+**Assumptions.** The two-argument `Utilities.computeHmacSha256Signature` is
+modelled as latin1 because the real default is undocumented and production
+always passes `Charset.UTF_8`. The fake A1 parser handles single cells only,
+which is all production uses. The fake lock ignores the timeout and has no
+concurrency. Write faults are one-shot and match sheet plus method, with an
+optional skip count.
+
+**Decided by.** Overseer, 2026-11-08, within the approved phase.

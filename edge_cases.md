@@ -63,7 +63,8 @@ at the comma and returns 1.
 **Expected.** Read it as 1200, or reject it clearly, rather than showing a
 balance that is out by 1199.
 
-**Status.** Not handled. Recorded as B-002 in `bugs.md`.
+**Status.** Handled. Test: "a text opening balance of 1,200 is read as 1200"
+(`tests/backend/opening-balance.test.js`).
 
 ### E-006: Manual rows sit before the opening balance
 
@@ -137,10 +138,11 @@ from the ledger.
 **Situation.** The Apps Script execution dies between marking rows PENDING and
 promoting them.
 
-**Expected.** A stale-PENDING sweep removes the half-written group on a later
-run, so no orphan children remain.
+**Expected.** History reads hide PENDING rows. The next split write sweeps
+PENDING rows older than 10 minutes, so no orphan children remain.
 
-**Status.** Handled in `Service_Split.gs`; backend only, no automated test.
+**Status.** Handled. Test: "history reads hide PENDING rows and a later split
+sweeps the stale ones" (`tests/backend/split.test.js`).
 
 ## Tags
 
@@ -251,8 +253,8 @@ rejects everything else".
 **Expected.** Nothing runs. Return "System is busy", set `err.code` to `BUSY`,
 and let the client retry or reload safely.
 
-**Status.** Handled in `api.service.js` and `Service_Lock.gs`; no direct
-automated test.
+**Status.** Handled. Test: "a held lock makes withScriptLock return the busy
+response" (`tests/backend/lock.test.js`).
 
 ### E-023: A request times out, so the outcome is unknown
 

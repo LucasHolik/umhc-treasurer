@@ -240,7 +240,7 @@ Keep it short. The detail lives in the planning files; the report should point t
 - **Language and framework**: Vanilla JavaScript (ES modules), no framework and no build step; plain CSS. Backend: Google Apps Script (V8). No TypeScript. Tests: Node's built-in test runner with happy-dom, development only.
 - **Target platforms**: Web. Current Chrome, Edge, Firefox and Safari on desktop, and Chrome on Android and Safari on iOS (about Safari 14.1 and later). Tests run under Node 22.6 or later on macOS (Apple Silicon), Windows 11 and Linux; interface checks are manual in a browser. No GPU or hardware-specific tests (D-008).
 - **Install dependencies**: `npm install` (development only: `@happy-dom/global-registrator`; the app has no runtime dependencies).
-- **Run tests**: `npm test` (159 tests, no browser or backend). `npm run test:watch` re-runs on change.
+- **Run tests**: `npm test` (the full suite, no browser or backend). `npm run test:watch` re-runs on change.
 - **Run slow or hardware-specific tests**: None. The suite takes under a second.
 - **Lint and format**: `npm run format:check` to check, `npm run format` to write (Prettier 3). There is no linter.
 - **Type check**: None. Plain JavaScript with JSDoc comments only.
@@ -299,9 +299,11 @@ tests in place first.
 - **Before refactoring code without tests,** add characterisation tests that pin down its current behaviour, then refactor.
 - **Money and data integrity get the edge cases:** comma strings, blanks, negatives, manual rows, splits, renames, partial failures and timeouts.
 
-### 10.5 Planned coverage
+### 10.5 Coverage and remaining work
 
-- Services against fakes: `api.service.js` (signing, timeouts, error codes) with a fake JSONP transport, plus `auth.service.js`.
-- Backend: load the `.gs` files into a Node `vm` context with in-memory fakes for `SpreadsheetApp`, `LockService` and `CacheService`. Priorities: split create, revert and edit; tag batch rollback; nested locking; signature and replay checks; sheet sanitisation.
-- Contract tests: client signing and server verification checked against the same fixtures.
-- A few end-to-end journeys in a real browser (Playwright) against a fake backend.
+- Frontend: `tests/` mirrors `src/` and covers the logic modules.
+- Backend: `tests/backend/` loads the `.gs` files into a Node `vm` with
+  in-memory fakes. It covers the router and roles, auth, sanitisation,
+  locking, tag batches, splits and the opening balance.
+- Still planned: `api.service.js` and `auth.service.js` against fakes,
+  client/server signing contract tests, and a few Playwright journeys.

@@ -313,7 +313,11 @@ const Service_Sheet = {
         .getRange(CONFIG.OPENING_BALANCE_CELL)
         .getValue();
 
-      return { success: true, balance: parseFloat(balance) || 0 };
+      // A text cell such as "1,200" would stop parseFloat at the comma, so
+      // strip thousands separators before parsing. Empty and non-numeric
+      // values still resolve to 0.
+      const text = String(balance).replace(/,/g, "");
+      return { success: true, balance: parseFloat(text) || 0 };
     } catch (error) {
       console.error("Error getting opening balance:", error);
       return {

@@ -142,11 +142,14 @@ Defaults live in [`src/core/state.js`](src/core/state.js).
 
 ## Tests
 
-The suite is in [`tests/`](tests/), which mirrors `src/`. It has 159 tests
-across 12 files, covering utils, financial logic, transactions, tags, trip
-status, state, DOM, Excel parsing, API helpers, analysis and the test helpers
-themselves. `tests/setup.js` registers a browser-like environment with
-happy-dom, so browser modules import cleanly.
+The suite is in [`tests/`](tests/), which mirrors `src/`, plus
+[`tests/backend/`](tests/backend/harness.js) for the Apps Script backend. It
+covers utils, financial logic, transactions, tags, trip status, state, DOM,
+Excel parsing, API helpers, analysis, the test helpers themselves, and the
+backend router, roles, auth, sanitisation, locking, tag batches, splits and
+opening balance. `tests/setup.js` registers a browser-like
+environment with happy-dom, so browser modules import cleanly; the backend
+harness loads the `.gs` files into a Node `vm`.
 
 Run it with `npm install` once and then `npm test` (Node 22.6 or later);
 `npm run test:watch` re-runs on change. The tests need no browser and no

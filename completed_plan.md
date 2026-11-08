@@ -65,3 +65,23 @@ architecture map. `README.md` now points at `AGENTS.md`.
 In the same pass, the approved happy-dom advisory was fixed (D-011): `npm audit
 fix` moved the lockfile to happy-dom 21.0.4, `npm audit` reports no
 vulnerabilities, and the suite still passes 159 tests.
+
+## Phase 3: Backend test harness
+
+Merged in the Phase 3 pull request. Built `tests/backend/`: a private Node
+`vm` harness that loads all `.gs` files into one script with in-memory fakes
+for SpreadsheetApp, LockService, CacheService, Utilities and ContentService.
+Tests sign requests independently of the server and use test-only clock, lock
+and write-fault hooks.
+
+The 47 backend tests cover the router and roles, signature, timestamp and
+nonce checks, UTF-8 signing, login lockout and logout, sanitisation, lock
+nesting and release, tag batch rollback, split create, revert, edit, stale
+PENDING and promotion failure, and the B-002 opening balance fix (206 tests in
+total).
+
+Key decisions: D-015 (harness shape). Fixed B-002. Found and recorded B-003
+(reserved-word JSONP callback), B-004 (half-applied tag batch on an unexpected
+write throw) and B-005 (split history total counts PENDING). Deferred: the
+service contract tests and Playwright journeys listed in `AGENTS.md` section
+10.5.
