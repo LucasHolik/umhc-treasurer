@@ -1,9 +1,8 @@
 # Edge cases
 
 Known edge cases, grouped by module, with how each one is handled. Test names
-are from the self-test suite in
-[`src/features/settings/selftest/`](src/features/settings/selftest/selftest.index.js).
-"Backend only" means there is no automated test for it yet.
+are from the Node suite in [`tests/`](tests/), which mirrors `src/`; run it
+with `npm test`. "Backend only" means there is no automated test for it yet.
 
 ## Trip status
 
@@ -15,8 +14,9 @@ typo such as `completed`.
 **Expected.** Treat it as Active, so the tag stays visible when tagging. A typo
 must never hide a tag someone needs.
 
-**Status.** Handled. Tests: "normaliseTripStatus defaults missing/unknown to
-Active", "normaliseTripStatus keeps known statuses".
+**Status.** Handled (`tests/core/trip-status.test.js`). Tests:
+"normaliseTripStatus defaults missing/unknown to Active", "normaliseTripStatus
+keeps known statuses".
 
 ### E-002: A trip is Completed or Completed Investment
 
@@ -26,8 +26,10 @@ Active", "normaliseTripStatus keeps known statuses".
 the tag selector, rather than deleting it. The transaction and filter screens
 can still show past trips explicitly.
 
-**Status.** Handled. Tests: "partitionTripsByStatus splits current and past",
-"buildTripSelectorOptions hides past trips behind hints".
+**Status.** Handled (`tests/core/trip-status.test.js` and
+`tests/features/transactions/transactions.logic.test.js`). Tests:
+"partitionTripsByStatus splits current and past", "buildTripSelectorOptions
+hides past trips behind hints".
 
 ### E-003: A non-string value appears in the trip list
 
@@ -36,8 +38,8 @@ be.
 
 **Expected.** Drop the entry instead of rendering `[object Object]` or throwing.
 
-**Status.** Handled. Test: "partitionTripsByStatus drops non-strings and bad
-input".
+**Status.** Handled (`tests/core/trip-status.test.js`). Test:
+"partitionTripsByStatus drops non-strings and bad input".
 
 ## Financial logic
 
@@ -49,7 +51,8 @@ not a number.
 **Expected.** Parse a plain numeric string, and use 0 for anything unparseable.
 The dashboard must still render.
 
-**Status.** Handled. Test: "opening balance accepts strings, garbage becomes 0".
+**Status.** Handled (`tests/core/financial.logic.test.js`). Test: "opening
+balance accepts strings, garbage becomes 0".
 
 ### E-005: The opening balance contains a thousands separator
 
@@ -71,8 +74,9 @@ in the opening balance.
 effect in the adjusted opening balance, so the current balance is not
 double-counted.
 
-**Status.** Handled. Tests: "manual rows cancel out of the current balance",
-"manual-only ledger returns to the opening balance".
+**Status.** Handled (`tests/core/financial.logic.test.js`). Tests: "manual rows
+cancel out of the current balance", "manual-only ledger returns to the opening
+balance".
 
 ## State and store
 
@@ -83,8 +87,8 @@ double-counted.
 **Expected.** The remaining subscribers still run, so one broken view does not
 freeze the others.
 
-**Status.** Handled. Test: "a throwing subscriber does not block later
-subscribers".
+**Status.** Handled (`tests/core/state.test.js`). Test: "a throwing subscriber
+does not block later subscribers".
 
 ### E-008: A caller tries to set a reserved or invalid key
 
@@ -93,7 +97,8 @@ non-string key, or a value that cannot be cloned.
 
 **Expected.** Reject it (throw) rather than poisoning the store.
 
-**Status.** Handled. Test: "reserved and invalid keys are rejected".
+**Status.** Handled (`tests/core/state.test.js`). Test: "reserved and invalid
+keys are rejected".
 
 ### E-009: State values contain circular references
 
@@ -101,8 +106,8 @@ non-string key, or a value that cannot be cloned.
 
 **Expected.** Clone and compare without infinite recursion.
 
-**Status.** Handled. Tests: "deepEqual handles circular references", "deepClone
-clones Date, Map, Set and circular refs".
+**Status.** Handled (`tests/core/utils.test.js`). Tests: "deepEqual handles
+circular references", "deepClone clones Date, Map, Set and circular refs".
 
 ## Splits
 
@@ -114,8 +119,8 @@ example after a failed write.
 **Expected.** Keep the original Finances row, so the money does not disappear
 from the ledger.
 
-**Status.** Handled. Test: "mergeSplits keeps a SOURCE row that has no
-children".
+**Status.** Handled (`tests/services/transaction.service.test.js`). Test:
+"mergeSplits keeps a SOURCE row that has no children".
 
 ### E-011: The same split group appears more than once
 
@@ -124,8 +129,8 @@ children".
 
 **Expected.** Inject the group's children once, not once per row.
 
-**Status.** Handled. Test: "mergeSplits injects each group's children only
-once".
+**Status.** Handled (`tests/services/transaction.service.test.js`). Test:
+"mergeSplits injects each group's children only once".
 
 ### E-012: A split write fails after the PENDING marker is written
 
@@ -149,9 +154,10 @@ and leaves edit mode, because replaying an unknown chunk could fail and roll
 the batch back; the unsent operations must be re-entered. A network error
 keeps every unconfirmed operation pending, because replaying it is safe.
 
-**Status.** Handled. Tests: "resolveSaveFailure: TIMEOUT drops the queue, leaves
-edit mode, counts ops", "resolveSaveFailure: TIMEOUT on the last chunk",
-"resolveSaveFailure: NETWORK keeps every unconfirmed op pending".
+**Status.** Handled (`tests/features/tags/tags.logic.test.js`). Tests:
+"resolveSaveFailure: TIMEOUT drops the queue, leaves edit mode, counts ops",
+"resolveSaveFailure: TIMEOUT on the last chunk", "resolveSaveFailure: NETWORK
+keeps every unconfirmed op pending".
 
 ### E-014: A new tag is added and then deleted before saving
 
@@ -160,8 +166,8 @@ never existed on the server.
 
 **Expected.** Cancel both operations.
 
-**Status.** Handled. Test: "optimizeQueue cancels add followed by delete of a
-new tag".
+**Status.** Handled (`tests/features/tags/tags.logic.test.js`). Test:
+"optimizeQueue cancels add followed by delete of a new tag".
 
 ### E-015: Renames form a chain or a cycle
 
@@ -170,8 +176,9 @@ becomes `A`.
 
 **Expected.** Collapse a chain into one rename and drop a cycle entirely.
 
-**Status.** Handled. Tests: "optimizeQueue collapses chained renames",
-"optimizeQueue removes circular renames entirely".
+**Status.** Handled (`tests/features/tags/tags.logic.test.js`). Tests:
+"optimizeQueue collapses chained renames", "optimizeQueue removes circular
+renames entirely".
 
 ### E-016: A rename targets an existing tag
 
@@ -180,8 +187,8 @@ becomes `A`.
 **Expected.** Merge the statistics into the existing tag instead of creating a
 duplicate.
 
-**Status.** Handled. Test: "calculateTagStats rename merges into an existing
-tag".
+**Status.** Handled (`tests/features/tags/tags.logic.test.js`). Test:
+"calculateTagStats rename merges into an existing tag".
 
 ## Excel import
 
@@ -192,8 +199,9 @@ tag".
 **Expected.** Convert DD/MM/YYYY, pass YYYY-MM-DD through, and reject impossible
 dates such as 31/02 instead of silently rolling them over.
 
-**Status.** Handled. Tests: "normalizeDateString converts DD/MM/YYYY with
-padding", "normalizeDateString rejects impossible rollover dates".
+**Status.** Handled (`tests/services/excel.service.test.js`). Tests:
+"normalizeDateString converts DD/MM/YYYY with padding", "normalizeDateString
+rejects impossible rollover dates".
 
 ### E-018: The header is not on the first row
 
@@ -201,8 +209,8 @@ padding", "normalizeDateString rejects impossible rollover dates".
 
 **Expected.** Find the header row before parsing the data.
 
-**Status.** Handled. Test: "parseAndCleanData finds the header after preamble
-rows".
+**Status.** Handled (`tests/services/excel.service.test.js`). Test:
+"parseAndCleanData finds the header after preamble rows".
 
 ### E-019: A row continues the transaction above it
 
@@ -210,8 +218,8 @@ rows".
 
 **Expected.** Merge it into the previous transaction.
 
-**Status.** Handled. Test: "parseAndCleanData merges continuation rows without a
-date".
+**Status.** Handled (`tests/services/excel.service.test.js`). Test:
+"parseAndCleanData merges continuation rows without a date".
 
 ### E-020: The export uses credit and debit columns
 
@@ -220,8 +228,8 @@ separate Income/Expense columns.
 
 **Expected.** Recognise the headers and map them to income and expense.
 
-**Status.** Handled. Test: "parseAndCleanData recognises credit/debit column
-names".
+**Status.** Handled (`tests/services/excel.service.test.js`). Test:
+"parseAndCleanData recognises credit/debit column names".
 
 ## API and sessions
 
@@ -232,8 +240,9 @@ app.
 
 **Expected.** Reject it at read time as well as at save time.
 
-**Status.** Handled. Tests: "_validateScriptUrl accepts only Apps Script web app
-URLs", "_validateScriptUrl rejects everything else".
+**Status.** Handled (`tests/services/api.service.test.js`). Tests:
+"_validateScriptUrl accepts only Apps Script web app URLs", "_validateScriptUrl
+rejects everything else".
 
 ### E-022: The server cannot get the script lock
 
@@ -253,7 +262,8 @@ automated test.
 user what is known. For tag batches, a timeout drops the queue and a network
 error keeps the unconfirmed operations (E-013).
 
-**Status.** Handled. Covered indirectly by the `resolveSaveFailure` tests above.
+**Status.** Handled (`tests/features/tags/tags.logic.test.js`). Covered
+indirectly by the `resolveSaveFailure` tests above.
 
 ### E-024: A read queues behind a write
 
@@ -262,8 +272,9 @@ error keeps the unconfirmed operations (E-013).
 **Expected.** The read timeout (30 s) is longer than the lock wait (10 s), so the
 user sees "System is busy" rather than a client timeout. Writes get 60 s.
 
-**Status.** Handled. Tests: "resolveTimeout gives reads 30 s by default",
-"resolveTimeout gives mutating requests 60 s".
+**Status.** Handled (`tests/services/api.service.test.js`). Tests:
+"resolveTimeout gives reads 30 s by default", "resolveTimeout gives mutating
+requests 60 s".
 
 ## Roles
 
@@ -294,8 +305,9 @@ write on the server even if the request is made by hand.
 **Expected.** Include both boundary days, using local midnight rather than UTC,
 so the result does not shift by a day in British Summer Time.
 
-**Status.** Handled. Tests: "parseDate parses YYYY-MM-DD as local midnight",
-"getFilteredData includes both boundary days".
+**Status.** Handled (`tests/core/utils.test.js` and
+`tests/features/analysis/analysis.logic.test.js`). Tests: "parseDate parses
+YYYY-MM-DD as local midnight", "getFilteredData includes both boundary days".
 
 ### E-028: An unknown timeframe key reaches the date helper
 
@@ -304,8 +316,8 @@ so the result does not shift by a day in British Summer Time.
 **Expected.** Fall back to the past 30 days instead of returning an empty or
 invalid range.
 
-**Status.** Handled. Test: "getDateRange falls back to past 30 days for unknown
-keys".
+**Status.** Handled (`tests/core/utils.test.js`). Test: "getDateRange falls back
+to past 30 days for unknown keys".
 
 ## Configuration
 

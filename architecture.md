@@ -1,8 +1,9 @@
 # Architecture
 
 A quick map of the code as it is. Read this before changing anything, then
-follow the links for detail. `info.txt` is a longer snapshot from an earlier
-session; it has drifted, so this file and the code win (see D-006).
+follow the links for detail. `info.txt` is the longer reference, with known
+drift listed at the end of this file; this is the short agent map. The design
+and testing rules are in [`CLAUDE.md`](CLAUDE.md).
 
 ## Shape of the system
 
@@ -65,7 +66,7 @@ login or app, and owns the initial load.
 | [`tags`](src/features/tags/tags.component.js)                         | Tag manager: list, drill into a tag, assign Types to a Trip, cycle trip status.                                     |
 | [`analysis`](src/features/analysis/analysis.component.js)             | Charts, tables, CSV export and quick views. `analysis.css` is injected at runtime, not linked in `index.html`.      |
 | [`upload`](src/features/upload/upload.component.js)                   | Drag and drop Excel import, duplicate detection, chunked save. Editor only.                                         |
-| [`settings`](src/features/settings/settings.component.js)             | Opening balance, accessibility mode, and Diagnostics, which lazy-loads the self-test suite.                         |
+| [`settings`](src/features/settings/settings.component.js)             | Opening balance and accessibility mode.                                                                             |
 
 Pure helpers sit beside the components: `transactions.logic.js` (`filterData`,
 `sortData`, `buildTagSelectorOptions`), `tags.logic.js` (virtual tag lists,
@@ -141,11 +142,17 @@ Defaults live in [`src/core/state.js`](src/core/state.js).
 
 ## Tests
 
-The suite is in [`src/features/settings/selftest/`](src/features/settings/selftest/selftest.index.js):
-156 tests covering utils, financial logic, transactions, tags, trip status,
-state, DOM, Excel parsing, API helpers and analysis. It runs only inside the app
-(Settings, Diagnostics, Run Self-Test) and needs a real login. There is no
-terminal test command yet; see D-003.
+The suite is in [`tests/`](tests/), which mirrors `src/`. It has 159 tests
+across 12 files, covering utils, financial logic, transactions, tags, trip
+status, state, DOM, Excel parsing, API helpers, analysis and the test helpers
+themselves. `tests/setup.js` registers a browser-like environment with
+happy-dom, so browser modules import cleanly.
+
+Run it with `npm install` once and then `npm test` (Node 22.6 or later);
+`npm run test:watch` re-runs on change. The tests need no browser and no backend. They are
+development only: nothing in `src/` imports `tests/` or `node_modules/`, and
+the app still has no build step. There is no test CI, by choice (see
+`CLAUDE.md`).
 
 ## Deployment and configuration
 
@@ -173,4 +180,23 @@ terminal test command yet; see D-003.
 - The split sheet is called `Split Transactions`, not `Split History`.
 - Several feature components call `ApiService` directly, despite the intended
   separation.
-- The self-test suite and `.archify/` are not described there.
+- `.archify/` is not described there.
+
+`CLAUDE.md` asks for `info.txt` to be kept in step, so the remaining drift above
+is debt to fix when that area is next touched.
+
+## Where the code and `CLAUDE.md` disagree
+
+These are rule violations, not behaviour to copy:
+
+- `CLAUDE.md` says `Service_Sheet.gs` is the only file that touches
+  `SpreadsheetApp`. `Service_Tags.gs` and `Service_Split.gs` also call it
+  directly.
+- `CLAUDE.md` says `Code.gs` routes only. It also holds `getAppData`, the action
+  allow-lists and the sheet sanitisation helpers.
+
+The frontend debt that `CLAUDE.md` lists (the transactions component, the store
+import in `analysis.logic.js`, the feature import in `transaction.service.js`,
+the `dataUploaded` event and direct `ApiService` imports) still matches the
+code. The two backend items are not in that list and should be added when the
+rules are next revised.
