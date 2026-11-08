@@ -68,6 +68,17 @@ Open your browser to `http://localhost:8000`.
 
 The interface is responsive and supports both desktop and phone-sized screens when served locally.
 
+### Running the Tests
+
+The tests are for developers only; the app itself needs no install or build step.
+
+```bash
+npm install   # once
+npm test
+```
+
+See [CLAUDE.md](CLAUDE.md) for the design and testing rules.
+
 ## 🏗️ Architecture
 
 This project follows a strict **Separation of Concerns** philosophy to ensure stability and maintainability.

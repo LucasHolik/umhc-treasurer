@@ -1,6 +1,8 @@
-// src/features/settings/selftest/tests.tags.js
+// tests/features/tags/tags.logic.test.js
 
-import { test, assert, assertEqual, assertClose } from "./selftest.runner.js";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { assertClose } from "../../helpers/assert.js";
 import {
   getVirtualTripTypeMap,
   getVirtualTagList,
@@ -10,26 +12,24 @@ import {
   optimizeQueue,
   formatOperationsForApi,
   resolveSaveFailure,
-} from "../../tags/tags.logic.js";
+} from "../../../src/features/tags/tags.logic.js";
 
-const SUITE = "Tags logic";
-
-test(SUITE, "getVirtualTripTypeMap applies updateTripType ops", () => {
+test("getVirtualTripTypeMap applies updateTripType ops", () => {
   const map = getVirtualTripTypeMap({ Snowdon: "Day Walk" }, [
     { type: "updateTripType", oldValue: "Snowdon", newValue: "Weekend" },
     { type: "updateTripType", oldValue: "Scafell", newValue: "Day Walk" },
   ]);
-  assertEqual(map, { Snowdon: "Weekend", Scafell: "Day Walk" });
+  assert.deepEqual(map, { Snowdon: "Weekend", Scafell: "Day Walk" });
 });
 
-test(SUITE, "getVirtualTripTypeMap empty newValue removes the mapping", () => {
+test("getVirtualTripTypeMap empty newValue removes the mapping", () => {
   const map = getVirtualTripTypeMap({ Snowdon: "Day Walk" }, [
     { type: "updateTripType", oldValue: "Snowdon", newValue: "" },
   ]);
-  assertEqual(map, {});
+  assert.deepEqual(map, {});
 });
 
-test(SUITE, "getVirtualTripTypeMap follows trip renames and deletes", () => {
+test("getVirtualTripTypeMap follows trip renames and deletes", () => {
   const renamed = getVirtualTripTypeMap({ Snowdon: "Day Walk" }, [
     {
       type: "rename",
@@ -38,15 +38,15 @@ test(SUITE, "getVirtualTripTypeMap follows trip renames and deletes", () => {
       newValue: "Yr Wyddfa",
     },
   ]);
-  assertEqual(renamed, { "Yr Wyddfa": "Day Walk" });
+  assert.deepEqual(renamed, { "Yr Wyddfa": "Day Walk" });
 
   const deleted = getVirtualTripTypeMap({ Snowdon: "Day Walk" }, [
     { type: "delete", tagType: "Trip/Event", value: "Snowdon" },
   ]);
-  assertEqual(deleted, {});
+  assert.deepEqual(deleted, {});
 });
 
-test(SUITE, "getVirtualTripTypeMap follows Type renames and deletes", () => {
+test("getVirtualTripTypeMap follows Type renames and deletes", () => {
   const original = {
     Snowdon: "Day Walk",
     Scafell: "Day Walk",
@@ -55,7 +55,7 @@ test(SUITE, "getVirtualTripTypeMap follows Type renames and deletes", () => {
   const renamed = getVirtualTripTypeMap(original, [
     { type: "rename", tagType: "Type", oldValue: "Day Walk", newValue: "Hike" },
   ]);
-  assertEqual(renamed, {
+  assert.deepEqual(renamed, {
     Snowdon: "Hike",
     Scafell: "Hike",
     Alps: "Expedition",
@@ -64,12 +64,12 @@ test(SUITE, "getVirtualTripTypeMap follows Type renames and deletes", () => {
   const deleted = getVirtualTripTypeMap(original, [
     { type: "delete", tagType: "Type", value: "Day Walk" },
   ]);
-  assertEqual(deleted, { Alps: "Expedition" });
+  assert.deepEqual(deleted, { Alps: "Expedition" });
 });
 
-test(SUITE, "getVirtualTagList applies add, delete and rename", () => {
+test("getVirtualTagList applies add, delete and rename", () => {
   const base = ["Transport", "Food"];
-  assertEqual(
+  assert.deepEqual(
     getVirtualTagList(
       base,
       [{ type: "add", tagType: "Category", value: "Gear" }],
@@ -77,7 +77,7 @@ test(SUITE, "getVirtualTagList applies add, delete and rename", () => {
     ),
     ["Transport", "Food", "Gear"],
   );
-  assertEqual(
+  assert.deepEqual(
     getVirtualTagList(
       base,
       [{ type: "add", tagType: "Category", value: "Food" }],
@@ -85,7 +85,7 @@ test(SUITE, "getVirtualTagList applies add, delete and rename", () => {
     ),
     ["Transport", "Food"],
   );
-  assertEqual(
+  assert.deepEqual(
     getVirtualTagList(
       base,
       [{ type: "delete", tagType: "Category", value: "Food" }],
@@ -93,7 +93,7 @@ test(SUITE, "getVirtualTagList applies add, delete and rename", () => {
     ),
     ["Transport"],
   );
-  assertEqual(
+  assert.deepEqual(
     getVirtualTagList(
       base,
       [
@@ -111,8 +111,8 @@ test(SUITE, "getVirtualTagList applies add, delete and rename", () => {
   );
 });
 
-test(SUITE, "getVirtualTagList ignores ops for other tag types", () => {
-  assertEqual(
+test("getVirtualTagList ignores ops for other tag types", () => {
+  assert.deepEqual(
     getVirtualTagList(
       ["A"],
       [{ type: "add", tagType: "Type", value: "B" }],
@@ -122,23 +122,19 @@ test(SUITE, "getVirtualTagList ignores ops for other tag types", () => {
   );
 });
 
-test(
-  SUITE,
-  "getVirtualTripStatusMap applies status updates and defaults",
-  () => {
-    const updated = getVirtualTripStatusMap({ Snowdon: "Active" }, [
-      { type: "updateTripStatus", oldValue: "Snowdon", newValue: "Completed" },
-    ]);
-    assertEqual(updated, { Snowdon: "Completed" });
+test("getVirtualTripStatusMap applies status updates and defaults", () => {
+  const updated = getVirtualTripStatusMap({ Snowdon: "Active" }, [
+    { type: "updateTripStatus", oldValue: "Snowdon", newValue: "Completed" },
+  ]);
+  assert.deepEqual(updated, { Snowdon: "Completed" });
 
-    const added = getVirtualTripStatusMap({}, [
-      { type: "add", tagType: "Trip/Event", value: "Scafell" },
-    ]);
-    assertEqual(added, { Scafell: "Active" });
-  },
-);
+  const added = getVirtualTripStatusMap({}, [
+    { type: "add", tagType: "Trip/Event", value: "Scafell" },
+  ]);
+  assert.deepEqual(added, { Scafell: "Active" });
+});
 
-test(SUITE, "getVirtualTripStatusMap carries status through renames", () => {
+test("getVirtualTripStatusMap carries status through renames", () => {
   const renamed = getVirtualTripStatusMap({ Snowdon: "Completed" }, [
     {
       type: "rename",
@@ -147,7 +143,7 @@ test(SUITE, "getVirtualTripStatusMap carries status through renames", () => {
       newValue: "Yr Wyddfa",
     },
   ]);
-  assertEqual(renamed, { "Yr Wyddfa": "Completed" });
+  assert.deepEqual(renamed, { "Yr Wyddfa": "Completed" });
 
   const renamedUnknown = getVirtualTripStatusMap({}, [
     {
@@ -157,7 +153,7 @@ test(SUITE, "getVirtualTripStatusMap carries status through renames", () => {
       newValue: "Spirit",
     },
   ]);
-  assertEqual(
+  assert.deepEqual(
     renamedUnknown,
     { Spirit: "Active" },
     "unknown trips default to Active",
@@ -166,36 +162,32 @@ test(SUITE, "getVirtualTripStatusMap carries status through renames", () => {
   const deleted = getVirtualTripStatusMap({ Snowdon: "Active" }, [
     { type: "delete", tagType: "Trip/Event", value: "Snowdon" },
   ]);
-  assertEqual(deleted, {});
+  assert.deepEqual(deleted, {});
 });
 
-test(
-  SUITE,
-  "getVirtualTripStatusMap handles Completed Investment through a rename",
-  () => {
-    const updated = getVirtualTripStatusMap({ "Kit Fund": "Investment" }, [
-      {
-        type: "updateTripStatus",
-        oldValue: "Kit Fund",
-        newValue: "Completed Investment",
-      },
-      {
-        type: "rename",
-        tagType: "Trip/Event",
-        oldValue: "Kit Fund",
-        newValue: "Kit Fund 2023",
-      },
-    ]);
-    assertEqual(updated, { "Kit Fund 2023": "Completed Investment" });
-  },
-);
+test("getVirtualTripStatusMap handles Completed Investment through a rename", () => {
+  const updated = getVirtualTripStatusMap({ "Kit Fund": "Investment" }, [
+    {
+      type: "updateTripStatus",
+      oldValue: "Kit Fund",
+      newValue: "Completed Investment",
+    },
+    {
+      type: "rename",
+      tagType: "Trip/Event",
+      oldValue: "Kit Fund",
+      newValue: "Kit Fund 2023",
+    },
+  ]);
+  assert.deepEqual(updated, { "Kit Fund 2023": "Completed Investment" });
+});
 
-test(SUITE, "calculateDetailStats sums count, income and expense", () => {
+test("calculateDetailStats sums count, income and expense", () => {
   const stats = calculateDetailStats([
     { Income: "10.50", Expense: 0 },
     { Income: 0, Expense: "5.25" },
   ]);
-  assertEqual(stats.count, 2);
+  assert.equal(stats.count, 2);
   assertClose(stats.income, 10.5);
   assertClose(stats.expense, 5.25);
 });
@@ -232,50 +224,54 @@ const baseExpenses = () => [
   },
 ];
 
-test(SUITE, "calculateTagStats aggregates per trip and category", () => {
+test("calculateTagStats aggregates per trip and category", () => {
   const { stats } = calculateTagStats(
     baseExpenses(),
     baseTagsData(),
     "all_time",
   );
-  assertEqual(stats["Trip/Event"]["Snowdon"], {
+  assert.deepEqual(stats["Trip/Event"]["Snowdon"], {
     count: 2,
     income: 100,
     expense: 40,
   });
-  assertEqual(stats["Trip/Event"]["Scafell"], {
+  assert.deepEqual(stats["Trip/Event"]["Scafell"], {
     count: 1,
     income: 0,
     expense: 25,
   });
-  assertEqual(stats["Category"]["Transport"], {
+  assert.deepEqual(stats["Category"]["Transport"], {
     count: 2,
     income: 100,
     expense: 25,
   });
 });
 
-test(SUITE, "calculateTagStats rolls trip stats up into Types", () => {
+test("calculateTagStats rolls trip stats up into Types", () => {
   const { stats } = calculateTagStats(
     baseExpenses(),
     baseTagsData(),
     "all_time",
   );
-  assertEqual(stats["Type"]["Day Walk"], {
+  assert.deepEqual(stats["Type"]["Day Walk"], {
     count: 3,
     income: 100,
     expense: 65,
   });
 });
 
-test(SUITE, "calculateTagStats backfills zero stats for unused Types", () => {
+test("calculateTagStats backfills zero stats for unused Types", () => {
   const tags = baseTagsData();
   tags.Type.push("Expedition");
   const { stats } = calculateTagStats(baseExpenses(), tags, "all_time");
-  assertEqual(stats["Type"]["Expedition"], { count: 0, income: 0, expense: 0 });
+  assert.deepEqual(stats["Type"]["Expedition"], {
+    count: 0,
+    income: 0,
+    expense: 0,
+  });
 });
 
-test(SUITE, "calculateTagStats rename merges into an existing tag", () => {
+test("calculateTagStats rename merges into an existing tag", () => {
   const queue = [
     {
       type: "rename",
@@ -290,15 +286,15 @@ test(SUITE, "calculateTagStats rename merges into an existing tag", () => {
     "all_time",
     queue,
   );
-  assertEqual(stats["Category"]["Transport"], {
+  assert.deepEqual(stats["Category"]["Transport"], {
     count: 3,
     income: 100,
     expense: 65,
   });
-  assertEqual(stats["Category"]["Food"], undefined);
+  assert.equal(stats["Category"]["Food"], undefined);
 });
 
-test(SUITE, "calculateTagStats rename into a new tag moves the stats", () => {
+test("calculateTagStats rename into a new tag moves the stats", () => {
   const queue = [
     {
       type: "rename",
@@ -313,25 +309,25 @@ test(SUITE, "calculateTagStats rename into a new tag moves the stats", () => {
     "all_time",
     queue,
   );
-  assertEqual(stats["Trip/Event"]["Yr Wyddfa"], {
+  assert.deepEqual(stats["Trip/Event"]["Yr Wyddfa"], {
     count: 2,
     income: 100,
     expense: 40,
   });
-  assertEqual(stats["Trip/Event"]["Snowdon"], undefined);
-  assertEqual(
+  assert.equal(stats["Trip/Event"]["Snowdon"], undefined);
+  assert.equal(
     tripTypeMap["Yr Wyddfa"],
     "Day Walk",
     "type mapping must follow the rename",
   );
-  assertEqual(
+  assert.equal(
     stats["Type"]["Day Walk"].count,
     3,
     "type rollup must still see renamed trips",
   );
 });
 
-test(SUITE, "calculateTagStats delete removes a tag's stats", () => {
+test("calculateTagStats delete removes a tag's stats", () => {
   const queue = [{ type: "delete", tagType: "Category", value: "Food" }];
   const { stats } = calculateTagStats(
     baseExpenses(),
@@ -339,94 +335,86 @@ test(SUITE, "calculateTagStats delete removes a tag's stats", () => {
     "all_time",
     queue,
   );
-  assertEqual(stats["Category"]["Food"], undefined);
+  assert.equal(stats["Category"]["Food"], undefined);
 });
 
-test(SUITE, "optimizeQueue cancels add followed by delete of a new tag", () => {
+test("optimizeQueue cancels add followed by delete of a new tag", () => {
   const queue = [
     { type: "add", tagType: "Category", value: "Gear" },
     { type: "delete", tagType: "Category", value: "Gear" },
   ];
-  assertEqual(optimizeQueue(queue), []);
+  assert.deepEqual(optimizeQueue(queue), []);
 });
 
-test(
-  SUITE,
-  "optimizeQueue keeps delete when the tag existed originally",
-  () => {
-    const queue = [
-      { type: "add", tagType: "Category", value: "Food" },
-      { type: "delete", tagType: "Category", value: "Food" },
-    ];
-    const result = optimizeQueue(queue, { Category: ["Food"] });
-    assertEqual(result.length, 1);
-    assertEqual(result[0].type, "delete");
-    assertEqual(result[0].value, "Food");
-  },
-);
+test("optimizeQueue keeps delete when the tag existed originally", () => {
+  const queue = [
+    { type: "add", tagType: "Category", value: "Food" },
+    { type: "delete", tagType: "Category", value: "Food" },
+  ];
+  const result = optimizeQueue(queue, { Category: ["Food"] });
+  assert.equal(result.length, 1);
+  assert.equal(result[0].type, "delete");
+  assert.equal(result[0].value, "Food");
+});
 
-test(SUITE, "optimizeQueue collapses chained renames", () => {
+test("optimizeQueue collapses chained renames", () => {
   const queue = [
     { type: "rename", tagType: "Category", oldValue: "A", newValue: "B" },
     { type: "rename", tagType: "Category", oldValue: "B", newValue: "C" },
   ];
   const result = optimizeQueue(queue);
-  assertEqual(result.length, 1);
-  assertEqual(result[0].oldValue, "A");
-  assertEqual(result[0].newValue, "C");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].oldValue, "A");
+  assert.equal(result[0].newValue, "C");
 });
 
-test(SUITE, "optimizeQueue removes circular renames entirely", () => {
+test("optimizeQueue removes circular renames entirely", () => {
   const queue = [
     { type: "rename", tagType: "Category", oldValue: "A", newValue: "B" },
     { type: "rename", tagType: "Category", oldValue: "B", newValue: "A" },
   ];
-  assertEqual(optimizeQueue(queue), []);
+  assert.deepEqual(optimizeQueue(queue), []);
 });
 
-test(
-  SUITE,
-  "optimizeQueue turns rename+delete into delete of the original",
-  () => {
-    const queue = [
-      { type: "rename", tagType: "Category", oldValue: "A", newValue: "B" },
-      { type: "delete", tagType: "Category", value: "B" },
-    ];
-    const result = optimizeQueue(queue);
-    assertEqual(result.length, 1);
-    assertEqual(result[0].type, "delete");
-    assertEqual(result[0].value, "A");
-  },
-);
+test("optimizeQueue turns rename+delete into delete of the original", () => {
+  const queue = [
+    { type: "rename", tagType: "Category", oldValue: "A", newValue: "B" },
+    { type: "delete", tagType: "Category", value: "B" },
+  ];
+  const result = optimizeQueue(queue);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].type, "delete");
+  assert.equal(result[0].value, "A");
+});
 
-test(SUITE, "optimizeQueue turns add+rename into add of the new name", () => {
+test("optimizeQueue turns add+rename into add of the new name", () => {
   const queue = [
     { type: "add", tagType: "Category", value: "A" },
     { type: "rename", tagType: "Category", oldValue: "A", newValue: "B" },
   ];
   const result = optimizeQueue(queue);
-  assertEqual(result.length, 1);
-  assertEqual(result[0].type, "add");
-  assertEqual(result[0].value, "B");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].type, "add");
+  assert.equal(result[0].value, "B");
 });
 
-test(SUITE, "optimizeQueue keeps only the last trip type/status update", () => {
+test("optimizeQueue keeps only the last trip type/status update", () => {
   const typeResult = optimizeQueue([
     { type: "updateTripType", oldValue: "Snowdon", newValue: "Day Walk" },
     { type: "updateTripType", oldValue: "Snowdon", newValue: "Weekend" },
   ]);
-  assertEqual(typeResult.length, 1);
-  assertEqual(typeResult[0].newValue, "Weekend");
+  assert.equal(typeResult.length, 1);
+  assert.equal(typeResult[0].newValue, "Weekend");
 
   const statusResult = optimizeQueue([
     { type: "updateTripStatus", oldValue: "Snowdon", newValue: "Completed" },
     { type: "updateTripStatus", oldValue: "Snowdon", newValue: "Investment" },
   ]);
-  assertEqual(statusResult.length, 1);
-  assertEqual(statusResult[0].newValue, "Investment");
+  assert.equal(statusResult.length, 1);
+  assert.equal(statusResult[0].newValue, "Investment");
 });
 
-test(SUITE, "formatOperationsForApi produces positional arrays", () => {
+test("formatOperationsForApi produces positional arrays", () => {
   const ops = formatOperationsForApi([
     { type: "add", tagType: "Category", value: "Gear" },
     { type: "delete", tagType: "Type", value: "Old" },
@@ -435,7 +423,7 @@ test(SUITE, "formatOperationsForApi produces positional arrays", () => {
     { type: "updateTripStatus", oldValue: "Snowdon", newValue: "Completed" },
     { type: "bogus", value: "x" },
   ]);
-  assertEqual(ops, [
+  assert.deepEqual(ops, [
     [null, "Gear", "add", "Category"],
     ["Old", null, "delete", "Type"],
     ["A", "B", "rename", "Category"],
@@ -457,66 +445,50 @@ const timeoutError = () => {
   return err;
 };
 
-test(
-  SUITE,
-  "resolveSaveFailure: TIMEOUT drops the queue, leaves edit mode, counts ops",
-  () => {
-    const queue = [...SAVE_QUEUE, ...SAVE_QUEUE]; // 8 ops, chunks of 3
-    const result = resolveSaveFailure(queue, 3, 3, timeoutError());
-    assertEqual(result.remainingQueue, []);
-    assertEqual(result.exitEditMode, true);
-    assert(/3 of 8 operations were saved/.test(result.message), result.message);
-    assert(/next 3 may or may not/.test(result.message), result.message);
-    assert(/2 were never sent/.test(result.message), result.message);
-  },
-);
-
-test(SUITE, "resolveSaveFailure: TIMEOUT on the last chunk", () => {
-  const result = resolveSaveFailure(SAVE_QUEUE, 2, 10, timeoutError());
-  assert(/next 2 may or may not/.test(result.message), result.message);
-  assert(/0 were never sent/.test(result.message), result.message);
+test("resolveSaveFailure: TIMEOUT drops the queue, leaves edit mode, counts ops", () => {
+  const queue = [...SAVE_QUEUE, ...SAVE_QUEUE]; // 8 ops, chunks of 3
+  const result = resolveSaveFailure(queue, 3, 3, timeoutError());
+  assert.deepEqual(result.remainingQueue, []);
+  assert.equal(result.exitEditMode, true);
+  assert.match(result.message, /3 of 8 operations were saved/);
+  assert.match(result.message, /next 3 may or may not/);
+  assert.match(result.message, /2 were never sent/);
 });
 
-test(
-  SUITE,
-  "resolveSaveFailure: rejection with appliedOperations keeps the right tail",
-  () => {
-    const err = new Error("Operation failed at index 1");
-    err.response = { success: false, appliedOperations: [{ index: 0 }] };
-    const result = resolveSaveFailure(SAVE_QUEUE, 2, 2, err);
-    assertEqual(result.remainingQueue, SAVE_QUEUE.slice(3));
-    assertEqual(result.exitEditMode, false);
-    assert(/3 of 4 operations were saved/.test(result.message), result.message);
-  },
-);
+test("resolveSaveFailure: TIMEOUT on the last chunk", () => {
+  const result = resolveSaveFailure(SAVE_QUEUE, 2, 10, timeoutError());
+  assert.match(result.message, /next 2 may or may not/);
+  assert.match(result.message, /0 were never sent/);
+});
 
-test(
-  SUITE,
-  "resolveSaveFailure: rejection with no applied ops keeps the unprocessed tail",
-  () => {
-    const result = resolveSaveFailure(
-      SAVE_QUEUE,
-      2,
-      2,
-      new Error("Tag already exists."),
-    );
-    assertEqual(result.remainingQueue, SAVE_QUEUE.slice(2));
-    assertEqual(result.exitEditMode, false);
-    assert(/Tag already exists/.test(result.message), result.message);
-  },
-);
+test("resolveSaveFailure: rejection with appliedOperations keeps the right tail", () => {
+  const err = new Error("Operation failed at index 1");
+  err.response = { success: false, appliedOperations: [{ index: 0 }] };
+  const result = resolveSaveFailure(SAVE_QUEUE, 2, 2, err);
+  assert.deepEqual(result.remainingQueue, SAVE_QUEUE.slice(3));
+  assert.equal(result.exitEditMode, false);
+  assert.match(result.message, /3 of 4 operations were saved/);
+});
 
-test(
-  SUITE,
-  "resolveSaveFailure: NETWORK keeps every unconfirmed op pending",
-  () => {
-    const err = new Error("Network error during API request.");
-    err.code = "NETWORK";
-    const queue = [...SAVE_QUEUE, ...SAVE_QUEUE]; // 8 ops, chunks of 3
-    const result = resolveSaveFailure(queue, 3, 3, err);
-    assertEqual(result.remainingQueue, queue.slice(3));
-    assertEqual(result.exitEditMode, false);
-    assert(/3 of 8 operations were saved/.test(result.message), result.message);
-    assert(/next 3 may or may not/.test(result.message), result.message);
-  },
-);
+test("resolveSaveFailure: rejection with no applied ops keeps the unprocessed tail", () => {
+  const result = resolveSaveFailure(
+    SAVE_QUEUE,
+    2,
+    2,
+    new Error("Tag already exists."),
+  );
+  assert.deepEqual(result.remainingQueue, SAVE_QUEUE.slice(2));
+  assert.equal(result.exitEditMode, false);
+  assert.match(result.message, /Tag already exists/);
+});
+
+test("resolveSaveFailure: NETWORK keeps every unconfirmed op pending", () => {
+  const err = new Error("Network error during API request.");
+  err.code = "NETWORK";
+  const queue = [...SAVE_QUEUE, ...SAVE_QUEUE]; // 8 ops, chunks of 3
+  const result = resolveSaveFailure(queue, 3, 3, err);
+  assert.deepEqual(result.remainingQueue, queue.slice(3));
+  assert.equal(result.exitEditMode, false);
+  assert.match(result.message, /3 of 8 operations were saved/);
+  assert.match(result.message, /next 3 may or may not/);
+});
