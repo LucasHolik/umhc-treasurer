@@ -301,6 +301,18 @@ user sees "System is busy" rather than a client timeout. Writes get 60 s.
 "resolveTimeout gives reads 30 s by default", "resolveTimeout gives mutating
 requests 60 s".
 
+### E-032: A valid-identifier callback is not callable
+
+**Situation.** A caller sends `callback=arguments`, `callback=window`,
+`callback=Math` or another identifier that passes the regex but is not a
+function.
+
+**Expected.** The reply is callable, or the name falls back to `callback`.
+
+**Status.** Not handled. B-003 covers reserved words only; a finite denylist
+cannot cover every non-callable global. The app always generates a safe name,
+so this needs a hand-made or third-party caller.
+
 ## Roles
 
 ### E-025: The server reports an unknown role

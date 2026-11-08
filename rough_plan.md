@@ -39,13 +39,13 @@ Approved on 2026-11-08 and completed in the Phase 3 pull request.
 and has 47 tests covering the router, roles, auth, sanitisation, locking, tag
 batches, splits and the B-002 fix.
 
-### Phase 4: Backend hardening (approved, in progress)
+### Phase 4: Backend hardening (done)
 
-Fix the three open backend bugs: B-004 (a tag batch can be left half-applied
-when a write throws), B-003 (a reserved-word JSONP callback is not replaced)
-and B-005 (split history `total` counts hidden PENDING rows). Definition of
-done: all three fixed with regression tests, `npm test` green, and the bugs
-recorded as fixed.
+Completed in the Phase 4 pull request. Fixed B-004 (an unexpected write throw
+now rolls the tag batch back inside the lock, including a sort throw), B-003
+(reserved-word JSONP callbacks fall back to `callback`) and B-005
+(`getSplitHistory` no longer returns `total`, which counted hidden PENDING
+rows; D-017). B-006 records a residual tag-helper window.
 
 ### Phase 5 and beyond
 

@@ -598,6 +598,59 @@ test("history reads hide PENDING rows and a later split sweeps the stale ones", 
   );
 });
 
+test("history has no total field and paginates on hasMore alone", (t) => {
+  // One visible SOURCE row and one hidden PENDING row: a physical-row total
+  // would count both and overstate what a caller can ever see (B-005).
+  const backend = createTestBackend(t, {
+    "Split Transactions": [
+      SPLIT_HEADERS,
+      [
+        "D1",
+        "",
+        "2026-01-01",
+        "Lunch",
+        "Winter Trip",
+        "Food",
+        "",
+        12.5,
+        "Manual",
+        "GROUP-1",
+        "SOURCE",
+        "2026-01-01 10:00:00",
+      ],
+      [
+        "D0",
+        "",
+        "2026-01-01",
+        "Half-written",
+        "Winter Trip",
+        "Food",
+        "",
+        9.99,
+        "Manual",
+        "GROUP-2",
+        "PENDING",
+        "2026-01-01 10:05:00",
+      ],
+    ],
+  });
+
+  const response = backend.request("getSplitHistory", {
+    page: 1,
+    pageSize: 100,
+  });
+
+  assert.equal(response.success, true);
+  assert.equal(response.data.length, 1, "only the SOURCE row is visible");
+  assert.equal(response.data[0]["Split Type"], "SOURCE");
+  assert.equal(response.hasMore, false);
+  assert.equal(
+    "total" in response,
+    false,
+    "the reply must not carry a total that counts PENDING rows",
+  );
+});
+
 test("a failure after the PENDING append leaves no orphan rows and no Finance group ID", (t) => {
   const backend = createTestBackend(t, { Finances: FINANCES });
   const error = t.mock.method(console, "error", () => {});

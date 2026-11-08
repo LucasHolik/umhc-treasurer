@@ -161,3 +161,30 @@ test("an unsafe callback name still produces a callback JSONP wrapper", (t) => {
     "the unsafe callback is replaced by the default",
   );
 });
+
+test("reserved-word callbacks fall back to the default wrapper", (t) => {
+  const backend = createBackend();
+  t.after(() => backend.close());
+  const warn = t.mock.method(console, "warn", () => {});
+
+  // A reserved word passes the identifier regex but cannot be called, so a
+  // reply wrapped in one is not valid JSONP. Each name must fall back to the
+  // default wrapper and be logged like any other invalid callback.
+  for (const callback of ["false", "null", "undefined"]) {
+    const { raw, response } = backend.requestRaw("ping", {}, { callback });
+
+    assert.ok(
+      raw.startsWith("callback("),
+      `the ${callback} callback is replaced by the default wrapper`,
+    );
+    assert.deepEqual(response, { success: true, role: "admin" });
+    assert.ok(
+      warn.mock.calls.some((call) =>
+        String(call.arguments[0]).includes(
+          "Invalid callback parameter detected: " + callback,
+        ),
+      ),
+      `the ${callback} callback is logged as invalid`,
+    );
+  }
+});

@@ -6,54 +6,6 @@ straight away. A fixed bug names the regression test that covers it.
 
 ## Open
 
-### B-005: Split history total counts hidden PENDING rows
-
-**Description.** `getSplitHistory` filters PENDING rows out of `data` but
-returns `total` as `lastRow - 1`, which still counts them. A caller can see a
-total larger than the rows that are ever returned, and pagination driven by
-`total` overcounts.
-
-**Steps to reproduce.** Seed a PENDING row in Split Transactions and call
-`getSplitHistory`. The row is absent from `data` but included in `total`.
-
-**Severity.** Low. No money or data is changed; the count is cosmetic and
-affects pagination metadata.
-
-**Where.** `google-apps-script/Service_Split.gs:580` and the return at line 661.
-
-**Status.** Open. Found while writing the split tests; not fixed. The client
-reads only `hasMore`, so this affects only callers that read `total`.
-
-**Suggested fix.** Remove `total` from the response. The client paginates on
-`hasMore` only, and a visible count would still be wrong for row-based paging
-unless the whole sheet is read and repaginated. Test with one SOURCE and one
-PENDING row: one visible row, `hasMore` false, and no `total` field. If the
-wire shape must stay, document that `total` is physical rows. Low priority;
-defer if scope is tight.
-
-### B-003: A reserved-word JSONP callback is not replaced
-
-**Description.** `createJsonResponse` validates the callback with a regex that
-accepts JavaScript reserved words. A request with `callback=false` or
-`callback=null` produces `false(json)` or `null(json)`, which is not a callable
-wrapper, instead of falling back to `callback`.
-
-**Steps to reproduce.** Call `doGet` with `callback=false`. The reply is not
-valid JSONP.
-
-**Severity.** Low. The browser client always generates a safe identifier, and
-the result is a broken response rather than script injection.
-
-**Where.** `google-apps-script/Code.gs:330`, the callback regex.
-
-**Status.** Open. Found while building the backend harness; not fixed.
-
-**Suggested fix.** Treat reserved names (`false`, `null`, `undefined`, `NaN`,
-`Infinity` and the keywords) like any other invalid callback and fall back to
-`callback`; the reply must stay callable. Test `requestRaw("ping", {},
-{ callback: "false" })` in `tests/backend/code.test.js`, plus `"null"` and
-`"undefined"`; the valid custom name is already covered.
-
 ### B-006: A throw inside a tag helper can still leave external rows changed
 
 **Description.** The B-004 fix rolls back when the operation switch or the final
@@ -128,6 +80,26 @@ balance as 1200" (`tests/backend/opening-balance.test.js`). The read strips
 thousands separators before `parseFloat`; empty and non-numeric cells still
 give 0, and the cell is not rewritten.
 
+### B-003: A reserved-word JSONP callback is not replaced
+
+**Description.** `createJsonResponse` validates the callback with a regex that
+accepts JavaScript reserved words. A request with `callback=false` or
+`callback=null` produces `false(json)` or `null(json)`, which is not a callable
+wrapper, instead of falling back to `callback`.
+
+**Steps to reproduce.** Call `doGet` with `callback=false`. The reply is not
+valid JSONP.
+
+**Severity.** Low. The browser client always generates a safe identifier, and
+the result is a broken response rather than script injection.
+
+**Where.** `google-apps-script/Code.gs:330`, the callback regex.
+
+**Status.** Fixed in Phase 4, part 2. Test: "reserved-word callbacks fall back
+to the default wrapper" (`tests/backend/code.test.js`). Reserved names now
+fall back to `callback`, so the reply stays callable. Non-callable identifiers
+that pass the identifier regex are a separate residual; see E-032.
+
 ### B-004: An unexpected write error leaves a tag batch half-applied
 
 **Description.** `_runTagBatch` has no `try`/`catch` around its operation
@@ -155,3 +127,22 @@ whole batch back" (`tests/backend/tags.test.js`). The operation loop and the
 final sort are wrapped inside the lock, and an unexpected throw now calls
 `_rollbackTagBatch` and returns its structured result. A helper that throws
 after changing external rows but before returning is still a gap; see B-006.
+
+### B-005: Split history total counts hidden PENDING rows
+
+**Description.** `getSplitHistory` filters PENDING rows out of `data` but
+returns `total` as `lastRow - 1`, which still counts them. A caller can see a
+total larger than the rows that are ever returned, and pagination driven by
+`total` overcounts.
+
+**Steps to reproduce.** Seed a PENDING row in Split Transactions and call
+`getSplitHistory`. The row is absent from `data` but included in `total`.
+
+**Severity.** Low. No money or data is changed; the count is cosmetic and
+affects pagination metadata.
+
+**Where.** `google-apps-script/Service_Split.gs:580` and the return at line 661.
+
+**Status.** Fixed in Phase 4, part 2 (D-017). Test: "history has no total field
+and paginates on hasMore alone" (`tests/backend/split.test.js`). `total` is
+removed from all three returns; the client paginates on `hasMore` only.
