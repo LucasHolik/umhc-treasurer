@@ -6,6 +6,33 @@ straight away. A fixed bug names the regression test that covers it.
 
 ## Open
 
+### B-004: An unexpected write error leaves a tag batch half-applied
+
+**Description.** `_runTagBatch` has no `try`/`catch` around its operation
+switch. An uncaught throw from `_addTag`, `_deleteTag`, `_renameTag`,
+`_updateTripType`, `_updateTripStatus` or `_sortTags` escapes to the outer
+catch in `processTagOperations` (lines 72 to 78), which returns a generic
+failure without calling `_rollbackTagBatch`. The Tags sheet and the expense or
+split rows can be left half-changed. `_snapshotTagSheet` fails before any
+change, and `_restoreTagSheet` runs inside `_rollbackTagBatch`'s own
+`try`/`catch`, so neither can escape this way.
+
+**Steps to reproduce.** In the backend harness, fail the next `Tags`
+`setValue` write and send `[["Food", null, "delete", "Category"],
+["", "Travel", "add", "Category"]]`. The response is the generic failure,
+Food is gone from Tags and Finances, and Travel was not added.
+
+**Severity.** Medium. It needs a transient or quota-style write failure, but
+the result is a half-applied batch.
+
+**Where.** `google-apps-script/Service_Tags.gs:743` (`_runTagBatch`), with the
+outer catch at `Service_Tags.gs:72`.
+
+**Status.** Open. Found while building the part 3 rollback test; not fixed in
+this phase. A fix should wrap the operation loop in a `try`/`catch` that calls
+`_rollbackTagBatch`, with a regression test using `failNextWrite("Tags",
+"setValue")`.
+
 ### B-003: A reserved-word JSONP callback is not replaced
 
 **Description.** `createJsonResponse` validates the callback with a regex that

@@ -143,7 +143,7 @@ removed. No production changes. `npm test` and `npm run format:check` pass.
 
 **Existing tests affected.** None.
 
-**Status.** todo
+**Status.** done
 
 ### Part 4: Split lifecycle
 

@@ -76,6 +76,69 @@ function compareCells(a, b) {
   return 0;
 }
 
+// --- Write-fault injection -------------------------------------------------
+
+// The public methods that change a sheet, and therefore the only names a
+// caller may schedule a fault against. deleteRow delegates to deleteRows, so
+// scheduling "deleteRows" covers both.
+const WRITE_METHODS = new Set([
+  "setValue",
+  "setValues",
+  "clearContent",
+  "copyTo",
+  "appendRow",
+  "insertRow",
+  "deleteRows",
+]);
+
+// Test-only one-shot write faults. The harness schedules one; the next
+// matching write throws before changing any cell, so the backend sees an
+// ordinary Apps Script write failure and its rollback paths can run. Omitting
+// the method matches any write to that sheet.
+function createWriteFaults() {
+  const pending = [];
+
+  function matches(fault, sheetName, method) {
+    return (
+      fault.sheetName === sheetName &&
+      (fault.method === null || fault.method === method)
+    );
+  }
+
+  return {
+    schedule(sheetName, method) {
+      if (typeof sheetName !== "string" || sheetName === "") {
+        throw new TypeError(
+          "Write-fault sheet name must be a non-empty string",
+        );
+      }
+      if (method !== undefined && method !== null) {
+        if (!WRITE_METHODS.has(method)) {
+          throw new TypeError(`Unknown write method: ${String(method)}`);
+        }
+      }
+      pending.push({
+        sheetName: sheetName,
+        method: method === undefined || method === null ? null : method,
+      });
+    },
+
+    // Returns the one-shot error to throw, or null when no fault matches.
+    take(sheetName, method) {
+      const index = pending.findIndex((fault) =>
+        matches(fault, sheetName, method),
+      );
+      if (index === -1) return null;
+      pending.splice(index, 1);
+      return new Error(`Injected write failure: ${method} on ${sheetName}`);
+    },
+
+    clear() {
+      pending.length = 0;
+    },
+  };
+}
+
 // --- Spreadsheet -----------------------------------------------------------
 
 class FakeRange {
@@ -105,11 +168,13 @@ class FakeRange {
   }
 
   setValue(value) {
+    this.sheet._beforeWrite("setValue");
     this.sheet._setCell(this.row, this.column, value);
     return this;
   }
 
   setValues(values) {
+    this.sheet._beforeWrite("setValues");
     if (!Array.isArray(values) || values.length !== this.numRows) {
       throw new Error(
         "The number of rows in the data does not match the number of rows in the range.",
@@ -145,6 +210,7 @@ class FakeRange {
   }
 
   clearContent() {
+    this.sheet._beforeWrite("clearContent");
     for (let r = 0; r < this.numRows; r++) {
       for (let c = 0; c < this.numColumns; c++) {
         this.sheet._setCell(this.row + r, this.column + c, "");
@@ -192,7 +258,9 @@ class FakeRange {
 
   // copyTo treats the destination as the top-left anchor and copies the
   // source's dimensions, which is how the tag-delete row shuffle uses it.
+  // A scheduled write fault belongs to the destination sheet.
   copyTo(destination) {
+    destination.sheet._beforeWrite("copyTo");
     const values = this.getValues();
     destination.sheet._setGrid(destination.row, destination.column, values);
   }
@@ -259,6 +327,7 @@ class FakeSheet {
   }
 
   appendRow(row) {
+    this._beforeWrite("appendRow");
     if (!Array.isArray(row)) throw new TypeError("appendRow expects an array");
     const targetRow = this.getLastRow() + 1;
     this._setGrid(targetRow, 1, [row]);
@@ -266,6 +335,7 @@ class FakeSheet {
   }
 
   insertRow(rowIndex) {
+    this._beforeWrite("insertRow");
     assertPositiveInteger(rowIndex, "rowIndex");
     if (rowIndex > this._rows.length + 1) {
       throw new Error("Row index is outside the sheet");
@@ -279,6 +349,7 @@ class FakeSheet {
   }
 
   deleteRows(rowIndex, numRows) {
+    this._beforeWrite("deleteRows");
     assertPositiveInteger(rowIndex, "rowIndex");
     assertPositiveInteger(numRows, "numRows");
     // Apps Script throws rather than ignoring a range outside the sheet. Fail
@@ -291,6 +362,10 @@ class FakeSheet {
   }
 
   // --- Internal storage helpers -------------------------------------------
+
+  _beforeWrite(method) {
+    this.spreadsheet._throwIfWriteFault(this.name, method);
+  }
 
   _getCell(row, column) {
     const line = this._rows[row - 1];
@@ -337,9 +412,15 @@ class FakeSheet {
 }
 
 class FakeSpreadsheet {
-  constructor(timeZone) {
+  constructor(timeZone, writeFaults) {
     this._timeZone = timeZone;
     this._sheets = new Map();
+    this._writeFaults = writeFaults || createWriteFaults();
+  }
+
+  _throwIfWriteFault(sheetName, method) {
+    const error = this._writeFaults.take(sheetName, method);
+    if (error) throw error;
   }
 
   getSpreadsheetTimeZone() {
@@ -425,6 +506,12 @@ function createLock() {
 
     releaseLock() {
       held = false;
+    },
+
+    // Test-only: hold the lock as if another execution had taken it, so a
+    // test can force Service_Lock.withScriptLock down the busy path.
+    hold() {
+      held = true;
     },
   };
 }
@@ -526,11 +613,16 @@ const ContentService = { createTextOutput, MimeType };
  *   spreadsheet: FakeSpreadsheet,
  *   cache: object,
  *   lock: object,
+ *   writeFaults: object,
  *   globals: object,
  * }}
  */
 export function createFakes(options = {}) {
-  const spreadsheet = new FakeSpreadsheet(options.timeZone || "UTC");
+  const writeFaults = createWriteFaults();
+  const spreadsheet = new FakeSpreadsheet(
+    options.timeZone || "UTC",
+    writeFaults,
+  );
   const cache = createCache(options.now);
   const lock = createLock();
 
@@ -538,6 +630,7 @@ export function createFakes(options = {}) {
     spreadsheet,
     cache,
     lock,
+    writeFaults,
     globals: {
       SpreadsheetApp: { getActiveSpreadsheet: () => spreadsheet },
       LockService: { getScriptLock: () => lock },

@@ -7,11 +7,12 @@
 //   const response = await backend.request("ping");
 //   backend.close();
 //
-// The vm, the fakes and the backend's internals never leak out. `request`
-// behaves like the browser client: it logs in, signs the JSONP parameters with
-// HMAC-SHA256, calls doGet and parses the reply. The signing code here is
-// written independently of Service_Auth._buildPayload so the tests do not
-// grade the server against itself.
+// The vm and the fakes stay private; a small test-only surface (`request`,
+// `requestRaw`, `login`, `sheets`, `cache` and `helpers`) is exposed instead.
+// `request` behaves like the browser client: it logs in, signs the JSONP
+// parameters with HMAC-SHA256, calls doGet and parses the reply. The signing
+// code here is written independently of Service_Auth._buildPayload so the
+// tests do not grade the server against itself.
 //
 // Each createBackend() call gets a fresh spreadsheet, cache and lock, so tests
 // stay independent. The compiled .gs script is shared, but each vm context
@@ -75,7 +76,11 @@ globalThis.__UMHC_BACKEND__ = {
   helpers: {
     _sanitizeForSheet: _sanitizeForSheet,
     _sanitizeGridForSheet: _sanitizeGridForSheet,
-    validateJsonParameter: validateJsonParameter
+    validateJsonParameter: validateJsonParameter,
+    withScriptLock: Service_Lock.withScriptLock,
+    getScriptLockDepth: function () {
+      return _scriptLockDepth;
+    }
   }
 };
 `;
@@ -663,6 +668,39 @@ export function createBackend(options = {}) {
     _sanitizeGridForSheet: backendApi.helpers._sanitizeGridForSheet,
     /** Test-only: classify a JSON parameter before a backend action uses it. */
     validateJsonParameter: backendApi.helpers.validateJsonParameter,
+
+    /** Test-only: run fn under the backend's re-entrant lock wrapper. */
+    withScriptLock: backendApi.helpers.withScriptLock,
+    /**
+     * Test-only: the backend's current lock depth. It is 1 while this
+     * execution holds the lock and grows for nested calls; 0 means no lock.
+     */
+    getScriptLockDepth: backendApi.helpers.getScriptLockDepth,
+    /** Test-only: hold the fake script lock as another execution would. */
+    holdScriptLock() {
+      fakes.lock.hold();
+    },
+    /**
+     * Test-only: release a lock the test took with holdScriptLock. It clears
+     * the fake lock unconditionally, so it is only safe for that use.
+     */
+    releaseScriptLock() {
+      fakes.lock.releaseLock();
+    },
+    /** Test-only: whether the fake script lock is currently held. */
+    isScriptLockHeld() {
+      return fakes.lock.hasLock();
+    },
+    /**
+     * Test-only: make the next matching sheet write throw once. `method` is
+     * one of setValue, setValues, clearContent, copyTo, appendRow, insertRow
+     * or deleteRows; omit it to match any write. The fake throws before
+     * changing a cell, so the backend sees an ordinary write failure and its
+     * rollback paths run.
+     */
+    failNextWrite(sheetName, method) {
+      fakes.writeFaults.schedule(sheetName, method);
+    },
   });
 
   function close() {
@@ -670,6 +708,7 @@ export function createBackend(options = {}) {
     closed = true;
     sessions.clear();
     fakes.cache.clear();
+    fakes.writeFaults.clear();
     fakes.lock.releaseLock();
   }
 
