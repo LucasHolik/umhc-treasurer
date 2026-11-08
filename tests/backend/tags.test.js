@@ -422,6 +422,206 @@ test("an unexpected write throw rolls the whole batch back", (t) => {
   assert.equal(backend.sheets.get("Split Transactions")[1][5], "");
 });
 
+test("a Tags write throw during delete restores the external rows", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+  const warn = t.mock.method(console, "warn", () => {});
+
+  const operations = [
+    ["Food", null, "delete", "Category"],
+    ["", "Travel", "add", "Category"],
+  ];
+
+  // The delete clears Food from Finances and Split Transactions, then shuffles
+  // the Tags category column with copyTo. The fault lands after both external
+  // writes, which is the B-006 window: the delete must put those rows back
+  // itself before it returns a structured failure.
+  backend.helpers.failNextWrite("Tags", "copyTo");
+  const response = backend.request("processTagOperations", { operations });
+
+  assert.equal(response.success, false);
+
+  // Both external sheets are back to their pre-batch state, not just Tags.
+  // These checks come first so the regression is explicit about the data even
+  // if the message assertions below drift.
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(backend.sheets.get("Finances"), FINANCES);
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+
+  assert.match(response.message, /Operation failed at index 0/);
+  assert.equal(
+    response.message.match(/Changes reverted/g).length,
+    1,
+    "the clean batch message reports the reverted state once",
+  );
+  assert.doesNotMatch(response.message, /\.\./);
+  assert.deepEqual(response.appliedOperations, []);
+  assert.equal(response.rollback.attempted, true);
+  assert.equal(response.rollback.success, true);
+
+  assert.ok(
+    error.mock.calls.some((call) =>
+      String(call.arguments[0]).includes("Rolling back external rows"),
+    ),
+    "the delete reports that it is restoring the external rows",
+  );
+  assert.equal(warn.mock.calls.length, 0, "a clean restore logs no warning");
+  assert.equal(backend.helpers.isScriptLockHeld(), false);
+  assert.equal(backend.helpers.getScriptLockDepth(), 0);
+
+  // The fault is one-shot: the same batch applies cleanly on retry.
+  const retry = backend.request("processTagOperations", { operations });
+  assert.equal(retry.success, true);
+  assert.deepEqual(
+    retry.results.map((result) => result.status),
+    ["applied", "applied"],
+  );
+  assert.deepEqual(backend.sheets.get("Tags"), [
+    TAG_HEADERS,
+    ["Winter Trip", "Competitive", "Active", "Transport", "Competitive"],
+    ["Summer Trip", "Social", "Completed", "Travel", "Social"],
+  ]);
+  assert.deepEqual(
+    backend.sheets.get("Finances").map((row) => row[5]),
+    ["Category", "", "Transport", ""],
+  );
+  assert.deepEqual(
+    backend.sheets.get("Split Transactions").map((row) => row[5]),
+    ["Category", "", "Transport", ""],
+  );
+});
+
+test("a Split Transactions write failure during delete restores the expenses rows", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+  const warn = t.mock.method(console, "warn", () => {});
+
+  // The delete clears Food from Finances first, then fails writing Split
+  // Transactions. The split helper catches the write error itself, so the
+  // delete sees a returned failure and must restore the expenses rows.
+  backend.helpers.failNextWrite("Split Transactions", "setValues");
+  const response = backend.request("processTagOperations", {
+    operations: [["Food", null, "delete", "Category"]],
+  });
+
+  assert.equal(response.success, false);
+  assert.match(response.message, /Changes reverted/);
+
+  // The two Food expense rows are back, and no sheet kept a change.
+  assert.equal(backend.sheets.get("Finances")[1][5], "Food");
+  assert.equal(backend.sheets.get("Finances")[3][5], "Food");
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(backend.sheets.get("Finances"), FINANCES);
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+
+  assert.ok(
+    error.mock.calls.some((call) =>
+      String(call.arguments[0]).includes("Splits update failed"),
+    ),
+    "the delete reports the split failure",
+  );
+  assert.equal(warn.mock.calls.length, 0, "a clean restore logs no warning");
+  assert.equal(backend.helpers.isScriptLockHeld(), false);
+  assert.equal(backend.helpers.getScriptLockDepth(), 0);
+});
+
+test("the batch compensation retries a delete restore that failed", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+  const warn = t.mock.method(console, "warn", () => {});
+
+  // The Tags copyTo throws after the external rows were cleared, and the
+  // delete's own Expenses restore then fails too. The delete returns the rows
+  // as unresolved, so the batch compensation must retry the restore: without
+  // that retry the Food cells in Finances stay empty.
+  backend.helpers.failNextWrite("Tags", "copyTo");
+  backend.helpers.failNextWrite("Finances", "setValue");
+
+  const response = backend.request("processTagOperations", {
+    operations: [["Food", null, "delete", "Category"]],
+  });
+
+  assert.equal(response.success, false);
+  // The delete's own restore failed, but the batch compensation retried it and
+  // succeeded. The final message must reflect that outcome: no stale
+  // inconsistency warning, and the reverted claim exactly once.
+  assert.doesNotMatch(response.message, /Data is INCONSISTENT/);
+  assert.equal(
+    response.message.match(/Changes reverted/g).length,
+    1,
+    "the final message reports the reverted state once",
+  );
+  assert.equal(response.rollback.attempted, true);
+  assert.equal(response.rollback.success, true);
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(backend.sheets.get("Finances"), FINANCES);
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+  assert.equal(backend.helpers.isScriptLockHeld(), false);
+  assert.equal(backend.helpers.getScriptLockDepth(), 0);
+
+  assert.ok(
+    error.mock.calls.some((call) =>
+      String(call.arguments[0]).includes("Failed to restore Expenses rows"),
+    ),
+    "the delete reports the unresolved Expenses restore",
+  );
+  assert.equal(
+    warn.mock.calls.length,
+    0,
+    "the compensation retry logs nothing",
+  );
+});
+
+test("a Tags write throw during a direct delete restores both external sheets", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+  const warn = t.mock.method(console, "warn", () => {});
+
+  // The direct deleteTag endpoint has no batch compensation behind it: if
+  // _deleteTag does not restore the Split Transactions rows itself, nothing
+  // else will. The copyTo fault lands after both external sheets were cleared.
+  backend.helpers.failNextWrite("Tags", "copyTo");
+  const response = backend.request("deleteTag", {
+    type: "Category",
+    value: "Food",
+  });
+
+  assert.equal(response.success, false);
+  assert.match(response.message, /Changes reverted/);
+  assert.doesNotMatch(response.message, /Data is INCONSISTENT/);
+
+  // Every sheet is exactly as it was before the delete, including the split
+  // history the batch compensation would otherwise have repaired.
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(backend.sheets.get("Finances"), FINANCES);
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+
+  assert.ok(
+    error.mock.calls.some((call) =>
+      String(call.arguments[0]).includes("Rolling back external rows"),
+    ),
+    "the delete reports that it is restoring the external rows",
+  );
+  assert.equal(warn.mock.calls.length, 0, "a clean restore logs no warning");
+  assert.equal(backend.helpers.isScriptLockHeld(), false);
+  assert.equal(backend.helpers.getScriptLockDepth(), 0);
+
+  // The fault is one-shot: the same direct delete applies cleanly on retry.
+  const retry = backend.request("deleteTag", {
+    type: "Category",
+    value: "Food",
+  });
+  assert.equal(retry.success, true);
+  assert.deepEqual(
+    backend.sheets.get("Finances").map((row) => row[5]),
+    ["Category", "", "Transport", ""],
+  );
+  assert.deepEqual(
+    backend.sheets.get("Split Transactions").map((row) => row[5]),
+    ["Category", "", "Transport", ""],
+  );
+});
+
 test("a throw in the post-loop sort rolls the batch back", (t) => {
   const backend = createTestBackend(t);
   const error = t.mock.method(console, "error", () => {});

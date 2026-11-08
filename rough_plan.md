@@ -47,7 +47,14 @@ now rolls the tag batch back inside the lock, including a sort throw), B-003
 (`getSplitHistory` no longer returns `total`, which counted hidden PENDING
 rows; D-017). B-006 records a residual tag-helper window.
 
-### Phase 5 and beyond
+### Phase 5: Fix B-006, tag delete and rename rollback (approved, in progress)
+
+Make a late Tags write during deletion restore the external Finances and Split
+Transactions rows, and make a partial external write during rename get
+reverted. Definition of done: both regression tests pass, the full suite is
+green, and B-006 is fixed.
+
+### Phase 6 and beyond
 
 To be agreed with the user. Backup and restore is dropped (D-016), and the
 stale `origin/test` branch is left in place. Features go here before any code
