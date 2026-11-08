@@ -27,17 +27,18 @@ the value on its own.
 
 **Status.** Open. Found during the Phase 1 review and recorded, not fixed. A
 fix belongs in the backend parser, with a regression test that fails without
-it.
+it. That test needs the backend harness planned in `CLAUDE.md`; the current
+Node suite covers only the frontend modules.
 
 ## Fixed
 
-### B-001: `pnpm format:check` fails on `main`
+### B-001: `npm run format:check` fails on `main`
 
 **Description.** The formatting gate failed before any change was made. Prettier
 reported four files under `.archify/architecture-umhc-treasurer-20261005-162240/`
 as badly formatted. The files are generated output from the `archify` skill.
 
-**Steps to reproduce.** On `main`, run `pnpm format:check`. It exits non-zero
+**Steps to reproduce.** On `main`, run `npm run format:check`. It exits non-zero
 with warnings for `candidate.json`, `umhc-treasurer.finalize.json`,
 `umhc-treasurer.finalize-summary.json` and `umhc-treasurer.html`.
 
@@ -47,5 +48,5 @@ not pass.
 **Where.** `.archify/architecture-umhc-treasurer-20261005-162240/`.
 
 **Status.** Fixed in Phase 1, part 3 by adding `.archify/` to `.prettierignore`
-(see D-005). There is no unit test for this: `pnpm format:check` is the check
-itself, and it now passes on the whole repository.
+(see D-005). There is no unit test for this: `npm run format:check` is the
+check itself, and it now passes on the whole repository.

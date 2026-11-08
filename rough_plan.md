@@ -21,19 +21,27 @@ anything; and nobody pays for hosting or a database.
 
 Add `AGENTS.md` and the seven planning files, fill in the project-specific
 section, and make the checks it documents pass. Definition of done: the change
-is merged, `pnpm format:check` is green on `main`, and a fresh agent can start
-from `plan.md` without asking what happened last time.
+is merged, `npm run format:check` is green on `main`, and a fresh agent can
+start from `plan.md` without asking what happened last time.
 
-### Phase 2: Run the test suite from the terminal (proposed, needs agreement)
+### Phase 2: Move the test suite to Node (done)
 
-The self-test suite exists but only runs inside the app in a browser, after a
-login against a real backend. An agent therefore cannot prove that the full
-suite passes before calling a part done. Choose an approach (D-003) and
-implement it without rewriting the tests. Definition of done: one documented
-command runs every test without a browser or backend and exits non-zero on
-failure.
+Merged in pull request #4. The browser-only self-test suite and the Settings
+Diagnostics screen were replaced by a Node suite in `tests/`, which mirrors
+`src/` and runs on `node:test` with happy-dom. `npm test` runs every test
+without a browser or backend. Definition of done met: one command runs all 159
+tests. The planning files were aligned with the merged work afterwards.
 
-### Phase 3: Decide the future of backup and restore (proposed, needs agreement)
+### Phase 3: Backend test harness (proposed, needs agreement)
+
+`CLAUDE.md` plans tests for the Apps Script backend by loading the `.gs` files
+into a Node `vm` with in-memory fakes for `SpreadsheetApp`, `LockService` and
+`CacheService`. That harness is also where B-002's regression test belongs, and
+where split, tag rollback and signature behaviour can be pinned down.
+Definition of done: the harness exists, the first backend behaviours are
+tested, and `npm test` runs them.
+
+### Phase 4: Decide the future of backup and restore (proposed, needs agreement)
 
 An unmerged backup and restore attempt lives on the `origin/test` branch. It
 predates the current split, tag and security work, so it cannot be merged as it
@@ -41,7 +49,7 @@ stands. Decide whether the feature is still wanted and, if it is, plan it as its
 own phase. Definition of done: a closed decision records the answer, and either
 a phase is planned or the stale branch is removed.
 
-### Phase 4 and beyond
+### Phase 5 and beyond
 
 To be agreed with the user. Features go here before any code is written, and
 this file is updated whenever direction or scope changes.
