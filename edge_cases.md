@@ -200,8 +200,11 @@ Transactions, then its Tags write throws before the helper returns.
 **Expected.** The batch restores every changed row, or the response admits
 that the external rows were not reverted.
 
-**Status.** Not handled (B-006). Tags is restored, but the external Category
-cells stay changed while the response says the changes were reverted.
+**Status.** Handled for the late Tags write during delete and for partial
+external writes during rename (B-006). A throw inside `removeTagFromSplits`
+after a partial split write still cannot report rows, and its guard is
+unreachable today because the helper catches its own write errors. B-007
+covers a missing restore helper.
 
 ### E-031: The post-loop tag sort throws
 
@@ -214,6 +217,18 @@ cosmetic and the client reads `appliedOperations`.
 
 **Status.** Handled. Test: "a throw in the post-loop sort rolls the batch
 back" (`tests/backend/tags.test.js`).
+
+### E-033: A direct `deleteTag` leaks a partial Tags write
+
+**Situation.** The direct `deleteTag` endpoint calls `_deleteTag` without the
+batch snapshot. If the Tags `copyTo` succeeds and the following
+`clearContent` throws, the Tags sheet is left partially changed.
+
+**Expected.** Restore the Tags sheet, or report that the data is inconsistent.
+
+**Status.** Not handled. The batch path restores Tags from its snapshot; the
+direct endpoint has none. A fail-after-write test would need the harness seam
+planned for part 2.
 
 ## Excel import
 

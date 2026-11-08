@@ -101,3 +101,20 @@ tests:
 The backend suite is now 51 tests and the full suite 210. Found and recorded
 B-006 (a helper that throws after changing external rows can still leave them
 changed). Residual non-callable callback identifiers are recorded as E-032.
+
+## Phase 5: Fix B-006, tag delete and rename rollback
+
+Merged in the Phase 5 pull request. Fixed B-006:
+
+- `_deleteTag` restores external rows when the Tags write throws, reports
+  inconsistency when a restore fails, and includes unresolved rows for the
+  batch compensation.
+- `_renameTag` marks expenses and splits as attempted before the calls,
+  reverts independently, and reports `Data is INCONSISTENT` when a revert
+  fails.
+- `_runTagBatch` retries a failed delete or rename compensation.
+- The backend harness gained a fail-after-write mode.
+
+The backend suite is 59 tests and the full suite 218. Found B-007 (a missing
+split restore helper is treated as a successful rollback) and recorded E-033
+(a direct delete has no Tags snapshot); both are open or recorded.

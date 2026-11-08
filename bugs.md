@@ -6,33 +6,24 @@ straight away. A fixed bug names the regression test that covers it.
 
 ## Open
 
-### B-006: A throw inside a tag helper can still leave external rows changed
+### B-007: Batch rollback treats a missing split restore helper as success
 
-**Description.** The B-004 fix rolls back when the operation switch or the final
-sort throws. But if `_deleteTag` or `_renameTag` changes Finances or Split
-Transactions and then its Tags write throws, the helper never returns, so
-`_runTagBatch` records no compensation. `_rollbackTagBatch` restores the Tags
-sheet and reports "Changes reverted", while the external Category cells stay
-cleared.
+**Description.** In `_rollbackTagBatch`, when a compensation has non-empty
+`splitRows` but `Service_Split.restoreTagInSplits` is missing, the restore is
+skipped and `rollbackSuccess` stays true. The response can say "Changes
+reverted" while the Split Transactions rows are still cleared.
 
-**Steps to reproduce.** In the backend harness, call
-`failNextWrite("Tags", "copyTo")` with the batch
-`[["Food", null, "delete", "Category"], ["", "Travel", "add", "Category"]]`.
-Tags has Food back, but the Food Category cells in Finances and Split
-Transactions are empty, and the response says the changes were reverted.
+**Steps to reproduce.** Only reachable with a deployment mismatch that leaves
+the helper undefined while split rows are pending.
 
-**Severity.** Medium. The window is narrow, but the response claims a complete
-rollback when external rows are still changed.
+**Severity.** Low. It needs a missing dependency, but the claim would be false.
 
-**Where.** `google-apps-script/Service_Tags.gs`, `_deleteTag`/`_renameTag` and
-the compensation recording in `_runTagBatch`.
+**Where.** `google-apps-script/Service_Tags.gs`, `_rollbackTagBatch`.
 
-**Status.** Open. Found during the Phase 4 part 1 review; not fixed.
+**Status.** Open. Found during the Phase 5 part 1 review; not fixed.
 
-**Suggested fix.** Make the helpers report the external rows they changed even
-when they fail, and record a compensation for those rows before returning; or
-write the Tags row before the external rows so a failure leaves less to undo.
-Regression test with `failNextWrite("Tags", "copyTo")`.
+**Suggested fix.** When `comp.splitRows` is non-empty and the helper is
+missing, set `rollbackSuccess = false` and record the inconsistent detail.
 
 ## Fixed
 
@@ -146,3 +137,33 @@ affects pagination metadata.
 **Status.** Fixed in Phase 4, part 2 (D-017). Test: "history has no total field
 and paginates on hasMore alone" (`tests/backend/split.test.js`). `total` is
 removed from all three returns; the client paginates on `hasMore` only.
+
+### B-006: A late tag write can leave external rows changed
+
+**Description.** `_deleteTag` removes the tag from Finances and Split
+Transactions, then writes the Tags sheet. If that Tags write throws, the
+helper never returns, so `_runTagBatch` records no compensation.
+`_rollbackTagBatch` restores the Tags sheet and reports "Changes reverted",
+while the external cells stay cleared. `_renameTag` has a narrower version:
+if an external update throws after a partial write, its success flag is still
+false, so the catch reverts the master but not the partially changed rows.
+
+**Steps to reproduce.** In the backend harness, call
+`failNextWrite("Tags", "copyTo")` with the batch
+`[["Food", null, "delete", "Category"], ["", "Travel", "add", "Category"]]`.
+Tags has Food back, but the Food Category cells in Finances and Split
+Transactions are empty, and the response says the changes were reverted.
+
+**Severity.** Medium. The window is narrow, but the response claims a complete
+rollback when external rows are still changed.
+
+**Where.** `google-apps-script/Service_Tags.gs`, `_deleteTag` Step 2 and the
+external updates in `_renameTag`.
+
+**Status.** Fixed in Phase 5. Regression tests (all in
+`tests/backend/tags.test.js`): "a Tags write throw during delete restores the
+external rows", "a Tags write throw during a direct delete restores both
+external sheets", "a Finances write throw during rename reverts the external
+rows", "a Split Transactions write throw during rename reverts the external
+rows", "a failed compensation reports the rename as inconsistent" and "a
+failed batch compensation reports the rename as inconsistent".

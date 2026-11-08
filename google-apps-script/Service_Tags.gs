@@ -275,6 +275,86 @@ function _deleteTag(type, value) {
   let modifiedExpenseRows = [];
   let modifiedSplitRows = [];
 
+  // Builds a failure result that carries every row array the batch may need to
+  // restore. The arrays are included even when this call already restored the
+  // rows: replaying the restore is harmless, and a caller that sees them knows
+  // exactly which rows were touched.
+  const externalFailure = (message) => {
+    const result = { success: false, message: message };
+    if (modifiedExpenseRows.length > 0) {
+      result.modifiedExpenseRows = modifiedExpenseRows;
+    }
+    if (modifiedSplitRows.length > 0) {
+      result.modifiedSplitRows = modifiedSplitRows;
+    }
+    return result;
+  };
+
+  // Restores the external rows cleared so far. Each sheet is guarded so a
+  // failure on one does not stop the other. Returns true only when every
+  // restore succeeded.
+  const restoreExternalRows = () => {
+    let restored = true;
+
+    if (modifiedExpenseRows.length > 0) {
+      try {
+        const expenseRestore = Service_Sheet.restoreTagInExpenses(
+          type,
+          value,
+          modifiedExpenseRows,
+        );
+        if (!expenseRestore.success) {
+          console.error(
+            "CRITICAL: Failed to restore Expenses rows during tag delete.",
+            expenseRestore,
+          );
+          restored = false;
+        }
+      } catch (restoreError) {
+        console.error(
+          "CRITICAL: Exception restoring Expenses rows during tag delete.",
+          restoreError,
+        );
+        restored = false;
+      }
+    }
+
+    if (modifiedSplitRows.length > 0) {
+      try {
+        const splitRestore = Service_Split.restoreTagInSplits(
+          type,
+          value,
+          modifiedSplitRows,
+        );
+        if (!splitRestore.success) {
+          console.error(
+            "CRITICAL: Failed to restore Split Transactions rows during tag delete.",
+            splitRestore,
+          );
+          restored = false;
+        }
+      } catch (restoreError) {
+        console.error(
+          "CRITICAL: Exception restoring Split Transactions rows during tag delete.",
+          restoreError,
+        );
+        restored = false;
+      }
+    }
+
+    return restored;
+  };
+
+  // Runs the guarded restore and builds the matching failure. A fully restored
+  // pair reports the reverted message; anything left changed is flagged as
+  // inconsistent and carries the rows the batch rollback must retry.
+  const rollbackFailure = (revertedMessage) =>
+    externalFailure(
+      restoreExternalRows()
+        ? revertedMessage
+        : "Tag delete failed and the external rows could not all be restored. Data is INCONSISTENT. Manual reconciliation required.",
+    );
+
   // --- Step 1: External Updates with Rollback ---
   // Strip the tag from Expenses and Splits before deleting it from the master
   // list. If the Splits write fails after Expenses succeeded, restore the
@@ -315,7 +395,19 @@ function _deleteTag(type, value) {
       ? expenseResult.modifiedRows
       : [];
 
-    const splitResult = Service_Split.removeTagFromSplits(type, value);
+    let splitResult;
+    try {
+      splitResult = Service_Split.removeTagFromSplits(type, value);
+    } catch (splitError) {
+      console.error(
+        "Splits update threw during tag deletion. Rolling back Expenses...",
+        splitError,
+      );
+      return rollbackFailure(
+        "Failed to remove tag usages. Tag NOT deleted. Changes reverted.",
+      );
+    }
+
     modifiedSplitRows = Array.isArray(splitResult.modifiedRows)
       ? splitResult.modifiedRows
       : [];
@@ -325,38 +417,9 @@ function _deleteTag(type, value) {
         splitResult,
       );
 
-      let message =
-        "Failed to remove tag usages. Tag NOT deleted. Changes reverted.";
-
-      if (modifiedExpenseRows.length > 0) {
-        try {
-          const revertResult = Service_Sheet.restoreTagInExpenses(
-            type,
-            value,
-            modifiedExpenseRows,
-          );
-          if (!revertResult.success) {
-            console.error(
-              "CRITICAL: Failed to rollback Expenses sheet during delete failure.",
-              revertResult,
-            );
-            message =
-              "Tag delete failed and Expenses rollback failed. Data is INCONSISTENT. Manual reconciliation required.";
-          }
-        } catch (rollbackError) {
-          console.error(
-            "CRITICAL: Exception during Expenses rollback.",
-            rollbackError,
-          );
-          message =
-            "Tag delete failed and Expenses rollback threw. Data is INCONSISTENT. Manual reconciliation required.";
-        }
-      }
-
-      return {
-        success: false,
-        message: message,
-      };
+      return rollbackFailure(
+        "Failed to remove tag usages. Tag NOT deleted. Changes reverted.",
+      );
     }
   }
 
@@ -365,53 +428,63 @@ function _deleteTag(type, value) {
 
   const deleteRow = tagIndex + 2;
 
-  // If deleting a "Type" (master list), we should clear this type from all Trip/Events (Col B)
-  if (type === "Type") {
-    const tripTypesRange = tagSheet.getRange(2, COL_TYPE, lastRow - 1, 1);
-    const tripTypes = tripTypesRange.getValues();
-    let updated = false;
-    const newTripTypes = tripTypes.map((r) => {
-      if (r[0] === value) {
-        updated = true;
-        return [""]; // Clear the type
+  try {
+    // If deleting a "Type" (master list), we should clear this type from all Trip/Events (Col B)
+    if (type === "Type") {
+      const tripTypesRange = tagSheet.getRange(2, COL_TYPE, lastRow - 1, 1);
+      const tripTypes = tripTypesRange.getValues();
+      let updated = false;
+      const newTripTypes = tripTypes.map((r) => {
+        if (r[0] === value) {
+          updated = true;
+          return [""]; // Clear the type
+        }
+        return r;
+      });
+      if (updated) {
+        tripTypesRange.setValues(_sanitizeGridForSheet(newTripTypes));
       }
-      return r;
-    });
-    if (updated) {
-      tripTypesRange.setValues(_sanitizeGridForSheet(newTripTypes));
     }
-  }
 
-  if (type === "Trip/Event") {
-    // If deleting Trip/Event, delete Cols A, B, C for that row
-    if (deleteRow < lastRow) {
-      // Move A, B, C (3 cols) up
-      const rangeToMove = tagSheet.getRange(
-        deleteRow + 1,
-        1,
-        lastRow - deleteRow,
-        3,
-      );
-      rangeToMove.copyTo(tagSheet.getRange(deleteRow, 1));
-      // Clear last row of A, B, C
-      tagSheet.getRange(lastRow, 1, 1, 3).clearContent();
+    if (type === "Trip/Event") {
+      // If deleting Trip/Event, delete Cols A, B, C for that row
+      if (deleteRow < lastRow) {
+        // Move A, B, C (3 cols) up
+        const rangeToMove = tagSheet.getRange(
+          deleteRow + 1,
+          1,
+          lastRow - deleteRow,
+          3,
+        );
+        rangeToMove.copyTo(tagSheet.getRange(deleteRow, 1));
+        // Clear last row of A, B, C
+        tagSheet.getRange(lastRow, 1, 1, 3).clearContent();
+      } else {
+        tagSheet.getRange(deleteRow, 1, 1, 3).clearContent();
+      }
     } else {
-      tagSheet.getRange(deleteRow, 1, 1, 3).clearContent();
+      // For Category (D) and Type List (E), we just move that column
+      if (deleteRow < lastRow) {
+        const rangeToMove = tagSheet.getRange(
+          deleteRow + 1,
+          column,
+          lastRow - deleteRow,
+          1,
+        );
+        rangeToMove.copyTo(tagSheet.getRange(deleteRow, column));
+        tagSheet.getRange(lastRow, column).clearContent();
+      } else {
+        tagSheet.getRange(deleteRow, column).clearContent();
+      }
     }
-  } else {
-    // For Category (D) and Type List (E), we just move that column
-    if (deleteRow < lastRow) {
-      const rangeToMove = tagSheet.getRange(
-        deleteRow + 1,
-        column,
-        lastRow - deleteRow,
-        1,
-      );
-      rangeToMove.copyTo(tagSheet.getRange(deleteRow, column));
-      tagSheet.getRange(lastRow, column).clearContent();
-    } else {
-      tagSheet.getRange(deleteRow, column).clearContent();
-    }
+  } catch (tagsWriteError) {
+    console.error(
+      "Error updating the Tags sheet during tag deletion. Rolling back external rows...",
+      tagsWriteError,
+    );
+    return rollbackFailure(
+      "Failed to update the Tags sheet. Tag NOT deleted. Changes reverted.",
+    );
   }
 
   return {
@@ -510,6 +583,10 @@ function _renameTag(type, oldValue, newValue, skipSort) {
     }
 
     try {
+      // Mark each external write as attempted before the call, so a write that
+      // partially lands and then throws (or reports failure) is still
+      // compensated by the catch below.
+      expensesUpdated = true;
       const expenseResult = Service_Sheet.updateExpensesWithTag(
         oldValue,
         newValue,
@@ -518,8 +595,8 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       if (!expenseResult.success) {
         throw new Error("Expenses update failed: " + expenseResult.message);
       }
-      expensesUpdated = true;
 
+      splitsUpdated = true;
       const splitResult = Service_Split.updateTagInSplits(
         oldValue,
         newValue,
@@ -528,7 +605,6 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       if (!splitResult.success) {
         throw new Error("Splits update failed: " + splitResult.message);
       }
-      splitsUpdated = true;
     } catch (error) {
       console.error(
         "Error updating related data after tag rename. Rolling back...",
@@ -536,10 +612,22 @@ function _renameTag(type, oldValue, newValue, skipSort) {
       );
 
       // --- ROLLBACK ---
+      // Track whether any revert fails: if one does, the caller must not be
+      // told the changes were reverted when a sheet is still changed.
+      let revertFailed = false;
+
       // 1. Revert Master Sheet (Optimistic Update)
-      tagSheet
-        .getRange(updateRow, column)
-        .setValue(_sanitizeForSheet(oldValue));
+      try {
+        tagSheet
+          .getRange(updateRow, column)
+          .setValue(_sanitizeForSheet(oldValue));
+      } catch (masterRollbackError) {
+        console.error(
+          "CRITICAL: Exception during Tags master rollback.",
+          masterRollbackError,
+        );
+        revertFailed = true;
+      }
 
       // 2. Revert Expenses Sheet (Compensating Transaction)
       if (expensesUpdated) {
@@ -554,21 +642,21 @@ function _renameTag(type, oldValue, newValue, skipSort) {
               "CRITICAL: Failed to rollback Expenses sheet during rename failure.",
               revertResult,
             );
-            error.message +=
-              " CRITICAL: Failed to revert Expenses sheet. Data is INCONSISTENT. Manual reconciliation required.";
+            revertFailed = true;
           }
         } catch (rollbackError) {
           console.error(
             "CRITICAL: Exception during Expenses rollback.",
             rollbackError,
           );
-          error.message +=
-            " CRITICAL: Exception during Expenses rollback. Data is INCONSISTENT. Manual reconciliation required.";
+          revertFailed = true;
         }
+      }
 
-        // 3. Revert Splits Sheet (Compensating Transaction)
-        // Even if the initial split update failed, we attempt to revert (New -> Old)
-        // to handle potential partial updates or false-negatives.
+      // 3. Revert Splits Sheet (Compensating Transaction)
+      // The two external reverts are independent: a partial split write must
+      // be reverted even when the Expenses update never succeeded.
+      if (splitsUpdated) {
         try {
           const splitRevert = Service_Split.updateTagInSplits(
             newValue,
@@ -576,23 +664,29 @@ function _renameTag(type, oldValue, newValue, skipSort) {
             type,
           );
           if (!splitRevert.success) {
-            console.warn(
-              "Splits rollback warning (may be expected if initial update failed cleanly): " +
-                splitRevert.message,
+            console.error(
+              "CRITICAL: Failed to rollback Splits sheet during rename failure.",
+              splitRevert,
             );
+            revertFailed = true;
           }
         } catch (splitRollbackError) {
-          console.warn(
-            "Splits rollback exception (ignoring as this is a best-effort cleanup):",
+          console.error(
+            "CRITICAL: Exception during Splits rollback.",
             splitRollbackError,
           );
+          revertFailed = true;
         }
       }
 
       return {
         success: false,
-        message:
-          "Tag rename failed during dependent updates. Changes reverted.",
+        message: revertFailed
+          ? "Tag rename failed and the external rows could not all be restored. Data is INCONSISTENT. Manual reconciliation required."
+          : "Tag rename failed during dependent updates. Changes reverted.",
+        expensesUpdated: expensesUpdated,
+        splitsUpdated: splitsUpdated,
+        revertFailed: revertFailed,
       };
     }
   }
@@ -786,8 +880,16 @@ function _runTagBatch(operations) {
             break;
           case "delete":
             result = _deleteTag(tagType, oldValue);
+            // A failed delete may still have changed external rows, either
+            // because its own restore failed or because it could not report
+            // success. Record the compensation so the batch rollback retries
+            // the restore instead of leaving those rows cleared.
             if (
-              result.success &&
+              (result.success ||
+                (Array.isArray(result.modifiedExpenseRows) &&
+                  result.modifiedExpenseRows.length > 0) ||
+                (Array.isArray(result.modifiedSplitRows) &&
+                  result.modifiedSplitRows.length > 0)) &&
               (tagType === "Trip/Event" || tagType === "Category")
             ) {
               compensation = {
@@ -813,6 +915,23 @@ function _runTagBatch(operations) {
                   splitsUpdated: !!result.splitsUpdated,
                 };
               }
+            } else if (
+              (tagType === "Trip/Event" || tagType === "Category") &&
+              result.revertFailed
+            ) {
+              // The rename's own revert failed, so external rows may still
+              // carry the new value. Record the compensation so the batch
+              // rollback retries the revert instead of trusting its claim.
+              // When the in-helper revert succeeded, recording it would repeat
+              // a write that is no longer needed.
+              compensation = {
+                kind: "rename",
+                type: tagType,
+                oldValue: oldValue,
+                newValue: newValue,
+                expensesUpdated: !!result.expensesUpdated,
+                splitsUpdated: !!result.splitsUpdated,
+              };
             }
             break;
           case "updateTripType":
@@ -838,6 +957,10 @@ function _runTagBatch(operations) {
             );
         }
 
+        // Record the compensation before the failure return: a failed delete
+        // may still have changed external rows the batch rollback must retry.
+        if (compensation) compensations.push(compensation);
+
         if (!result.success) {
           results.push({
             index: i,
@@ -856,7 +979,6 @@ function _runTagBatch(operations) {
         }
 
         results.push({ index: i, operation: operation, status: "applied" });
-        if (compensation) compensations.push(compensation);
       }
 
       // The final sort is part of the batch: if it throws, every operation that
@@ -1004,11 +1126,28 @@ function _rollbackTagBatch(
     .filter((r) => r.status === "applied" || r.status === "rollback_failed")
     .map((r) => ({ index: r.index, operation: r.operation }));
 
+  // The failure detail may already carry the operation's own claim that the
+  // changes were reverted or that the data is inconsistent. The batch-level
+  // outcome is authoritative, so strip those sentences and build the message
+  // once: a successful rollback proves the data consistent.
+  const failureCore = String(failureMessage)
+    .replace(
+      /\s*Data is INCONSISTENT\.?\s*Manual reconciliation required\.?/gi,
+      "",
+    )
+    .replace(/\s*Changes reverted\.?/gi, "")
+    .replace(/[\s.;:]+$/, "");
+
+  const message = [
+    failureCore,
+    rollbackSuccess ? "Changes reverted." : rollbackDetail,
+  ]
+    .filter(Boolean)
+    .join(". ");
+
   return {
     success: false,
-    message: rollbackSuccess
-      ? failureMessage + ". Changes reverted."
-      : failureMessage + ". " + rollbackDetail,
+    message: message,
     results: results,
     appliedOperations: appliedOperations,
     rollback: {

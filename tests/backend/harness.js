@@ -694,17 +694,19 @@ export function createBackend(options = {}) {
     /**
      * Test-only: make a matching sheet write throw once. `method` is one of
      * setValue, setValues, clearContent, copyTo, appendRow, insertRow or
-     * deleteRows; omit it to match any write. The fake throws before changing
-     * a cell, so the backend sees an ordinary write failure and its rollback
-     * paths run.
+     * deleteRows; omit it to match any write. By default the fake throws before
+     * changing a cell, so the backend sees an ordinary write failure and its
+     * rollback paths run. With `when: "after"` the write applies and then
+     * throws, which models a partial external write that failed on the way
+     * back.
      *
      * `skip` targets a later matching write: the first `skip` matches pass
      * through and the next one throws. It is how a split test reaches the
      * promotion write, which is the second Split Transactions setValues after
      * the PENDING append.
      */
-    failNextWrite(sheetName, method, { skip = 0 } = {}) {
-      fakes.writeFaults.schedule(sheetName, method, { skip });
+    failNextWrite(sheetName, method, { skip = 0, when = "before" } = {}) {
+      fakes.writeFaults.schedule(sheetName, method, { skip, when });
     },
   });
 

@@ -5,5 +5,5 @@ Detailed plan for the current phase only. The grand plan is in
 
 No phase is planned yet.
 
-Phase 5 and beyond is to be agreed. B-006 (medium) is open; see
+Phase 6 and beyond is to be agreed. B-007 (low) is open; see
 [`bugs.md`](bugs.md).

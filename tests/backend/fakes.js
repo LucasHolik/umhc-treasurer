@@ -91,12 +91,14 @@ const WRITE_METHODS = new Set([
   "deleteRows",
 ]);
 
-// Test-only one-shot write faults. The harness schedules one; the next
-// matching write throws before changing any cell, so the backend sees an
-// ordinary Apps Script write failure and its rollback paths can run. Omitting
-// the method matches any write to that sheet. `skip` lets a test target a
-// later matching write, for example the split promotion after the PENDING
-// append: the first `skip` matches pass through and the next one throws.
+// Test-only one-shot write faults. The harness schedules one; by default the
+// next matching write throws before changing any cell, so the backend sees an
+// ordinary Apps Script write failure and its rollback paths can run. With
+// `when: "after"` the write applies and then throws, which models a partial
+// external write that failed on the way back. Omitting the method matches any
+// write to that sheet. `skip` lets a test target a later matching write, for
+// example the split promotion after the PENDING append: the first `skip`
+// matches pass through and the next one throws.
 function createWriteFaults() {
   const pending = [];
 
@@ -130,14 +132,19 @@ function createWriteFaults() {
       if (!Number.isInteger(skip) || skip < 0) {
         throw new TypeError("Write-fault skip must be a non-negative integer");
       }
+      const when = options.when === undefined ? "before" : options.when;
+      if (when !== "before" && when !== "after") {
+        throw new TypeError('Write-fault when must be "before" or "after"');
+      }
       pending.push({
         sheetName: sheetName,
         method: method === undefined || method === null ? null : method,
         skip: skip,
+        when: when,
       });
     },
 
-    // Returns the one-shot error to throw, or null when no fault matches.
+    // Returns the one-shot fault ({ error, when }) or null when none matches.
     // A matching fault with a remaining skip count is consumed silently.
     take(sheetName, method) {
       const index = pending.findIndex((fault) =>
@@ -150,7 +157,10 @@ function createWriteFaults() {
         return null;
       }
       pending.splice(index, 1);
-      return new Error(`Injected write failure: ${method} on ${sheetName}`);
+      return {
+        error: new Error(`Injected write failure: ${method} on ${sheetName}`),
+        when: fault.when,
+      };
     },
 
     clear() {
@@ -188,13 +198,14 @@ class FakeRange {
   }
 
   setValue(value) {
-    this.sheet._beforeWrite("setValue");
+    const deferred = this.sheet._beforeWrite("setValue");
     this.sheet._setCell(this.row, this.column, value);
+    this.sheet._afterWrite(deferred);
     return this;
   }
 
   setValues(values) {
-    this.sheet._beforeWrite("setValues");
+    const deferred = this.sheet._beforeWrite("setValues");
     if (!Array.isArray(values) || values.length !== this.numRows) {
       throw new Error(
         "The number of rows in the data does not match the number of rows in the range.",
@@ -208,6 +219,7 @@ class FakeRange {
       }
     }
     this.sheet._setGrid(this.row, this.column, values);
+    this.sheet._afterWrite(deferred);
     return this;
   }
 
@@ -230,12 +242,13 @@ class FakeRange {
   }
 
   clearContent() {
-    this.sheet._beforeWrite("clearContent");
+    const deferred = this.sheet._beforeWrite("clearContent");
     for (let r = 0; r < this.numRows; r++) {
       for (let c = 0; c < this.numColumns; c++) {
         this.sheet._setCell(this.row + r, this.column + c, "");
       }
     }
+    this.sheet._afterWrite(deferred);
     return this;
   }
 
@@ -280,9 +293,10 @@ class FakeRange {
   // source's dimensions, which is how the tag-delete row shuffle uses it.
   // A scheduled write fault belongs to the destination sheet.
   copyTo(destination) {
-    destination.sheet._beforeWrite("copyTo");
+    const deferred = destination.sheet._beforeWrite("copyTo");
     const values = this.getValues();
     destination.sheet._setGrid(destination.row, destination.column, values);
+    destination.sheet._afterWrite(deferred);
   }
 }
 
@@ -347,20 +361,22 @@ class FakeSheet {
   }
 
   appendRow(row) {
-    this._beforeWrite("appendRow");
+    const deferred = this._beforeWrite("appendRow");
     if (!Array.isArray(row)) throw new TypeError("appendRow expects an array");
     const targetRow = this.getLastRow() + 1;
     this._setGrid(targetRow, 1, [row]);
+    this._afterWrite(deferred);
     return this;
   }
 
   insertRow(rowIndex) {
-    this._beforeWrite("insertRow");
+    const deferred = this._beforeWrite("insertRow");
     assertPositiveInteger(rowIndex, "rowIndex");
     if (rowIndex > this._rows.length + 1) {
       throw new Error("Row index is outside the sheet");
     }
     this._rows.splice(rowIndex - 1, 0, []);
+    this._afterWrite(deferred);
     return this;
   }
 
@@ -369,7 +385,7 @@ class FakeSheet {
   }
 
   deleteRows(rowIndex, numRows) {
-    this._beforeWrite("deleteRows");
+    const deferred = this._beforeWrite("deleteRows");
     assertPositiveInteger(rowIndex, "rowIndex");
     assertPositiveInteger(numRows, "numRows");
     // Apps Script throws rather than ignoring a range outside the sheet. Fail
@@ -379,12 +395,23 @@ class FakeSheet {
       throw new Error("Those rows are out of bounds.");
     }
     this._rows.splice(rowIndex - 1, numRows);
+    this._afterWrite(deferred);
   }
 
   // --- Internal storage helpers -------------------------------------------
 
+  // Consumes a matching one-shot fault. A "before" fault throws here; an
+  // "after" fault is returned so the write method can throw it once the cells
+  // have changed. No fault means null.
   _beforeWrite(method) {
-    this.spreadsheet._throwIfWriteFault(this.name, method);
+    const fault = this.spreadsheet._takeWriteFault(this.name, method);
+    if (!fault) return null;
+    if (fault.when === "after") return fault.error;
+    throw fault.error;
+  }
+
+  _afterWrite(deferred) {
+    if (deferred) throw deferred;
   }
 
   _getCell(row, column) {
@@ -438,9 +465,8 @@ class FakeSpreadsheet {
     this._writeFaults = writeFaults || createWriteFaults();
   }
 
-  _throwIfWriteFault(sheetName, method) {
-    const error = this._writeFaults.take(sheetName, method);
-    if (error) throw error;
+  _takeWriteFault(sheetName, method) {
+    return this._writeFaults.take(sheetName, method);
   }
 
   getSpreadsheetTimeZone() {
