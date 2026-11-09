@@ -1,7 +1,7 @@
 # Edge cases
 
 Known edge cases, grouped by module, with how each one is handled. Test names
-are from the Node suite in [`tests/`](tests/), which mirrors `src/`; run it
+are from the Node suite in [`tests/`](../tests/), which mirrors `src/`; run it
 with `npm test`. "Backend only" means there is no automated test for it yet.
 
 ## Trip status

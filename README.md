@@ -2,6 +2,8 @@
 
 A modern, secure, and free financial management tool built for the UMHC Treasurer.
 
+It is for the UMHC treasurer, and for helpers who need to look at the accounts without changing them. The treasurer imports bank statements, tags and splits transactions by category, trip and type, and analyses spending, without paying for hosting, a server or a database.
+
 This project decouples the User Interface (the website) from the Data (Google Sheets), providing a way to manage finances without monthly fees or server costs.
 
 ## 🌟 Features
@@ -53,7 +55,7 @@ This is a static client-side application. You can run it with any static file se
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/umhc-treasurer.git
+git clone https://github.com/LucasHolik/umhc-treasurer.git
 
 # Go to the project directory
 cd umhc-treasurer
@@ -77,24 +79,31 @@ npm install   # once
 npm test
 ```
 
+The suite runs in Node 22.6 or later and needs no browser, Google account or backend. Formatting is checked with `npm run format:check`.
+
 See [AGENTS.md](AGENTS.md) for the workflow, design and testing rules.
+
+## ⚠️ Limitations
+
+- The app must be served over `localhost` or HTTPS. Opening `index.html` from `file://` fails because of ES modules, and a plain HTTP address on the local network fails because request signing needs `crypto.subtle`.
+- Backend changes are not deployed automatically: changed `.gs` files must be pasted into the Apps Script editor and the web app redeployed.
+- Google Sheets is the database, so large sheets are slower to load and Apps Script quotas apply.
+- Interface checks are manual; the automated tests cover the logic, services and backend, not the screens. Known bugs are listed in [docs/bugs.md](docs/bugs.md).
 
 ## 🏗️ Architecture
 
-This project follows a strict **Separation of Concerns** philosophy to ensure stability and maintainability.
+- **Frontend:** vanilla JavaScript ES modules and plain CSS, with no framework and no build step. `src/core/` holds the store and pure logic, `src/services/` the API, auth, transaction and Excel services, and `src/features/` one folder per screen.
+- **Backend:** Google Apps Script in `google-apps-script/`. Every request is signed with HMAC-SHA256 and sent as JSONP; `Code.gs` verifies the signature and role, then routes to the `Service_*` modules.
+- **Database:** a Google Sheet with Finances, Tags, Split Transactions and Config tabs.
 
-### Frontend (React-style Vanilla JS)
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the module map, data flow and known design debt.
 
-- **`src/core/state.js`**: Central Store using the Observer (Pub/Sub) pattern. The single source of truth.
-- **`src/services/`**: The Logic Layer. Handles API calls, data transformation, and business rules. Components never call the API directly; they call Services.
-- **`src/features/`**: UI Components grouped by domain (Dashboard, Tags, Transactions).
-- **`src/services/api.service.js`**: Handles JSONP communication with Google Apps Script, including HMAC-SHA256 request signing for security.
+## 📚 Project documents
 
-### Backend (Google Apps Script)
-
-- Acts as a REST-like API.
-- Validates all requests using signature verification.
-- Routes data to specific Service modules (`Service_Sheet`, `Service_Tags`, etc.) to keep `Code.gs` clean.
+- [ARCHITECTURE.md](ARCHITECTURE.md): map of the code as it is now.
+- [AGENTS.md](AGENTS.md): how work is planned, built, tested and reviewed. `CLAUDE.md` only loads it for Claude-based tools.
+- [docs/rough_plan.md](docs/rough_plan.md): the end goal and phases; [docs/plan.md](docs/plan.md): the current phase; [docs/completed_plan.md](docs/completed_plan.md): finished phases.
+- [docs/decisions.md](docs/decisions.md), [docs/bugs.md](docs/bugs.md) and [docs/edge_cases.md](docs/edge_cases.md): decisions, known bugs and edge cases.
 
 ## 🤝 Contributing
 
