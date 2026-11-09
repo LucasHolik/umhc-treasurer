@@ -433,3 +433,33 @@ the pagination contract.
 it. This is a wire-shape change, approved with the Phase 4 plan.
 
 **Decided by.** User, 2026-11-08.
+
+### D-018: Move the planning files into `docs/` and restore `CLAUDE.md` as a pointer
+
+**Question.** Where should the planning files live, and how do Claude-based
+tools load `AGENTS.md`?
+
+**Context.** The user adopted a shared `AGENTS.md` template (via
+`AGENTS_SETUP.md`) used across their repositories. It keeps only `README.md`,
+`AGENTS.md`, `CLAUDE.md` and `ARCHITECTURE.md` in the root, puts the other
+planning files in `docs/`, and adds a `README.md` section to the rules. Claude
+tools read `CLAUDE.md` rather than `AGENTS.md`, and D-012 had deleted
+`CLAUDE.md`.
+
+**Options.** (a) Keep the root layout and this repository's own copy of the
+rules. (b) Adopt the template layout, merging in this repository's specifics.
+
+**Choice.** Option (b). `rough_plan.md`, `plan.md`, `completed_plan.md`,
+`decisions.md`, `bugs.md` and `edge_cases.md` moved to `docs/` with `git mv`,
+and `architecture.md` became `ARCHITECTURE.md`. `CLAUDE.md` is back, holding
+only `@AGENTS.md`; it carries no instructions of its own, so D-012's single
+policy file still holds. `AGENTS.md` keeps every repository-specific rule
+(the richer section 2, sections 10.1 to 10.5) and gains the template's
+`README.md` and file-location rules. Older entries here and in
+`docs/completed_plan.md` keep the old file names as history.
+
+**Reason.** One layout and one set of rules across the user's repositories,
+and the same instructions for every agent tool.
+
+**Decided by.** User, 2026-11-09. Amends D-012 (`CLAUDE.md` returns as a
+pointer only).
