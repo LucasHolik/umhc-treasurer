@@ -23,11 +23,16 @@ const WRITE_ACTIONS = new Set([
 
 const AUTH_ACTIONS = new Set(["login"]);
 
+// Admin-only actions that write nothing and therefore belong in neither the
+// read nor the write allow-list. A viewer is refused by the router.
+const ADMIN_ACTIONS = new Set(["suggestTags"]);
+
 function isKnownAction(action) {
   return (
     READ_ACTIONS.has(action) ||
     WRITE_ACTIONS.has(action) ||
-    AUTH_ACTIONS.has(action)
+    AUTH_ACTIONS.has(action) ||
+    ADMIN_ACTIONS.has(action)
   );
 }
 
@@ -104,6 +109,24 @@ function doGet(e) {
         break;
       case "getAppData":
         response = getAppData();
+        break;
+      case "suggestTags":
+        if (!e?.parameter?.rows) {
+          response = {
+            success: false,
+            message: "Missing required parameter: rows",
+          };
+        } else {
+          const validation = validateJsonParameter(e.parameter.rows, "array");
+          if (!validation.valid) {
+            response = {
+              success: false,
+              message: "Invalid rows parameter: " + validation.message,
+            };
+          } else {
+            response = Service_AI.suggestTags(e);
+          }
+        }
         break;
       case "addTag":
         if (!e?.parameter?.type || !e?.parameter?.value) {
@@ -312,6 +335,10 @@ function getAppData() {
           tags: tags,
           openingBalance: openingBalance.balance,
           splitTransactions: splitTransactions.data,
+          // The typeof guard keeps an old deployment without Service_AI.gs
+          // readable by a new client, which falls back to the default when
+          // this is null. getStatus never throws, so it cannot fail the read.
+          ai: typeof Service_AI !== "undefined" ? Service_AI.getStatus() : null,
         },
       };
     } catch (error) {

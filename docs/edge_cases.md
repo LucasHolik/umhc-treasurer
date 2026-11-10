@@ -398,3 +398,221 @@ to past 30 days for unknown keys".
 migration on every read.
 
 **Status.** Handled in `Service_Sheet.gs`; backend only, no automated test.
+
+## AI tag suggestions
+
+### E-035: A Trip/Event is named like an Object property
+
+**Situation.** A tag is literally named `toString`, `constructor` or
+`__proto__`, and `TripTypeMap` is a plain object, so `map[trip]` returns an
+inherited value.
+
+**Expected.** The prompt shows no Type for that tag.
+
+**Status.** Not handled. `_buildPrompt` reads `TripTypeMap[trip]` without an
+own-property check, so the prompt text for that tag is malformed. The reply is
+still filtered against the live tag list, so no invalid tag can be returned.
+An own-property guard would fix it.
+
+### E-036: `Service_AI.gs` is deployed without the new `Config.gs`
+
+**Situation.** A partial paste leaves `AI_CONFIG` undefined while `Service_AI.gs`
+and `Code.gs` are current.
+
+**Expected.** The app still loads, and suggestions report "not configured"
+instead of the whole `getAppData` read failing.
+
+**Status.** Handled by `_aiConfigValue` and the `getStatus` try/catch;
+`suggestTags` returns `AI_NOT_CONFIGURED`. There is no automated test, because
+the backend harness compiles every `.gs` file and a top-level `const` cannot be
+hidden at runtime. Verified by inspection and an isolated `vm` run. The guards
+cover absence only: a malformed value such as `MAX_DESCRIPTION_LENGTH: 0` is
+used as-is, which is reachable only by hand-editing `Config.gs`.
+
+### E-037: Only one tag list has entries
+
+**Situation.** Trips exist but Categories are empty, and every selected row is
+missing only a Category.
+
+**Expected.** No provider call, because no valid proposal is possible.
+
+**Status.** Not handled. The plan's shortcut needs both lists to be empty, so
+the call happens and the reply is validated to an empty list. It costs one call
+and returns no wrong data; a per-row reachability check would avoid it.
+
+### E-038: The same row id appears twice in a batch
+
+**Situation.** A client sends `42` twice, or `42` and `"42"`.
+
+**Expected.** One proposal for the row, carrying the id type the request used.
+
+**Status.** Handled. Reply entries are matched by string id and the first valid
+entry wins. `reconcileSuggestions` keeps the first requested entry for a
+duplicate id and matches a string reply id to a numeric request; both are tested
+in `tests/features/transactions/transactions.suggestions.test.js`. Duplicate rows
+inside one outgoing batch are still untested; the client sends each selected row
+once.
+
+### E-039: An empty batch on an unconfigured deployment
+
+**Situation.** The action is called with `rows=[]` before any key is set.
+
+**Expected.** `AI_NOT_CONFIGURED`, because configuration is checked before the
+empty-batch shortcut.
+
+**Status.** Handled by the order of the checks. Not separately tested, and the
+planned client never sends an empty batch.
+
+### E-040: A tag is renamed while a suggestion request is in flight
+
+**Situation.** The prompt offered a tag that no longer exists when the reply is
+used.
+
+**Expected.** The stale value is dropped and the rest of the proposal survives.
+
+**Status.** Handled at three layers: the server validates against the live list,
+the client reconciles against the store, and `updateExpenses` validates again at
+save time. No test covers a mid-flight rename; the unknown-tag tests cover the
+outcome.
+
+### E-041: A full batch makes a long JSONP URL
+
+**Situation.** 25 rows with long descriptions travel as query parameters, since
+JSONP cannot POST.
+
+**Expected.** The request stays within what Apps Script accepts.
+
+**Status.** Handled per row by `MAX_ROWS` (25) and `MAX_DESCRIPTION_LENGTH`
+(200), with no total-size cap. Real bank descriptions are far shorter. If a
+statement ever approaches the limit, lower `MAX_ROWS` in `Config.gs`.
+
+### E-042: A tag is added to a row after it was selected
+
+**Situation.** A row is selected while missing a Category. Before the proposal
+is applied, a reload or another tab gives it a Category.
+
+**Expected.** The Category proposal is dropped, and a Trip/Event proposal for
+the same row still applies.
+
+**Status.** Handled in `reconcileSuggestions`, which accepts a field only when it
+is still blank on the current row, and again at the Part 3 merge. Test: "a field
+that is no longer blank on the current row is dropped". A change made in another
+session that this tab never reloads is the save path's existing last-write-wins
+behaviour.
+
+### E-043: A login to a different backend fails to load
+
+**Situation.** The previous backend had AI configured, the next login points at
+an older backend, and `getAppData` fails.
+
+**Expected.** AI stays disabled rather than trusting the previous status.
+
+**Status.** Handled by resetting `ai` to the default in both `loadInitialData`
+failure paths. There is no App test; verified by inspection.
+
+### E-044: A selected row has no usable id
+
+**Situation.** A ledger row without a numeric or `S-<n>` id reaches the request.
+
+**Expected.** The backend rejects the batch rather than returning a suggestion
+without `row`.
+
+**Status.** Handled on the backend. The client assumes every ledger row has an
+id, which it does. Low.
+
+### E-045: Income and expense change but the net does not
+
+**Situation.** A row is edited from 10 income and 0 expense to 15 income and 5
+expense between selection and apply.
+
+**Expected.** Ideally the fingerprint notices the change.
+
+**Status.** Not handled. The fingerprint is the net amount, as the plan
+specifies, so an equal net passes. Rare and low risk.
+
+### E-046: A provider call outlives the client timeout
+
+**Situation.** The provider hangs past the 45 s client timeout.
+
+**Expected.** No data changes, because the action writes nothing, but the
+provider call may run to the Apps Script execution limit and be billed.
+
+**Status.** Not handled. Apps Script offers no per-call deadline. Only cost and
+latency are affected.
+
+### E-047: An injected `suggest` rejects with a falsy value
+
+**Situation.** A caller supplies a `suggest` function that rejects with
+`undefined` or `null`.
+
+**Expected.** The caller can tell that later batches were not sent.
+
+**Status.** Not handled. `collectSuggestions` returns the raw rejection reason,
+so `error: undefined` looks like success to a truthiness check. `ApiService`
+always rejects with an `Error`, so the planned call cannot hit it. Low.
+
+### E-048: A live tag has outer whitespace
+
+**Situation.** A tag in the Tags sheet has leading or trailing spaces, which is
+possible only by editing the sheet directly because the tag UI trims.
+
+**Expected.** The client's match agrees with the backend's exact match.
+
+**Status.** Not handled. `isAllowedTag` trims the proposal but matches the
+untrimmed live list, so the backend would accept the tag and the client drops
+it. That is a missed suggestion, never a wrong write. Low.
+
+## AI tag suggestions: review panel
+
+### E-049: Focus after Apply
+
+**Situation.** The panel closes, the pending changes render and the save loader
+replaces the AI button.
+
+**Expected.** Focus lands somewhere sensible after the save.
+
+**Status.** Not handled. Cancel, Escape and close restore focus to the AI
+button; Apply hands over to the save flow and focus can fall back to the page
+body. Low.
+
+### E-050: No way to cancel a request in flight
+
+**Situation.** A provider is slow and the user wants to stop.
+
+**Expected.** A way out.
+
+**Status.** Not handled. Both toolbar buttons are disabled while the request
+runs, so the 45 s client timeout is the bound. Low.
+
+### E-051: Switching tabs during the request
+
+**Situation.** The user leaves the transactions tab while the provider is
+answering.
+
+**Expected.** The reply does not open a panel over another screen.
+
+**Status.** Not handled. The component stays alive across tabs, so the panel can
+open over whichever tab is showing, and the return-focus button is in a hidden
+section. Low.
+
+### E-052: Tab trap when focus is not inside the panel
+
+**Situation.** A click on a non-focusable part of the panel leaves focus on the
+body.
+
+**Expected.** Tab stays inside the panel.
+
+**Status.** Not handled. The trap wraps only when focus is on the first or last
+focusable element, the same shape as the shared `ModalComponent`. Low.
+
+### E-053: First-open styling and short viewports
+
+**Situation.** The stylesheet has not loaded when the panel opens, or the
+viewport is very short.
+
+**Expected.** The panel is styled on first paint and the notice stays readable.
+
+**Status.** Not handled. `modal.css` is injected at construction but not
+awaited, though the panel only opens after a provider request. On a very short
+viewport the body has `overflow: hidden` and the notice has no scroll. Phone
+layout is unchecked. Low.

@@ -57,21 +57,23 @@ Each feature is a class that takes its mount element, subscribes to the store
 and exposes `destroy()`. [`src/App.js`](src/App.js) builds the shell, chooses
 login or app, owns the initial load and enforces role-based routing.
 
-| Feature                                                               | Responsibility                                                                                                      |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| [`login`](src/features/login/login.component.js)                      | Script URL setup and passkey login.                                                                                 |
-| [`dashboard`](src/features/dashboard/dashboard.component.js)          | Balance cards, totals and recent transactions over a chosen timeframe.                                              |
-| [`transactions`](src/features/transactions/transactions.component.js) | The ledger: filter, sort, inline tag edits, bulk tagging, manual add, split create, edit and revert, split history. |
-| [`tags`](src/features/tags/tags.component.js)                         | Tag manager: list, drill into a tag, assign Types to a Trip, cycle trip status.                                     |
-| [`analysis`](src/features/analysis/analysis.component.js)             | Charts, tables, CSV export and quick views. `analysis.css` is injected at runtime, not linked in `index.html`.      |
-| [`upload`](src/features/upload/upload.component.js)                   | Drag and drop Excel import, duplicate detection, chunked save. Editor only.                                         |
-| [`settings`](src/features/settings/settings.component.js)             | Opening balance and accessibility mode.                                                                             |
+| Feature                                                               | Responsibility                                                                                                                          |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [`login`](src/features/login/login.component.js)                      | Script URL setup and passkey login.                                                                                                     |
+| [`dashboard`](src/features/dashboard/dashboard.component.js)          | Balance cards, totals and recent transactions over a chosen timeframe.                                                                  |
+| [`transactions`](src/features/transactions/transactions.component.js) | The ledger: filter, sort, inline tag edits, bulk tagging, manual add, split create, edit and revert, split history, AI tag suggestions. |
+| [`tags`](src/features/tags/tags.component.js)                         | Tag manager: list, drill into a tag, assign Types to a Trip, cycle trip status.                                                         |
+| [`analysis`](src/features/analysis/analysis.component.js)             | Charts, tables, CSV export and quick views. `analysis.css` is injected at runtime, not linked in `index.html`.                          |
+| [`upload`](src/features/upload/upload.component.js)                   | Drag and drop Excel import, duplicate detection, chunked save. Editor only.                                                             |
+| [`settings`](src/features/settings/settings.component.js)             | Opening balance and accessibility mode.                                                                                                 |
 
 Pure helpers sit beside the components: `transactions.logic.js` (`filterData`,
-`sortData`, `buildTagSelectorOptions`) and `tags.logic.js` (virtual tag lists,
-stats, queue optimisation, `resolveSaveFailure`). `analysis.logic.js` (date
-ranges, filtering, aggregation, CSV) imports the store, so it is not pure; see
-`AGENTS.md` section 10.2.
+`sortData`, `buildTagSelectorOptions`), `transactions.suggestions.js` (row
+selection, batching, reconciliation, pending merge) and `tags.logic.js` (virtual
+tag lists, stats, queue optimisation, `resolveSaveFailure`).
+`analysis.logic.js` (date ranges, filtering, aggregation, CSV) imports the
+store, so it is not pure; see `AGENTS.md` section 10.2. The AI review dialog is
+its own module, `transactions.suggestions-modal.js`.
 
 ### Shared UI
 
@@ -82,20 +84,21 @@ There is no component framework; these are plain classes and functions.
 
 ### Backend
 
-Eight `.gs` files deployed together as one Apps Script project. They share a
+Nine `.gs` files deployed together as one Apps Script project. They share a
 single global scope, so helpers are called across files and the "modules" are
 conventions rather than enforced boundaries.
 
-| File                                                          | Responsibility                                                                                                |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| [`Code.gs`](google-apps-script/Code.gs)                       | JSONP router (`doGet`), action allow-lists, the consistent `getAppData` read, response helpers, sanitisation. |
-| [`Config.gs`](google-apps-script/Config.gs)                   | Sheet names, column headers, Config cell addresses, `LOCK_TIMEOUT_MS` (10 s).                                 |
-| [`Service_Auth.gs`](google-apps-script/Service_Auth.gs)       | Login, signature verification, timestamp window, per-write nonce, brute-force lockout.                        |
-| [`Service_Session.gs`](google-apps-script/Service_Session.gs) | Session creation, validation and invalidation, cached for 1 hour.                                             |
-| [`Service_Lock.gs`](google-apps-script/Service_Lock.gs)       | `withScriptLock(fn, timeoutMs)`, the only LockService caller. Re-entrant.                                     |
-| [`Service_Sheet.gs`](google-apps-script/Service_Sheet.gs)     | Finances rows, opening balance, Config layout migration, tag changes applied to expenses.                     |
-| [`Service_Tags.gs`](google-apps-script/Service_Tags.gs)       | Tag lists, `TripTypeMap`, `TripStatusMap`, and batched tag operations.                                        |
-| [`Service_Split.gs`](google-apps-script/Service_Split.gs)     | Split groups, revert, edit, history, stale `PENDING` cleanup.                                                 |
+| File                                                          | Responsibility                                                                                                   |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [`Code.gs`](google-apps-script/Code.gs)                       | JSONP router (`doGet`), action allow-lists, the consistent `getAppData` read, response helpers, sanitisation.    |
+| [`Config.gs`](google-apps-script/Config.gs)                   | Sheet names, column headers, Config cell addresses, `LOCK_TIMEOUT_MS` (10 s), the AI provider registry.          |
+| [`Service_AI.gs`](google-apps-script/Service_AI.gs)           | Tag suggestions: Script Properties settings, prompt, provider call, reply validation. Only `UrlFetchApp` caller. |
+| [`Service_Auth.gs`](google-apps-script/Service_Auth.gs)       | Login, signature verification, timestamp window, per-write nonce, brute-force lockout.                           |
+| [`Service_Session.gs`](google-apps-script/Service_Session.gs) | Session creation, validation and invalidation, cached for 1 hour.                                                |
+| [`Service_Lock.gs`](google-apps-script/Service_Lock.gs)       | `withScriptLock(fn, timeoutMs)`, the only LockService caller. Re-entrant.                                        |
+| [`Service_Sheet.gs`](google-apps-script/Service_Sheet.gs)     | Finances rows, opening balance, Config layout migration, tag changes applied to expenses.                        |
+| [`Service_Tags.gs`](google-apps-script/Service_Tags.gs)       | Tag lists, `TripTypeMap`, `TripStatusMap`, and batched tag operations.                                           |
+| [`Service_Split.gs`](google-apps-script/Service_Split.gs)     | Split groups, revert, edit, history, stale `PENDING` cleanup.                                                    |
 
 Actions routed by `Code.gs`:
 
@@ -104,11 +107,15 @@ Actions routed by `Code.gs`:
 - **Write (admin only):** `saveData`, `addTag`, `updateExpenses`, `deleteTag`,
   `renameTag`, `processTagOperations`, `saveOpeningBalance`, `splitTransaction`,
   `revertSplit`, `editSplit`.
+- **Admin only, writes nothing:** `suggestTags`, which spends provider credit
+  and is refused to a viewer like a write.
 - **Auth:** `login`.
 
-A viewer calling a write gets `Forbidden`. `getAppData` reads expenses, tags,
-opening balance and splits under one lock, so the app never sees a half-finished
-write.
+A viewer calling a write or `suggestTags` gets `Forbidden`. `getAppData` reads
+expenses, tags, opening balance and splits under one lock, so the app never sees
+a half-finished write. It also returns an `ai` status block (configured,
+provider, model, max rows) and never the key, or `null` when a new client meets
+an older backend without `Service_AI.gs`.
 
 ## Data flow
 
@@ -124,6 +131,10 @@ write.
    backend service. Most writes trigger a `dataUploaded` DOM event, which
    reloads everything from the server rather than patching the store by hand.
    Saving the opening balance is the exception: it updates the store directly.
+8. A tag-suggestion request goes from the ledger through `ApiService.suggestTags`
+   to `Service_AI`, comes back as proposals, and is reviewed. Accepted values
+   join `pendingChanges`, so they are saved by the normal tagging path rather
+   than by a second write route.
 
 ## The store
 
@@ -131,7 +142,8 @@ Defaults live in [`src/core/state.js`](src/core/state.js).
 
 - **Data:** `expenses`, `rawExpenses`, `splitTransactions`, `tags`,
   `openingBalance`.
-- **User and settings:** `currentUser`, `accessibilityMode`.
+- **User and settings:** `currentUser`, `accessibilityMode`, `ai` (configured
+  flag, provider, model and maximum batch size; never a key).
 - **Progress flags:** `isLoading`, `isUploading`, `isTagging`, `savingTags`,
   `savingSplitTransaction`, `settingsSyncing`, `isVerifyingSession`,
   `taggingSource`, `taggingProgress`.
@@ -145,9 +157,10 @@ Defaults live in [`src/core/state.js`](src/core/state.js).
 The suite is in [`tests/`](tests/), which mirrors `src/`, plus
 [`tests/backend/`](tests/backend/harness.js) for the Apps Script backend. It
 covers utils, financial logic, transactions, tags, trip status, state, DOM,
-Excel parsing, API helpers, analysis, the test helpers themselves, and the
-backend router, roles, auth, sanitisation, locking, tag batches, splits and
-opening balance. `tests/setup.js` registers a browser-like
+Excel parsing, API helpers, analysis, the test helpers themselves, the AI
+suggestion logic and review dialog, and the backend router, roles, auth,
+sanitisation, locking, tag batches, splits, opening balance and the AI
+suggestion action. `tests/setup.js` registers a browser-like
 environment with happy-dom, so browser modules import cleanly; the backend
 harness loads the `.gs` files into a Node `vm`.
 
@@ -168,6 +181,12 @@ choice (see `AGENTS.md` section 10).
 - The script URL is entered by the user and stored in `localStorage`. Passkeys
   are entered by the user and stored in the sheet's Config tab, in plain text;
   they are not in this repository.
+- The AI provider settings live in Apps Script Script Properties, not in the
+  sheet or the repository: `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY` and optional
+  `AI_BASE_URL`. Only `Service_AI.gs` reads them. The key is visible to anyone
+  with edit access to the script, so the script project should not be shared
+  and the provider account should carry a spend limit. Rotating the key is a
+  property edit with no redeploy.
 
 ## Where the code and `AGENTS.md` disagree
 

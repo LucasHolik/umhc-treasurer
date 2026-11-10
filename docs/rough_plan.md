@@ -54,7 +54,20 @@ when the Tags write throws; `_renameTag` reverts partial external writes and
 reports inconsistency when a revert fails; `_runTagBatch` retries a failed
 delete or rename compensation. B-007 remains open.
 
-### Phase 6 and beyond
+### Phase 6: AI tag suggestions (in progress)
+
+Let an editor select transactions that are missing a Trip/Event or Category and
+ask an LLM for proposals, review them, and approve the ones worth keeping. The
+approved values are saved through the normal tagging path, never by a second
+write route. The provider is called from the Apps Script backend, and the API
+key lives in Script Properties so it never reaches the browser, the sheet or
+git. DeepSeek is the first provider, and any OpenAI-compatible endpoint can be
+used through the provider registry (D-019, D-020). Definition of done: an editor
+can select rows, get proposals, accept them and see them saved and reloaded; a
+viewer is refused; the backend and the new logic module are tested; no secret
+appears in the repository, the sheet or any response.
+
+### Phase 7 and beyond
 
 To be agreed with the user. Backup and restore is dropped (D-016), and the
 stale `origin/test` branch is left in place. Features go here before any code

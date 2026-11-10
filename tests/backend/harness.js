@@ -8,15 +8,16 @@
 //   backend.close();
 //
 // The vm and the fakes stay private; a small test-only surface (`request`,
-// `requestRaw`, `login`, `sheets`, `cache` and `helpers`) is exposed instead.
+// `requestRaw`, `login`, `sheets`, `cache`, `properties`, `urlFetch` and
+// `helpers`) is exposed instead.
 // `request` behaves like the browser client: it logs in, signs the JSONP
 // parameters with HMAC-SHA256, calls doGet and parses the reply. The signing
 // code here is written independently of Service_Auth._buildPayload so the
 // tests do not grade the server against itself.
 //
-// Each createBackend() call gets a fresh spreadsheet, cache and lock, so tests
-// stay independent. The compiled .gs script is shared, but each vm context
-// gets its own top-level bindings.
+// Each createBackend() call gets a fresh spreadsheet, cache, lock, property
+// store and URL-fetch queue, so tests stay independent. The compiled .gs
+// script is shared, but each vm context gets its own top-level bindings.
 
 import fs from "node:fs";
 import vm from "node:vm";
@@ -276,6 +277,8 @@ function createClockDate(clock) {
  *   login: Function,
  *   sheets: object,
  *   cache: object,
+ *   properties: object,
+ *   urlFetch: object,
  *   helpers: object,
  *   close: Function,
  * }}
@@ -730,6 +733,7 @@ export function createBackend(options = {}) {
     fakes.cache.clear();
     fakes.writeFaults.clear();
     fakes.lock.releaseLock();
+    fakes.urlFetch.clear();
   }
 
   return {
@@ -738,6 +742,10 @@ export function createBackend(options = {}) {
     login,
     sheets,
     cache: fakes.cache,
+    // Test-only: seed AI_PROVIDER, AI_MODEL, AI_API_KEY and AI_BASE_URL.
+    properties: fakes.properties,
+    // Test-only: inspect provider calls and queue replies or failures.
+    urlFetch: fakes.urlFetch,
     helpers,
     close,
   };

@@ -1,6 +1,6 @@
 import { el, cleanup, replace } from "./core/dom.js";
 import { CONFIG } from "./core/config.js";
-import store from "./core/state.js";
+import store, { DEFAULT_AI_STATUS } from "./core/state.js";
 import router from "./core/router.js";
 import AuthService from "./services/auth.service.js";
 import ApiService from "./services/api.service.js";
@@ -575,16 +575,26 @@ class App {
           appData.data.splitTransactions || [],
         );
         store.setState("tags", appData.data.tags);
+        // An older backend returns no `ai`, so fall back to the default shape.
+        store.setState("ai", appData.data.ai || DEFAULT_AI_STATUS);
         store.setState("openingBalance", appData.data.openingBalance);
         // Store raw expenses last — triggers the subscription that merges splits,
         // which must already be in the store to avoid a flash of un-split state.
         store.setState("rawExpenses", appData.data.expenses);
       } else {
         console.error("API returned success: false", appData);
+        // A failed load must not leave the previous backend's AI status in the
+        // store, or Part 3 could enable a button this backend does not have.
+        // Reset only on failure, never at the start of a load, so an ordinary
+        // reload does not flicker the button.
+        store.setState("ai", DEFAULT_AI_STATUS);
         store.setState("error", appData.message || "Failed to load data");
       }
     } catch (error) {
       console.error("Load initial data error:", error);
+      // Same as the failure branch above: a failed load never leaves a stale
+      // AI status from an earlier backend.
+      store.setState("ai", DEFAULT_AI_STATUS);
       // "Unauthorized" has already logged out and shown "Session expired".
       if (!ApiService.hasSession()) return;
       const loadError =

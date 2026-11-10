@@ -27,6 +27,9 @@ const SERVER_BUSY_MESSAGE = "System is busy. Please try again.";
 // GAS itself stops any execution after 6 minutes.
 const READ_TIMEOUT_MS = 30000;
 const WRITE_TIMEOUT_MS = 60000;
+// A provider call is slower than a read, the action writes nothing, and the
+// limit stays under the Apps Script six-minute cap.
+const SUGGEST_TIMEOUT_MS = 45000;
 
 /**
  * How long to wait for a request before giving up.
@@ -389,6 +392,9 @@ const request = (action, params = {}, options = {}) => {
             }
             const err = new Error(data.message || "API request failed.");
             err.response = data; // e.g. appliedOperations on a tag batch
+            // Server error codes such as AI_RATE_LIMITED reach callers. Actions
+            // that send no code leave err.code unset.
+            if (data.code) err.code = data.code;
             if (data.message === SERVER_BUSY_MESSAGE) err.code = "BUSY";
             reject(err);
           }
@@ -451,6 +457,17 @@ const ApiService = {
   getOpeningBalance: () => request("getOpeningBalance"),
   saveOpeningBalance: (balance, options = {}) =>
     requestMutating("saveOpeningBalance", { balance }, options),
+  // Not a mutating request: the backend only reads the sheet and calls a
+  // provider, so it carries no nonce. Read-only sessions are still refused.
+  suggestTags: (rows) => {
+    const rejected = rejectIfReadOnly();
+    if (rejected) return rejected;
+    return request(
+      "suggestTags",
+      { rows: JSON.stringify(rows) },
+      { timeoutMs: SUGGEST_TIMEOUT_MS },
+    );
+  },
 
   splitTransaction: async (original, splits, options = {}) => {
     const res = await requestMutating(

@@ -562,6 +562,124 @@ function createLock() {
   };
 }
 
+// --- Script properties -----------------------------------------------------
+
+// Apps Script's Properties object is a string-to-string store. getProperty
+// returns null for a key that was never set, which is what the service's
+// "is it configured?" checks depend on.
+function createProperties() {
+  const values = new Map();
+
+  return {
+    getProperty(key) {
+      const value = values.get(String(key));
+      return value === undefined ? null : value;
+    },
+
+    setProperty(key, value) {
+      values.set(String(key), String(value));
+    },
+
+    deleteProperty(key) {
+      values.delete(String(key));
+    },
+
+    getProperties() {
+      const output = {};
+      for (const [key, value] of values) output[key] = value;
+      return output;
+    },
+
+    getKeys() {
+      return [...values.keys()];
+    },
+  };
+}
+
+// --- URL fetch -------------------------------------------------------------
+
+// A queued-response stand-in for UrlFetchApp. fetch() records every call and
+// consumes the next queued outcome, so a test can assert what was sent and
+// control what comes back. The queue controls are test-only and never reach
+// the backend.
+function createUrlFetch() {
+  const recorded = [];
+  const queued = [];
+
+  return {
+    fetch(url, options) {
+      recorded.push({ url: String(url), options: options });
+      if (queued.length === 0) {
+        throw new Error("No queued UrlFetchApp response");
+      }
+      const next = queued.shift();
+      if (next.error) throw next.error;
+      return {
+        getResponseCode() {
+          return next.status;
+        },
+        getContentText() {
+          return next.body;
+        },
+        getHeaders() {
+          return { ...next.headers };
+        },
+        getAllHeaders() {
+          return { ...next.headers };
+        },
+      };
+    },
+
+    // Test-only: queue a response for the next fetch.
+    queueResponse(response) {
+      if (
+        response === null ||
+        typeof response !== "object" ||
+        Array.isArray(response)
+      ) {
+        throw new TypeError("Queued response must be an object");
+      }
+      if (!Number.isInteger(response.status)) {
+        throw new TypeError("Queued response status must be an integer");
+      }
+      const headers = response.headers || {};
+      if (
+        headers === null ||
+        typeof headers !== "object" ||
+        Array.isArray(headers)
+      ) {
+        throw new TypeError("Queued response headers must be an object");
+      }
+      const body =
+        response.body === undefined || response.body === null
+          ? ""
+          : String(response.body);
+      queued.push({ status: response.status, body: body, headers: headers });
+    },
+
+    // Test-only: make the next fetch throw, as a network failure would.
+    queueError(error) {
+      if (!(error instanceof Error)) {
+        throw new TypeError("Queued fetch error must be an Error");
+      }
+      queued.push({ error: error });
+    },
+
+    // Test-only: the calls made so far, oldest first. The copy is made
+    // through JSON so the test sees host-realm plain objects rather than the
+    // vm's objects, which would fail a strict deep-equal on prototypes.
+    get calls() {
+      return JSON.parse(JSON.stringify(recorded));
+    },
+
+    // Test-only: forget the recorded calls and the queue.
+    clear() {
+      recorded.length = 0;
+      queued.length = 0;
+    },
+  };
+}
+
 // --- Utilities -------------------------------------------------------------
 
 function formatDate(date, timeZone, format) {
@@ -660,6 +778,8 @@ const ContentService = { createTextOutput, MimeType };
  *   cache: object,
  *   lock: object,
  *   writeFaults: object,
+ *   properties: object,
+ *   urlFetch: object,
  *   globals: object,
  * }}
  */
@@ -671,16 +791,22 @@ export function createFakes(options = {}) {
   );
   const cache = createCache(options.now);
   const lock = createLock();
+  const properties = createProperties();
+  const urlFetch = createUrlFetch();
 
   return {
     spreadsheet,
     cache,
     lock,
     writeFaults,
+    properties,
+    urlFetch,
     globals: {
       SpreadsheetApp: { getActiveSpreadsheet: () => spreadsheet },
       LockService: { getScriptLock: () => lock },
       CacheService: { getScriptCache: () => cache },
+      PropertiesService: { getScriptProperties: () => properties },
+      UrlFetchApp: { fetch: urlFetch.fetch },
       Utilities,
       ContentService,
     },

@@ -463,3 +463,96 @@ and the same instructions for every agent tool.
 
 **Decided by.** User, 2026-11-09. Amends D-012 (`CLAUDE.md` returns as a
 pointer only).
+
+### D-019: The tag-suggestion key lives in Script Properties
+
+**Question.** Where should the API key for the tag-suggestion provider be
+stored, and which route reaches the provider?
+
+**Context.** Phase 6 adds a "Suggest tags" flow to the transactions screen: for
+selected rows missing a Trip/Event or Category it proposes values, which the
+treasurer reviews before saving. The frontend is a static public site, the sheet
+is the database, and the Apps Script backend runs as the sheet owner and is the
+only code that can read the sheet. Requests are HMAC-signed JSONP GETs, and the
+login design deliberately never transmits the passkey, only a signature. The key
+is billable, so leaking it costs money as well as access.
+
+**Options.**
+
+1. **Apps Script Script Properties, provider called from the backend.** The key
+   sits on Google's side, readable only by accounts with edit access to the
+   script, and never in the repo, the sheet, the browser or a request URL. The
+   cost is a one-time setup in the Apps Script editor and a re-authorisation for
+   the external-request scope.
+2. **Config sheet cells.** Easy to edit, but the sheet is shared, copied,
+   downloaded and versioned, so the key would leak through sharing and history.
+   The read path would also have to be kept out of `getAppData` forever.
+3. **Browser storage, key entered in Settings.** No editor needed, but the key
+   would have to reach Script Properties through the signed request URL, which
+   is exactly what the login design avoids for the passkey. It would also be
+   exposed to any XSS and copied to every device the treasurer uses.
+4. **Key in the static frontend.** Public by definition, because the site is.
+   Not an option.
+5. **A separate proxy such as a Cloudflare Worker.** Adds an account, a
+   deployment and a second place to keep secure, for no gain over option 1.
+
+**Choice.** Option 1. Script Properties `AI_PROVIDER`, `AI_MODEL` and
+`AI_API_KEY`, with `AI_BASE_URL` optional, read only by `Service_AI.gs` and
+never returned. The action is admin-only. Anyone with the script URL and the
+full-access passkey can use the feature on any device, exactly as tagging works
+today, but nobody can read the key. There is one admin role, so this cannot be
+limited to some editors without per-user accounts.
+
+**Reason.** It is the only place that is server-side, out of git and out of the
+sheet. The user confirmed this route and the admin-only scope on 2026-11-10.
+
+**Decided by.** User, 2026-11-10.
+
+### D-020: Providers are chosen through a registry, not a hardcoded vendor
+
+**Question.** How should the app support DeepSeek today and other providers
+later?
+
+**Context.** The user wants DeepSeek first but does not want to be tied to it.
+Most hosted inference APIs speak one of two wire formats, and Apps Script can
+only call them through `UrlFetchApp`.
+
+**Options.** (a) Hardcode DeepSeek. (b) A registry of provider settings plus a
+small adapter per wire family. (c) Add a provider SDK or library.
+
+**Choice.** Option (b). `AI_CONFIG.PROVIDERS` maps a name to
+`{family, baseUrl, path}`. The `openai` family covers any OpenAI-compatible
+chat-completions endpoint (DeepSeek, OpenAI, OpenRouter and self-hosted
+gateways) and `anthropic` covers the Messages API. The model always comes from
+`AI_MODEL`, and `AI_BASE_URL` may override the host. Adding an
+OpenAI-compatible provider is one registry entry.
+
+**Reason.** No new runtime dependency, the wire details stay inside
+`Service_AI.gs`, and callers see the same interface whichever provider is
+configured. A library would add a deployment dependency for two small request
+shapes.
+
+**Decided by.** Overseer, 2026-11-10, within the approved phase.
+
+### D-021: Suggestions are reviewed, never auto-applied, and only fill gaps
+
+**Question.** Should a returned suggestion be applied automatically, saved as a
+pending edit, or held for approval?
+
+**Context.** A wrong tag on a financial row is worse than a slower flow, and the
+user described a review step: suggest, show the proposals, approve, then save
+like normal tagging.
+
+**Options.** (a) Apply on return. (b) Write into the existing pending changes so
+the normal Save applies them. (c) A review panel that returns the accepted
+rows, which then go through the pending-changes save.
+
+**Choice.** Option (c), with two rules: a suggestion only fills a tag that is
+empty, and no row is applied without a tick. Inline editing of a proposal is
+out of scope for v1 and can be added later.
+
+**Reason.** It gives the user the explicit approval they asked for, and reusing
+the pending-changes save means the feature adds no second write path. Proposals
+are never written anywhere until Apply, so a bad model reply costs nothing.
+
+**Decided by.** User, 2026-11-10.
