@@ -50,8 +50,10 @@ Properties. No frontend change, so the app behaves exactly as it does now.
     `_parseSuggestions`, `_validateSuggestions`, `_failure`, `_logFailure`.
   - No script lock is taken: the call writes nothing and holding the lock for
     seconds would block every save.
-  - Failure logging names the provider, model, HTTP status and row count only.
-    It never logs the key, the prompt, a description or the reply.
+  - Failure logging names the provider, model, HTTP status, row count and a
+    redacted exception detail (the key is replaced and the text capped). The
+    prompt, a description and the reply are never passed to the logger; the
+    exception text itself is provider-controlled.
 - `google-apps-script/Code.gs`: add `ADMIN_ACTIONS = new Set(["suggestTags"])`,
   include it in `isKnownAction`, and add a `case "suggestTags"` that validates
   `rows` with `validateJsonParameter(e.parameter.rows, "array")` before calling
@@ -70,11 +72,14 @@ Properties. No frontend change, so the app behaves exactly as it does now.
 - New `tests/backend/ai.test.js`.
 
 **Request shape.** `action=suggestTags`, plus
-`rows=[{"row":42,"description":"TESCO STORES","amount":-12.34,"missing":["Trip/Event","Category"]}]`.
+`rows=[{"row":42,"description":"TESCO STORES","date":"2026-11-01","amount":-12.34,"missing":["Trip/Event","Category"]}]`.
 
 - `row`: a number, or `"S-<n>"` for a split child.
 - `description`: non-empty string; the backend trims it and rejects anything
   over `MAX_DESCRIPTION_LENGTH`.
+- `date`: optional local `YYYY-MM-DD`; added in the follow-up and used in the
+  prompt. The amount stays in the request for the stale-row check but is not
+  given to the model.
 - `amount`: a finite number, signed (income positive, expense negative).
 - `missing`: one or both of `"Trip/Event"` and `"Category"`.
 - A batch larger than `MAX_ROWS`, an empty `missing`, or a blank description is
@@ -112,6 +117,8 @@ Properties. No frontend change, so the app behaves exactly as it does now.
   `{model, max_tokens: 800, temperature: 0, system, messages: [{role: "user", content}]}`,
   reply text at `content[0].text`.
 - `muteHttpExceptions: true`; the status code decides the error.
+- The `max_tokens` values in those two examples were later raised to 10000 for
+  the OpenAI-compatible family and 8192 for Anthropic; see the follow-up.
 - The prompt asks for JSON only and carries the allowed Trips with their Types,
   the allowed Categories, and the rows. It states: choose only from the lists,
   omit a field when unsure, answer only the fields named in `missing`, one
@@ -378,3 +385,66 @@ harness and is inspection-only in the committed suite. Remaining, recorded as
 E-049 to E-053: focus after Apply, no mid-request cancel, a tab switch during
 the request, the Tab trap when focus is on the body, and first-open styling and
 short-viewport clipping.
+
+## Follow-up: login message, AI setup and output cap (in progress)
+
+**Goal.** Fix B-010 (an undiagnosable provider fetch and a misleading setup
+guide) and B-011 (a wrong passkey shown as a network failure), harden the new
+`AI_BASE_URL` validation, change what the model is given, limit the AI
+selection list to incomplete rows, and raise the suggestion output cap.
+
+**Changes.**
+
+- `src/services/api.service.js` and `src/services/auth.service.js`: classify an
+  Unauthorized login reply as `UNAUTHORIZED`, map it to a passkey message, keep
+  transport failures as the connection message, and stop a failed login from
+  dispatching `sessionExpired`.
+- `google-apps-script/Service_AI.gs`: log a key-redacted, capped exception
+  detail; return an actionable message naming `authorizeAi` for a permission
+  failure; add the top-level `authorizeAi()`; validate `AI_BASE_URL` (host
+  required, https except loopback, no userinfo, bad port, query, fragment or
+  duplicated endpoint path).
+- `google-apps-script/Config.gs`: `MAX_TOKENS` from 800 to 10000, approved by
+  the user on 2026-11-10. Anthropic keeps a per-provider cap of 8192, because
+  older Claude models reject a larger `max_tokens`.
+- `src/features/transactions/transactions.suggestions.js` and
+  `google-apps-script/Service_AI.gs`: the prompt now carries each row's date and
+  each trip's Status, excludes the amount, and tells the model to prefer an
+  Active trip and to omit a tag when unsure. `_ownTagText` closes E-035.
+- `src/features/transactions/transactions.suggestions.js` and
+  `transactions.component.js`: AI selection mode displays only rows missing a
+  Trip/Event, a Category, or both, through `filterRowsMissingTags`; leaving the
+  mode restores the full ledger, and the toolbar hint says the list is already
+  filtered.
+- `google-apps-script/README.md`: the real `authorizeAi` procedure, the base URL
+  rules, a failure checklist and the provider data note. Bugs B-010 and B-011
+  and edge cases E-054 to E-062 are recorded.
+
+**Tests.** New auth-service tests, new AI tests (permission message, redaction,
+`authorizeAi`, the base URL cases), the date formatting cases (including a local
+early-morning date that `toISOString` would shift in a positive-offset zone),
+the prompt date and absence of the amount, the
+Active and Completed statuses, the prototype-key trip, the six
+`filterRowsMissingTags` cases, and the request-body assertions. New `_responseError` and `_shouldExpireSession` tests in
+`tests/services/api.service.test.js`, and an additive `authorizeAi` export in
+the test harness.
+
+**Existing tests affected.** The two `max_tokens` assertions in
+`tests/backend/ai.test.js` change from 800 to 10000 for the OpenAI-compatible
+family and to 8192 for Anthropic. This is an intentional behaviour change
+approved by the user on 2026-11-10. The `buildRequestRows` expectation gains the
+date, and the prompt assertion changes to
+`Winter Trip (Type: Competitive, Status: Active)`, also approved by the user on
+2026-11-10. `tests/backend/harness.js` gains a test-only `authorizeAi` export;
+no existing test is changed by it.
+
+**Acceptance.** Both bugs reproduce before the fix and pass their regression
+tests after. A wrong passkey shows the passkey message, not the network one. A
+permission failure names `authorizeAi`, and a malformed `AI_BASE_URL` names the
+property without a provider call. AI selection mode shows only incomplete rows
+and restores the full list on exit. The full suite and format check pass.
+
+**Status.** Code complete and approved on 2026-11-10. The suite is 407 tests and
+the format check passes locally on macOS. The user confirmed the AI path works
+after granting the external-request permission. The live login check (a wrong
+passkey after the frontend deploys) and the merge decision remain with the user.

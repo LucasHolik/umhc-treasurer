@@ -68,6 +68,13 @@ const Service_AI = {
         );
       }
 
+      // Validate the optional override before any fetch, including the
+      // empty-batch shortcut, so a bad value is reported rather than ignored.
+      const baseUrlProblem = _baseUrlProblem(settings.baseUrl, provider.path);
+      if (baseUrlProblem) {
+        return _failure("AI_NOT_CONFIGURED", baseUrlProblem);
+      }
+
       // An empty batch means there is nothing to ask, so it is a success with
       // no provider call rather than a validation failure.
       if (request.rows.length === 0) return _success(settings, []);
@@ -82,13 +89,13 @@ const Service_AI = {
       const prompt = _buildPrompt(tags, request.rows);
       const call = _callProvider(settings, provider, prompt);
       if (!call.success) {
-        _logFailure(settings, call.status, request.rows.length);
+        _logFailure(settings, call.status, request.rows.length, call.detail);
         return _failure(call.code, call.message);
       }
 
       const reply = _parseSuggestions(call.text);
       if (reply === null) {
-        _logFailure(settings, call.status, request.rows.length);
+        _logFailure(settings, call.status, request.rows.length, call.detail);
         return _failure(
           "AI_BAD_RESPONSE",
           "The AI provider returned a reply that could not be read.",
@@ -188,6 +195,19 @@ function _parseRequestRows(rawRows) {
       };
     }
 
+    // The date is optional so an older client keeps working. It is kept as a
+    // trimmed string and never parsed here: the prompt only displays it.
+    let date = "";
+    if (row.date !== undefined) {
+      if (typeof row.date !== "string") {
+        return {
+          valid: false,
+          message: "Row " + (index + 1) + " has an invalid date.",
+        };
+      }
+      date = row.date.trim();
+    }
+
     const missing = _normaliseMissing(row.missing);
     if (!missing) {
       return {
@@ -199,6 +219,7 @@ function _parseRequestRows(rawRows) {
     rows.push({
       row: row.row,
       description: description,
+      date: date,
       amount: row.amount,
       missing: missing,
     });
@@ -347,8 +368,31 @@ function _configuredProvider(settings) {
 // --- Prompt ----------------------------------------------------------------
 
 /**
+ * Returns a tag map's own value for a key, or "" when the map is missing, the
+ * key is inherited, or the value is blank. A plain object inherits names such
+ * as "toString" and "constructor", and a trip may legitimately be named one of
+ * them (E-035), so an own-property check is required.
+ *
+ * @param {*} map The Type or Status lookup.
+ * @param {string} key The trip name.
+ * @returns {string}
+ */
+function _ownTagText(map, key) {
+  if (
+    map === null ||
+    typeof map !== "object" ||
+    !Object.prototype.hasOwnProperty.call(map, key)
+  ) {
+    return "";
+  }
+  const value = map[key];
+  return value === null || value === undefined ? "" : String(value).trim();
+}
+
+/**
  * Builds the system and user messages. The live tag lists and the rows are the
- * only data in the prompt; the key is never included.
+ * only data in the prompt; the key is never included, and the amount is left
+ * out so the model cannot use it to guess a tag.
  *
  * @param {object} tags The Service_Tags.getTags() reply.
  * @param {Array<object>} rows Validated request rows.
@@ -357,19 +401,37 @@ function _configuredProvider(settings) {
 function _buildPrompt(tags, rows) {
   const trips = Array.isArray(tags["Trip/Event"]) ? tags["Trip/Event"] : [];
   const types = tags.TripTypeMap || {};
+  const statuses = tags.TripStatusMap || {};
   const categories = Array.isArray(tags.Category) ? tags.Category : [];
 
   const tripLines = trips.map((trip) => {
-    const type = types[trip];
-    return type ? "- " + trip + " (Type: " + type + ")" : "- " + trip;
+    const details = [];
+    const type = _ownTagText(types, trip);
+    const status = _ownTagText(statuses, trip);
+    if (type) details.push("Type: " + type);
+    if (status) details.push("Status: " + status);
+    return details.length > 0
+      ? "- " + trip + " (" + details.join(", ") + ")"
+      : "- " + trip;
   });
   const categoryLines = categories.map((category) => "- " + category);
+
+  // The client sends the amount so the review dialog can fingerprint a stale
+  // row, but it is not a hint the model may use, so it is projected away here.
+  const promptRows = rows.map((row) => ({
+    row: row.row,
+    description: row.description,
+    date: typeof row.date === "string" ? row.date : "",
+    missing: row.missing,
+  }));
 
   const system = [
     "You suggest tags for a treasurer's ledger.",
     "Reply with JSON only and no prose.",
     "Choose Trip/Event and Category only from the allowed lists.",
-    "Omit a field when you are unsure.",
+    "Use the transaction's date when judging which Trip/Event is plausible.",
+    "Prefer a Trip/Event whose Status is Active; use a past one only when the description clearly refers to it.",
+    "Omit a field when you are unsure; no suggestion is better than a wrong one.",
     'Answer only the fields named in "missing" for each row.',
     'Return one object per row with the same "row" value.',
     'Use the keys "row", "tripEvent" and "category".',
@@ -377,14 +439,14 @@ function _buildPrompt(tags, rows) {
   ].join(" ");
 
   const user = [
-    "Allowed Trip/Event values (with their Type):",
+    "Allowed Trip/Event values (with their Type and Status):",
     tripLines.length > 0 ? tripLines.join("\n") : "(none)",
     "",
     "Allowed Category values:",
     categoryLines.length > 0 ? categoryLines.join("\n") : "(none)",
     "",
     "Rows:",
-    JSON.stringify(rows),
+    JSON.stringify(promptRows),
   ].join("\n");
 
   return { system: system, user: user };
@@ -393,18 +455,59 @@ function _buildPrompt(tags, rows) {
 // --- Provider call ---------------------------------------------------------
 
 /**
+ * Grants the external-request scope once. Apps Script asks for scopes when a
+ * function first needs them, and a web-app request cannot show the consent
+ * screen, so run this by hand in the editor. It makes one harmless request and
+ * never reads or sends AI_API_KEY. A throw is deliberately left to propagate so
+ * the editor shows the consent screen or the permission error.
+ *
+ * Not routed from doGet: it is a one-off setup step, not an action.
+ *
+ * @returns {number} The HTTP status of the probe request.
+ */
+function authorizeAi() {
+  const response = UrlFetchApp.fetch("https://www.google.com/", {
+    method: "get",
+    muteHttpExceptions: true,
+  });
+  const status = response.getResponseCode();
+  console.log("authorizeAi probe status:", status);
+  return status;
+}
+
+/**
+ * Caps the configured output ceiling to a provider's own maximum. Providers
+ * without `maxOutputTokens` keep the configured value, and a missing or
+ * non-numeric value is returned unchanged, so a broken config behaves as it
+ * did before.
+ *
+ * @param {*} configured
+ * @param {{maxOutputTokens?: number}} provider
+ * @returns {*}
+ */
+function _cappedMaxTokens(configured, provider) {
+  if (typeof configured !== "number" || !Number.isFinite(configured)) {
+    return configured;
+  }
+  const cap = provider.maxOutputTokens;
+  return typeof cap === "number" && Number.isFinite(cap)
+    ? Math.min(configured, cap)
+    : configured;
+}
+
+/**
  * Sends one request to the configured provider and classifies the outcome.
  * The status code decides the error, and the reply body is never returned in
  * a message.
  *
  * @param {{provider: string, model: string, key: string, baseUrl: string}} settings
- * @param {{family: string, baseUrl: string, path: string}} provider
+ * @param {{family: string, baseUrl: string, path: string, maxOutputTokens?: number}} provider
  * @param {{system: string, user: string}} prompt
- * @returns {{success: true, status: number, text: string}|{success: false, code: string, message: string, status: number}}
+ * @returns {{success: true, status: number, text: string}|{success: false, code: string, message: string, status: number, detail?: string}}
  */
 function _callProvider(settings, provider, prompt) {
   const anthropic = provider.family === "anthropic";
-  const maxTokens = _aiConfigValue("MAX_TOKENS");
+  const maxTokens = _cappedMaxTokens(_aiConfigValue("MAX_TOKENS"), provider);
   const temperature = _aiConfigValue("TEMPERATURE");
   const headers = anthropic
     ? { "x-api-key": settings.key, "anthropic-version": "2023-06-01" }
@@ -443,11 +546,23 @@ function _callProvider(settings, provider, prompt) {
       muteHttpExceptions: true,
     });
   } catch (error) {
+    const detail = _redactError(error, settings.key);
+    if (_isPermissionError(detail)) {
+      return {
+        success: false,
+        code: "AI_UNAVAILABLE",
+        message:
+          "Google has not authorised this script to call an external service. Run authorizeAi in the Apps Script editor once, then try again.",
+        status: 0,
+        detail: detail,
+      };
+    }
     return {
       success: false,
       code: "AI_UNAVAILABLE",
       message: "Could not reach the AI provider. Please try again.",
       status: 0,
+      detail: detail,
     };
   }
 
@@ -489,6 +604,122 @@ function _callProvider(settings, provider, prompt) {
   }
 
   return { success: true, status: status, text: text };
+}
+
+/**
+ * Builds a short, single-line detail from a thrown error for diagnostics. It
+ * redacts only the configured key, collapses whitespace and caps the result at
+ * 300 characters; it does not inspect payload text. The prompt, descriptions
+ * and reply are never passed to it deliberately.
+ *
+ * The failure log then contains the provider, model, status, row count and this
+ * redacted exception detail.
+ *
+ * @param {*} error The thrown value.
+ * @param {string} key The configured API key.
+ * @returns {string}
+ */
+function _redactError(error, key) {
+  const raw =
+    error && typeof error.message === "string" ? error.message : String(error);
+  const withoutKey =
+    typeof key === "string" && key !== ""
+      ? raw.split(key).join("[redacted]")
+      : raw;
+  return withoutKey.replace(/\s+/g, " ").trim().slice(0, 300);
+}
+
+/**
+ * Whether a thrown fetch detail says the script lacks the external-request
+ * scope.
+ *
+ * @param {string} detail A _redactError result.
+ * @returns {boolean}
+ */
+function _isPermissionError(detail) {
+  return /permission to call UrlFetchApp|script\.external_request/i.test(
+    String(detail || ""),
+  );
+}
+
+/**
+ * Checks the optional AI_BASE_URL override. An empty value is fine because the
+ * registry base URL is used. The value must be an http(s) URL with no
+ * whitespace, query or fragment, and must not already include the provider's
+ * endpoint path. Only https:// is accepted, except for http:// on a loopback
+ * host, where the key cannot leave the machine.
+ *
+ * Google Apps Script V8 does not reliably provide the global URL, so the
+ * authority is parsed here.
+ *
+ * @param {string} baseUrl The AI_BASE_URL property, already trimmed.
+ * @param {string} providerPath The registry path, for example "/chat/completions".
+ * @returns {string|null} A message naming AI_BASE_URL, or null when usable.
+ */
+function _baseUrlProblem(baseUrl, providerPath) {
+  const value = typeof baseUrl === "string" ? baseUrl.trim() : "";
+  if (value === "") return null;
+  if (/\s/.test(value)) {
+    return "AI_BASE_URL must not contain spaces.";
+  }
+  if (value.indexOf("?") !== -1 || value.indexOf("#") !== -1) {
+    return "AI_BASE_URL must not contain a query or fragment.";
+  }
+
+  const malformed =
+    "AI_BASE_URL must be a URL such as https://api.deepseek.com.";
+  const match = /^(https?):\/\/([^/?#]+)(\/.*)?$/i.exec(value);
+  if (!match) return malformed;
+
+  const scheme = match[1].toLowerCase();
+  const authority = match[2];
+  if (authority.indexOf("@") !== -1) {
+    return "AI_BASE_URL must not include a username or password.";
+  }
+
+  let host;
+  let port = null;
+  if (authority.charAt(0) === "[") {
+    const close = authority.indexOf("]");
+    if (close === -1) return malformed;
+    host = authority.slice(0, close + 1);
+    const rest = authority.slice(close + 1);
+    if (rest !== "") {
+      if (rest.charAt(0) !== ":") return malformed;
+      port = rest.slice(1);
+    }
+  } else {
+    const colon = authority.indexOf(":");
+    host = colon === -1 ? authority : authority.slice(0, colon);
+    port = colon === -1 ? null : authority.slice(colon + 1);
+  }
+
+  if (host === "") return malformed;
+  if (port !== null) {
+    if (port === "") return "AI_BASE_URL has an empty port.";
+    if (!/^\d+$/.test(port)) return "AI_BASE_URL must have a numeric port.";
+    const number = Number(port);
+    if (number < 1 || number > 65535) {
+      return "AI_BASE_URL must have a port from 1 to 65535.";
+    }
+  }
+
+  if (
+    scheme === "http" &&
+    ["localhost", "127.0.0.1", "[::1]"].indexOf(host.toLowerCase()) === -1
+  ) {
+    return "AI_BASE_URL must use https://.";
+  }
+
+  const endpoint = String(providerPath || "").replace(/\/+$/, "");
+  if (endpoint !== "" && value.replace(/\/+$/, "").endsWith(endpoint)) {
+    return (
+      "AI_BASE_URL must be the base URL, not the endpoint. Remove " +
+      endpoint +
+      "."
+    );
+  }
+  return null;
 }
 
 /**
@@ -704,19 +935,21 @@ function _failure(code, message) {
 }
 
 /**
- * Records a failed provider call. It writes only the provider, model, HTTP
- * status and row count; the key, the prompt, every description and the reply
- * are deliberately absent.
+ * Records a failed provider call. The log contains the provider, model, HTTP
+ * status, row count and a redacted exception detail, and nothing else: the
+ * prompt, descriptions and reply are never passed to it deliberately.
  *
  * @param {{provider: string, model: string}} settings
  * @param {number} status
  * @param {number} rowCount
+ * @param {string} [detail] A _redactError result for a thrown fetch.
  */
-function _logFailure(settings, status, rowCount) {
+function _logFailure(settings, status, rowCount, detail) {
   console.error("Tag suggestion provider failure", {
     provider: settings.provider,
     model: settings.model,
     status: status,
     rows: rowCount,
+    detail: detail,
   });
 }

@@ -14,6 +14,7 @@ import * as TransactionsLogic from "./transactions.logic.js";
 import {
   buildRequestRows,
   collectSuggestions,
+  filterRowsMissingTags,
   filterStillMissing,
   mergeAcceptedIntoPending,
   reconcileSuggestions,
@@ -276,7 +277,7 @@ class TransactionsComponent {
         el(
           "span",
           { className: "suggest-actions-hint" },
-          "Select the transactions to suggest tags for.",
+          "Showing only transactions missing a tag. Select the ones to send.",
         ),
         el(
           "span",
@@ -1789,7 +1790,7 @@ class TransactionsComponent {
 
   applyFilters() {
     // 1. Filter
-    this.transactionData = TransactionsLogic.filterData(
+    const filtered = TransactionsLogic.filterData(
       this.originalTransactionData,
       {
         selectedCategories: this.selectedCategories,
@@ -1797,6 +1798,12 @@ class TransactionsComponent {
         descriptionSearch: this.descriptionSearchTerm,
       },
     );
+    // Suggestion mode only shows rows that still need a tag. This changes the
+    // visible list only; originalTransactionData keeps every row.
+    this.transactionData =
+      this.selectionMode && this.selectionPurpose === "suggest"
+        ? filterRowsMissingTags(filtered)
+        : filtered;
     this.reconcileSelectionWithVisibleRows();
 
     // 2. Render (SortableTable handles sorting)
@@ -1859,12 +1866,13 @@ class TransactionsComponent {
 
     if (this.tableComponent) {
       this.tableComponent.enableSelection = active;
-      this.syncTableSelection();
-      // Re-render to show/hide checkboxes
-      this.tableComponent.render();
     }
 
-    this.renderMobileTransactionsList();
+    // Re-run the filters after the selection state changes. applyFilters syncs
+    // the table selection and re-renders both the table and the mobile list, so
+    // the table is rendered with selection enabled and the filtered list, and
+    // leaving the mode restores every row.
+    this.applyFilters();
   }
 
   handleSelectionChange(selectedIds) {

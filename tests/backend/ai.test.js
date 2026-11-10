@@ -133,18 +133,85 @@ test("an admin request sends the configured model, key and rows", (t) => {
   const body = sentBody(call);
   assert.equal(body.model, "deepseek-chat");
   assert.equal(body.temperature, 0);
-  assert.equal(body.max_tokens, 800);
+  assert.equal(body.max_tokens, 10000);
   assert.equal(body.stream, false);
   assert.equal(body.messages.length, 2);
   assert.equal(body.messages[0].role, "system");
   assert.equal(body.messages[1].role, "user");
   assert.match(body.messages[1].content, /TESCO STORES/);
-  assert.match(body.messages[1].content, /Winter Trip \(Type: Competitive\)/);
+  assert.match(
+    body.messages[1].content,
+    /Winter Trip \(Type: Competitive, Status: Active\)/,
+  );
   assert.match(body.messages[1].content, /Food/);
   assert.match(
     body.messages[1].content,
     /"missing":\["Trip\/Event","Category"\]/,
   );
+});
+
+test("the prompt carries the row date and never the amount", (t) => {
+  const backend = createAiBackend(t);
+  configure(backend);
+  backend.urlFetch.queueResponse(openAiReply([]));
+
+  const response = backend.request(
+    "suggestTags",
+    rowsParam([{ ...ROW, date: "2024-07-01" }]),
+  );
+
+  assert.equal(response.success, true);
+  const user = sentBody(backend.urlFetch.calls[0]).messages[1].content;
+  assert.match(user, /TESCO STORES/);
+  assert.match(user, /"date":"2024-07-01"/);
+  assert.doesNotMatch(user, /"amount"/);
+  assert.doesNotMatch(user, /12\.34/);
+});
+
+test("the prompt lists Active and Completed Statuses and tells the model to prefer Active", (t) => {
+  const backend = createAiBackend(t);
+  configure(backend);
+  backend.urlFetch.queueResponse(openAiReply([]));
+
+  backend.request("suggestTags", rowsParam([ROW]));
+
+  const body = sentBody(backend.urlFetch.calls[0]);
+  const system = body.messages[0].content;
+  const user = body.messages[1].content;
+
+  assert.match(user, /Status: Active/);
+  assert.match(user, /Status: Completed/);
+  assert.match(system, /Use the transaction's date/);
+  assert.match(system, /Prefer a Trip\/Event whose Status is Active/);
+  assert.match(system, /Omit a field when you are unsure/);
+  assert.match(system, /no suggestion is better than a wrong one/);
+});
+
+test("a trip named like an Object property picks up no inherited Type or Status", (t) => {
+  const backend = createAiBackend(t, {
+    sheets: {
+      Tags: [
+        TAG_HEADERS,
+        ["Winter Trip", "Competitive", "Active", "Food", "Competitive"],
+        ["toString"],
+        ["__proto__"],
+      ],
+    },
+  });
+  configure(backend);
+  backend.urlFetch.queueResponse(openAiReply([]));
+
+  backend.request("suggestTags", rowsParam([ROW]));
+
+  const user = sentBody(backend.urlFetch.calls[0]).messages[1].content;
+  // A live tag named `toString` has no own Type, but Service_Tags gives every
+  // trip the default Status "Active", so only the Type can be missing there.
+  assert.match(user, /^- toString \(Status: Active\)$/m);
+  // `__proto__` is never stored as an own key by either map, so both lookups
+  // would return Object.prototype without the guard.
+  assert.match(user, /^- __proto__$/m);
+  assert.doesNotMatch(user, /Type: function/);
+  assert.doesNotMatch(user, /\[object Object\]/);
 });
 
 test("a DeepSeek request disables thinking mode", (t) => {
@@ -353,6 +420,64 @@ test("a thrown fetch is AI_UNAVAILABLE and logs no key", (t) => {
   assert.match(logged, /"status":0/);
 });
 
+test("a permission error names authorizeAi and logs the reason", (t) => {
+  const errorLog = t.mock.method(console, "error", () => {});
+  const backend = createAiBackend(t);
+  configure(backend);
+  backend.urlFetch.queueError(
+    new Error(
+      "You do not have permission to call UrlFetchApp.fetch. Required permissions: https://www.googleapis.com/auth/script.external_request",
+    ),
+  );
+
+  const response = backend.request("suggestTags", rowsParam([ROW]));
+
+  assert.equal(response.success, false);
+  assert.equal(response.code, "AI_UNAVAILABLE");
+  assert.match(response.message, /authorizeAi/);
+  assert.equal(JSON.stringify(response).includes(KEY), false);
+  const logged = JSON.stringify(errorLog.mock.calls);
+  assert.match(logged, /permission to call UrlFetchApp/);
+  assert.equal(logged.includes(KEY), false);
+});
+
+test("a thrown error that contains the key is redacted", (t) => {
+  const errorLog = t.mock.method(console, "error", () => {});
+  const backend = createAiBackend(t);
+  configure(backend);
+  backend.urlFetch.queueError(
+    new Error("Request failed for " + KEY + ": connection reset"),
+  );
+
+  const response = backend.request("suggestTags", rowsParam([ROW]));
+
+  assert.equal(response.success, false);
+  assert.equal(response.code, "AI_UNAVAILABLE");
+  assert.equal(JSON.stringify(response).includes(KEY), false);
+  const logged = JSON.stringify(errorLog.mock.calls);
+  assert.match(logged, /\[redacted\]/);
+  assert.equal(logged.includes(KEY), false);
+});
+
+test("authorizeAi probes Google once without credentials", (t) => {
+  const log = t.mock.method(console, "log", () => {});
+  const backend = createAiBackend(t);
+  configure(backend);
+  backend.urlFetch.queueResponse({ status: 204, body: "" });
+
+  const status = backend.helpers.authorizeAi();
+
+  assert.equal(status, 204);
+  assert.equal(backend.urlFetch.calls.length, 1);
+  const call = backend.urlFetch.calls[0];
+  assert.equal(call.url, "https://www.google.com/");
+  assert.equal(call.options.method, "get");
+  assert.equal(call.options.muteHttpExceptions, true);
+  assert.equal(call.options.headers, undefined);
+  assert.equal(JSON.stringify(call).includes(KEY), false);
+  assert.equal(log.mock.calls.length, 1);
+});
+
 test("a fenced JSON reply is accepted", (t) => {
   const backend = createAiBackend(t);
   configure(backend);
@@ -476,6 +601,7 @@ const VALIDATION_CASES = [
     () => rowsParam([{ ...ROW, description: "x".repeat(201) }]),
   ],
   ["a non-finite amount", () => rowsParam([{ ...ROW, amount: "12.5" }])],
+  ["a non-string date", () => rowsParam([{ ...ROW, date: 20240701 }])],
   ["an empty missing list", () => rowsParam([{ ...ROW, missing: [] }])],
   [
     "an unknown missing field",
@@ -640,7 +766,7 @@ test("the Anthropic family sends its headers and reads the first text block", (t
 
   const body = sentBody(call);
   assert.equal(body.model, "claude-3-5-sonnet");
-  assert.equal(body.max_tokens, 800);
+  assert.equal(body.max_tokens, 8192);
   assert.equal(body.temperature, 0);
   assert.equal(typeof body.system, "string");
   assert.equal(body.messages.length, 1);
@@ -664,6 +790,138 @@ test("AI_BASE_URL replaces the base but not the path or family", (t) => {
     Authorization: "Bearer " + KEY,
   });
 });
+
+const BAD_BASE_URLS = [
+  ["a scheme-less AI_BASE_URL", "gateway.example.com/v1"],
+  ["an AI_BASE_URL with a query", "https://gateway.example.com/v1?key=1"],
+  ["an AI_BASE_URL with a fragment", "https://gateway.example.com/v1#top"],
+  ["an AI_BASE_URL with a space", "https://gateway.example.com /v1"],
+];
+
+for (const [name, baseUrl] of BAD_BASE_URLS) {
+  test(`${name} is AI_NOT_CONFIGURED with no fetch`, (t) => {
+    const backend = createAiBackend(t);
+    configure(backend, { AI_BASE_URL: baseUrl });
+
+    const response = backend.request("suggestTags", rowsParam([ROW]));
+
+    assert.equal(response.success, false);
+    assert.equal(response.code, "AI_NOT_CONFIGURED");
+    assert.match(response.message, /AI_BASE_URL/);
+    assert.equal(backend.urlFetch.calls.length, 0);
+  });
+}
+
+test("an AI_BASE_URL that already ends with the endpoint is rejected", (t) => {
+  const backend = createAiBackend(t);
+  configure(backend, {
+    AI_BASE_URL: "https://gateway.example.com/v1/chat/completions",
+  });
+
+  const response = backend.request("suggestTags", rowsParam([ROW]));
+
+  assert.equal(response.success, false);
+  assert.equal(response.code, "AI_NOT_CONFIGURED");
+  assert.match(response.message, /AI_BASE_URL/);
+  assert.match(response.message, /chat\/completions/);
+  assert.equal(backend.urlFetch.calls.length, 0);
+});
+
+test("a valid AI_BASE_URL joins to the provider path", (t) => {
+  const backend = createAiBackend(t);
+  configure(backend, { AI_BASE_URL: "https://gateway.example.com/v1" });
+  backend.urlFetch.queueResponse(openAiReply([]));
+
+  const response = backend.request("suggestTags", rowsParam([ROW]));
+
+  assert.equal(response.success, true);
+  assert.equal(backend.urlFetch.calls.length, 1);
+  assert.equal(
+    backend.urlFetch.calls[0].url,
+    "https://gateway.example.com/v1/chat/completions",
+  );
+});
+
+test("an AI_BASE_URL with an explicit port joins to the provider path", (t) => {
+  const backend = createAiBackend(t);
+  configure(backend, { AI_BASE_URL: "https://gateway.example.com:8443/v1" });
+  backend.urlFetch.queueResponse(openAiReply([]));
+
+  const response = backend.request("suggestTags", rowsParam([ROW]));
+
+  assert.equal(response.success, true);
+  assert.equal(backend.urlFetch.calls.length, 1);
+  assert.equal(
+    backend.urlFetch.calls[0].url,
+    "https://gateway.example.com:8443/v1/chat/completions",
+  );
+});
+
+const LOOPBACK_BASE_URLS = [
+  "http://localhost:8080/v1",
+  "http://127.0.0.1:8080/v1",
+  "http://[::1]:8080/v1",
+];
+
+for (const baseUrl of LOOPBACK_BASE_URLS) {
+  test(`${baseUrl} is accepted as an AI_BASE_URL`, (t) => {
+    const backend = createAiBackend(t);
+    configure(backend, { AI_BASE_URL: baseUrl });
+    backend.urlFetch.queueResponse(openAiReply([]));
+
+    const response = backend.request("suggestTags", rowsParam([ROW]));
+
+    assert.equal(response.success, true);
+    assert.equal(backend.urlFetch.calls.length, 1);
+    assert.equal(backend.urlFetch.calls[0].url, baseUrl + "/chat/completions");
+  });
+}
+
+const MALFORMED_BASE_URLS = [
+  [
+    "an https:// with no authority",
+    "https://",
+    /must be a URL such as https:\/\/api\.deepseek\.com/,
+  ],
+  [
+    "an https:// with an empty authority",
+    "https:///v1",
+    /must be a URL such as/,
+  ],
+  [
+    "a username and password",
+    "https://user:pw@gateway.example.com/v1",
+    /must not include a username or password/,
+  ],
+  ["a non-numeric port", "https://gateway.example.com:abc/v1", /numeric port/],
+  ["an empty port", "https://gateway.example.com:/v1", /empty port/],
+  ["port zero", "https://gateway.example.com:0/v1", /port from 1 to 65535/],
+  [
+    "a port above 65535",
+    "https://gateway.example.com:99999/v1",
+    /port from 1 to 65535/,
+  ],
+  [
+    "an http:// remote host",
+    "http://gateway.example.com/v1",
+    /must use https:\/\//,
+  ],
+];
+
+for (const [name, baseUrl, message] of MALFORMED_BASE_URLS) {
+  test(`${name} in AI_BASE_URL is rejected before any fetch`, (t) => {
+    const backend = createAiBackend(t);
+    configure(backend, { AI_BASE_URL: baseUrl });
+
+    const response = backend.request("suggestTags", rowsParam([ROW]));
+
+    assert.equal(response.success, false);
+    assert.equal(response.code, "AI_NOT_CONFIGURED");
+    assert.match(response.message, /AI_BASE_URL/);
+    assert.match(response.message, message);
+    assert.equal(backend.urlFetch.calls.length, 0);
+  });
+}
 
 test("a description is trimmed before it reaches the prompt", (t) => {
   const backend = createAiBackend(t);

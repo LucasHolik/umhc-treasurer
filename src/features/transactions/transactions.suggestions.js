@@ -4,7 +4,11 @@
 // sends batches. The provider call is injected, so this module imports no
 // store, service or DOM.
 
-import { parseAmount } from "../../core/utils.js";
+import {
+  formatDateForInput,
+  parseAmount,
+  parseDate,
+} from "../../core/utils.js";
 
 /**
  * The tag fields a suggestion can fill, in a stable order.
@@ -38,6 +42,20 @@ export const missingTagFields = (row) => {
   const source = row || {};
   return TAG_FIELDS.filter((field) => isBlank(source[field]));
 };
+
+/**
+ * Keeps only the rows that are missing at least one of the two tags. This is
+ * the list shown while suggestion selection mode is active, because a fully
+ * tagged row has nothing to suggest. Non-array input yields an empty list and
+ * the input is not mutated.
+ * @param {Array<object>} rows - ledger rows, normally the filtered visible rows
+ * @returns {Array<object>} a new array of the rows whose missingTagFields is not
+ *   empty, in input order
+ */
+export const filterRowsMissingTags = (rows) =>
+  (Array.isArray(rows) ? rows : []).filter(
+    (row) => missingTagFields(row).length > 0,
+  );
 
 /**
  * Returns a row's signed net amount: income minus expense. Comma strings and
@@ -79,11 +97,22 @@ export const selectRowsForSuggestions = (rows) => {
 };
 
 /**
+ * Formats a row's date for the prompt as a local YYYY-MM-DD string. A missing
+ * or invalid value becomes an empty string. Local formatting is deliberate:
+ * toISOString would shift the day for dates late or early enough to cross the
+ * UTC boundary in British Summer Time.
+ * @param {*} value - a Date object, a date string, or a missing value
+ * @returns {string}
+ */
+const promptDate = (value) => formatDateForInput(parseDate(value));
+
+/**
  * Builds the compact request rows sent to the backend.
  * @param {Array<object>} rows - rows chosen by selectRowsForSuggestions
- * @returns {Array<{row: *, description: string, amount: number, missing: string[]}>}
- *   one entry per input row, with the description trimmed and the missing
- *   fields and signed amount attached. The input is not mutated.
+ * @returns {Array<{row: *, description: string, date: string, amount: number, missing: string[]}>}
+ *   one entry per input row, with the description trimmed, the date formatted
+ *   as local YYYY-MM-DD, and the missing fields and signed amount attached.
+ *   The input is not mutated.
  */
 export const buildRequestRows = (rows) =>
   (Array.isArray(rows) ? rows : []).map((row) => {
@@ -91,6 +120,7 @@ export const buildRequestRows = (rows) =>
     return {
       row: source.row,
       description: trimText(source.Description),
+      date: promptDate(source.Date),
       amount: rowAmount(source),
       missing: missingTagFields(source),
     };

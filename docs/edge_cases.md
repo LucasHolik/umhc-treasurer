@@ -407,12 +407,14 @@ migration on every read.
 `__proto__`, and `TripTypeMap` is a plain object, so `map[trip]` returns an
 inherited value.
 
-**Expected.** The prompt shows no Type for that tag.
+**Expected.** The prompt shows no inherited Type or Status for that tag; a
+genuine own value is still shown.
 
-**Status.** Not handled. `_buildPrompt` reads `TripTypeMap[trip]` without an
-own-property check, so the prompt text for that tag is malformed. The reply is
-still filtered against the live tag list, so no invalid tag can be returned.
-An own-property guard would fix it.
+**Status.** Handled. `_buildPrompt` reads Type and Status through `_ownTagText`,
+which uses `Object.prototype.hasOwnProperty.call`. Test: "a trip named like an
+Object property picks up no inherited Type or Status" (`tests/backend/ai.test.js`).
+A genuine Type or Status for a tag literally named `__proto__` is still lost
+when the Tags sheet is read (E-063).
 
 ### E-036: `Service_AI.gs` is deployed without the new `Config.gs`
 
@@ -616,3 +618,202 @@ viewport is very short.
 awaited, though the panel only opens after a provider request. On a very short
 viewport the body has `overflow: hidden` and the notice has no scroll. Phone
 layout is unchecked. Low.
+
+## AI suggestions: setup and login errors
+
+### E-054: `Service_AI.gs` is added to an already-authorised deployment
+
+**Situation.** The script was deployed before `Service_AI.gs` existed, then the
+file is pasted and the deployment updated.
+
+**Expected.** The owner is told to grant the external-request permission from
+the editor, because a web-app request cannot show a consent screen and a
+redeploy does not grant it.
+
+**Status.** Handled by the `authorizeAi` function and the backend guide. The
+Google consent screen itself cannot be exercised outside the editor, so there is
+no automated test for the grant.
+
+### E-055: `Unauthorized` covers more than a wrong passkey
+
+**Situation.** The server returns the same `Unauthorized` for a wrong passkey,
+the ten-attempt lockout, clock skew beyond 300 seconds and a missing passkey
+configuration.
+
+**Expected.** The login message does not insist the passkey is wrong.
+
+**Status.** Handled by "The passkey was not accepted. Please check it and try
+again, or wait a few minutes if it keeps failing." A missing passkey
+configuration still needs the owner to fix the Config sheet.
+
+### E-056: A thrown provider error contains more than the key
+
+**Situation.** A `UrlFetchApp` exception message includes text other than the
+key, possibly a description if the provider echoed one.
+
+**Expected.** No key, prompt, description or reply reaches the log.
+
+**Status.** Partially handled. `_redactError` replaces the key, collapses
+whitespace and caps the detail at 300 characters, but it does not inspect
+payload text. In practice the request body is not in a `UrlFetchApp` throw with
+`muteHttpExceptions`, and the log is server-side only. Low.
+
+### E-057: A failed login drops the script URL pin
+
+**Situation.** An `Unauthorized` login reply calls `clearSession()`, which nulls
+the in-memory script URL lock, so the next attempt re-reads `script_url` from
+`localStorage`.
+
+**Expected.** The pin survives an ordinary wrong passkey.
+
+**Status.** Not handled. Pre-existing: the old code also cleared the session on
+any `Unauthorized`. Low.
+
+### E-058: A malformed `AI_BASE_URL` leaves the button enabled
+
+**Situation.** `AI_BASE_URL` is set to an invalid value.
+
+**Expected.** The status block could mark AI unconfigured.
+
+**Status.** Not handled. `getStatus()` does not validate the base URL, so the
+button stays enabled and the click shows the specific `AI_BASE_URL` message.
+Low; the message is actionable.
+
+### E-059: A query string in `AI_BASE_URL` is rejected
+
+**Situation.** A gateway that needs a query parameter, such as Azure OpenAI's
+`api-version`, cannot use the override.
+
+**Expected.** Documented as unsupported.
+
+**Status.** Handled by rejection. The current OpenAI-compatible adapter does not
+support Azure's deployment path or `api-key` header anyway. Low.
+
+### E-060: The JSONP failure callback has no end-to-end test
+
+**Situation.** The callback that combines `_responseError`,
+`_shouldExpireSession`, `clearSession()` and the event dispatch could regress
+while its pure helpers stay green.
+
+**Expected.** A test through `request()` with a captured callback pins the login
+event suppression and the session clear.
+
+**Status.** Not handled. The pure helpers are tested, and `AuthService.login` is
+tested with a mocked `ApiService.login`, but the callback glue is covered by
+inspection only. Low.
+
+### E-061: An `AI_BASE_URL` with an empty bracketed host
+
+**Situation.** The override is set to `https://[]`, `https://[]/v1` or
+`https://]`.
+
+**Expected.** The value is rejected with a message naming `AI_BASE_URL`.
+
+**Status.** Not handled. The parser accepts a malformed non-empty host, so the
+request reaches `UrlFetchApp` and returns the generic "Could not reach the AI
+provider" message. The value is owner-set, so there is no security impact. Low.
+
+### E-062: A model with a lower output ceiling than 10000
+
+**Situation.** `AI_PROVIDER=openai` is used with a model that accepts fewer than
+10000 output tokens.
+
+**Expected.** The provider's own limit is respected.
+
+**Status.** Not handled for the OpenAI-compatible family, which sends the
+configured 10000. Anthropic is capped at 8192. A provider that rejects the value
+returns "The AI provider returned an error"; lower `MAX_TOKENS` in `Config.gs`
+if that happens. Low.
+
+### E-063: A Trip/Event named `__proto__` loses its Type and Status
+
+**Situation.** The Tags sheet has a trip literally named `__proto__` with a Type
+or Status cell.
+
+**Expected.** The value is stored and shown like any other trip.
+
+**Status.** Not handled. `Service_Tags._getTags` assigns `map[trip] = value` on
+a plain object, and assigning `__proto__` is a no-op or changes the prototype,
+so the genuine value is lost before the prompt is built. `_ownTagText` prevents
+inherited values from leaking, but cannot recover the lost one. Pre-existing and
+low; `Object.create(null)` or a `Map` would fix it.
+
+### E-064: An ISO-shaped impossible date rolls over
+
+**Situation.** A ledger date is `2024-02-30`.
+
+**Expected.** No date reaches the prompt, or the row is rejected.
+
+**Status.** Not handled. `parseDate` rolls it to 1 March, and `promptDate` sends
+`2024-03-01`. The "invalid becomes empty" contract covers unparseable values,
+not rollovers. Low.
+
+### E-065: The backend does not validate the date format or length
+
+**Situation.** A malformed client sends arbitrary text or a very long value as
+the date.
+
+**Expected.** Only an empty string or a `YYYY-MM-DD` date is accepted.
+
+**Status.** Not handled. `_parseRequestRows` trims the date and rejects a
+non-string but does not cap its length or check the shape. The app always sends
+a formatted date. Low.
+
+### E-066: A date change while the review panel is open is not fingerprinted
+
+**Situation.** A row's date changes after the suggestion request but before the
+panel is applied.
+
+**Expected.** The proposal is dropped as stale.
+
+**Status.** Not handled. The fingerprint is the description and amount, not the
+date. The panel shows the current date and the user reviews before applying.
+Low.
+
+### E-067: A selected row becomes fully tagged while AI mode is active
+
+**Situation.** A reload or another tab gives a selected row its missing tag.
+
+**Expected.** The row leaves the filtered list, the selection and the count, so
+it cannot be sent.
+
+**Status.** Handled by `applyFilters` and `reconcileSelectionWithVisibleRows`;
+there is no dedicated component test. Low.
+
+### E-068: No incomplete rows while AI mode is active
+
+**Situation.** Every transaction already has both tags.
+
+**Expected.** An empty list, not an error, and a usable toolbar.
+
+**Status.** Handled by the table and mobile empty states. No dedicated test.
+
+### E-069: A row with no description is listed in AI mode
+
+**Situation.** A row is missing a tag but has a blank description.
+
+**Expected.** It is shown, then skipped and counted when suggesting, because
+the model has nothing to read.
+
+**Status.** Handled by `selectRowsForSuggestions`. The toolbar hint does not
+promise that every listed row can be sent.
+
+### E-070: A whitespace-only tag and the "(No Tag)" filter
+
+**Situation.** A cell contains only spaces. `filterData` treats it as a tag,
+while `missingTagFields` trims it and treats it as missing.
+
+**Expected.** Both agree.
+
+**Status.** Not handled. Pre-existing and only reachable by editing the sheet
+directly. Low.
+
+### E-071: The AI-mode display filter has no component test
+
+**Situation.** The enter, exit and re-filter wiring could regress while
+`filterRowsMissingTags` stays green.
+
+**Expected.** A test pins the display behaviour.
+
+**Status.** Not handled. The pure helper is tested; the component has no test
+harness. Low.

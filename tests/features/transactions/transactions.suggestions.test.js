@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import {
   TAG_FIELDS,
   missingTagFields,
+  filterRowsMissingTags,
   rowAmount,
   selectRowsForSuggestions,
   buildRequestRows,
@@ -101,6 +102,68 @@ test("missingTagFields treats whitespace-only values as blank", () => {
   ]);
 });
 
+test("filterRowsMissingTags keeps a row whose tags are both blank", () => {
+  const bothMissing = row({ row: 3 });
+
+  assert.deepEqual(filterRowsMissingTags([bothMissing]), [bothMissing]);
+});
+
+test("filterRowsMissingTags keeps a row missing only one tag", () => {
+  const missingTrip = row({
+    row: 3,
+    "Trip/Event": "",
+    Category: "Food",
+  });
+  const missingCategory = row({
+    row: 4,
+    "Trip/Event": "Winter Trip",
+    Category: "",
+  });
+
+  assert.deepEqual(filterRowsMissingTags([missingTrip, missingCategory]), [
+    missingTrip,
+    missingCategory,
+  ]);
+});
+
+test("filterRowsMissingTags drops a row whose tags are both set", () => {
+  const tagged = row({
+    row: 3,
+    "Trip/Event": "Winter Trip",
+    Category: "Food",
+  });
+  const partial = row({ row: 4 });
+
+  assert.deepEqual(filterRowsMissingTags([tagged, partial]), [partial]);
+});
+
+test("filterRowsMissingTags treats a whitespace-only tag as missing", () => {
+  const spaced = row({ row: 3, "Trip/Event": " \t ", Category: "Food" });
+
+  assert.deepEqual(filterRowsMissingTags([spaced]), [spaced]);
+});
+
+test("filterRowsMissingTags returns an empty list for a non-array input", () => {
+  for (const input of [null, undefined, {}, "not an array"]) {
+    assert.deepEqual(filterRowsMissingTags(input), []);
+  }
+});
+
+test("filterRowsMissingTags does not mutate its input and returns a new array", () => {
+  const rows = [
+    row({ row: 3, "Trip/Event": "Winter Trip", Category: "Food" }),
+    row({ row: 4, "Trip/Event": "  ", Category: "" }),
+    row({ row: 5, "Trip/Event": "Summer Trip", Category: "Transport" }),
+  ];
+  const before = structuredClone(rows);
+
+  const filtered = filterRowsMissingTags(rows);
+
+  assert.deepEqual(rows, before);
+  assert.notEqual(filtered, rows);
+  assert.deepEqual(filtered, [rows[1]]);
+});
+
 test("selectRowsForSuggestions skips fully tagged rows and counts them", () => {
   const tagged = row({
     row: 3,
@@ -174,11 +237,12 @@ test("rowAmount returns the income for an income-only row", () => {
   assert.equal(rowAmount({ Income: "50", Expense: "" }), 50);
 });
 
-test("buildRequestRows trims the description and carries the missing fields and amount", () => {
+test("buildRequestRows trims the description and carries the date, missing fields and amount", () => {
   const requestRows = buildRequestRows([
     row({
       row: 7,
       Description: "  TESCO STORES  ",
+      Date: "2024-01-15",
       Income: "100",
       Expense: "12.5",
       "Trip/Event": "",
@@ -190,10 +254,39 @@ test("buildRequestRows trims the description and carries the missing fields and 
     {
       row: 7,
       description: "TESCO STORES",
+      date: "2024-01-15",
       amount: 87.5,
       missing: ["Trip/Event"],
     },
   ]);
+});
+
+test("buildRequestRows passes a YYYY-MM-DD string through unchanged", () => {
+  const [requestRow] = buildRequestRows([row({ Date: "2025-12-31" })]);
+
+  assert.equal(requestRow.date, "2025-12-31");
+});
+
+test("buildRequestRows formats a Date object in local time without shifting the day", () => {
+  const [requestRow] = buildRequestRows([
+    row({ Date: new Date(2024, 6, 1, 0, 30) }),
+  ]);
+
+  assert.equal(requestRow.date, "2024-07-01");
+});
+
+test("buildRequestRows leaves the date empty when it is missing or invalid", () => {
+  const requestRows = buildRequestRows([
+    row({ row: 2 }),
+    row({ row: 3, Date: "" }),
+    row({ row: 4, Date: "not a date" }),
+    row({ row: 5, Date: null }),
+  ]);
+
+  assert.deepEqual(
+    requestRows.map((requestRow) => requestRow.date),
+    ["", "", "", ""],
+  );
 });
 
 test("splitIntoBatches splits an exact multiple into equal batches", () => {

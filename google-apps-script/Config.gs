@@ -42,7 +42,9 @@ const AI_CONFIG = {
   PROPERTY_BASE_URL: "AI_BASE_URL",
   MAX_ROWS: 25,
   MAX_DESCRIPTION_LENGTH: 200,
-  MAX_TOKENS: 800,
+  // A ceiling, not a spend: the model stops when the JSON reply is complete,
+  // so a larger ceiling only reduces the chance of a truncated reply.
+  MAX_TOKENS: 10000,
   TEMPERATURE: 0,
   PROVIDERS: {
     deepseek: {
@@ -50,8 +52,7 @@ const AI_CONFIG = {
       baseUrl: "https://api.deepseek.com",
       path: "/chat/completions",
       // DeepSeek enables thinking mode by default. Suggestions are a short
-      // classification, so reasoning tokens only add cost and latency and can
-      // use up the small output budget before any JSON is produced.
+      // classification, so reasoning tokens only add cost and delay the JSON.
       extraBody: { thinking: { type: "disabled" } },
     },
     openai: {
@@ -68,6 +69,9 @@ const AI_CONFIG = {
       family: "anthropic",
       baseUrl: "https://api.anthropic.com/v1",
       path: "/messages",
+      // Older Claude models reject a larger max_tokens, so cap the configured
+      // ceiling for this provider.
+      maxOutputTokens: 8192,
     },
   },
 };

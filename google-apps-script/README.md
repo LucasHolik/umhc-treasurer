@@ -29,6 +29,8 @@ Follow these steps to set up your own backend instance.
 
 > **Updating an existing deployment:** after pasting changed `.gs` files (or adding a new one such as `Service_Lock.gs`), the web app keeps serving the old code until you **redeploy**: **Deploy** > **Manage deployments** > edit (pencil) > **Version: New version** > **Deploy**. Editing the existing deployment keeps the same Web App URL. Afterwards, log out and back in once: login runs the Config sheet layout check (legacy balance migration and title cells), which reads no longer do.
 
+> **Adding a file that uses a new Google service:** a redeploy does not grant new permissions and a web-app request cannot show a consent screen. `Service_AI.gs` uses `UrlFetchApp`, so after saving it run **`authorizeAi`** once from the editor (function dropdown > **Run**) and approve "Connect to an external service". The AI suggestions keep failing with a permission message until you do.
+
 ### 3. Configure the Spreadsheet
 
 The script requires a specific "Config" sheet to handle authentication and settings.
@@ -76,8 +78,12 @@ app works, the action answers "not configured", and the button stays disabled.
    - `AI_API_KEY`: your key.
    - `AI_BASE_URL`: optional, only for a gateway or self-hosted endpoint.
 3. Save. No redeploy is needed, because the properties are read on every
-   request. The first suggestion run asks for permission to call an external
-   service (`script.external_request`); approve it once.
+   request. Grant the external-request permission once: in the editor choose
+   `authorizeAi` from the function dropdown and click **Run**, then approve
+   "Connect to an external service". Do this once per Google account that owns
+   the deployment. If the project has an explicit `appsscript.json` with an
+   `oauthScopes` list, add
+   `https://www.googleapis.com/auth/script.external_request` there.
 4. To rotate the key, edit the property. To turn the feature off, clear
    `AI_API_KEY`.
 
@@ -108,11 +114,36 @@ source of truth if a model name is rejected. The app switches DeepSeek's
 thinking mode off for suggestions, because tagging is a short classification and
 reasoning tokens only add cost and latency.
 
+`AI_BASE_URL` is optional. Use the base URL, not the full endpoint, because the
+app appends the provider path. It must be an `https://` URL with a host, must
+not contain a username or password, and its port, if given, must be between 1
+and 65535. `http://` is accepted only for a local gateway on `localhost`,
+`127.0.0.1` or `[::1]`. A query string or fragment is not accepted.
+
+**If suggestions fail.**
+
+- "Could not reach the AI provider": the request got no HTTP reply. Run
+  `authorizeAi` once as above, check that `AI_BASE_URL` is unset unless you use
+  a gateway, and then read **Executions** for the latest `doGet` entry. Look for
+  `Tag suggestion provider failure` and its `detail`; a caught permission or
+  network throw is recorded as a completed execution, not a failed one.
+- "Google has not authorised this script to call an external service": the
+  external-request grant is missing. Run `authorizeAi` and approve it.
+- "The AI provider rejected AI_API_KEY": the key is wrong, expired or has a
+  stray quote or newline.
+- "The AI provider is rate limited": wait and retry.
+- "The AI provider returned an error": the provider rejected the request.
+  Check `AI_MODEL` against the provider's current model list, and the
+  `AI_BASE_URL` rules above.
+- "AI_BASE_URL must ...": the override is malformed; the message names the
+  problem.
+
 The key is visible to anyone with edit access to the Apps Script project, so do
 not share the project and set a spend limit on the provider account. When an
-editor asks for suggestions, the selected rows' descriptions and amounts and the
-current tag lists are sent to the provider; nothing is sent until then, and
-viewers cannot use the feature.
+editor asks for suggestions, the selected rows' descriptions and dates and the
+current tag lists are sent to the provider; amounts are not. The provider is
+also told which trips are current and which are past, and it may decline to
+suggest a tag. Nothing is sent until then, and viewers cannot use the feature.
 
 ## 🛡️ Security Architecture
 
