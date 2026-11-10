@@ -174,11 +174,12 @@ test("rowAmount returns the income for an income-only row", () => {
   assert.equal(rowAmount({ Income: "50", Expense: "" }), 50);
 });
 
-test("buildRequestRows trims the description and carries the missing fields and amount", () => {
+test("buildRequestRows trims the description and carries the date, missing fields and amount", () => {
   const requestRows = buildRequestRows([
     row({
       row: 7,
       Description: "  TESCO STORES  ",
+      Date: "2024-01-15",
       Income: "100",
       Expense: "12.5",
       "Trip/Event": "",
@@ -190,10 +191,39 @@ test("buildRequestRows trims the description and carries the missing fields and 
     {
       row: 7,
       description: "TESCO STORES",
+      date: "2024-01-15",
       amount: 87.5,
       missing: ["Trip/Event"],
     },
   ]);
+});
+
+test("buildRequestRows passes a YYYY-MM-DD string through unchanged", () => {
+  const [requestRow] = buildRequestRows([row({ Date: "2025-12-31" })]);
+
+  assert.equal(requestRow.date, "2025-12-31");
+});
+
+test("buildRequestRows formats a Date object in local time without shifting the day", () => {
+  const [requestRow] = buildRequestRows([
+    row({ Date: new Date(2024, 6, 1, 0, 30) }),
+  ]);
+
+  assert.equal(requestRow.date, "2024-07-01");
+});
+
+test("buildRequestRows leaves the date empty when it is missing or invalid", () => {
+  const requestRows = buildRequestRows([
+    row({ row: 2 }),
+    row({ row: 3, Date: "" }),
+    row({ row: 4, Date: "not a date" }),
+    row({ row: 5, Date: null }),
+  ]);
+
+  assert.deepEqual(
+    requestRows.map((requestRow) => requestRow.date),
+    ["", "", "", ""],
+  );
 });
 
 test("splitIntoBatches splits an exact multiple into equal batches", () => {

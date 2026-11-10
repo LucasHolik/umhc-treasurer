@@ -139,12 +139,79 @@ test("an admin request sends the configured model, key and rows", (t) => {
   assert.equal(body.messages[0].role, "system");
   assert.equal(body.messages[1].role, "user");
   assert.match(body.messages[1].content, /TESCO STORES/);
-  assert.match(body.messages[1].content, /Winter Trip \(Type: Competitive\)/);
+  assert.match(
+    body.messages[1].content,
+    /Winter Trip \(Type: Competitive, Status: Active\)/,
+  );
   assert.match(body.messages[1].content, /Food/);
   assert.match(
     body.messages[1].content,
     /"missing":\["Trip\/Event","Category"\]/,
   );
+});
+
+test("the prompt carries the row date and never the amount", (t) => {
+  const backend = createAiBackend(t);
+  configure(backend);
+  backend.urlFetch.queueResponse(openAiReply([]));
+
+  const response = backend.request(
+    "suggestTags",
+    rowsParam([{ ...ROW, date: "2024-07-01" }]),
+  );
+
+  assert.equal(response.success, true);
+  const user = sentBody(backend.urlFetch.calls[0]).messages[1].content;
+  assert.match(user, /TESCO STORES/);
+  assert.match(user, /"date":"2024-07-01"/);
+  assert.doesNotMatch(user, /"amount"/);
+  assert.doesNotMatch(user, /12\.34/);
+});
+
+test("the prompt lists Active and Completed Statuses and tells the model to prefer Active", (t) => {
+  const backend = createAiBackend(t);
+  configure(backend);
+  backend.urlFetch.queueResponse(openAiReply([]));
+
+  backend.request("suggestTags", rowsParam([ROW]));
+
+  const body = sentBody(backend.urlFetch.calls[0]);
+  const system = body.messages[0].content;
+  const user = body.messages[1].content;
+
+  assert.match(user, /Status: Active/);
+  assert.match(user, /Status: Completed/);
+  assert.match(system, /Use the transaction's date/);
+  assert.match(system, /Prefer a Trip\/Event whose Status is Active/);
+  assert.match(system, /Omit a field when you are unsure/);
+  assert.match(system, /no suggestion is better than a wrong one/);
+});
+
+test("a trip named like an Object property picks up no inherited Type or Status", (t) => {
+  const backend = createAiBackend(t, {
+    sheets: {
+      Tags: [
+        TAG_HEADERS,
+        ["Winter Trip", "Competitive", "Active", "Food", "Competitive"],
+        ["toString"],
+        ["__proto__"],
+      ],
+    },
+  });
+  configure(backend);
+  backend.urlFetch.queueResponse(openAiReply([]));
+
+  backend.request("suggestTags", rowsParam([ROW]));
+
+  const user = sentBody(backend.urlFetch.calls[0]).messages[1].content;
+  // A live tag named `toString` has no own Type, but Service_Tags gives every
+  // trip the default Status "Active", so only the Type can be missing there.
+  assert.match(user, /^- toString \(Status: Active\)$/m);
+  // `__proto__` is never stored as an own key by either map, so both lookups
+  // would return Object.prototype without the guard.
+  assert.match(user, /^- __proto__$/m);
+  assert.doesNotMatch(user, /Type: function/);
+  assert.doesNotMatch(user, /\[object Object\]/);
 });
 
 test("a DeepSeek request disables thinking mode", (t) => {
@@ -534,6 +601,7 @@ const VALIDATION_CASES = [
     () => rowsParam([{ ...ROW, description: "x".repeat(201) }]),
   ],
   ["a non-finite amount", () => rowsParam([{ ...ROW, amount: "12.5" }])],
+  ["a non-string date", () => rowsParam([{ ...ROW, date: 20240701 }])],
   ["an empty missing list", () => rowsParam([{ ...ROW, missing: [] }])],
   [
     "an unknown missing field",

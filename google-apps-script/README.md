@@ -140,9 +140,10 @@ and 65535. `http://` is accepted only for a local gateway on `localhost`,
 
 The key is visible to anyone with edit access to the Apps Script project, so do
 not share the project and set a spend limit on the provider account. When an
-editor asks for suggestions, the selected rows' descriptions and amounts and the
-current tag lists are sent to the provider; nothing is sent until then, and
-viewers cannot use the feature.
+editor asks for suggestions, the selected rows' descriptions and dates and the
+current tag lists are sent to the provider; amounts are not. The provider is
+also told which trips are current and which are past, and it may decline to
+suggest a tag. Nothing is sent until then, and viewers cannot use the feature.
 
 ## 🛡️ Security Architecture
 

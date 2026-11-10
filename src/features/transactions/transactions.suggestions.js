@@ -4,7 +4,11 @@
 // sends batches. The provider call is injected, so this module imports no
 // store, service or DOM.
 
-import { parseAmount } from "../../core/utils.js";
+import {
+  formatDateForInput,
+  parseAmount,
+  parseDate,
+} from "../../core/utils.js";
 
 /**
  * The tag fields a suggestion can fill, in a stable order.
@@ -79,11 +83,22 @@ export const selectRowsForSuggestions = (rows) => {
 };
 
 /**
+ * Formats a row's date for the prompt as a local YYYY-MM-DD string. A missing
+ * or invalid value becomes an empty string. Local formatting is deliberate:
+ * toISOString would shift the day for dates late or early enough to cross the
+ * UTC boundary in British Summer Time.
+ * @param {*} value - a Date object, a date string, or a missing value
+ * @returns {string}
+ */
+const promptDate = (value) => formatDateForInput(parseDate(value));
+
+/**
  * Builds the compact request rows sent to the backend.
  * @param {Array<object>} rows - rows chosen by selectRowsForSuggestions
- * @returns {Array<{row: *, description: string, amount: number, missing: string[]}>}
- *   one entry per input row, with the description trimmed and the missing
- *   fields and signed amount attached. The input is not mutated.
+ * @returns {Array<{row: *, description: string, date: string, amount: number, missing: string[]}>}
+ *   one entry per input row, with the description trimmed, the date formatted
+ *   as local YYYY-MM-DD, and the missing fields and signed amount attached.
+ *   The input is not mutated.
  */
 export const buildRequestRows = (rows) =>
   (Array.isArray(rows) ? rows : []).map((row) => {
@@ -91,6 +106,7 @@ export const buildRequestRows = (rows) =>
     return {
       row: source.row,
       description: trimText(source.Description),
+      date: promptDate(source.Date),
       amount: rowAmount(source),
       missing: missingTagFields(source),
     };

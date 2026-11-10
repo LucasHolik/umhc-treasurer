@@ -72,11 +72,14 @@ Properties. No frontend change, so the app behaves exactly as it does now.
 - New `tests/backend/ai.test.js`.
 
 **Request shape.** `action=suggestTags`, plus
-`rows=[{"row":42,"description":"TESCO STORES","amount":-12.34,"missing":["Trip/Event","Category"]}]`.
+`rows=[{"row":42,"description":"TESCO STORES","date":"2026-11-01","amount":-12.34,"missing":["Trip/Event","Category"]}]`.
 
 - `row`: a number, or `"S-<n>"` for a split child.
 - `description`: non-empty string; the backend trims it and rejects anything
   over `MAX_DESCRIPTION_LENGTH`.
+- `date`: optional local `YYYY-MM-DD`; added in the follow-up and used in the
+  prompt. The amount stays in the request for the stale-row check but is not
+  given to the model.
 - `amount`: a finite number, signed (income positive, expense negative).
 - `missing`: one or both of `"Trip/Event"` and `"Category"`.
 - A batch larger than `MAX_ROWS`, an empty `missing`, or a blank description is
@@ -387,7 +390,8 @@ short-viewport clipping.
 
 **Goal.** Fix B-010 (an undiagnosable provider fetch and a misleading setup
 guide) and B-011 (a wrong passkey shown as a network failure), harden the new
-`AI_BASE_URL` validation, and raise the suggestion output cap.
+`AI_BASE_URL` validation, change what the model is given, and raise the
+suggestion output cap.
 
 **Changes.**
 
@@ -403,28 +407,38 @@ guide) and B-011 (a wrong passkey shown as a network failure), harden the new
 - `google-apps-script/Config.gs`: `MAX_TOKENS` from 800 to 10000, approved by
   the user on 2026-11-10. Anthropic keeps a per-provider cap of 8192, because
   older Claude models reject a larger `max_tokens`.
+- `src/features/transactions/transactions.suggestions.js` and
+  `google-apps-script/Service_AI.gs`: the prompt now carries each row's date and
+  each trip's Status, excludes the amount, and tells the model to prefer an
+  Active trip and to omit a tag when unsure. `_ownTagText` closes E-035.
 - `google-apps-script/README.md`: the real `authorizeAi` procedure, the base URL
-  rules and a failure checklist. Bugs B-010 and B-011 and edge cases E-054 to
-  E-060 are recorded.
+  rules, a failure checklist and the provider data note. Bugs B-010 and B-011
+  and edge cases E-054 to E-062 are recorded.
 
 **Tests.** New auth-service tests, new AI tests (permission message, redaction,
-`authorizeAi`, the base URL cases) and the request-body assertions. New
-`_responseError` and `_shouldExpireSession` tests in
+`authorizeAi`, the base URL cases), the date formatting cases (including a local
+early-morning date that `toISOString` would shift in a positive-offset zone),
+the prompt date and absence of the amount, the
+Active and Completed statuses, the prototype-key trip, and the request-body
+assertions. New `_responseError` and `_shouldExpireSession` tests in
 `tests/services/api.service.test.js`, and an additive `authorizeAi` export in
 the test harness.
 
 **Existing tests affected.** The two `max_tokens` assertions in
 `tests/backend/ai.test.js` change from 800 to 10000 for the OpenAI-compatible
 family and to 8192 for Anthropic. This is an intentional behaviour change
-approved by the user on 2026-11-10. `tests/backend/harness.js` gains a test-only
-`authorizeAi` export; no existing test is changed by it.
+approved by the user on 2026-11-10. The `buildRequestRows` expectation gains the
+date, and the prompt assertion changes to
+`Winter Trip (Type: Competitive, Status: Active)`, also approved by the user on
+2026-11-10. `tests/backend/harness.js` gains a test-only `authorizeAi` export;
+no existing test is changed by it.
 
 **Acceptance.** Both bugs reproduce before the fix and pass their regression
 tests after. A wrong passkey shows the passkey message, not the network one. A
 permission failure names `authorizeAi`, and a malformed `AI_BASE_URL` names the
 property without a provider call. The full suite and format check pass.
 
-**Status.** Code complete and approved on 2026-11-10. The suite is 394 tests and
+**Status.** Code complete and approved on 2026-11-10. The suite is 401 tests and
 the format check passes locally on macOS. The user confirmed the AI path works
 after granting the external-request permission. The live login check (a wrong
 passkey after the frontend deploys) and the merge decision remain with the user.

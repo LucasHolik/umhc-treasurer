@@ -407,12 +407,14 @@ migration on every read.
 `__proto__`, and `TripTypeMap` is a plain object, so `map[trip]` returns an
 inherited value.
 
-**Expected.** The prompt shows no Type for that tag.
+**Expected.** The prompt shows no inherited Type or Status for that tag; a
+genuine own value is still shown.
 
-**Status.** Not handled. `_buildPrompt` reads `TripTypeMap[trip]` without an
-own-property check, so the prompt text for that tag is malformed. The reply is
-still filtered against the live tag list, so no invalid tag can be returned.
-An own-property guard would fix it.
+**Status.** Handled. `_buildPrompt` reads Type and Status through `_ownTagText`,
+which uses `Object.prototype.hasOwnProperty.call`. Test: "a trip named like an
+Object property picks up no inherited Type or Status" (`tests/backend/ai.test.js`).
+A genuine Type or Status for a tag literally named `__proto__` is still lost
+when the Tags sheet is read (E-063).
 
 ### E-036: `Service_AI.gs` is deployed without the new `Config.gs`
 
@@ -722,3 +724,48 @@ provider" message. The value is owner-set, so there is no security impact. Low.
 configured 10000. Anthropic is capped at 8192. A provider that rejects the value
 returns "The AI provider returned an error"; lower `MAX_TOKENS` in `Config.gs`
 if that happens. Low.
+
+### E-063: A Trip/Event named `__proto__` loses its Type and Status
+
+**Situation.** The Tags sheet has a trip literally named `__proto__` with a Type
+or Status cell.
+
+**Expected.** The value is stored and shown like any other trip.
+
+**Status.** Not handled. `Service_Tags._getTags` assigns `map[trip] = value` on
+a plain object, and assigning `__proto__` is a no-op or changes the prototype,
+so the genuine value is lost before the prompt is built. `_ownTagText` prevents
+inherited values from leaking, but cannot recover the lost one. Pre-existing and
+low; `Object.create(null)` or a `Map` would fix it.
+
+### E-064: An ISO-shaped impossible date rolls over
+
+**Situation.** A ledger date is `2024-02-30`.
+
+**Expected.** No date reaches the prompt, or the row is rejected.
+
+**Status.** Not handled. `parseDate` rolls it to 1 March, and `promptDate` sends
+`2024-03-01`. The "invalid becomes empty" contract covers unparseable values,
+not rollovers. Low.
+
+### E-065: The backend does not validate the date format or length
+
+**Situation.** A malformed client sends arbitrary text or a very long value as
+the date.
+
+**Expected.** Only an empty string or a `YYYY-MM-DD` date is accepted.
+
+**Status.** Not handled. `_parseRequestRows` trims the date and rejects a
+non-string but does not cap its length or check the shape. The app always sends
+a formatted date. Low.
+
+### E-066: A date change while the review panel is open is not fingerprinted
+
+**Situation.** A row's date changes after the suggestion request but before the
+panel is applied.
+
+**Expected.** The proposal is dropped as stale.
+
+**Status.** Not handled. The fingerprint is the description and amount, not the
+date. The panel shows the current date and the user reviews before applying.
+Low.

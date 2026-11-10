@@ -195,6 +195,19 @@ function _parseRequestRows(rawRows) {
       };
     }
 
+    // The date is optional so an older client keeps working. It is kept as a
+    // trimmed string and never parsed here: the prompt only displays it.
+    let date = "";
+    if (row.date !== undefined) {
+      if (typeof row.date !== "string") {
+        return {
+          valid: false,
+          message: "Row " + (index + 1) + " has an invalid date.",
+        };
+      }
+      date = row.date.trim();
+    }
+
     const missing = _normaliseMissing(row.missing);
     if (!missing) {
       return {
@@ -206,6 +219,7 @@ function _parseRequestRows(rawRows) {
     rows.push({
       row: row.row,
       description: description,
+      date: date,
       amount: row.amount,
       missing: missing,
     });
@@ -354,8 +368,31 @@ function _configuredProvider(settings) {
 // --- Prompt ----------------------------------------------------------------
 
 /**
+ * Returns a tag map's own value for a key, or "" when the map is missing, the
+ * key is inherited, or the value is blank. A plain object inherits names such
+ * as "toString" and "constructor", and a trip may legitimately be named one of
+ * them (E-035), so an own-property check is required.
+ *
+ * @param {*} map The Type or Status lookup.
+ * @param {string} key The trip name.
+ * @returns {string}
+ */
+function _ownTagText(map, key) {
+  if (
+    map === null ||
+    typeof map !== "object" ||
+    !Object.prototype.hasOwnProperty.call(map, key)
+  ) {
+    return "";
+  }
+  const value = map[key];
+  return value === null || value === undefined ? "" : String(value).trim();
+}
+
+/**
  * Builds the system and user messages. The live tag lists and the rows are the
- * only data in the prompt; the key is never included.
+ * only data in the prompt; the key is never included, and the amount is left
+ * out so the model cannot use it to guess a tag.
  *
  * @param {object} tags The Service_Tags.getTags() reply.
  * @param {Array<object>} rows Validated request rows.
@@ -364,19 +401,37 @@ function _configuredProvider(settings) {
 function _buildPrompt(tags, rows) {
   const trips = Array.isArray(tags["Trip/Event"]) ? tags["Trip/Event"] : [];
   const types = tags.TripTypeMap || {};
+  const statuses = tags.TripStatusMap || {};
   const categories = Array.isArray(tags.Category) ? tags.Category : [];
 
   const tripLines = trips.map((trip) => {
-    const type = types[trip];
-    return type ? "- " + trip + " (Type: " + type + ")" : "- " + trip;
+    const details = [];
+    const type = _ownTagText(types, trip);
+    const status = _ownTagText(statuses, trip);
+    if (type) details.push("Type: " + type);
+    if (status) details.push("Status: " + status);
+    return details.length > 0
+      ? "- " + trip + " (" + details.join(", ") + ")"
+      : "- " + trip;
   });
   const categoryLines = categories.map((category) => "- " + category);
+
+  // The client sends the amount so the review dialog can fingerprint a stale
+  // row, but it is not a hint the model may use, so it is projected away here.
+  const promptRows = rows.map((row) => ({
+    row: row.row,
+    description: row.description,
+    date: typeof row.date === "string" ? row.date : "",
+    missing: row.missing,
+  }));
 
   const system = [
     "You suggest tags for a treasurer's ledger.",
     "Reply with JSON only and no prose.",
     "Choose Trip/Event and Category only from the allowed lists.",
-    "Omit a field when you are unsure.",
+    "Use the transaction's date when judging which Trip/Event is plausible.",
+    "Prefer a Trip/Event whose Status is Active; use a past one only when the description clearly refers to it.",
+    "Omit a field when you are unsure; no suggestion is better than a wrong one.",
     'Answer only the fields named in "missing" for each row.',
     'Return one object per row with the same "row" value.',
     'Use the keys "row", "tripEvent" and "category".',
@@ -384,14 +439,14 @@ function _buildPrompt(tags, rows) {
   ].join(" ");
 
   const user = [
-    "Allowed Trip/Event values (with their Type):",
+    "Allowed Trip/Event values (with their Type and Status):",
     tripLines.length > 0 ? tripLines.join("\n") : "(none)",
     "",
     "Allowed Category values:",
     categoryLines.length > 0 ? categoryLines.join("\n") : "(none)",
     "",
     "Rows:",
-    JSON.stringify(rows),
+    JSON.stringify(promptRows),
   ].join("\n");
 
   return { system: system, user: user };
