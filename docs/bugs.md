@@ -228,3 +228,65 @@ the `deepseek` registry entry and merging a provider's `extraBody` into the
 request body. Regression tests: "a DeepSeek request disables thinking mode" and
 "an OpenAI-compatible provider sends no thinking field"
 (`tests/backend/ai.test.js`).
+
+### B-010: A thrown provider request is undiagnosable, and the guide says a web-app run grants the scope
+
+**Description.** When `UrlFetchApp.fetch` throws, `_callProvider` returned "Could
+not reach the AI provider" and discarded the exception. The log recorded only
+provider, model, status 0 and row count, so a missing
+`script.external_request` grant, a malformed `AI_BASE_URL` and a network failure
+were indistinguishable. The backend guide also said the first suggestion run
+"asks for permission", which a web-app JSONP request cannot do; a redeploy does
+not re-prompt either.
+
+**Steps to reproduce.** Add `Service_AI.gs` to an already-authorised deployment,
+redeploy, set the properties, and press "Suggest tags" without running anything
+in the editor. The action returns `AI_UNAVAILABLE` with status 0 and no reason.
+
+**Confirmed cause.** The user ran a fetch from the editor, was prompted for the
+external-request permission, granted it, and suggestions then worked. The code
+gap was that the failure could not tell them that.
+
+**Severity.** Medium. The feature is blocked and the user is sent to the wrong
+place.
+
+**Where.** `google-apps-script/Service_AI.gs`, `_callProvider`'s catch and
+`_logFailure`; `google-apps-script/README.md`, step 5.
+
+**Status.** Fixed. The catch logs a key-redacted, 300-character exception detail
+and turns the UrlFetchApp permission wording into an actionable message naming
+`authorizeAi`. A top-level `authorizeAi()` makes one harmless fetch so the owner
+can grant the scope from the editor. `AI_BASE_URL` is validated before any call
+(host required, https except loopback, no userinfo, bad port, query, fragment or
+duplicated endpoint). Regression tests: "a permission error names authorizeAi
+and logs the reason", "a thrown error that contains the key is redacted",
+"authorizeAi probes Google once without credentials", and the `AI_BASE_URL`
+validation tests (`tests/backend/ai.test.js`). The Google consent screen itself
+cannot be tested outside the editor (E-054).
+
+### B-011: A wrong passkey is reported as a network failure
+
+**Description.** A wrong passkey returns `{success:false, message:"Unauthorized"}`
+from the server. `ApiService` rejects with `Error("Unauthorized")`, and
+`AuthService.login`'s catch treated every rejection as a transport failure,
+showing "Could not reach server. Please check your connection and try again."
+The `else` branch for a deliberate rejection was unreachable.
+
+**Steps to reproduce.** Open the login screen and enter a wrong passkey.
+
+**Severity.** Medium. It hides the real cause and sends the user to check a
+connection that is working.
+
+**Where.** `src/services/auth.service.js`, `login`'s catch;
+`src/services/api.service.js`, the JSONP failure callback.
+
+**Status.** Fixed. `_responseError` marks an Unauthorized reply with
+`code: "UNAUTHORIZED"`, `describeLoginFailure` maps that to "The passkey was not
+accepted. Please check it and try again, or wait a few minutes if it keeps
+failing.", `TIMEOUT` and `NETWORK` keep the connection message, and a failed
+login no longer dispatches `sessionExpired`. Regression tests:
+`tests/services/auth.service.test.js` ("a rejected passkey returns false and
+explains the passkey", "a timeout returns false with the network message",
+"a generic rejection with a server message surfaces that message") and
+`tests/services/api.service.test.js` ("_responseError marks an Unauthorized
+reply as UNAUTHORIZED", "_shouldExpireSession ignores a failed login").

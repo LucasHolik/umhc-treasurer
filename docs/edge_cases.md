@@ -616,3 +616,109 @@ viewport is very short.
 awaited, though the panel only opens after a provider request. On a very short
 viewport the body has `overflow: hidden` and the notice has no scroll. Phone
 layout is unchecked. Low.
+
+## AI suggestions: setup and login errors
+
+### E-054: `Service_AI.gs` is added to an already-authorised deployment
+
+**Situation.** The script was deployed before `Service_AI.gs` existed, then the
+file is pasted and the deployment updated.
+
+**Expected.** The owner is told to grant the external-request permission from
+the editor, because a web-app request cannot show a consent screen and a
+redeploy does not grant it.
+
+**Status.** Handled by the `authorizeAi` function and the backend guide. The
+Google consent screen itself cannot be exercised outside the editor, so there is
+no automated test for the grant.
+
+### E-055: `Unauthorized` covers more than a wrong passkey
+
+**Situation.** The server returns the same `Unauthorized` for a wrong passkey,
+the ten-attempt lockout, clock skew beyond 300 seconds and a missing passkey
+configuration.
+
+**Expected.** The login message does not insist the passkey is wrong.
+
+**Status.** Handled by "The passkey was not accepted. Please check it and try
+again, or wait a few minutes if it keeps failing." A missing passkey
+configuration still needs the owner to fix the Config sheet.
+
+### E-056: A thrown provider error contains more than the key
+
+**Situation.** A `UrlFetchApp` exception message includes text other than the
+key, possibly a description if the provider echoed one.
+
+**Expected.** No key, prompt, description or reply reaches the log.
+
+**Status.** Partially handled. `_redactError` replaces the key, collapses
+whitespace and caps the detail at 300 characters, but it does not inspect
+payload text. In practice the request body is not in a `UrlFetchApp` throw with
+`muteHttpExceptions`, and the log is server-side only. Low.
+
+### E-057: A failed login drops the script URL pin
+
+**Situation.** An `Unauthorized` login reply calls `clearSession()`, which nulls
+the in-memory script URL lock, so the next attempt re-reads `script_url` from
+`localStorage`.
+
+**Expected.** The pin survives an ordinary wrong passkey.
+
+**Status.** Not handled. Pre-existing: the old code also cleared the session on
+any `Unauthorized`. Low.
+
+### E-058: A malformed `AI_BASE_URL` leaves the button enabled
+
+**Situation.** `AI_BASE_URL` is set to an invalid value.
+
+**Expected.** The status block could mark AI unconfigured.
+
+**Status.** Not handled. `getStatus()` does not validate the base URL, so the
+button stays enabled and the click shows the specific `AI_BASE_URL` message.
+Low; the message is actionable.
+
+### E-059: A query string in `AI_BASE_URL` is rejected
+
+**Situation.** A gateway that needs a query parameter, such as Azure OpenAI's
+`api-version`, cannot use the override.
+
+**Expected.** Documented as unsupported.
+
+**Status.** Handled by rejection. The current OpenAI-compatible adapter does not
+support Azure's deployment path or `api-key` header anyway. Low.
+
+### E-060: The JSONP failure callback has no end-to-end test
+
+**Situation.** The callback that combines `_responseError`,
+`_shouldExpireSession`, `clearSession()` and the event dispatch could regress
+while its pure helpers stay green.
+
+**Expected.** A test through `request()` with a captured callback pins the login
+event suppression and the session clear.
+
+**Status.** Not handled. The pure helpers are tested, and `AuthService.login` is
+tested with a mocked `ApiService.login`, but the callback glue is covered by
+inspection only. Low.
+
+### E-061: An `AI_BASE_URL` with an empty bracketed host
+
+**Situation.** The override is set to `https://[]`, `https://[]/v1` or
+`https://]`.
+
+**Expected.** The value is rejected with a message naming `AI_BASE_URL`.
+
+**Status.** Not handled. The parser accepts a malformed non-empty host, so the
+request reaches `UrlFetchApp` and returns the generic "Could not reach the AI
+provider" message. The value is owner-set, so there is no security impact. Low.
+
+### E-062: A model with a lower output ceiling than 10000
+
+**Situation.** `AI_PROVIDER=openai` is used with a model that accepts fewer than
+10000 output tokens.
+
+**Expected.** The provider's own limit is respected.
+
+**Status.** Not handled for the OpenAI-compatible family, which sends the
+configured 10000. Anthropic is capped at 8192. A provider that rejects the value
+returns "The AI provider returned an error"; lower `MAX_TOKENS` in `Config.gs`
+if that happens. Low.

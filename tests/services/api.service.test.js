@@ -10,6 +10,8 @@ import ApiService, {
   canonicalStringify,
   _validateScriptUrl,
   resolveTimeout,
+  _responseError,
+  _shouldExpireSession,
 } from "../../src/services/api.service.js";
 import store from "../../src/core/state.js";
 
@@ -83,4 +85,62 @@ test("ApiService.suggestTags refuses a viewer before any request is sent", async
   await assert.rejects(ApiService.suggestTags([{ row: 1 }]), {
     message: /^View-only mode:/,
   });
+});
+
+test("_responseError marks an Unauthorized reply as UNAUTHORIZED", () => {
+  const error = _responseError({ success: false, message: "Unauthorized" });
+
+  assert.equal(error.message, "Unauthorized");
+  assert.equal(error.code, "UNAUTHORIZED");
+});
+
+test("_responseError marks the server-busy reply as BUSY", () => {
+  const error = _responseError({
+    success: false,
+    message: "System is busy. Please try again.",
+  });
+
+  assert.equal(error.code, "BUSY");
+});
+
+test("_responseError leaves a generic reply without a code", () => {
+  const error = _responseError({
+    success: false,
+    message: "Something failed.",
+  });
+
+  assert.equal(error.code, undefined);
+  assert.equal(error.message, "Something failed.");
+});
+
+test("_responseError attaches the failure reply to the error", () => {
+  const data = {
+    success: false,
+    message: "Partial failure",
+    appliedOperations: [],
+  };
+
+  const error = _responseError(data);
+
+  assert.deepEqual(error.response, data);
+});
+
+test("_responseError falls back to a default message", () => {
+  const error = _responseError({ success: false });
+
+  assert.equal(error.message, "API request failed.");
+});
+
+test("_shouldExpireSession ignores a failed login", () => {
+  assert.equal(_shouldExpireSession("login", "UNAUTHORIZED"), false);
+});
+
+test("_shouldExpireSession expires the session for another action", () => {
+  assert.equal(_shouldExpireSession("getAppData", "UNAUTHORIZED"), true);
+});
+
+test("_shouldExpireSession ignores codes other than UNAUTHORIZED", () => {
+  assert.equal(_shouldExpireSession("getAppData", "BUSY"), false);
+  assert.equal(_shouldExpireSession("getAppData", "TIMEOUT"), false);
+  assert.equal(_shouldExpireSession("getAppData", undefined), false);
 });

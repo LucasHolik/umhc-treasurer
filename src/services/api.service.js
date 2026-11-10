@@ -42,6 +42,36 @@ const resolveTimeout = (options = {}) => {
   return options.withNonce ? WRITE_TIMEOUT_MS : READ_TIMEOUT_MS;
 };
 
+/**
+ * Builds the Error for a JSONP failure reply. The reply is attached so callers
+ * can read fields such as appliedOperations, and a known condition also sets
+ * `code`.
+ *
+ * @param {object} data The parsed failure reply.
+ * @returns {Error}
+ */
+const _responseError = (data) => {
+  const err = new Error(data.message || "API request failed.");
+  err.response = data;
+  // Server error codes such as AI_RATE_LIMITED reach callers. Actions that
+  // send no code leave err.code unset.
+  if (data.code) err.code = data.code;
+  if (data.message === "Unauthorized") err.code = "UNAUTHORIZED";
+  if (data.message === SERVER_BUSY_MESSAGE) err.code = "BUSY";
+  return err;
+};
+
+/**
+ * Whether a failed reply should end the session. A failed login is a rejected
+ * passkey, not an expired session, so it must not fire the event.
+ *
+ * @param {string} action The backend action that failed.
+ * @param {string|undefined} code The error code set by _responseError.
+ * @returns {boolean}
+ */
+const _shouldExpireSession = (action, code) =>
+  code === "UNAUTHORIZED" && action !== "login";
+
 /*
  * SECURITY NOTE:
  * This application uses JSONP to communicate with Google Apps Script.
@@ -386,16 +416,13 @@ const request = (action, params = {}, options = {}) => {
           if (data.success) {
             resolve(data);
           } else {
-            if (data.message === "Unauthorized") {
+            const err = _responseError(data);
+            if (err.code === "UNAUTHORIZED") {
               clearSession();
-              document.dispatchEvent(new CustomEvent("sessionExpired"));
+              if (_shouldExpireSession(action, err.code)) {
+                document.dispatchEvent(new CustomEvent("sessionExpired"));
+              }
             }
-            const err = new Error(data.message || "API request failed.");
-            err.response = data; // e.g. appliedOperations on a tag batch
-            // Server error codes such as AI_RATE_LIMITED reach callers. Actions
-            // that send no code leave err.code unset.
-            if (data.code) err.code = data.code;
-            if (data.message === SERVER_BUSY_MESSAGE) err.code = "BUSY";
             reject(err);
           }
         };
@@ -550,4 +577,10 @@ const ApiService = {
 export default ApiService;
 
 // Pure helpers exported for the dev tests (tests/services/).
-export { canonicalStringify, _validateScriptUrl, resolveTimeout };
+export {
+  canonicalStringify,
+  _validateScriptUrl,
+  resolveTimeout,
+  _responseError,
+  _shouldExpireSession,
+};

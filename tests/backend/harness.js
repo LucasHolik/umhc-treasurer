@@ -78,6 +78,8 @@ globalThis.__UMHC_BACKEND__ = {
     _sanitizeForSheet: _sanitizeForSheet,
     _sanitizeGridForSheet: _sanitizeGridForSheet,
     validateJsonParameter: validateJsonParameter,
+    // Test-only: run the one-off external-request consent probe.
+    authorizeAi: authorizeAi,
     withScriptLock: Service_Lock.withScriptLock,
     getScriptLockDepth: function () {
       return _scriptLockDepth;
@@ -677,6 +679,8 @@ export function createBackend(options = {}) {
     _sanitizeGridForSheet: backendApi.helpers._sanitizeGridForSheet,
     /** Test-only: classify a JSON parameter before a backend action uses it. */
     validateJsonParameter: backendApi.helpers.validateJsonParameter,
+    /** Test-only: run the one-off external-request consent probe. */
+    authorizeAi: backendApi.helpers.authorizeAi,
 
     /** Test-only: run fn under the backend's re-entrant lock wrapper. */
     withScriptLock: backendApi.helpers.withScriptLock,

@@ -2,6 +2,31 @@
 import store from "../core/state.js";
 import ApiService from "./api.service.js";
 
+const NETWORK_MESSAGE =
+  "Could not reach server. Please check your connection and try again.";
+
+/**
+ * Turns a failed login into the message the login screen shows. A rejected
+ * passkey arrives as a normal rejection, so it must not be reported as an
+ * unreachable server.
+ *
+ * @param {*} error The rejection from ApiService.login.
+ * @returns {string}
+ */
+const describeLoginFailure = (error) => {
+  if (error?.code === "TIMEOUT" || error?.code === "NETWORK") {
+    return NETWORK_MESSAGE;
+  }
+  if (error?.code === "UNAUTHORIZED") {
+    return "The passkey was not accepted. Please check it and try again, or wait a few minutes if it keeps failing.";
+  }
+  if (error?.response?.message) return error.response.message;
+  if (typeof error?.message === "string" && error.message !== "") {
+    return error.message;
+  }
+  return "Login failed. Please try again.";
+};
+
 /**
  * AUTHENTICATION SERVICE
  * Implements session-based authentication with short-lived tokens.
@@ -79,12 +104,10 @@ const AuthService = {
         return false;
       }
     } catch (error) {
-      // Network/timeout failure — server was not reached
+      // A wrong passkey and a network failure both reject, so classify the
+      // error instead of assuming the server was not reached.
       console.error("Login failed:", error);
-      store.setState(
-        "error",
-        "Could not reach server. Please check your connection and try again.",
-      );
+      store.setState("error", describeLoginFailure(error));
       return false;
     }
   },
@@ -117,3 +140,6 @@ const AuthService = {
 };
 
 export default AuthService;
+
+// Pure helper exported for the dev tests (tests/services/).
+export { describeLoginFailure };
