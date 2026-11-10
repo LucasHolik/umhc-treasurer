@@ -130,6 +130,15 @@ const createStore = (initialState = {}) => {
   };
 };
 
+// Default AI tag-suggestion status. Used before the first load and when an
+// older backend returns no `ai` field, so callers always see the same shape.
+export const DEFAULT_AI_STATUS = Object.freeze({
+  configured: false,
+  provider: null,
+  model: null,
+  maxRows: 25,
+});
+
 // Initialize the store with a default structure
 const store = createStore({
   expenses: [],
@@ -141,6 +150,7 @@ const store = createStore({
     TripTypeMap: {},
     TripStatusMap: {},
   },
+  ai: DEFAULT_AI_STATUS,
   isLoading: false,
   isUploading: false,
   isTagging: false,

@@ -447,8 +447,11 @@ and returns no wrong data; a per-row reachability check would avoid it.
 **Expected.** One proposal for the row, carrying the id type the request used.
 
 **Status.** Handled. Reply entries are matched by string id and the first valid
-entry wins. The client sends each selected row once. Duplicate reply entries
-have a test; duplicate request rows do not.
+entry wins. `reconcileSuggestions` keeps the first requested entry for a
+duplicate id and matches a string reply id to a numeric request; both are tested
+in `tests/features/transactions/transactions.suggestions.test.js`. Duplicate rows
+inside one outgoing batch are still untested; the client sends each selected row
+once.
 
 ### E-039: An empty batch on an unconfigured deployment
 
@@ -482,3 +485,79 @@ JSONP cannot POST.
 **Status.** Handled per row by `MAX_ROWS` (25) and `MAX_DESCRIPTION_LENGTH`
 (200), with no total-size cap. Real bank descriptions are far shorter. If a
 statement ever approaches the limit, lower `MAX_ROWS` in `Config.gs`.
+
+### E-042: A tag is added to a row after it was selected
+
+**Situation.** A row is selected while missing a Category. Before the proposal
+is applied, a reload or another tab gives it a Category.
+
+**Expected.** The Category proposal is dropped, and a Trip/Event proposal for
+the same row still applies.
+
+**Status.** Handled in `reconcileSuggestions`, which accepts a field only when it
+is still blank on the current row, and again at the Part 3 merge. Test: "a field
+that is no longer blank on the current row is dropped". A change made in another
+session that this tab never reloads is the save path's existing last-write-wins
+behaviour.
+
+### E-043: A login to a different backend fails to load
+
+**Situation.** The previous backend had AI configured, the next login points at
+an older backend, and `getAppData` fails.
+
+**Expected.** AI stays disabled rather than trusting the previous status.
+
+**Status.** Handled by resetting `ai` to the default in both `loadInitialData`
+failure paths. There is no App test; verified by inspection.
+
+### E-044: A selected row has no usable id
+
+**Situation.** A ledger row without a numeric or `S-<n>` id reaches the request.
+
+**Expected.** The backend rejects the batch rather than returning a suggestion
+without `row`.
+
+**Status.** Handled on the backend. The client assumes every ledger row has an
+id, which it does. Low.
+
+### E-045: Income and expense change but the net does not
+
+**Situation.** A row is edited from 10 income and 0 expense to 15 income and 5
+expense between selection and apply.
+
+**Expected.** Ideally the fingerprint notices the change.
+
+**Status.** Not handled. The fingerprint is the net amount, as the plan
+specifies, so an equal net passes. Rare and low risk.
+
+### E-046: A provider call outlives the client timeout
+
+**Situation.** The provider hangs past the 45 s client timeout.
+
+**Expected.** No data changes, because the action writes nothing, but the
+provider call may run to the Apps Script execution limit and be billed.
+
+**Status.** Not handled. Apps Script offers no per-call deadline. Only cost and
+latency are affected.
+
+### E-047: An injected `suggest` rejects with a falsy value
+
+**Situation.** A caller supplies a `suggest` function that rejects with
+`undefined` or `null`.
+
+**Expected.** The caller can tell that later batches were not sent.
+
+**Status.** Not handled. `collectSuggestions` returns the raw rejection reason,
+so `error: undefined` looks like success to a truthiness check. `ApiService`
+always rejects with an `Error`, so the planned call cannot hit it. Low.
+
+### E-048: A live tag has outer whitespace
+
+**Situation.** A tag in the Tags sheet has leading or trailing spaces, which is
+possible only by editing the sheet directly because the tag UI trims.
+
+**Expected.** The client's match agrees with the backend's exact match.
+
+**Status.** Not handled. `isAllowedTag` trims the proposal but matches the
+untrimmed live list, so the backend would accept the tag and the client drops
+it. That is a missed suggestion, never a wrong write. Low.

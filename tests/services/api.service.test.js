@@ -1,15 +1,17 @@
 // tests/services/api.service.test.js
 //
-// Only the pure, network-free helpers are tested. Nothing here touches
-// the session, storage, or the backend.
+// Only network-free paths are tested: the pure helpers, plus the read-only
+// refusal in suggestTags, which rejects before any JSONP request is built.
+// Nothing here touches the network or the backend.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
+import ApiService, {
   canonicalStringify,
   _validateScriptUrl,
   resolveTimeout,
 } from "../../src/services/api.service.js";
+import store from "../../src/core/state.js";
 
 test("canonicalStringify sorts object keys recursively", () => {
   assert.equal(
@@ -70,4 +72,15 @@ test("resolveTimeout gives mutating requests 60 s", () => {
 test("resolveTimeout honours an explicit timeoutMs", () => {
   assert.equal(resolveTimeout({ timeoutMs: 5000 }), 5000);
   assert.equal(resolveTimeout({ withNonce: true, timeoutMs: 90000 }), 90000);
+});
+
+test("ApiService.suggestTags refuses a viewer before any request is sent", async (t) => {
+  const previousUser = store.getState("currentUser");
+  t.after(() => store.setState("currentUser", previousUser));
+
+  store.setState("currentUser", { loggedIn: true, canEdit: false });
+
+  await assert.rejects(ApiService.suggestTags([{ row: 1 }]), {
+    message: /^View-only mode:/,
+  });
 });

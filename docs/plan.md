@@ -249,7 +249,19 @@ changes the existing save can take. No UI yet.
 
 **Existing tests affected.** None.
 
-**Status.** todo.
+**Status.** done. Reviewed and approved on 2026-11-10 after two attempts. The
+full suite is 316 tests and the format check passes locally on macOS.
+
+**Review notes.** The first review found that reconciliation did not check
+whether a proposed field was still blank on the current row, so a tag added
+after selection could be overwritten; that is fixed and tested. The retry also
+added the viewer-refusal test, reset `ai` on both failed-load paths, reports
+progress from 0 of N, skips a null current row, and covers duplicate request
+entries and a string reply id matching a numeric request. Remaining gaps: the
+45 s timeout and `err.code` passthrough have no transport-level test, which is
+the known API-service debt in `AGENTS.md` 10.5; the App reset is verified by
+inspection only (E-043); and a falsy rejection reason or a whitespace-padded
+live tag can mislead the client (E-047, E-048).
 
 ### Part 3: selection mode, review panel and apply
 
@@ -278,7 +290,9 @@ approve them, and have them saved through the normal tagging path.
     merge `toPendingChanges(accepted)` into `pendingChanges`, re-render once and
     call the existing `savePendingChanges()`. That path already chunks at 20,
     shows progress, reloads after a failure and prunes pending entries on
-    reload.
+    reload. Before merging, drop any accepted field whose value on the current
+    row is no longer blank, because the panel can stay open after
+    reconciliation and the rows can change underneath it.
   - If a data reload arrives while the request is in flight, discard the reply
     and tell the user to try again.
 - `src/features/transactions/transactions.bulk.js`:
@@ -318,6 +332,8 @@ approve them, and have them saved through the normal tagging path.
 - An editor can press the button, select rows, see proposals, cancel with no
   write, and apply accepted proposals that survive a reload.
 - A partially tagged row keeps its existing tag.
+- A tag added after reconciliation is not overwritten when the panel is
+  applied.
 - A viewer never sees the button, and the action is refused if called.
 - An unconfigured provider shows a disabled button explaining why.
 - Unsaved manual changes block the flow with a clear message.
