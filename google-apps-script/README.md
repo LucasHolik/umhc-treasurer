@@ -81,6 +81,33 @@ app works, the action answers "not configured", and the button stays disabled.
 4. To rotate the key, edit the property. To turn the feature off, clear
    `AI_API_KEY`.
 
+**Examples.** The model id is exact and has no default.
+
+| Setup                     | `AI_PROVIDER` | `AI_MODEL`                                | `AI_BASE_URL`        |
+| ------------------------- | ------------- | ----------------------------------------- | -------------------- |
+| DeepSeek V4.1 Flash       | `deepseek`    | `deepseek-flash`                          | leave unset          |
+| OpenAI                    | `openai`      | the model id from your OpenAI account     | leave unset          |
+| OpenRouter                | `openrouter`  | the `<vendor>/<model>` id from OpenRouter | leave unset          |
+| Anthropic                 | `anthropic`   | the Claude model id                       | leave unset          |
+| OpenAI-compatible gateway | `openai`      | the id the gateway expects                | the gateway base URL |
+
+For DeepSeek, the properties are:
+
+```
+AI_PROVIDER  = deepseek
+AI_MODEL     = deepseek-flash
+AI_API_KEY   = sk-...
+AI_BASE_URL  = (leave this property unset)
+```
+
+`deepseek-flash` serves DeepSeek-V4.1-Flash-1017. The older `deepseek-v4-flash`
+name is still accepted and billed as the same model, but `deepseek-flash` is the
+current id. The provider's
+[Models & Pricing](https://api-docs.deepseek.com/quick_start/pricing) page is the
+source of truth if a model name is rejected. The app switches DeepSeek's
+thinking mode off for suggestions, because tagging is a short classification and
+reasoning tokens only add cost and latency.
+
 The key is visible to anyone with edit access to the Apps Script project, so do
 not share the project and set a spend limit on the provider account. When an
 editor asks for suggestions, the selected rows' descriptions and amounts and the

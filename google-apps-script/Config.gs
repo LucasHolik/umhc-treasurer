@@ -49,6 +49,10 @@ const AI_CONFIG = {
       family: "openai",
       baseUrl: "https://api.deepseek.com",
       path: "/chat/completions",
+      // DeepSeek enables thinking mode by default. Suggestions are a short
+      // classification, so reasoning tokens only add cost and latency and can
+      // use up the small output budget before any JSON is produced.
+      extraBody: { thinking: { type: "disabled" } },
     },
     openai: {
       family: "openai",

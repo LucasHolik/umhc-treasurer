@@ -147,6 +147,32 @@ test("an admin request sends the configured model, key and rows", (t) => {
   );
 });
 
+test("a DeepSeek request disables thinking mode", (t) => {
+  const backend = createAiBackend(t);
+  configure(backend);
+  backend.urlFetch.queueResponse(openAiReply([]));
+
+  const response = backend.request("suggestTags", rowsParam([ROW]));
+
+  assert.equal(response.success, true);
+  const body = sentBody(backend.urlFetch.calls[0]);
+  assert.deepEqual(body.thinking, { type: "disabled" });
+});
+
+test("an OpenAI-compatible provider sends no thinking field", (t) => {
+  const backend = createAiBackend(t);
+  configure(backend, { AI_PROVIDER: "openai", AI_MODEL: "gpt-test" });
+  backend.urlFetch.queueResponse(openAiReply([]));
+
+  const response = backend.request("suggestTags", rowsParam([ROW]));
+
+  assert.equal(response.success, true);
+  const call = backend.urlFetch.calls[0];
+  assert.equal(call.url, "https://api.openai.com/v1/chat/completions");
+  const body = sentBody(call);
+  assert.equal(Object.prototype.hasOwnProperty.call(body, "thinking"), false);
+});
+
 test("a field that was not missing is dropped from the proposal", (t) => {
   const backend = createAiBackend(t);
   configure(backend);

@@ -202,3 +202,29 @@ dependency not available. Tag NOT deleted." before any external write.
 Regression test: "a missing split restore helper refuses the tag delete"
 (`tests/backend/tags.test.js`). The B-007 rollback guard remains defence in
 depth because public actions no longer reach it.
+
+### B-009: DeepSeek requests run in thinking mode
+
+**Description.** DeepSeek enables thinking mode by default with high effort. The
+suggestion request sends `temperature: 0` and `max_tokens: 800` but no
+`thinking` field, so the provider reasons before answering. Thinking mode
+ignores the temperature, adds reasoning tokens before the JSON, and can use up
+the output budget, so a batch can be slow, cost more, or come back without
+readable JSON. Other providers are unaffected.
+
+**Steps to reproduce.** Configure `AI_PROVIDER=deepseek` and
+`AI_MODEL=deepseek-flash`, then request suggestions. The outgoing body has no
+`thinking` field. A provider key is needed, so this cannot be reproduced in the
+test suite; the fix is pinned by the request body instead.
+
+**Severity.** Medium. It bills reasoning tokens for a classification task and
+can make the feature slow or return an unreadable reply.
+
+**Where.** `google-apps-script/Service_AI.gs`, `_callProvider`, and the
+`deepseek` entry in `google-apps-script/Config.gs`.
+
+**Status.** Fixed by adding `extraBody: { thinking: { type: "disabled" } }` to
+the `deepseek` registry entry and merging a provider's `extraBody` into the
+request body. Regression tests: "a DeepSeek request disables thinking mode" and
+"an OpenAI-compatible provider sends no thinking field"
+(`tests/backend/ai.test.js`).

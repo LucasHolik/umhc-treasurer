@@ -360,11 +360,12 @@ approve them, and have them saved through the normal tagging path.
 
 **Existing tests affected.** None.
 
-**Status.** Code complete and approved on 2026-11-10 after three attempts, but
-**not yet marked done**. The full suite is 353 tests and the format check passes
-locally on macOS. The live browser check in this part (a configured backend and
-key, the viewer passkey, and the phone layout) is outstanding and must be run by
-the user before the part is ticked done or the phase pull request is merged.
+**Status.** Merged in PR #16 on 2026-11-10. The live browser check in this part
+(a configured backend and key, the viewer passkey, and the phone layout) was
+still outstanding when the user merged, so the phase stays in this plan until
+that check is reported. The full suite is 353 tests and the format check passes
+locally on macOS. A follow-up on the same phase fixes DeepSeek's default
+thinking mode (B-009) and adds provider examples to the backend guide.
 
 **Review notes.** The first review found an alert after the component had been
 destroyed, skipped-row counts overwritten before they could paint, a merge that
