@@ -6,34 +6,7 @@ straight away. A fixed bug names the regression test that covers it.
 
 ## Open
 
-### B-008: A tag delete proceeds without a split restore helper
-
-**Description.** `_deleteTag` checks that `Service_Split.removeTagFromSplits`
-exists before clearing the tag from Split Transactions, but not that
-`Service_Split.restoreTagInSplits` exists. A deployment that has the remove
-helper but not the restore helper still deletes the tag from Split
-Transactions. If the batch later fails, those rows cannot be restored. B-007
-makes the response honest about that state; this entry covers preventing it up
-front.
-
-**Steps to reproduce.** In the backend harness, hide
-`Service_Split.restoreTagInSplits` and delete a Category that is used by split
-rows. The delete succeeds and the Split Transactions cells are cleared.
-
-**Severity.** Low. It needs a mismatched deployment, but it clears data that
-the code then cannot restore.
-
-**Where.** `google-apps-script/Service_Tags.gs`, the `Service_Split` pre-flight
-in `_deleteTag` (around line 377).
-
-**Status.** Open. Recorded while fixing B-007; not fixed.
-
-**Suggested fix.** Require `Service_Split.restoreTagInSplits` in the pre-flight
-alongside `removeTagFromSplits`, as the `Service_Sheet` pre-flight already
-requires both `removeTagFromExpenses` and `restoreTagInExpenses`. Add a
-regression test that hides the restore helper and asserts the delete is refused
-and the split rows are untouched. This would make the B-007 rollback branch
-unreachable through the public actions, so it would remain defence in depth.
+_None._
 
 ## Fixed
 
@@ -185,19 +158,47 @@ failed batch compensation reports the rename as inconsistent".
 skipped and `rollbackSuccess` stayed true. The response could say "Changes
 reverted" while the Split Transactions rows were still cleared.
 
-**Steps to reproduce.** In the backend harness, call
-`backend.helpers.hideSplitRestore()`, fail the next Tags `setValue`, and send
-`[["Food", null, "delete", "Category"], ["", "Travel", "add", "Category"]]`.
-The delete clears Food from Split Transactions, the add throws, and the
-rollback cannot restore the split rows.
+**Steps to reproduce.** Not reachable through the public actions after B-008.
+Before B-008, hiding `Service_Split.restoreTagInSplits` and failing the Tags
+write after a delete left the split rows cleared while the rollback claimed
+success.
 
 **Severity.** Low. It needs a missing dependency, but the claim was false.
 
 **Where.** `google-apps-script/Service_Tags.gs`, `_rollbackTagBatch`.
 
-**Status.** Fixed. Regression test: "a missing split restore helper reports an
-inconsistent rollback" (`tests/backend/tags.test.js`). When `splitRows` is
-non-empty and the helper is missing, the rollback logs the affected rows, sets
-`rollback.success: false` and returns the inconsistent detail, so it no longer
-claims "Changes reverted". The delete still proceeds without the helper;
-B-008 covers refusing it up front.
+**Status.** Fixed, with the rollback branch now defence in depth. When
+`splitRows` is non-empty and the helper is missing, the rollback logs the
+affected rows, sets `rollback.success: false` and returns the inconsistent
+detail, so it no longer claims "Changes reverted". B-008 now refuses the delete
+before any Split Transactions row is cleared, so public actions cannot reach
+this branch. Its original regression test, "a missing split restore helper
+reports an inconsistent rollback", was replaced by the B-008 test. The guard
+stays so a future path that clears split rows still fails closed.
+
+### B-008: A tag delete proceeds without a split restore helper
+
+**Description.** `_deleteTag` checked that `Service_Split.removeTagFromSplits`
+existed before clearing the tag from Split Transactions, but not that
+`Service_Split.restoreTagInSplits` existed. A deployment that had the remove
+helper but not the restore helper could still delete the tag from Split
+Transactions. If the batch later failed, those rows could not be restored.
+B-007 made the response honest about that state; B-008 prevents it.
+
+**Steps to reproduce.** In the backend harness, call
+`backend.helpers.hideSplitRestore()` and delete a Category that is used by
+split rows. Before the fix, the delete succeeded and the Split Transactions
+cells were cleared.
+
+**Severity.** Low. It needs a mismatched deployment, but it cleared data that
+the code then could not restore.
+
+**Where.** `google-apps-script/Service_Tags.gs`, the `Service_Split` pre-flight
+in `_deleteTag` (around line 377).
+
+**Status.** Fixed. The pre-flight now requires `restoreTagInSplits` as well as
+`removeTagFromSplits`, so a mismatched deployment returns "Service_Split
+dependency not available. Tag NOT deleted." before any external write.
+Regression test: "a missing split restore helper refuses the tag delete"
+(`tests/backend/tags.test.js`). The B-007 rollback guard remains defence in
+depth because public actions no longer reach it.

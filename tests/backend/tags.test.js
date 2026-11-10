@@ -422,13 +422,13 @@ test("an unexpected write throw rolls the whole batch back", (t) => {
   assert.equal(backend.sheets.get("Split Transactions")[1][5], "");
 });
 
-test("a missing split restore helper reports an inconsistent rollback", (t) => {
+test("a missing split restore helper refuses the tag delete", (t) => {
   const backend = createTestBackend(t);
   const error = t.mock.method(console, "error", () => {});
 
   // Simulate a deployment whose Service_Split lost restoreTagInSplits. The
-  // delete itself still succeeds and clears Food from Split Transactions, so
-  // the rollback is the only chance to put those rows back.
+  // delete pre-flight must refuse before it clears any Split Transactions row:
+  // those rows could not be restored if the batch failed later.
   backend.helpers.hideSplitRestore();
 
   const operations = [
@@ -436,39 +436,44 @@ test("a missing split restore helper reports an inconsistent rollback", (t) => {
     ["", "Travel", "add", "Category"],
   ];
 
-  // The delete moves Tag cells with copyTo/clearContent, so this fault lands on
-  // the Travel add after the delete has already applied.
-  backend.helpers.failNextWrite("Tags", "setValue");
+  // No write fault is scheduled: the batch stops at the pre-flight, so the
+  // cancelled-add path is not needed to reach this behaviour.
   const response = backend.request("processTagOperations", { operations });
 
   assert.equal(response.success, false);
-  assert.equal(response.rollback.attempted, true);
-  assert.equal(response.rollback.success, false);
-  assert.match(response.rollback.message, /restore helper is unavailable/i);
-  assert.match(response.message, /Data is INCONSISTENT/);
-  assert.doesNotMatch(response.message, /Changes reverted/);
+  assert.match(response.message, /Service_Split dependency not available/);
+  assert.match(response.message, /Tag NOT deleted/);
+  assert.doesNotMatch(response.message, /Data is INCONSISTENT/);
+  assert.deepEqual(response.appliedOperations, []);
+  // The batch-level rollback finds nothing to undo, so it still appends
+  // "Changes reverted." here. That is truthful because no row changed, so the
+  // assertions below focus on the refusal and the unchanged sheets instead.
 
-  // The delete survives the rollback as rollback_failed, so a client does not
-  // replay it, and the log carries the split rows that need reconciling.
-  assert.deepEqual(response.appliedOperations, [
-    { index: 0, operation: operations[0] },
-  ]);
-  const critical = error.mock.calls.find((call) =>
-    String(call.arguments[0]).includes("Splits restore helper is unavailable"),
-  );
-  assert.ok(critical, "the missing split restore helper is logged as critical");
+  // The delete is refused with the dependency message, and the add after it is
+  // skipped rather than applied.
   assert.deepEqual(
-    Array.from(critical.arguments[1].splitRows),
-    [2, 4],
-    "the log carries the split rows that need reconciling",
+    response.results.map(({ index, status }) => ({ index, status })),
+    [
+      { index: 0, status: "failed" },
+      { index: 1, status: "skipped" },
+    ],
+  );
+  assert.match(
+    response.results[0].message,
+    /Service_Split dependency not available/,
   );
 
-  // Tags and Finances are back to their pre-batch state, but Food cannot be
-  // restored to Split Transactions: the helper is gone.
+  // Nothing was written anywhere: Food is still on the expense and split rows,
+  // the Tags list still holds it, and no Travel category was added.
   assert.deepEqual(backend.sheets.get("Tags"), TAGS);
   assert.deepEqual(backend.sheets.get("Finances"), FINANCES);
-  assert.equal(backend.sheets.get("Split Transactions")[1][5], "");
-  assert.equal(backend.sheets.get("Split Transactions")[3][5], "");
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+
+  assert.equal(
+    error.mock.calls.length,
+    0,
+    "a clean pre-flight refusal logs no error",
+  );
 });
 
 test("a Tags write throw during delete restores the external rows", (t) => {

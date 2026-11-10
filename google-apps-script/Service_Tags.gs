@@ -375,7 +375,8 @@ function _deleteTag(type, value) {
 
     if (
       typeof Service_Split === "undefined" ||
-      !Service_Split.removeTagFromSplits
+      !Service_Split.removeTagFromSplits ||
+      !Service_Split.restoreTagInSplits
     ) {
       return {
         success: false,
@@ -1060,6 +1061,8 @@ function _rollbackTagBatch(
           }
         }
         if (comp.splitRows.length > 0) {
+          // Defence in depth: _deleteTag's pre-flight now refuses a deployment
+          // without this helper, so public actions should not reach this state.
           if (
             typeof Service_Split === "undefined" ||
             !Service_Split.restoreTagInSplits

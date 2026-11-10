@@ -204,10 +204,10 @@ that the external rows were not reverted.
 external writes during rename (B-006). A throw inside `removeTagFromSplits`
 after a partial split write still cannot report rows, and its guard is
 unreachable today because the helper catches its own write errors. A missing
-`restoreTagInSplits` helper now reports an inconsistent rollback (B-007), with
-test "a missing split restore helper reports an inconsistent rollback"
-(`tests/backend/tags.test.js`). The delete still proceeds without that helper;
-B-008 covers refusing it up front.
+`restoreTagInSplits` helper now refuses the delete before any Split
+Transactions row is cleared (B-008), with test "a missing split restore helper
+refuses the tag delete" (`tests/backend/tags.test.js`). The B-007 rollback
+guard remains as defence in depth for a state public actions no longer reach.
 
 ### E-031: The post-loop tag sort throws
 
@@ -230,8 +230,22 @@ batch snapshot. If the Tags `copyTo` succeeds and the following
 **Expected.** Restore the Tags sheet, or report that the data is inconsistent.
 
 **Status.** Not handled. The batch path restores Tags from its snapshot; the
-direct endpoint has none. A fail-after-write test would need the harness seam
-planned for part 2.
+direct endpoint has none. A fail-after-write test could use the harness's
+`when: "after"` fault mode.
+
+### E-034: A refused delete still rewrites the Tags sheet
+
+**Situation.** A batch delete is refused by the `Service_Split` pre-flight
+because `restoreTagInSplits` is missing. `_runTagBatch` still calls
+`_rollbackTagBatch`, which restores the Tags snapshot and reports the rollback
+as attempted and successful, appending "Changes reverted." to the message.
+
+**Expected.** No data changes and the response is truthful. The extra write and
+the sentence are cosmetic.
+
+**Status.** Not handled, accepted. The refusal happens before any external
+write, and the snapshot restore writes the same values back. Low impact; see
+B-008.
 
 ## Excel import
 
