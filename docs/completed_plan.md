@@ -118,3 +118,13 @@ Merged in the Phase 5 pull request. Fixed B-006:
 The backend suite is 59 tests and the full suite 218. Found B-007 (a missing
 split restore helper is treated as a successful rollback) and recorded E-033
 (a direct delete has no Tags snapshot); both are open or recorded.
+
+## Interim fix: B-007 and B-008
+
+Merged in pull request #15. A tag delete now refuses to run when
+`Service_Split.restoreTagInSplits` is missing (B-008), so a batch cannot reach a
+state it cannot undo. The B-007 rollback branch stays as defence in depth and
+reports `rollback.success: false` with the `Data is INCONSISTENT` detail instead
+of claiming the changes were reverted. The backend suite is 60 tests and the
+full suite 219. The extra snapshot rewrite on a refused batch delete is recorded
+as E-034.
