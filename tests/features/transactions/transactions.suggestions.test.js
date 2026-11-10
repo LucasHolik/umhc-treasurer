@@ -14,6 +14,8 @@ import {
   splitIntoBatches,
   reconcileSuggestions,
   toPendingChanges,
+  filterStillMissing,
+  mergeAcceptedIntoPending,
   collectSuggestions,
 } from "../../../src/features/transactions/transactions.suggestions.js";
 
@@ -541,6 +543,298 @@ test("toPendingChanges does not mutate its input", () => {
   toPendingChanges(accepted);
 
   assert.deepEqual(accepted, before);
+});
+
+test("filterStillMissing drops a field that gained a tag while the dialog was open", () => {
+  const rows = new Map([
+    ["2", row({ row: 2, "Trip/Event": "Winter Trip", Category: "" })],
+  ]);
+
+  const kept = filterStillMissing(
+    [{ row: 2, tripEvent: "Summer Trip", category: "Food" }],
+    rows,
+  );
+
+  assert.deepEqual(kept, [{ row: 2, category: "Food" }]);
+});
+
+test("filterStillMissing drops a row whose tags are now both filled", () => {
+  const rows = new Map([
+    ["2", row({ row: 2, "Trip/Event": "Winter Trip", Category: "Food" })],
+  ]);
+
+  const kept = filterStillMissing(
+    [{ row: 2, tripEvent: "Summer Trip", category: "Transport" }],
+    rows,
+  );
+
+  assert.deepEqual(kept, []);
+});
+
+test("filterStillMissing drops a proposal whose row no longer exists", () => {
+  const kept = filterStillMissing(
+    [{ row: 2, tripEvent: "Winter Trip" }],
+    new Map(),
+  );
+
+  assert.deepEqual(kept, []);
+});
+
+test("filterStillMissing drops a proposal whose current row is null", () => {
+  const rows = new Map([["2", null]]);
+
+  const kept = filterStillMissing([{ row: 2, tripEvent: "Winter Trip" }], rows);
+
+  assert.deepEqual(kept, []);
+});
+
+test("filterStillMissing keeps the proposal's original row id type", () => {
+  const rows = new Map([
+    [
+      "S-2",
+      row({
+        row: "S-2",
+        Description: "REFUND",
+        Income: "10",
+        Expense: "",
+        "Trip/Event": "",
+        Category: "Food",
+      }),
+    ],
+  ]);
+
+  const kept = filterStillMissing(
+    [{ row: "S-2", tripEvent: "Winter Trip", category: "Transport" }],
+    rows,
+  );
+
+  assert.deepEqual(kept, [{ row: "S-2", tripEvent: "Winter Trip" }]);
+  assert.equal(typeof kept[0].row, "string");
+});
+
+test("filterStillMissing preserves the input order", () => {
+  const rows = new Map([
+    ["3", row({ row: 3 })],
+    ["2", row({ row: 2 })],
+  ]);
+
+  const kept = filterStillMissing(
+    [
+      { row: 2, category: "Food" },
+      { row: 3, tripEvent: "Winter Trip" },
+    ],
+    rows,
+  );
+
+  assert.deepEqual(kept, [
+    { row: 2, category: "Food" },
+    { row: 3, tripEvent: "Winter Trip" },
+  ]);
+});
+
+test("filterStillMissing treats a whitespace-only current tag as missing", () => {
+  const rows = new Map([
+    ["2", row({ row: 2, "Trip/Event": "  ", Category: "" })],
+  ]);
+
+  const kept = filterStillMissing(
+    [{ row: 2, tripEvent: "Winter Trip", category: "Food" }],
+    rows,
+  );
+
+  assert.deepEqual(kept, [
+    { row: 2, tripEvent: "Winter Trip", category: "Food" },
+  ]);
+});
+
+test("filterStillMissing does not mutate its inputs", () => {
+  const accepted = [
+    { row: 2, tripEvent: "Winter Trip", category: "Food" },
+    { row: 3, category: "Transport" },
+  ];
+  const rows = new Map([
+    ["2", row({ row: 2 })],
+    ["3", row({ row: 3, "Trip/Event": "Winter Trip" })],
+  ]);
+  const before = {
+    accepted: structuredClone(accepted),
+    rows: structuredClone(rows),
+  };
+
+  const kept = filterStillMissing(accepted, rows);
+
+  assert.ok(kept.length > 0);
+  assert.deepEqual(accepted, before.accepted);
+  assert.deepEqual(rows, before.rows);
+});
+
+test("filterStillMissing returns an empty list for a non-array input", () => {
+  for (const accepted of [null, undefined, {}, "not an array"]) {
+    assert.deepEqual(filterStillMissing(accepted, new Map()), []);
+  }
+});
+
+test("filterStillMissing with request rows drops a changed description", () => {
+  const rows = new Map([["2", row({ row: 2, Description: "TESCO NEW" })]]);
+
+  const kept = filterStillMissing(
+    [{ row: 2, tripEvent: "Winter Trip" }],
+    rows,
+    [
+      {
+        row: 2,
+        description: "TESCO",
+        amount: -12.34,
+        missing: ["Trip/Event"],
+      },
+    ],
+  );
+
+  assert.deepEqual(kept, []);
+});
+
+test("filterStillMissing with request rows drops a changed amount", () => {
+  const rows = new Map([
+    ["2", row({ row: 2, Description: "TESCO", Expense: "99" })],
+  ]);
+
+  const kept = filterStillMissing(
+    [{ row: 2, tripEvent: "Winter Trip" }],
+    rows,
+    [
+      {
+        row: 2,
+        description: "TESCO",
+        amount: -12.34,
+        missing: ["Trip/Event"],
+      },
+    ],
+  );
+
+  assert.deepEqual(kept, []);
+});
+
+test("filterStillMissing with request rows keeps an unchanged row", () => {
+  const kept = filterStillMissing(
+    [
+      { row: 2, tripEvent: "Winter Trip" },
+      { row: 3, category: "Transport" },
+    ],
+    currentRows(),
+    requestedRows(),
+  );
+
+  assert.deepEqual(kept, [
+    { row: 2, tripEvent: "Winter Trip" },
+    { row: 3, category: "Transport" },
+  ]);
+});
+
+test("filterStillMissing without request rows keeps the blankness-only behaviour", () => {
+  const rows = new Map([["2", row({ row: 2, Description: "TESCO NEW" })]]);
+
+  const kept = filterStillMissing([{ row: 2, tripEvent: "Winter Trip" }], rows);
+
+  assert.deepEqual(kept, [{ row: 2, tripEvent: "Winter Trip" }]);
+});
+
+test("filterStillMissing with request rows drops a missing request entry", () => {
+  const kept = filterStillMissing(
+    [{ row: 2, tripEvent: "Winter Trip" }],
+    currentRows(),
+    [],
+  );
+
+  assert.deepEqual(kept, []);
+});
+
+test("mergeAcceptedIntoPending keeps an existing pending field", () => {
+  const pending = new Map([["2", { "Trip/Event": "Manual Trip" }]]);
+
+  const merged = mergeAcceptedIntoPending(pending, [
+    { row: 2, tripEvent: "Winter Trip", category: "Food" },
+  ]);
+
+  assert.equal(merged.get("2")["Trip/Event"], "Manual Trip");
+});
+
+test("mergeAcceptedIntoPending keeps a pending empty string", () => {
+  const merged = mergeAcceptedIntoPending(
+    new Map([["2", { "Trip/Event": "" }]]),
+    [{ row: 2, tripEvent: "Winter Trip", category: "Food" }],
+  );
+
+  assert.equal(merged.get("2")["Trip/Event"], "");
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(merged.get("2"), "Trip/Event"),
+  );
+  assert.equal(merged.get("2").Category, "Food");
+
+  const mergedCategory = mergeAcceptedIntoPending(
+    new Map([["3", { Category: "" }]]),
+    [{ row: 3, tripEvent: "Winter Trip", category: "Food" }],
+  );
+
+  assert.equal(mergedCategory.get("3").Category, "");
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(mergedCategory.get("3"), "Category"),
+  );
+  assert.equal(mergedCategory.get("3")["Trip/Event"], "Winter Trip");
+});
+
+test("mergeAcceptedIntoPending adds the missing field and keeps other keys", () => {
+  const pending = new Map([
+    ["2", { Category: "Manual Category" }],
+    ["9", { "Trip/Event": "Other Trip" }],
+  ]);
+
+  const merged = mergeAcceptedIntoPending(pending, [
+    { row: 2, tripEvent: "Winter Trip", category: "Food" },
+  ]);
+
+  assert.deepEqual(merged.get("2"), {
+    Category: "Manual Category",
+    "Trip/Event": "Winter Trip",
+  });
+  assert.deepEqual(merged.get("9"), { "Trip/Event": "Other Trip" });
+});
+
+test("mergeAcceptedIntoPending creates a new row", () => {
+  const merged = mergeAcceptedIntoPending(new Map(), [
+    { row: 3, category: "Transport" },
+  ]);
+
+  assert.deepEqual(merged.get("3"), { Category: "Transport" });
+});
+
+test("mergeAcceptedIntoPending keys rows by string", () => {
+  const merged = mergeAcceptedIntoPending(new Map(), [
+    { row: 2, tripEvent: "Winter Trip" },
+    { row: "S-2", category: "Food" },
+  ]);
+
+  assert.deepEqual([...merged.keys()], ["2", "S-2"]);
+});
+
+test("mergeAcceptedIntoPending does not mutate its inputs", () => {
+  const pending = new Map([
+    ["2", { "Trip/Event": "Manual Trip" }],
+    ["9", { Category: "Other" }],
+  ]);
+  const accepted = [
+    { row: 2, tripEvent: "Winter Trip", category: "Food" },
+    { row: 3, category: "Transport" },
+  ];
+  const before = {
+    pending: structuredClone(pending),
+    accepted: structuredClone(accepted),
+  };
+
+  const merged = mergeAcceptedIntoPending(pending, accepted);
+
+  assert.deepEqual(pending, before.pending);
+  assert.deepEqual(accepted, before.accepted);
+  assert.notEqual(merged.get("2"), pending.get("2"));
 });
 
 test("collectSuggestions sends batches in order, one at a time", async () => {

@@ -17,6 +17,7 @@ This project decouples the User Interface (the website) from the Data (Google Sh
 - **Tagging System:**
   - Robust categorization (Category, Trip/Event, Type).
   - "Smart" relationship mapping (e.g., specific Trips belong to specific Types).
+  - **AI Tag Suggestions (optional):** select transactions that are missing a tag and get proposed Trip/Event and Category values from an LLM provider, then review and apply them like any other tagging. Nothing is saved without approval, and the feature stays off until a provider key is configured. Editor only.
 - **Analysis:** Visual charts and data tables to track spending trends.
 - **Excel Upload:** Drag-and-drop support for bank statement imports (Excel/CSV).
 - **Role-Based Access:** Full-access and view-only passkeys on the same app URL.
@@ -41,6 +42,7 @@ You must first set up your own private "Database".
 1. Navigate to the `google-apps-script` folder in this repository.
 2. Follow the detailed [Deployment Instructions](google-apps-script/README.md) to set up your Google Sheet and deploy the API.
 3. **Keep your "Web App URL" and passkeys handy.**
+4. AI tag suggestions are optional. Step 5 of the same guide explains the provider key in the Apps Script Script Properties; without it the button stays disabled and the rest of the app works normally.
 
 #### 2. Frontend Usage
 
@@ -88,6 +90,7 @@ See [AGENTS.md](AGENTS.md) for the workflow, design and testing rules.
 - The app must be served over `localhost` or HTTPS. Opening `index.html` from `file://` fails because of ES modules, and a plain HTTP address on the local network fails because request signing needs `crypto.subtle`.
 - Backend changes are not deployed automatically: changed `.gs` files must be pasted into the Apps Script editor and the web app redeployed.
 - Google Sheets is the database, so large sheets are slower to load and Apps Script quotas apply.
+- AI tag suggestions need a provider API key in the Apps Script Script Properties and the `Service_AI.gs` backend deployed; until then the button is disabled. The descriptions and amounts of the rows an editor selects are sent to that provider when they ask for suggestions.
 - Interface checks are manual; the automated tests cover the logic, services and backend, not the screens. Known bugs are listed in [docs/bugs.md](docs/bugs.md).
 
 ## 🏗️ Architecture

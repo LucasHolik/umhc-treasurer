@@ -224,6 +224,92 @@ export const reconcileSuggestions = (
 };
 
 /**
+ * Drops proposals that are no longer safe to apply because the review dialog
+ * stayed open while the ledger changed.
+ *
+ * A proposal survives only while its row still exists. When `requested` is
+ * given, the row must also still match the request's description and signed
+ * amount, so a row that kept its id but changed underneath the dialog is
+ * dropped. Within a surviving proposal, `tripEvent` is kept only when the
+ * current row still has no Trip/Event, and `category` only when it still has no
+ * Category. A proposal left with neither field is dropped. Missing rows and
+ * invalid entries are dropped. Order and the proposal's own row id type are
+ * preserved, and the input is not mutated.
+ *
+ * @param {Array<{row: *, tripEvent?: string, category?: string}>} accepted -
+ *   the ticked proposals from the review dialog
+ * @param {Map<string, object>} currentRowsById - current rows keyed by String(row)
+ * @param {Array<{row: *, description: string, amount: number}>} [requested] -
+ *   the request rows from buildRequestRows. When omitted, only blankness is
+ *   re-checked, which is the original behaviour.
+ * @returns {Array<{row: *, tripEvent?: string, category?: string}>} the
+ *   proposals whose fields are still blank on the current rows, in input order
+ */
+export const filterStillMissing = (accepted, currentRowsById, requested) => {
+  if (!Array.isArray(accepted)) return [];
+
+  const checkFingerprint = Array.isArray(requested);
+  const requestedByKey = new Map();
+  if (checkFingerprint) {
+    for (const requestRow of requested) {
+      if (requestRow === null || typeof requestRow !== "object") continue;
+      const key = String(requestRow.row);
+      if (!requestedByKey.has(key)) requestedByKey.set(key, requestRow);
+    }
+  }
+
+  const currentRowFor = (key) => {
+    if (!currentRowsById || typeof currentRowsById.get !== "function") {
+      return undefined;
+    }
+    return currentRowsById.get(key);
+  };
+
+  const output = [];
+  for (const proposal of accepted) {
+    if (
+      proposal === null ||
+      typeof proposal !== "object" ||
+      Array.isArray(proposal)
+    ) {
+      continue;
+    }
+
+    const key = String(proposal.row);
+    const currentRow = currentRowFor(key);
+    if (currentRow === undefined || currentRow === null) continue;
+
+    // A row can keep its id while its description or amount changes, so when
+    // the request rows are supplied the original fingerprint must still match.
+    if (checkFingerprint) {
+      const requestRow = requestedByKey.get(key);
+      if (!requestRow) continue;
+      if (
+        trimText(currentRow.Description) !== trimText(requestRow.description) ||
+        rowAmount(currentRow) !== requestRow.amount
+      ) {
+        continue;
+      }
+    }
+
+    const missingNow = missingTagFields(currentRow);
+    const kept = { row: proposal.row };
+    if (proposal.tripEvent !== undefined && missingNow.includes("Trip/Event")) {
+      kept.tripEvent = proposal.tripEvent;
+    }
+    if (proposal.category !== undefined && missingNow.includes("Category")) {
+      kept.category = proposal.category;
+    }
+
+    if (kept.tripEvent !== undefined || kept.category !== undefined) {
+      output.push(kept);
+    }
+  }
+
+  return output;
+};
+
+/**
  * Turns accepted proposals into pending changes for the existing tag save.
  * @param {Array<{row: *, tripEvent?: string, category?: string}>} accepted -
  *   the output of reconcileSuggestions
@@ -249,6 +335,45 @@ export const toPendingChanges = (accepted) => {
   }
 
   return changes;
+};
+
+/**
+ * Merges accepted proposals into existing pending tag changes.
+ *
+ * The result is a new Map, keyed by String(row). A field that is already
+ * pending for a row wins over the proposal, because the user may have edited
+ * that row in the background while the review dialog was open. Only the
+ * missing fields are added, other pending fields and rows survive, and neither
+ * input is mutated.
+ *
+ * @param {Map<string, object>} pending - the component's pendingChanges map
+ * @param {Array<{row: *, tripEvent?: string, category?: string}>} accepted -
+ *   the proposals to add, normally the output of filterStillMissing
+ * @returns {Map<string, object>} a new Map with the merged pending changes
+ */
+export const mergeAcceptedIntoPending = (pending, accepted) => {
+  const merged = new Map();
+  if (pending instanceof Map) {
+    for (const [rowId, fields] of pending) {
+      const source = fields && typeof fields === "object" ? fields : {};
+      merged.set(rowId, { ...source });
+    }
+  }
+
+  for (const [rowId, fields] of toPendingChanges(accepted)) {
+    const existing = merged.get(rowId);
+    if (!existing) {
+      merged.set(rowId, { ...fields });
+      continue;
+    }
+    for (const [field, value] of Object.entries(fields)) {
+      if (!Object.prototype.hasOwnProperty.call(existing, field)) {
+        existing[field] = value;
+      }
+    }
+  }
+
+  return merged;
 };
 
 /**

@@ -57,21 +57,23 @@ Each feature is a class that takes its mount element, subscribes to the store
 and exposes `destroy()`. [`src/App.js`](src/App.js) builds the shell, chooses
 login or app, owns the initial load and enforces role-based routing.
 
-| Feature                                                               | Responsibility                                                                                                      |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| [`login`](src/features/login/login.component.js)                      | Script URL setup and passkey login.                                                                                 |
-| [`dashboard`](src/features/dashboard/dashboard.component.js)          | Balance cards, totals and recent transactions over a chosen timeframe.                                              |
-| [`transactions`](src/features/transactions/transactions.component.js) | The ledger: filter, sort, inline tag edits, bulk tagging, manual add, split create, edit and revert, split history. |
-| [`tags`](src/features/tags/tags.component.js)                         | Tag manager: list, drill into a tag, assign Types to a Trip, cycle trip status.                                     |
-| [`analysis`](src/features/analysis/analysis.component.js)             | Charts, tables, CSV export and quick views. `analysis.css` is injected at runtime, not linked in `index.html`.      |
-| [`upload`](src/features/upload/upload.component.js)                   | Drag and drop Excel import, duplicate detection, chunked save. Editor only.                                         |
-| [`settings`](src/features/settings/settings.component.js)             | Opening balance and accessibility mode.                                                                             |
+| Feature                                                               | Responsibility                                                                                                                          |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [`login`](src/features/login/login.component.js)                      | Script URL setup and passkey login.                                                                                                     |
+| [`dashboard`](src/features/dashboard/dashboard.component.js)          | Balance cards, totals and recent transactions over a chosen timeframe.                                                                  |
+| [`transactions`](src/features/transactions/transactions.component.js) | The ledger: filter, sort, inline tag edits, bulk tagging, manual add, split create, edit and revert, split history, AI tag suggestions. |
+| [`tags`](src/features/tags/tags.component.js)                         | Tag manager: list, drill into a tag, assign Types to a Trip, cycle trip status.                                                         |
+| [`analysis`](src/features/analysis/analysis.component.js)             | Charts, tables, CSV export and quick views. `analysis.css` is injected at runtime, not linked in `index.html`.                          |
+| [`upload`](src/features/upload/upload.component.js)                   | Drag and drop Excel import, duplicate detection, chunked save. Editor only.                                                             |
+| [`settings`](src/features/settings/settings.component.js)             | Opening balance and accessibility mode.                                                                                                 |
 
 Pure helpers sit beside the components: `transactions.logic.js` (`filterData`,
-`sortData`, `buildTagSelectorOptions`) and `tags.logic.js` (virtual tag lists,
-stats, queue optimisation, `resolveSaveFailure`). `analysis.logic.js` (date
-ranges, filtering, aggregation, CSV) imports the store, so it is not pure; see
-`AGENTS.md` section 10.2.
+`sortData`, `buildTagSelectorOptions`), `transactions.suggestions.js` (row
+selection, batching, reconciliation, pending merge) and `tags.logic.js` (virtual
+tag lists, stats, queue optimisation, `resolveSaveFailure`).
+`analysis.logic.js` (date ranges, filtering, aggregation, CSV) imports the
+store, so it is not pure; see `AGENTS.md` section 10.2. The AI review dialog is
+its own module, `transactions.suggestions-modal.js`.
 
 ### Shared UI
 
@@ -129,6 +131,10 @@ an older backend without `Service_AI.gs`.
    backend service. Most writes trigger a `dataUploaded` DOM event, which
    reloads everything from the server rather than patching the store by hand.
    Saving the opening balance is the exception: it updates the store directly.
+8. A tag-suggestion request goes from the ledger through `ApiService.suggestTags`
+   to `Service_AI`, comes back as proposals, and is reviewed. Accepted values
+   join `pendingChanges`, so they are saved by the normal tagging path rather
+   than by a second write route.
 
 ## The store
 
@@ -136,7 +142,8 @@ Defaults live in [`src/core/state.js`](src/core/state.js).
 
 - **Data:** `expenses`, `rawExpenses`, `splitTransactions`, `tags`,
   `openingBalance`.
-- **User and settings:** `currentUser`, `accessibilityMode`.
+- **User and settings:** `currentUser`, `accessibilityMode`, `ai` (configured
+  flag, provider, model and maximum batch size; never a key).
 - **Progress flags:** `isLoading`, `isUploading`, `isTagging`, `savingTags`,
   `savingSplitTransaction`, `settingsSyncing`, `isVerifyingSession`,
   `taggingSource`, `taggingProgress`.
@@ -150,9 +157,10 @@ Defaults live in [`src/core/state.js`](src/core/state.js).
 The suite is in [`tests/`](tests/), which mirrors `src/`, plus
 [`tests/backend/`](tests/backend/harness.js) for the Apps Script backend. It
 covers utils, financial logic, transactions, tags, trip status, state, DOM,
-Excel parsing, API helpers, analysis, the test helpers themselves, and the
-backend router, roles, auth, sanitisation, locking, tag batches, splits, opening
-balance and the AI suggestion action. `tests/setup.js` registers a browser-like
+Excel parsing, API helpers, analysis, the test helpers themselves, the AI
+suggestion logic and review dialog, and the backend router, roles, auth,
+sanitisation, locking, tag batches, splits, opening balance and the AI
+suggestion action. `tests/setup.js` registers a browser-like
 environment with happy-dom, so browser modules import cleanly; the backend
 harness loads the `.gs` files into a Node `vm`.
 

@@ -287,12 +287,13 @@ approve them, and have them saved through the normal tagging path.
     `suggest: ApiService.suggestTags`, `maxRows: store.getState("ai").maxRows`
     and a progress callback that updates the button text.
   - After the request, exit selection mode, open the panel, and on acceptance
-    merge `toPendingChanges(accepted)` into `pendingChanges`, re-render once and
-    call the existing `savePendingChanges()`. That path already chunks at 20,
-    shows progress, reloads after a failure and prunes pending entries on
-    reload. Before merging, drop any accepted field whose value on the current
-    row is no longer blank, because the panel can stay open after
-    reconciliation and the rows can change underneath it.
+    merge the accepted proposals into `pendingChanges` and call the existing
+    `savePendingChanges()`. That path already chunks at 20, shows progress,
+    reloads after a failure and prunes pending entries on reload. A field the
+    user has already edited by hand while the panel was open wins over the
+    suggestion, and any proposal whose row changed description or amount since
+    the request is dropped, because the panel can stay open while the ledger
+    changes underneath it.
   - If a data reload arrives while the request is in flight, discard the reply
     and tell the user to try again.
 - `src/features/transactions/transactions.bulk.js`:
@@ -301,16 +302,20 @@ approve them, and have them saved through the normal tagging path.
   the existing `Bulk Tagging Mode` entry point are unchanged.
 - New `src/features/transactions/transactions.suggestions-modal.js`, following
   the `SplitTransactionModal` overlay pattern and reusing `modal.css`:
-  - `open({ suggestions, rowsById })` returns a promise of the accepted
-    suggestions, or `null` on cancel.
+  - `open({ suggestions, rowsById, notice, returnFocus })` returns a promise of
+    the accepted suggestions, or `null` on cancel.
   - One row per proposal with a tick (on by default), date, description,
     amount and the proposed pills. The field that was already tagged is shown
     as unchanged, not as a proposal.
-  - Footer: selected count, Select all, None, Cancel and "Apply N tags".
-    Apply is disabled when nothing is ticked.
+  - Footer: selected count, one Select all / Clear toggle, Cancel and
+    "Apply N suggestions". Apply is disabled when nothing is ticked.
+  - The skipped-row counts from the request, and any partial-batch error,
+    appear in the panel's notice, because the toolbar that showed them is
+    hidden by the time the panel opens.
   - Escape, the close button and an overlay click all cancel. Focus moves into
-    the dialog and is restored on close. The list scrolls, and the layout
-    stacks on a phone.
+    the dialog, Tab and Shift+Tab wrap inside it, and focus returns to the
+    visible AI button on close. The list scrolls, and the layout stacks on a
+    phone.
 - `src/features/transactions/transactions.css`: styles for the button state,
   the suggest toolbar, the panel rows and pills, and the phone layout.
 - Docs, after approval: `README.md`, `ARCHITECTURE.md`, `docs/edge_cases.md`
@@ -321,11 +326,13 @@ approve them, and have them saved through the normal tagging path.
 
 **Tests.**
 
-- Any new pure helper in the panel or the toolbar (for example select all and
-  the accepted count) lives in `transactions.suggestions.js` and is tested
-  there.
-- The DOM flow is checked by hand, as the project has no component tests. The
-  report says where.
+- Pure helpers added for the apply step (`filterStillMissing`, including the
+  optional fingerprint re-check, and `mergeAcceptedIntoPending`) live in
+  `transactions.suggestions.js` and are tested there.
+- The dialog's tick, select-all, clear, count and Apply semantics are tested in
+  `tests/features/transactions/transactions.suggestions-modal.test.js`.
+- The rest of the DOM flow is checked by hand, as the project has no component
+  tests. The report says where.
 
 **Acceptance criteria.**
 
@@ -334,6 +341,15 @@ approve them, and have them saved through the normal tagging path.
 - A partially tagged row keeps its existing tag.
 - A tag added after reconciliation is not overwritten when the panel is
   applied.
+- A field the user edited by hand while the panel was open wins over the
+  suggestion.
+- A row whose description or amount changed while the panel was open is
+  dropped.
+- The skipped-row counts are visible in the panel, not only in a transient
+  status line.
+- Focus returns to the visible AI button on Cancel, Escape and close. After
+  Apply the save flow takes over, so focus may end on the page body (E-049).
+  Tab stays inside the panel while focus is inside it (E-052).
 - A viewer never sees the button, and the action is refused if called.
 - An unconfigured provider shows a disabled button explaining why.
 - Unsaved manual changes block the flow with a clear message.
@@ -344,4 +360,20 @@ approve them, and have them saved through the normal tagging path.
 
 **Existing tests affected.** None.
 
-**Status.** todo.
+**Status.** Code complete and approved on 2026-11-10 after three attempts, but
+**not yet marked done**. The full suite is 353 tests and the format check passes
+locally on macOS. The live browser check in this part (a configured backend and
+key, the viewer passkey, and the phone layout) is outstanding and must be run by
+the user before the part is ticked done or the phase pull request is merged.
+
+**Review notes.** The first review found an alert after the component had been
+destroyed, skipped-row counts overwritten before they could paint, a merge that
+could overwrite a manual pending edit, focus restored to a hidden element with
+no trap, and a stale selection count. The second found that `#main-controls`
+kept its `disabled` class after a full render during selection, and that the
+empty-string pending rule was not pinned by a test. All are fixed and tested
+where a pure helper allowed it; the class fix was verified with a throwaway
+harness and is inspection-only in the committed suite. Remaining, recorded as
+E-049 to E-053: focus after Apply, no mid-request cancel, a tab switch during
+the request, the Tab trap when focus is on the body, and first-open styling and
+short-viewport clipping.

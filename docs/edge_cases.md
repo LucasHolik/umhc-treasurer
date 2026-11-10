@@ -561,3 +561,58 @@ possible only by editing the sheet directly because the tag UI trims.
 **Status.** Not handled. `isAllowedTag` trims the proposal but matches the
 untrimmed live list, so the backend would accept the tag and the client drops
 it. That is a missed suggestion, never a wrong write. Low.
+
+## AI tag suggestions: review panel
+
+### E-049: Focus after Apply
+
+**Situation.** The panel closes, the pending changes render and the save loader
+replaces the AI button.
+
+**Expected.** Focus lands somewhere sensible after the save.
+
+**Status.** Not handled. Cancel, Escape and close restore focus to the AI
+button; Apply hands over to the save flow and focus can fall back to the page
+body. Low.
+
+### E-050: No way to cancel a request in flight
+
+**Situation.** A provider is slow and the user wants to stop.
+
+**Expected.** A way out.
+
+**Status.** Not handled. Both toolbar buttons are disabled while the request
+runs, so the 45 s client timeout is the bound. Low.
+
+### E-051: Switching tabs during the request
+
+**Situation.** The user leaves the transactions tab while the provider is
+answering.
+
+**Expected.** The reply does not open a panel over another screen.
+
+**Status.** Not handled. The component stays alive across tabs, so the panel can
+open over whichever tab is showing, and the return-focus button is in a hidden
+section. Low.
+
+### E-052: Tab trap when focus is not inside the panel
+
+**Situation.** A click on a non-focusable part of the panel leaves focus on the
+body.
+
+**Expected.** Tab stays inside the panel.
+
+**Status.** Not handled. The trap wraps only when focus is on the first or last
+focusable element, the same shape as the shared `ModalComponent`. Low.
+
+### E-053: First-open styling and short viewports
+
+**Situation.** The stylesheet has not loaded when the panel opens, or the
+viewport is very short.
+
+**Expected.** The panel is styled on first paint and the notice stays readable.
+
+**Status.** Not handled. `modal.css` is injected at construction but not
+awaited, though the panel only opens after a provider request. On a very short
+viewport the body has `overflow: hidden` and the notice has no scroll. Phone
+layout is unchecked. Low.

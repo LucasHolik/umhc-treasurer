@@ -174,7 +174,7 @@ export default class TransactionsBulk {
     }
   }
 
-  toggleSelectionMode(active, selectedCount) {
+  toggleSelectionMode(active, selectedCount, purpose = "bulk") {
     this.isActive = active;
     if (!active) {
       // Reset Bulk State
@@ -210,7 +210,7 @@ export default class TransactionsBulk {
 
     if (!this.bulkToolbar || !this.mainControls) return;
 
-    if (active) {
+    if (active && purpose === "bulk") {
       this.bulkToolbar.style.display = "block";
     } else {
       this.bulkToolbar.style.display = "none";

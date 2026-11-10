@@ -9,7 +9,16 @@ import TransactionsBulk from "./transactions.bulk.js";
 import TransactionsManualModal from "./transactions.manual.js";
 import SplitTransactionModal from "./split-transaction.modal.js";
 import TransactionsSplitHistory from "./transactions.split-history.js";
+import TransactionsSuggestionsModal from "./transactions.suggestions-modal.js";
 import * as TransactionsLogic from "./transactions.logic.js";
+import {
+  buildRequestRows,
+  collectSuggestions,
+  filterStillMissing,
+  mergeAcceptedIntoPending,
+  reconcileSuggestions,
+  selectRowsForSuggestions,
+} from "./transactions.suggestions.js";
 import TagSelector from "../../shared/tag-selector.component.js";
 import MobileDisclosureComponent from "../../shared/mobile-disclosure.component.js";
 import {
@@ -37,8 +46,16 @@ class TransactionsComponent {
 
     // State
     this.selectionMode = false;
+    this.selectionPurpose = "bulk";
     this.selectedRows = new Set();
     this.activeTimeouts = [];
+
+    // AI tag suggestions
+    this.suggesting = false;
+    this.suggestProgressText = "";
+    this.suggestionsStale = false;
+    this.destroyed = false;
+    this.suggestionsModal = null;
 
     this.pendingChanges = new Map(); // rowId -> { 'Trip/Event': val, 'Category': val }
     this.tagSelector = new TagSelector();
@@ -91,6 +108,9 @@ class TransactionsComponent {
     this.subscriptions.push(
       store.subscribe("currentUser", () => this.handleUserChange()),
     );
+    this.subscriptions.push(
+      store.subscribe("ai", () => this.handleAiStatusChange()),
+    );
 
     this.render();
 
@@ -131,6 +151,11 @@ class TransactionsComponent {
   }
 
   destroy() {
+    this.destroyed = true;
+    if (this.suggestionsModal) {
+      this.suggestionsModal.close(null);
+      this.suggestionsModal = null;
+    }
     if (this.tagSelector) {
       this.tagSelector.destroy();
     }
@@ -203,6 +228,129 @@ class TransactionsComponent {
       this.toggleSelectionMode(false);
     }
     this.renderTransactionsDisplay();
+  }
+
+  /** Reports whether the store's `ai` status says suggestions are usable. */
+  isAiConfigured() {
+    const ai = store.getState("ai");
+    return Boolean(ai && ai.configured);
+  }
+
+  /**
+   * Builds the editor-only suggestion button from the current `ai` status and
+   * whether selection is already active.
+   * @returns {HTMLElement} the button, disabled and explained when unconfigured
+   */
+  buildSuggestButton() {
+    const attributes = {
+      id: "suggest-tags-btn",
+      className: "secondary-btn",
+      onclick: () => this.startTagSuggestions(),
+    };
+    if (this.selectionMode || !this.isAiConfigured()) {
+      attributes.disabled = true;
+    }
+    if (!this.isAiConfigured()) {
+      attributes.title = "AI tag suggestions are not configured.";
+    }
+    return el("button", attributes, "Auto Suggest Tags with AI");
+  }
+
+  /**
+   * Builds the suggestion selection toolbar. It is hidden until selection mode
+   * is entered with the suggest purpose. While a request is in flight both
+   * buttons are built disabled and the run button keeps the progress text, so a
+   * re-render cannot make the request look idle.
+   * @returns {HTMLElement}
+   */
+  buildSuggestToolbar() {
+    const runText = this.suggesting
+      ? this.suggestProgressText || "Asking the provider..."
+      : "Suggest tags";
+    return el(
+      "div",
+      { id: "suggest-actions-toolbar", className: "suggest-actions-toolbar" },
+      el(
+        "div",
+        { className: "suggest-actions-content" },
+        el(
+          "span",
+          { className: "suggest-actions-hint" },
+          "Select the transactions to suggest tags for.",
+        ),
+        el(
+          "span",
+          { id: "suggest-selection-count", className: "selection-count" },
+          "0 selected",
+        ),
+        el(
+          "span",
+          {
+            id: "suggest-status",
+            className: "suggest-status",
+            "aria-live": "polite",
+          },
+          this.suggesting ? this.suggestProgressText : "",
+        ),
+        el("span", { className: "suggest-actions-spacer" }),
+        el(
+          "button",
+          {
+            id: "suggest-run-btn",
+            className: "action-btn",
+            disabled: this.suggesting,
+            onclick: () => this.submitTagSuggestions(),
+          },
+          runText,
+        ),
+        el(
+          "button",
+          {
+            id: "suggest-cancel-btn",
+            className: "secondary-btn",
+            style: { borderColor: "#d9534f", color: "#d9534f" },
+            disabled: this.suggesting,
+            onclick: () => this.toggleSelectionMode(false),
+          },
+          "Cancel",
+        ),
+      ),
+    );
+  }
+
+  /** Reacts to an `ai` store change without re-rendering the whole view. */
+  handleAiStatusChange() {
+    this.updateSuggestButtonState();
+  }
+
+  /**
+   * Syncs the existing suggestion button with the current `ai` status. The
+   * button stays disabled while selection mode is active, so entering suggest
+   * mode cannot be restarted from underneath the selection.
+   */
+  updateSuggestButtonState() {
+    const button = this.element.querySelector("#suggest-tags-btn");
+    if (!button) return;
+
+    const configured = this.isAiConfigured();
+    button.disabled = !configured || this.selectionMode;
+    if (!configured) {
+      button.setAttribute("title", "AI tag suggestions are not configured.");
+    } else {
+      button.removeAttribute("title");
+    }
+  }
+
+  /**
+   * Disables both mode entry buttons while selection is active and restores
+   * them on exit, respecting the AI configured state for the AI button.
+   */
+  updateEntryButtonsState() {
+    const bulkButton = this.transactionsDisplay.querySelector(
+      "#tag-transactions-btn",
+    );
+    if (bulkButton) bulkButton.disabled = this.selectionMode;
+    this.updateSuggestButtonState();
   }
 
   handleGlobalClick(e) {
@@ -637,10 +785,15 @@ class TransactionsComponent {
           this.canEdit
             ? el(
                 "button",
-                { id: "tag-transactions-btn", className: "secondary-btn" },
+                {
+                  id: "tag-transactions-btn",
+                  className: "secondary-btn",
+                  disabled: this.selectionMode,
+                },
                 "Bulk Tagging Mode",
               )
             : null,
+          this.canEdit ? this.buildSuggestButton() : null,
           this.canEdit
             ? el(
                 "button",
@@ -758,6 +911,9 @@ class TransactionsComponent {
       ),
     );
 
+    // Suggested Tags Toolbar
+    const suggestToolbar = this.buildSuggestToolbar();
+
     // Description Search
     const descSearchInput = el(
       "input",
@@ -799,6 +955,7 @@ class TransactionsComponent {
       ),
       controls,
       this.canEdit ? bulkToolbar : null,
+      this.canEdit ? suggestToolbar : null,
       descSearchContainer,
       tableContainer,
       mobileListContainer,
@@ -811,7 +968,7 @@ class TransactionsComponent {
 
     // Restore UI state if returning from loading
     if (this.selectionMode) {
-      this.toggleSelectionMode(true);
+      this.toggleSelectionMode(true, this.selectionPurpose);
     } else {
       this.applyFilters();
     }
@@ -1476,6 +1633,12 @@ class TransactionsComponent {
   }
 
   handleDataChange(data) {
+    // A provider reply that arrives after a reload describes stale rows, so it
+    // must be discarded rather than reconciled against the new data.
+    if (this.suggesting) {
+      this.suggestionsStale = true;
+    }
+
     // The data received here (from 'expenses' store) is already processed/merged.
     this.originalTransactionData = [...data];
     this.transactionData = [...this.originalTransactionData];
@@ -1647,20 +1810,52 @@ class TransactionsComponent {
 
   // --- Bulk Actions & Selection ---
 
-  toggleSelectionMode(active) {
+  toggleSelectionMode(active, purpose = "bulk") {
     if (!this.canEdit) {
       active = false;
     }
     this.selectionMode = active;
+    if (active) {
+      this.selectionPurpose = purpose === "suggest" ? "suggest" : "bulk";
+    }
 
     if (!active) {
+      this.selectionPurpose = "bulk";
       this.selectedRows.clear();
       if (this.tableComponent) this.tableComponent.clearSelection();
+      this.setSuggestStatus("");
+      this.setSuggestButtonsDisabled(false);
+      this.resetSuggestRunButton();
+    }
+
+    // A full render rebuilds #main-controls with the disabled class, which sets
+    // pointer-events: none. Toggle the class here as well, or leaving selection
+    // mode after such a render leaves the filters and action buttons
+    // unclickable until the next full render.
+    const mainControls =
+      this.transactionsDisplay.querySelector("#main-controls");
+    if (mainControls) {
+      mainControls.classList.toggle("disabled", active);
     }
 
     if (this.bulkComponent) {
-      this.bulkComponent.toggleSelectionMode(active, this.selectedRows.size);
+      this.bulkComponent.toggleSelectionMode(
+        active,
+        this.selectedRows.size,
+        this.selectionPurpose,
+      );
     }
+
+    const suggestToolbar = this.transactionsDisplay.querySelector(
+      "#suggest-actions-toolbar",
+    );
+    if (suggestToolbar) {
+      suggestToolbar.style.display =
+        active && this.selectionPurpose === "suggest" ? "block" : "none";
+    }
+
+    this.updateEntryButtonsState();
+    this.updateSelectionUI();
 
     if (this.tableComponent) {
       this.tableComponent.enableSelection = active;
@@ -1680,6 +1875,318 @@ class TransactionsComponent {
   updateSelectionUI() {
     if (this.bulkComponent) {
       this.bulkComponent.updateSelectionCount(this.selectedRows.size);
+    }
+    const suggestCount = this.transactionsDisplay.querySelector(
+      "#suggest-selection-count",
+    );
+    if (suggestCount) {
+      suggestCount.textContent = `${this.selectedRows.size} selected`;
+    }
+  }
+
+  // --- AI Tag Suggestions ---
+
+  /** Sets the suggestion status line, which is an aria-live region. */
+  setSuggestStatus(text) {
+    const status = this.transactionsDisplay.querySelector("#suggest-status");
+    if (status) status.textContent = text || "";
+  }
+
+  /** Sets the suggestion submit button's text. */
+  setSuggestRunText(text) {
+    const button = this.transactionsDisplay.querySelector("#suggest-run-btn");
+    if (button) button.textContent = text;
+  }
+
+  /** Enables or disables both suggestion toolbar buttons. */
+  setSuggestButtonsDisabled(disabled) {
+    ["#suggest-run-btn", "#suggest-cancel-btn"].forEach((selector) => {
+      const button = this.transactionsDisplay.querySelector(selector);
+      if (button) button.disabled = disabled;
+    });
+  }
+
+  /** Restores the suggestion submit button's idle label and progress text. */
+  resetSuggestRunButton() {
+    this.suggestProgressText = "";
+    this.setSuggestRunText("Suggest tags");
+  }
+
+  /**
+   * Starts the suggestion flow: enters selection mode with the suggest purpose.
+   * Refuses while unsaved manual tag changes exist, because the apply path
+   * merges into `pendingChanges` and the user asked for those to be dealt with
+   * first.
+   */
+  startTagSuggestions() {
+    if (!this.canEdit) return;
+    if (!this.isAiConfigured()) return;
+    if (this.pendingChanges.size > 0) {
+      new ModalComponent().alert(
+        "Save or discard your pending tag changes first.",
+      );
+      return;
+    }
+
+    this.toggleSelectionMode(true, "suggest");
+    this.setSuggestStatus("");
+  }
+
+  /**
+   * Asks the provider about the selected rows, shows the reconciled proposals
+   * in the review dialog and, on acceptance, merges the still-missing fields
+   * into `pendingChanges`. The existing `savePendingChanges` does the write, so
+   * this adds no second save path.
+   *
+   * Nothing is written before Apply. A reply that lands after logout or after
+   * the user left suggest selection mode is discarded silently; a reply that
+   * lands after a reload alerts rather than being applied to stale rows.
+   */
+  async submitTagSuggestions() {
+    if (this.suggesting) return;
+    if (!this.canEdit) return;
+    if (!this.isAiConfigured()) return;
+
+    const selectedRows = this.originalTransactionData.filter((row) =>
+      this.selectedRows.has(String(row.row)),
+    );
+    const {
+      rows: eligible,
+      alreadyTagged,
+      missingDescription,
+    } = selectRowsForSuggestions(selectedRows);
+
+    const skippedText = this.describeSkippedRows(
+      alreadyTagged,
+      missingDescription,
+    );
+    this.setSuggestStatus(skippedText);
+
+    if (eligible.length === 0) {
+      this.setSuggestStatus("");
+      await new ModalComponent().alert(
+        skippedText
+          ? `${skippedText} Select at least one transaction that is missing a tag and has a description.`
+          : "Select at least one transaction that is missing a tag and has a description.",
+      );
+      return;
+    }
+
+    const requestRows = buildRequestRows(eligible);
+    const ai = store.getState("ai");
+    const maxRows =
+      ai && Number.isInteger(ai.maxRows) && ai.maxRows > 0 ? ai.maxRows : 25;
+
+    this.suggesting = true;
+    this.suggestProgressText = "Asking the provider...";
+    this.setSuggestButtonsDisabled(true);
+    this.setSuggestRunText("Asking the provider...");
+
+    try {
+      let result;
+      try {
+        result = await collectSuggestions(requestRows, {
+          suggest: (batch) => ApiService.suggestTags(batch),
+          maxRows,
+          onProgress: (completed, total) =>
+            this.handleSuggestionProgress(completed, total),
+        });
+      } catch (error) {
+        // collectSuggestions only rejects on a programming error. Treat it like
+        // a failed call so one bad reply cannot leave the toolbar stuck.
+        result = { suggestions: [], error };
+      }
+
+      // A reply that lands after logout must not touch the screen, and a reply
+      // that lands after the user left suggest selection mode is irrelevant.
+      // Only a live dialog in suggest mode may report stale data.
+      if (this.destroyed) return;
+      if (!this.selectionMode || this.selectionPurpose !== "suggest") return;
+      if (this.suggestionsStale) {
+        await new ModalComponent().alert(
+          "The transaction data changed while the suggestions were loading. Please try again.",
+        );
+        return;
+      }
+
+      const currentRowsById = this.buildRowsById();
+      const reconciled = reconcileSuggestions(
+        result.suggestions,
+        requestRows,
+        currentRowsById,
+        store.getState("tags"),
+      );
+
+      if (reconciled.length === 0) {
+        if (result.error) {
+          await new ModalComponent().alert(
+            this.describeSuggestionError(result.error),
+          );
+        } else {
+          await new ModalComponent().alert(
+            skippedText
+              ? `${skippedText} No suggestions were returned.`
+              : "No suggestions were returned.",
+          );
+        }
+        return;
+      }
+
+      this.toggleSelectionMode(false);
+      const accepted = await this.openSuggestionReview(
+        reconciled,
+        currentRowsById,
+        this.buildSuggestionNotice(
+          alreadyTagged,
+          missingDescription,
+          result.error,
+        ),
+      );
+      if (!accepted) return;
+
+      // The dialog may have stayed open while the ledger changed, so re-check
+      // every ticked field against the rows as they are now, including the
+      // description and amount fingerprint (E-042).
+      const stillMissing = filterStillMissing(
+        accepted,
+        this.buildRowsById(),
+        requestRows,
+      );
+      if (stillMissing.length === 0) {
+        await new ModalComponent().alert(
+          "Nothing was applied: the selected rows changed or already have those tags.",
+        );
+        return;
+      }
+
+      this.pendingChanges = mergeAcceptedIntoPending(
+        this.pendingChanges,
+        stillMissing,
+      );
+
+      this.renderTransactionsDisplay();
+      this.updateSaveButtonState();
+      await this.savePendingChanges();
+    } finally {
+      this.suggesting = false;
+      this.suggestionsStale = false;
+      this.setSuggestStatus("");
+      this.setSuggestButtonsDisabled(false);
+      this.resetSuggestRunButton();
+    }
+  }
+
+  /**
+   * Reports batch progress in the status line and on the submit button. Before
+   * the first batch finishes, and for a single batch, there is only one useful
+   * message: the provider is being asked.
+   * @param {number} completed - finished batches, 0 before the first call
+   * @param {number} total - number of batches in this request
+   */
+  handleSuggestionProgress(completed, total) {
+    const text =
+      completed === 0 || total <= 1
+        ? "Asking the provider..."
+        : `Checked ${completed} of ${total} batches`;
+    this.suggestProgressText = text;
+    this.setSuggestStatus(text);
+    this.setSuggestRunText(text);
+  }
+
+  /**
+   * Describes the selected rows that were skipped, for the status line, the
+   * no-eligible-rows alert and the review dialog's notice.
+   * @param {number} alreadyTagged - rows with no missing tag
+   * @param {number} missingDescription - rows with no usable description
+   * @returns {string} a sentence, or "" when nothing was skipped
+   */
+  describeSkippedRows(alreadyTagged, missingDescription) {
+    const parts = [];
+    if (alreadyTagged > 0) parts.push(`${alreadyTagged} already tagged`);
+    if (missingDescription > 0) {
+      parts.push(`${missingDescription} with no description`);
+    }
+    return parts.length === 0 ? "" : `Skipped ${parts.join(" and ")}.`;
+  }
+
+  /**
+   * Extracts display text from an error.
+   * @param {*} error
+   * @returns {string}
+   */
+  suggestionErrorMessage(error) {
+    if (error && typeof error.message === "string" && error.message) {
+      return error.message;
+    }
+    return error === null || error === undefined ? "" : String(error);
+  }
+
+  /**
+   * Builds a user-facing message for a failed suggestion request.
+   * @param {*} error
+   * @returns {string}
+   */
+  describeSuggestionError(error) {
+    const message = this.suggestionErrorMessage(error);
+    return message
+      ? `Tag suggestions failed: ${message}`
+      : "Tag suggestions failed.";
+  }
+
+  /**
+   * Builds the review dialog's notice from the selected rows that were skipped
+   * and any partial-batch error, so neither is lost when the toolbar hides.
+   * @param {number} alreadyTagged - rows with no missing tag
+   * @param {number} missingDescription - rows with no usable description
+   * @param {*} error - the first batch error, or null
+   * @returns {string|null} the joined notice, or null when there is none
+   */
+  buildSuggestionNotice(alreadyTagged, missingDescription, error) {
+    const parts = [];
+    const skipped = this.describeSkippedRows(alreadyTagged, missingDescription);
+    if (skipped) parts.push(skipped);
+    if (error) {
+      const message = this.suggestionErrorMessage(error);
+      parts.push(
+        message ? `Some batches failed: ${message}` : "Some batches failed.",
+      );
+    }
+    return parts.length > 0 ? parts.join(" ") : null;
+  }
+
+  /**
+   * Indexes the current ledger rows by String(row).
+   * @returns {Map<string, object>}
+   */
+  buildRowsById() {
+    return new Map(
+      this.originalTransactionData.map((row) => [String(row.row), row]),
+    );
+  }
+
+  /**
+   * Opens the review dialog on one long-lived modal instance. Focus returns to
+   * the AI button, which the toolbar hides while the dialog is open.
+   * @param {Array<{row: *, tripEvent?: string, category?: string}>} suggestions
+   * @param {Map<string, object>} rowsById
+   * @param {string|null} notice - skipped counts and any partial-batch error
+   * @returns {Promise<Array<object>|null>} ticked proposals, or null on cancel
+   */
+  async openSuggestionReview(suggestions, rowsById, notice) {
+    if (!this.suggestionsModal) {
+      this.suggestionsModal = new TransactionsSuggestionsModal();
+    }
+
+    try {
+      return await this.suggestionsModal.open({
+        suggestions,
+        rowsById,
+        notice,
+        returnFocus: this.element.querySelector("#suggest-tags-btn"),
+      });
+    } catch (error) {
+      console.error("Suggestion review error:", error);
+      return null;
     }
   }
 
