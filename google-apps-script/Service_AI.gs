@@ -426,6 +426,9 @@ function _callProvider(settings, provider, prompt) {
         temperature: temperature,
         max_tokens: maxTokens,
         stream: false,
+        // Per-provider body extras, for example DeepSeek's thinking toggle.
+        // Only the registry can set these, never a request parameter.
+        ...(provider.extraBody || {}),
       };
 
   const url = _joinUrl(settings.baseUrl || provider.baseUrl, provider.path);
