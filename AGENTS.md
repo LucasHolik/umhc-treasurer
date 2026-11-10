@@ -19,7 +19,8 @@ Sessions end, contexts get compacted and containers get reclaimed, so work must 
 ### The overseer (the main agent the user talks to)
 
 - Owns planning, coordination, documentation and git.
-- May commit, push, open PRs and merge PRs without asking.
+- May commit, push and open PRs without asking.
+- **Must not merge a PR without the user's explicit permission.** The user decides when work lands on the default branch. A reviewer's APPROVED, a green test run, or permission given for an earlier merge is not permission for this one (section 7).
 - Does **not** write feature code or tests itself. All code changes go through the implement/review loop (section 4).
 - May edit the project and planning files directly: `README.md`, `ARCHITECTURE.md` and everything in `docs/` (section 5).
 - Keeps its own context lean. Broad codebase searches, large file reads and investigations go to subagents, which report back summaries. The overseer works from those summaries and the planning files, so it does not lose track over long phases.
@@ -210,7 +211,8 @@ If any of these files do not exist yet, create them. In a new repository, ask th
 - Never commit directly to the default branch. Work on a branch per phase (or per part, for larger parts).
 - Commit after each approved part, with a message that names the phase and part, e.g. `Phase 2, part 3: add retry logic to fetch client`. Add `[skip ci]` where section 3 says to.
 - Open a PR when a phase (or a self-contained group of parts) is complete. The PR description summarises the parts, links to the plan, and says where the tests were run.
-- Merge only when the full test suite, linting and type checks pass locally and every part has been approved by a reviewer. Do not wait for, or trigger, CI unless the user has asked for it.
+- **Never merge a PR without the user's explicit permission.** Merging is the user's decision, not the agent's. When a PR is ready, report that it is ready and ask; merge only that PR, only after a clear yes, and only once. Nothing else counts as permission: not a reviewer's APPROVED, not a passing test run, not the user having asked for the PR to be opened, and not permission given for an earlier PR. If the user's answer is unclear, ask again rather than assuming.
+- A PR is ready to ask about only when the full test suite, linting and type checks pass locally and every part has been approved by a reviewer. Those checks are what makes a PR ready, not permission to merge it. Do not wait for, or trigger, CI unless the user has asked for it.
 - Never force-push to the default branch or rewrite shared history.
 
 ### Secrets
@@ -229,6 +231,7 @@ If any of these files do not exist yet, create them. In a new repository, ask th
 - The work would change the direction or scope of `docs/rough_plan.md`.
 - A decision involves a new external dependency, a breaking interface change, data loss, or anything hard to reverse.
 - Requirements are ambiguous in a way that the plan files and codebase cannot resolve.
+- A PR is ready to merge: ask for permission to merge it, and wait (section 7).
 
 ## 9. Communication
 
