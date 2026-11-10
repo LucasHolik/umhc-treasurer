@@ -390,8 +390,8 @@ short-viewport clipping.
 
 **Goal.** Fix B-010 (an undiagnosable provider fetch and a misleading setup
 guide) and B-011 (a wrong passkey shown as a network failure), harden the new
-`AI_BASE_URL` validation, change what the model is given, and raise the
-suggestion output cap.
+`AI_BASE_URL` validation, change what the model is given, limit the AI
+selection list to incomplete rows, and raise the suggestion output cap.
 
 **Changes.**
 
@@ -411,6 +411,11 @@ suggestion output cap.
   `google-apps-script/Service_AI.gs`: the prompt now carries each row's date and
   each trip's Status, excludes the amount, and tells the model to prefer an
   Active trip and to omit a tag when unsure. `_ownTagText` closes E-035.
+- `src/features/transactions/transactions.suggestions.js` and
+  `transactions.component.js`: AI selection mode displays only rows missing a
+  Trip/Event, a Category, or both, through `filterRowsMissingTags`; leaving the
+  mode restores the full ledger, and the toolbar hint says the list is already
+  filtered.
 - `google-apps-script/README.md`: the real `authorizeAi` procedure, the base URL
   rules, a failure checklist and the provider data note. Bugs B-010 and B-011
   and edge cases E-054 to E-062 are recorded.
@@ -419,8 +424,8 @@ suggestion output cap.
 `authorizeAi`, the base URL cases), the date formatting cases (including a local
 early-morning date that `toISOString` would shift in a positive-offset zone),
 the prompt date and absence of the amount, the
-Active and Completed statuses, the prototype-key trip, and the request-body
-assertions. New `_responseError` and `_shouldExpireSession` tests in
+Active and Completed statuses, the prototype-key trip, the six
+`filterRowsMissingTags` cases, and the request-body assertions. New `_responseError` and `_shouldExpireSession` tests in
 `tests/services/api.service.test.js`, and an additive `authorizeAi` export in
 the test harness.
 
@@ -436,9 +441,10 @@ no existing test is changed by it.
 **Acceptance.** Both bugs reproduce before the fix and pass their regression
 tests after. A wrong passkey shows the passkey message, not the network one. A
 permission failure names `authorizeAi`, and a malformed `AI_BASE_URL` names the
-property without a provider call. The full suite and format check pass.
+property without a provider call. AI selection mode shows only incomplete rows
+and restores the full list on exit. The full suite and format check pass.
 
-**Status.** Code complete and approved on 2026-11-10. The suite is 401 tests and
+**Status.** Code complete and approved on 2026-11-10. The suite is 407 tests and
 the format check passes locally on macOS. The user confirmed the AI path works
 after granting the external-request permission. The live login check (a wrong
 passkey after the frontend deploys) and the merge decision remain with the user.

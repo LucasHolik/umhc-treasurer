@@ -44,6 +44,20 @@ export const missingTagFields = (row) => {
 };
 
 /**
+ * Keeps only the rows that are missing at least one of the two tags. This is
+ * the list shown while suggestion selection mode is active, because a fully
+ * tagged row has nothing to suggest. Non-array input yields an empty list and
+ * the input is not mutated.
+ * @param {Array<object>} rows - ledger rows, normally the filtered visible rows
+ * @returns {Array<object>} a new array of the rows whose missingTagFields is not
+ *   empty, in input order
+ */
+export const filterRowsMissingTags = (rows) =>
+  (Array.isArray(rows) ? rows : []).filter(
+    (row) => missingTagFields(row).length > 0,
+  );
+
+/**
  * Returns a row's signed net amount: income minus expense. Comma strings and
  * blanks are handled by parseAmount.
  * @param {object} row - a ledger row (or a split child row)

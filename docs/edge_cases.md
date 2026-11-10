@@ -769,3 +769,51 @@ panel is applied.
 **Status.** Not handled. The fingerprint is the description and amount, not the
 date. The panel shows the current date and the user reviews before applying.
 Low.
+
+### E-067: A selected row becomes fully tagged while AI mode is active
+
+**Situation.** A reload or another tab gives a selected row its missing tag.
+
+**Expected.** The row leaves the filtered list, the selection and the count, so
+it cannot be sent.
+
+**Status.** Handled by `applyFilters` and `reconcileSelectionWithVisibleRows`;
+there is no dedicated component test. Low.
+
+### E-068: No incomplete rows while AI mode is active
+
+**Situation.** Every transaction already has both tags.
+
+**Expected.** An empty list, not an error, and a usable toolbar.
+
+**Status.** Handled by the table and mobile empty states. No dedicated test.
+
+### E-069: A row with no description is listed in AI mode
+
+**Situation.** A row is missing a tag but has a blank description.
+
+**Expected.** It is shown, then skipped and counted when suggesting, because
+the model has nothing to read.
+
+**Status.** Handled by `selectRowsForSuggestions`. The toolbar hint does not
+promise that every listed row can be sent.
+
+### E-070: A whitespace-only tag and the "(No Tag)" filter
+
+**Situation.** A cell contains only spaces. `filterData` treats it as a tag,
+while `missingTagFields` trims it and treats it as missing.
+
+**Expected.** Both agree.
+
+**Status.** Not handled. Pre-existing and only reachable by editing the sheet
+directly. Low.
+
+### E-071: The AI-mode display filter has no component test
+
+**Situation.** The enter, exit and re-filter wiring could regress while
+`filterRowsMissingTags` stays green.
+
+**Expected.** A test pins the display behaviour.
+
+**Status.** Not handled. The pure helper is tested; the component has no test
+harness. Low.

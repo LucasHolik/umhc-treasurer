@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import {
   TAG_FIELDS,
   missingTagFields,
+  filterRowsMissingTags,
   rowAmount,
   selectRowsForSuggestions,
   buildRequestRows,
@@ -99,6 +100,68 @@ test("missingTagFields treats whitespace-only values as blank", () => {
     "Trip/Event",
     "Category",
   ]);
+});
+
+test("filterRowsMissingTags keeps a row whose tags are both blank", () => {
+  const bothMissing = row({ row: 3 });
+
+  assert.deepEqual(filterRowsMissingTags([bothMissing]), [bothMissing]);
+});
+
+test("filterRowsMissingTags keeps a row missing only one tag", () => {
+  const missingTrip = row({
+    row: 3,
+    "Trip/Event": "",
+    Category: "Food",
+  });
+  const missingCategory = row({
+    row: 4,
+    "Trip/Event": "Winter Trip",
+    Category: "",
+  });
+
+  assert.deepEqual(filterRowsMissingTags([missingTrip, missingCategory]), [
+    missingTrip,
+    missingCategory,
+  ]);
+});
+
+test("filterRowsMissingTags drops a row whose tags are both set", () => {
+  const tagged = row({
+    row: 3,
+    "Trip/Event": "Winter Trip",
+    Category: "Food",
+  });
+  const partial = row({ row: 4 });
+
+  assert.deepEqual(filterRowsMissingTags([tagged, partial]), [partial]);
+});
+
+test("filterRowsMissingTags treats a whitespace-only tag as missing", () => {
+  const spaced = row({ row: 3, "Trip/Event": " \t ", Category: "Food" });
+
+  assert.deepEqual(filterRowsMissingTags([spaced]), [spaced]);
+});
+
+test("filterRowsMissingTags returns an empty list for a non-array input", () => {
+  for (const input of [null, undefined, {}, "not an array"]) {
+    assert.deepEqual(filterRowsMissingTags(input), []);
+  }
+});
+
+test("filterRowsMissingTags does not mutate its input and returns a new array", () => {
+  const rows = [
+    row({ row: 3, "Trip/Event": "Winter Trip", Category: "Food" }),
+    row({ row: 4, "Trip/Event": "  ", Category: "" }),
+    row({ row: 5, "Trip/Event": "Summer Trip", Category: "Transport" }),
+  ];
+  const before = structuredClone(rows);
+
+  const filtered = filterRowsMissingTags(rows);
+
+  assert.deepEqual(rows, before);
+  assert.notEqual(filtered, rows);
+  assert.deepEqual(filtered, [rows[1]]);
 });
 
 test("selectRowsForSuggestions skips fully tagged rows and counts them", () => {

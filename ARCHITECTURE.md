@@ -68,8 +68,8 @@ login or app, owns the initial load and enforces role-based routing.
 | [`settings`](src/features/settings/settings.component.js)             | Opening balance and accessibility mode.                                                                                                 |
 
 Pure helpers sit beside the components: `transactions.logic.js` (`filterData`,
-`sortData`, `buildTagSelectorOptions`), `transactions.suggestions.js` (row
-selection, batching, reconciliation, pending merge) and `tags.logic.js` (virtual
+`sortData`, `buildTagSelectorOptions`), `transactions.suggestions.js` (row selection, the missing-tag display filter,
+batching, reconciliation, pending merge) and `tags.logic.js` (virtual
 tag lists, stats, queue optimisation, `resolveSaveFailure`).
 `analysis.logic.js` (date ranges, filtering, aggregation, CSV) imports the
 store, so it is not pure; see `AGENTS.md` section 10.2. The AI review dialog is
