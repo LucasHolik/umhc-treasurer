@@ -375,7 +375,8 @@ function _deleteTag(type, value) {
 
     if (
       typeof Service_Split === "undefined" ||
-      !Service_Split.removeTagFromSplits
+      !Service_Split.removeTagFromSplits ||
+      !Service_Split.restoreTagInSplits
     ) {
       return {
         success: false,
@@ -1059,21 +1060,36 @@ function _rollbackTagBatch(
               "Expenses restore failed during rollback. Data is INCONSISTENT. Manual reconciliation required.";
           }
         }
-        if (
-          comp.splitRows.length > 0 &&
-          Service_Split &&
-          Service_Split.restoreTagInSplits
-        ) {
-          const r = Service_Split.restoreTagInSplits(
-            comp.type,
-            comp.value,
-            comp.splitRows,
-          );
-          if (!r.success) {
-            console.error("CRITICAL: Splits restore failed.", r);
+        if (comp.splitRows.length > 0) {
+          // Defence in depth: _deleteTag's pre-flight now refuses a deployment
+          // without this helper, so public actions should not reach this state.
+          if (
+            typeof Service_Split === "undefined" ||
+            !Service_Split.restoreTagInSplits
+          ) {
+            console.error(
+              "CRITICAL: Splits restore helper is unavailable during rollback.",
+              {
+                type: comp.type,
+                value: comp.value,
+                splitRows: comp.splitRows,
+              },
+            );
             rollbackSuccess = false;
             rollbackDetail =
-              "Splits restore failed during rollback. Data is INCONSISTENT. Manual reconciliation required.";
+              "Splits restore helper is unavailable during rollback. Data is INCONSISTENT. Manual reconciliation required.";
+          } else {
+            const r = Service_Split.restoreTagInSplits(
+              comp.type,
+              comp.value,
+              comp.splitRows,
+            );
+            if (!r.success) {
+              console.error("CRITICAL: Splits restore failed.", r);
+              rollbackSuccess = false;
+              rollbackDetail =
+                "Splits restore failed during rollback. Data is INCONSISTENT. Manual reconciliation required.";
+            }
           }
         }
       } else if (comp.kind === "rename") {

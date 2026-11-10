@@ -80,6 +80,12 @@ globalThis.__UMHC_BACKEND__ = {
     withScriptLock: Service_Lock.withScriptLock,
     getScriptLockDepth: function () {
       return _scriptLockDepth;
+    },
+    // Test-only: simulate a deployment whose Service_Split lost the
+    // restoreTagInSplits helper. Each vm context has its own top-level
+    // bindings, so this cannot affect another test's backend.
+    _hideSplitRestore: function () {
+      delete Service_Split.restoreTagInSplits;
     }
   }
 };
@@ -691,6 +697,13 @@ export function createBackend(options = {}) {
     isScriptLockHeld() {
       return fakes.lock.hasLock();
     },
+    /**
+     * Test-only: remove Service_Split.restoreTagInSplits from this backend's
+     * private vm context, simulating a deployment mismatch. The public actions
+     * cannot produce that state. Each backend has its own context, so no
+     * restore is needed and other tests are unaffected.
+     */
+    hideSplitRestore: backendApi.helpers._hideSplitRestore,
     /**
      * Test-only: make a matching sheet write throw once. `method` is one of
      * setValue, setValues, clearContent, copyTo, appendRow, insertRow or

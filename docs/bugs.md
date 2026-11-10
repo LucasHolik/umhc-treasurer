@@ -6,24 +6,7 @@ straight away. A fixed bug names the regression test that covers it.
 
 ## Open
 
-### B-007: Batch rollback treats a missing split restore helper as success
-
-**Description.** In `_rollbackTagBatch`, when a compensation has non-empty
-`splitRows` but `Service_Split.restoreTagInSplits` is missing, the restore is
-skipped and `rollbackSuccess` stays true. The response can say "Changes
-reverted" while the Split Transactions rows are still cleared.
-
-**Steps to reproduce.** Only reachable with a deployment mismatch that leaves
-the helper undefined while split rows are pending.
-
-**Severity.** Low. It needs a missing dependency, but the claim would be false.
-
-**Where.** `google-apps-script/Service_Tags.gs`, `_rollbackTagBatch`.
-
-**Status.** Open. Found during the Phase 5 part 1 review; not fixed.
-
-**Suggested fix.** When `comp.splitRows` is non-empty and the helper is
-missing, set `rollbackSuccess = false` and record the inconsistent detail.
+_None._
 
 ## Fixed
 
@@ -167,3 +150,55 @@ external sheets", "a Finances write throw during rename reverts the external
 rows", "a Split Transactions write throw during rename reverts the external
 rows", "a failed compensation reports the rename as inconsistent" and "a
 failed batch compensation reports the rename as inconsistent".
+
+### B-007: Batch rollback treats a missing split restore helper as success
+
+**Description.** In `_rollbackTagBatch`, when a compensation has non-empty
+`splitRows` but `Service_Split.restoreTagInSplits` is missing, the restore was
+skipped and `rollbackSuccess` stayed true. The response could say "Changes
+reverted" while the Split Transactions rows were still cleared.
+
+**Steps to reproduce.** Not reachable through the public actions after B-008.
+Before B-008, hiding `Service_Split.restoreTagInSplits` and failing the Tags
+write after a delete left the split rows cleared while the rollback claimed
+success.
+
+**Severity.** Low. It needs a missing dependency, but the claim was false.
+
+**Where.** `google-apps-script/Service_Tags.gs`, `_rollbackTagBatch`.
+
+**Status.** Fixed, with the rollback branch now defence in depth. When
+`splitRows` is non-empty and the helper is missing, the rollback logs the
+affected rows, sets `rollback.success: false` and returns the inconsistent
+detail, so it no longer claims "Changes reverted". B-008 now refuses the delete
+before any Split Transactions row is cleared, so public actions cannot reach
+this branch. Its original regression test, "a missing split restore helper
+reports an inconsistent rollback", was replaced by the B-008 test. The guard
+stays so a future path that clears split rows still fails closed.
+
+### B-008: A tag delete proceeds without a split restore helper
+
+**Description.** `_deleteTag` checked that `Service_Split.removeTagFromSplits`
+existed before clearing the tag from Split Transactions, but not that
+`Service_Split.restoreTagInSplits` existed. A deployment that had the remove
+helper but not the restore helper could still delete the tag from Split
+Transactions. If the batch later failed, those rows could not be restored.
+B-007 made the response honest about that state; B-008 prevents it.
+
+**Steps to reproduce.** In the backend harness, call
+`backend.helpers.hideSplitRestore()` and delete a Category that is used by
+split rows. Before the fix, the delete succeeded and the Split Transactions
+cells were cleared.
+
+**Severity.** Low. It needs a mismatched deployment, but it cleared data that
+the code then could not restore.
+
+**Where.** `google-apps-script/Service_Tags.gs`, the `Service_Split` pre-flight
+in `_deleteTag` (around line 377).
+
+**Status.** Fixed. The pre-flight now requires `restoreTagInSplits` as well as
+`removeTagFromSplits`, so a mismatched deployment returns "Service_Split
+dependency not available. Tag NOT deleted." before any external write.
+Regression test: "a missing split restore helper refuses the tag delete"
+(`tests/backend/tags.test.js`). The B-007 rollback guard remains defence in
+depth because public actions no longer reach it.

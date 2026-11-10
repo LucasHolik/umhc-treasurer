@@ -422,6 +422,60 @@ test("an unexpected write throw rolls the whole batch back", (t) => {
   assert.equal(backend.sheets.get("Split Transactions")[1][5], "");
 });
 
+test("a missing split restore helper refuses the tag delete", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+
+  // Simulate a deployment whose Service_Split lost restoreTagInSplits. The
+  // delete pre-flight must refuse before it clears any Split Transactions row:
+  // those rows could not be restored if the batch failed later.
+  backend.helpers.hideSplitRestore();
+
+  const operations = [
+    ["Food", null, "delete", "Category"],
+    ["", "Travel", "add", "Category"],
+  ];
+
+  // No write fault is scheduled: the batch stops at the pre-flight, so the
+  // cancelled-add path is not needed to reach this behaviour.
+  const response = backend.request("processTagOperations", { operations });
+
+  assert.equal(response.success, false);
+  assert.match(response.message, /Service_Split dependency not available/);
+  assert.match(response.message, /Tag NOT deleted/);
+  assert.doesNotMatch(response.message, /Data is INCONSISTENT/);
+  assert.deepEqual(response.appliedOperations, []);
+  // The batch-level rollback finds nothing to undo, so it still appends
+  // "Changes reverted." here. That is truthful because no row changed, so the
+  // assertions below focus on the refusal and the unchanged sheets instead.
+
+  // The delete is refused with the dependency message, and the add after it is
+  // skipped rather than applied.
+  assert.deepEqual(
+    response.results.map(({ index, status }) => ({ index, status })),
+    [
+      { index: 0, status: "failed" },
+      { index: 1, status: "skipped" },
+    ],
+  );
+  assert.match(
+    response.results[0].message,
+    /Service_Split dependency not available/,
+  );
+
+  // Nothing was written anywhere: Food is still on the expense and split rows,
+  // the Tags list still holds it, and no Travel category was added.
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(backend.sheets.get("Finances"), FINANCES);
+  assert.deepEqual(backend.sheets.get("Split Transactions"), SPLITS);
+
+  assert.equal(
+    error.mock.calls.length,
+    0,
+    "a clean pre-flight refusal logs no error",
+  );
+});
+
 test("a Tags write throw during delete restores the external rows", (t) => {
   const backend = createTestBackend(t);
   const error = t.mock.method(console, "error", () => {});
