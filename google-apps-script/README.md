@@ -18,6 +18,7 @@ Follow these steps to set up your own backend instance.
 3. Copy the contents of each `.gs` file in this directory into the Apps Script editor. You should create separate files in the editor for each:
    - `Code.gs`
    - `Config.gs`
+   - `Service_AI.gs`
    - `Service_Auth.gs`
    - `Service_Lock.gs`
    - `Service_Session.gs`
@@ -58,6 +59,34 @@ The script requires a specific "Config" sheet to handle authentication and setti
 5. You will be asked to **Authorize access**. Click "Review permissions", select your Google account, and likely click "Advanced" > "Go to (Script Name) (unsafe)" to proceed. This is normal for your own scripts.
 6. **COPY THE WEB APP URL.** It will look like `https://script.google.com/macros/s/.../exec`. You will need this for the website.
 
+### 5. Configure AI tag suggestions (optional)
+
+The "Suggest tags" feature is optional. Without these settings the rest of the
+app works, the action answers "not configured", and the button stays disabled.
+
+1. Get an API key from a supported provider. `AI_PROVIDER` can be `deepseek`,
+   `openai`, `openrouter` or `anthropic`. Any OpenAI-compatible chat-completions
+   endpoint also works with `AI_PROVIDER=openai` and `AI_BASE_URL` pointing at
+   it.
+2. In the Apps Script editor, open **Project Settings** > **Script properties**
+   and add:
+   - `AI_PROVIDER`: `deepseek`, `openai`, `openrouter` or `anthropic`.
+   - `AI_MODEL`: the model id shown by that provider. There is no built-in
+     default, so the deployment chooses it.
+   - `AI_API_KEY`: your key.
+   - `AI_BASE_URL`: optional, only for a gateway or self-hosted endpoint.
+3. Save. No redeploy is needed, because the properties are read on every
+   request. The first suggestion run asks for permission to call an external
+   service (`script.external_request`); approve it once.
+4. To rotate the key, edit the property. To turn the feature off, clear
+   `AI_API_KEY`.
+
+The key is visible to anyone with edit access to the Apps Script project, so do
+not share the project and set a spend limit on the provider account. When an
+editor asks for suggestions, the selected rows' descriptions and amounts and the
+current tag lists are sent to the provider; nothing is sent until then, and
+viewers cannot use the feature.
+
 ## 🛡️ Security Architecture
 
 This backend uses a custom security layer designed for "Serverless" static sites:
@@ -72,7 +101,8 @@ This backend uses a custom security layer designed for "Serverless" static sites
 ## 📂 File Structure
 
 - **`Code.gs`**: The main entry point (`doGet`). Routes requests to the appropriate service.
-- **`Config.gs`**: Central configuration (Sheet names, column constants).
+- **`Config.gs`**: Central configuration (Sheet names, column constants, AI provider registry).
+- **`Service_AI.gs`**: Tag suggestions. Reads the provider settings, builds the prompt, calls the provider and validates the reply. The only file that uses `PropertiesService` and `UrlFetchApp`.
 - **`Service_Auth.gs`**: Handles login, signature verification, and security checks.
 - **`Service_Lock.gs`**: The one place that takes the script lock (`withScriptLock`). Safe to nest, so a write that calls other locked helpers keeps a single lock throughout.
 - **`Service_Session.gs`**: Manages temporary session tokens.

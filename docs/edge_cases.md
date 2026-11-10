@@ -398,3 +398,87 @@ to past 30 days for unknown keys".
 migration on every read.
 
 **Status.** Handled in `Service_Sheet.gs`; backend only, no automated test.
+
+## AI tag suggestions
+
+### E-035: A Trip/Event is named like an Object property
+
+**Situation.** A tag is literally named `toString`, `constructor` or
+`__proto__`, and `TripTypeMap` is a plain object, so `map[trip]` returns an
+inherited value.
+
+**Expected.** The prompt shows no Type for that tag.
+
+**Status.** Not handled. `_buildPrompt` reads `TripTypeMap[trip]` without an
+own-property check, so the prompt text for that tag is malformed. The reply is
+still filtered against the live tag list, so no invalid tag can be returned.
+An own-property guard would fix it.
+
+### E-036: `Service_AI.gs` is deployed without the new `Config.gs`
+
+**Situation.** A partial paste leaves `AI_CONFIG` undefined while `Service_AI.gs`
+and `Code.gs` are current.
+
+**Expected.** The app still loads, and suggestions report "not configured"
+instead of the whole `getAppData` read failing.
+
+**Status.** Handled by `_aiConfigValue` and the `getStatus` try/catch;
+`suggestTags` returns `AI_NOT_CONFIGURED`. There is no automated test, because
+the backend harness compiles every `.gs` file and a top-level `const` cannot be
+hidden at runtime. Verified by inspection and an isolated `vm` run. The guards
+cover absence only: a malformed value such as `MAX_DESCRIPTION_LENGTH: 0` is
+used as-is, which is reachable only by hand-editing `Config.gs`.
+
+### E-037: Only one tag list has entries
+
+**Situation.** Trips exist but Categories are empty, and every selected row is
+missing only a Category.
+
+**Expected.** No provider call, because no valid proposal is possible.
+
+**Status.** Not handled. The plan's shortcut needs both lists to be empty, so
+the call happens and the reply is validated to an empty list. It costs one call
+and returns no wrong data; a per-row reachability check would avoid it.
+
+### E-038: The same row id appears twice in a batch
+
+**Situation.** A client sends `42` twice, or `42` and `"42"`.
+
+**Expected.** One proposal for the row, carrying the id type the request used.
+
+**Status.** Handled. Reply entries are matched by string id and the first valid
+entry wins. The client sends each selected row once. Duplicate reply entries
+have a test; duplicate request rows do not.
+
+### E-039: An empty batch on an unconfigured deployment
+
+**Situation.** The action is called with `rows=[]` before any key is set.
+
+**Expected.** `AI_NOT_CONFIGURED`, because configuration is checked before the
+empty-batch shortcut.
+
+**Status.** Handled by the order of the checks. Not separately tested, and the
+planned client never sends an empty batch.
+
+### E-040: A tag is renamed while a suggestion request is in flight
+
+**Situation.** The prompt offered a tag that no longer exists when the reply is
+used.
+
+**Expected.** The stale value is dropped and the rest of the proposal survives.
+
+**Status.** Handled at three layers: the server validates against the live list,
+the client reconciles against the store, and `updateExpenses` validates again at
+save time. No test covers a mid-flight rename; the unknown-tag tests cover the
+outcome.
+
+### E-041: A full batch makes a long JSONP URL
+
+**Situation.** 25 rows with long descriptions travel as query parameters, since
+JSONP cannot POST.
+
+**Expected.** The request stays within what Apps Script accepts.
+
+**Status.** Handled per row by `MAX_ROWS` (25) and `MAX_DESCRIPTION_LENGTH`
+(200), with no total-size cap. Real bank descriptions are far shorter. If a
+statement ever approaches the limit, lower `MAX_ROWS` in `Config.gs`.

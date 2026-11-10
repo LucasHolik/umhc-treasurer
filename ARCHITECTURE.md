@@ -82,20 +82,21 @@ There is no component framework; these are plain classes and functions.
 
 ### Backend
 
-Eight `.gs` files deployed together as one Apps Script project. They share a
+Nine `.gs` files deployed together as one Apps Script project. They share a
 single global scope, so helpers are called across files and the "modules" are
 conventions rather than enforced boundaries.
 
-| File                                                          | Responsibility                                                                                                |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| [`Code.gs`](google-apps-script/Code.gs)                       | JSONP router (`doGet`), action allow-lists, the consistent `getAppData` read, response helpers, sanitisation. |
-| [`Config.gs`](google-apps-script/Config.gs)                   | Sheet names, column headers, Config cell addresses, `LOCK_TIMEOUT_MS` (10 s).                                 |
-| [`Service_Auth.gs`](google-apps-script/Service_Auth.gs)       | Login, signature verification, timestamp window, per-write nonce, brute-force lockout.                        |
-| [`Service_Session.gs`](google-apps-script/Service_Session.gs) | Session creation, validation and invalidation, cached for 1 hour.                                             |
-| [`Service_Lock.gs`](google-apps-script/Service_Lock.gs)       | `withScriptLock(fn, timeoutMs)`, the only LockService caller. Re-entrant.                                     |
-| [`Service_Sheet.gs`](google-apps-script/Service_Sheet.gs)     | Finances rows, opening balance, Config layout migration, tag changes applied to expenses.                     |
-| [`Service_Tags.gs`](google-apps-script/Service_Tags.gs)       | Tag lists, `TripTypeMap`, `TripStatusMap`, and batched tag operations.                                        |
-| [`Service_Split.gs`](google-apps-script/Service_Split.gs)     | Split groups, revert, edit, history, stale `PENDING` cleanup.                                                 |
+| File                                                          | Responsibility                                                                                                   |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [`Code.gs`](google-apps-script/Code.gs)                       | JSONP router (`doGet`), action allow-lists, the consistent `getAppData` read, response helpers, sanitisation.    |
+| [`Config.gs`](google-apps-script/Config.gs)                   | Sheet names, column headers, Config cell addresses, `LOCK_TIMEOUT_MS` (10 s), the AI provider registry.          |
+| [`Service_AI.gs`](google-apps-script/Service_AI.gs)           | Tag suggestions: Script Properties settings, prompt, provider call, reply validation. Only `UrlFetchApp` caller. |
+| [`Service_Auth.gs`](google-apps-script/Service_Auth.gs)       | Login, signature verification, timestamp window, per-write nonce, brute-force lockout.                           |
+| [`Service_Session.gs`](google-apps-script/Service_Session.gs) | Session creation, validation and invalidation, cached for 1 hour.                                                |
+| [`Service_Lock.gs`](google-apps-script/Service_Lock.gs)       | `withScriptLock(fn, timeoutMs)`, the only LockService caller. Re-entrant.                                        |
+| [`Service_Sheet.gs`](google-apps-script/Service_Sheet.gs)     | Finances rows, opening balance, Config layout migration, tag changes applied to expenses.                        |
+| [`Service_Tags.gs`](google-apps-script/Service_Tags.gs)       | Tag lists, `TripTypeMap`, `TripStatusMap`, and batched tag operations.                                           |
+| [`Service_Split.gs`](google-apps-script/Service_Split.gs)     | Split groups, revert, edit, history, stale `PENDING` cleanup.                                                    |
 
 Actions routed by `Code.gs`:
 
@@ -104,11 +105,15 @@ Actions routed by `Code.gs`:
 - **Write (admin only):** `saveData`, `addTag`, `updateExpenses`, `deleteTag`,
   `renameTag`, `processTagOperations`, `saveOpeningBalance`, `splitTransaction`,
   `revertSplit`, `editSplit`.
+- **Admin only, writes nothing:** `suggestTags`, which spends provider credit
+  and is refused to a viewer like a write.
 - **Auth:** `login`.
 
-A viewer calling a write gets `Forbidden`. `getAppData` reads expenses, tags,
-opening balance and splits under one lock, so the app never sees a half-finished
-write.
+A viewer calling a write or `suggestTags` gets `Forbidden`. `getAppData` reads
+expenses, tags, opening balance and splits under one lock, so the app never sees
+a half-finished write. It also returns an `ai` status block (configured,
+provider, model, max rows) and never the key, or `null` when a new client meets
+an older backend without `Service_AI.gs`.
 
 ## Data flow
 
@@ -146,8 +151,8 @@ The suite is in [`tests/`](tests/), which mirrors `src/`, plus
 [`tests/backend/`](tests/backend/harness.js) for the Apps Script backend. It
 covers utils, financial logic, transactions, tags, trip status, state, DOM,
 Excel parsing, API helpers, analysis, the test helpers themselves, and the
-backend router, roles, auth, sanitisation, locking, tag batches, splits and
-opening balance. `tests/setup.js` registers a browser-like
+backend router, roles, auth, sanitisation, locking, tag batches, splits, opening
+balance and the AI suggestion action. `tests/setup.js` registers a browser-like
 environment with happy-dom, so browser modules import cleanly; the backend
 harness loads the `.gs` files into a Node `vm`.
 
@@ -168,6 +173,12 @@ choice (see `AGENTS.md` section 10).
 - The script URL is entered by the user and stored in `localStorage`. Passkeys
   are entered by the user and stored in the sheet's Config tab, in plain text;
   they are not in this repository.
+- The AI provider settings live in Apps Script Script Properties, not in the
+  sheet or the repository: `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY` and optional
+  `AI_BASE_URL`. Only `Service_AI.gs` reads them. The key is visible to anyone
+  with edit access to the script, so the script project should not be shared
+  and the provider account should carry a spend limit. Rotating the key is a
+  property edit with no redeploy.
 
 ## Where the code and `AGENTS.md` disagree
 

@@ -158,7 +158,21 @@ Properties. No frontend change, so the app behaves exactly as it does now.
 **Existing tests affected.** None. The `getAppData` change adds a field that no
 test deep-equals, and the fakes only gain services.
 
-**Status.** todo.
+**Status.** done. Reviewed and approved on 2026-11-10 after two attempts. The
+full suite is 268 tests and the format check passes locally on macOS.
+
+**Review notes.** The first review found an empty batch rejected against the
+plan, an id-less request row able to return a suggestion without `row`, and a
+`getStatus` throw when `Config.gs` had not been updated. All three were fixed,
+and tests now pin the empty-batch success, the seven invalid row-id cases, the
+four bad-reply shapes, the unconfigured status strings and the JSON content
+type. Remaining nice-to-haves: no regression test for the `AI_CONFIG`-absent
+path (the harness cannot remove a top-level `const`), no test for an empty batch
+on an unconfigured deployment, the validation table does not assert message
+reasons or the 25-row and 200-character boundaries, and `_buildPrompt` reads
+`TripTypeMap[trip]` without an own-property check (E-035). The `ai: null` branch
+is testable by omitting `Service_AI.gs` from the concatenated source, contrary
+to the implementer's report, and remains untested.
 
 ### Part 2: client service and suggestion logic
 
