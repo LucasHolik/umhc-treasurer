@@ -422,6 +422,55 @@ test("an unexpected write throw rolls the whole batch back", (t) => {
   assert.equal(backend.sheets.get("Split Transactions")[1][5], "");
 });
 
+test("a missing split restore helper reports an inconsistent rollback", (t) => {
+  const backend = createTestBackend(t);
+  const error = t.mock.method(console, "error", () => {});
+
+  // Simulate a deployment whose Service_Split lost restoreTagInSplits. The
+  // delete itself still succeeds and clears Food from Split Transactions, so
+  // the rollback is the only chance to put those rows back.
+  backend.helpers.hideSplitRestore();
+
+  const operations = [
+    ["Food", null, "delete", "Category"],
+    ["", "Travel", "add", "Category"],
+  ];
+
+  // The delete moves Tag cells with copyTo/clearContent, so this fault lands on
+  // the Travel add after the delete has already applied.
+  backend.helpers.failNextWrite("Tags", "setValue");
+  const response = backend.request("processTagOperations", { operations });
+
+  assert.equal(response.success, false);
+  assert.equal(response.rollback.attempted, true);
+  assert.equal(response.rollback.success, false);
+  assert.match(response.rollback.message, /restore helper is unavailable/i);
+  assert.match(response.message, /Data is INCONSISTENT/);
+  assert.doesNotMatch(response.message, /Changes reverted/);
+
+  // The delete survives the rollback as rollback_failed, so a client does not
+  // replay it, and the log carries the split rows that need reconciling.
+  assert.deepEqual(response.appliedOperations, [
+    { index: 0, operation: operations[0] },
+  ]);
+  const critical = error.mock.calls.find((call) =>
+    String(call.arguments[0]).includes("Splits restore helper is unavailable"),
+  );
+  assert.ok(critical, "the missing split restore helper is logged as critical");
+  assert.deepEqual(
+    Array.from(critical.arguments[1].splitRows),
+    [2, 4],
+    "the log carries the split rows that need reconciling",
+  );
+
+  // Tags and Finances are back to their pre-batch state, but Food cannot be
+  // restored to Split Transactions: the helper is gone.
+  assert.deepEqual(backend.sheets.get("Tags"), TAGS);
+  assert.deepEqual(backend.sheets.get("Finances"), FINANCES);
+  assert.equal(backend.sheets.get("Split Transactions")[1][5], "");
+  assert.equal(backend.sheets.get("Split Transactions")[3][5], "");
+});
+
 test("a Tags write throw during delete restores the external rows", (t) => {
   const backend = createTestBackend(t);
   const error = t.mock.method(console, "error", () => {});

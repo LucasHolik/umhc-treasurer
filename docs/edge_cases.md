@@ -203,8 +203,11 @@ that the external rows were not reverted.
 **Status.** Handled for the late Tags write during delete and for partial
 external writes during rename (B-006). A throw inside `removeTagFromSplits`
 after a partial split write still cannot report rows, and its guard is
-unreachable today because the helper catches its own write errors. B-007
-covers a missing restore helper.
+unreachable today because the helper catches its own write errors. A missing
+`restoreTagInSplits` helper now reports an inconsistent rollback (B-007), with
+test "a missing split restore helper reports an inconsistent rollback"
+(`tests/backend/tags.test.js`). The delete still proceeds without that helper;
+B-008 covers refusing it up front.
 
 ### E-031: The post-loop tag sort throws
 

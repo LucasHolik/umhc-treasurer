@@ -6,24 +6,34 @@ straight away. A fixed bug names the regression test that covers it.
 
 ## Open
 
-### B-007: Batch rollback treats a missing split restore helper as success
+### B-008: A tag delete proceeds without a split restore helper
 
-**Description.** In `_rollbackTagBatch`, when a compensation has non-empty
-`splitRows` but `Service_Split.restoreTagInSplits` is missing, the restore is
-skipped and `rollbackSuccess` stays true. The response can say "Changes
-reverted" while the Split Transactions rows are still cleared.
+**Description.** `_deleteTag` checks that `Service_Split.removeTagFromSplits`
+exists before clearing the tag from Split Transactions, but not that
+`Service_Split.restoreTagInSplits` exists. A deployment that has the remove
+helper but not the restore helper still deletes the tag from Split
+Transactions. If the batch later fails, those rows cannot be restored. B-007
+makes the response honest about that state; this entry covers preventing it up
+front.
 
-**Steps to reproduce.** Only reachable with a deployment mismatch that leaves
-the helper undefined while split rows are pending.
+**Steps to reproduce.** In the backend harness, hide
+`Service_Split.restoreTagInSplits` and delete a Category that is used by split
+rows. The delete succeeds and the Split Transactions cells are cleared.
 
-**Severity.** Low. It needs a missing dependency, but the claim would be false.
+**Severity.** Low. It needs a mismatched deployment, but it clears data that
+the code then cannot restore.
 
-**Where.** `google-apps-script/Service_Tags.gs`, `_rollbackTagBatch`.
+**Where.** `google-apps-script/Service_Tags.gs`, the `Service_Split` pre-flight
+in `_deleteTag` (around line 377).
 
-**Status.** Open. Found during the Phase 5 part 1 review; not fixed.
+**Status.** Open. Recorded while fixing B-007; not fixed.
 
-**Suggested fix.** When `comp.splitRows` is non-empty and the helper is
-missing, set `rollbackSuccess = false` and record the inconsistent detail.
+**Suggested fix.** Require `Service_Split.restoreTagInSplits` in the pre-flight
+alongside `removeTagFromSplits`, as the `Service_Sheet` pre-flight already
+requires both `removeTagFromExpenses` and `restoreTagInExpenses`. Add a
+regression test that hides the restore helper and asserts the delete is refused
+and the split rows are untouched. This would make the B-007 rollback branch
+unreachable through the public actions, so it would remain defence in depth.
 
 ## Fixed
 
@@ -167,3 +177,27 @@ external sheets", "a Finances write throw during rename reverts the external
 rows", "a Split Transactions write throw during rename reverts the external
 rows", "a failed compensation reports the rename as inconsistent" and "a
 failed batch compensation reports the rename as inconsistent".
+
+### B-007: Batch rollback treats a missing split restore helper as success
+
+**Description.** In `_rollbackTagBatch`, when a compensation has non-empty
+`splitRows` but `Service_Split.restoreTagInSplits` is missing, the restore was
+skipped and `rollbackSuccess` stayed true. The response could say "Changes
+reverted" while the Split Transactions rows were still cleared.
+
+**Steps to reproduce.** In the backend harness, call
+`backend.helpers.hideSplitRestore()`, fail the next Tags `setValue`, and send
+`[["Food", null, "delete", "Category"], ["", "Travel", "add", "Category"]]`.
+The delete clears Food from Split Transactions, the add throws, and the
+rollback cannot restore the split rows.
+
+**Severity.** Low. It needs a missing dependency, but the claim was false.
+
+**Where.** `google-apps-script/Service_Tags.gs`, `_rollbackTagBatch`.
+
+**Status.** Fixed. Regression test: "a missing split restore helper reports an
+inconsistent rollback" (`tests/backend/tags.test.js`). When `splitRows` is
+non-empty and the helper is missing, the rollback logs the affected rows, sets
+`rollback.success: false` and returns the inconsistent detail, so it no longer
+claims "Changes reverted". The delete still proceeds without the helper;
+B-008 covers refusing it up front.
