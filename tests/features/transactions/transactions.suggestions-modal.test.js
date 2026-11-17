@@ -595,3 +595,28 @@ test("Cancel after edits resolves null without mutating input proposals and clea
   assert.equal(qa(".tag-selector-popover").length, 0);
   assert.equal(modal.tagSelector, null);
 });
+
+test("clicking the active pill trigger toggles TagSelector closed and restores focus to the trigger", async () => {
+  const { modal, result } = openModal();
+
+  const trigger = q(
+    '.suggest-row[data-index="0"] [data-field="category"] .suggest-pill__trigger',
+  );
+  trigger.click();
+
+  const popover = q(".tag-selector-popover");
+  assert.equal(popover.style.display, "block");
+  assert.equal(
+    document.activeElement,
+    popover.querySelector(".tag-selector-search"),
+  );
+
+  // Second click on the same active trigger closes the popover and restores focus.
+  trigger.click();
+  assert.equal(popover.style.display, "none");
+  assert.ok(q(".modal-overlay"));
+  assert.equal(document.activeElement, trigger);
+
+  modal.close(null);
+  await result;
+});

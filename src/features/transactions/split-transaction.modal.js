@@ -397,7 +397,7 @@ export default class SplitTransactionModal {
         type,
         store.getState("tags") || {},
       );
-      this.tagSelector.show(target, type, value, writeBack, customOptions, {
+      this.tagSelector.toggle(target, type, value, writeBack, customOptions, {
         pastOptions,
       });
     };
@@ -427,6 +427,9 @@ export default class SplitTransactionModal {
       pill.addEventListener("click", (e) => {
         if (e.target.classList.contains("remove-btn")) {
           e.stopPropagation();
+          if (this.tagSelector && this.tagSelector.isOpen) {
+            this.tagSelector.close();
+          }
           writeBack("");
           return;
         }

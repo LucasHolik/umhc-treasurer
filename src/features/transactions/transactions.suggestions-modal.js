@@ -497,7 +497,7 @@ export default class TransactionsSuggestionsModal {
     }
 
     let didSelect = false;
-    this.tagSelector.show(
+    this.tagSelector.toggle(
       trigger,
       field.rowKey,
       currentVal,

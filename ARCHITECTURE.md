@@ -78,7 +78,7 @@ its own module, `transactions.suggestions-modal.js`.
 ### Shared UI
 
 [`src/shared/`](src/shared/) holds the reusable pieces: `SortableTable`,
-`ModalComponent`, `TagSelector` (including the optional past-tags toggle and close callback),
+`ModalComponent`, `TagSelector` (with `show`, `toggle`, `close`, outside-click/tap dismissal, optional past-tags toggle and close callback),
 `LoaderComponent`, `MobileDataCard`, `MobileDisclosure` and `withSearchInputAttributes`.
 There is no component framework; these are plain classes and functions.
 
@@ -157,10 +157,10 @@ Defaults live in [`src/core/state.js`](src/core/state.js).
 The suite is in [`tests/`](tests/), which mirrors `src/`, plus
 [`tests/backend/`](tests/backend/harness.js) for the Apps Script backend. It
 covers utils, financial logic, transactions, tags, trip status, state, DOM,
-Excel parsing, API helpers, analysis, the test helpers themselves, the AI
-suggestion logic and review dialog, `TagSelector`, and the backend router, roles, auth,
-sanitisation, locking, tag batches, splits, opening balance and the AI
-suggestion action. `tests/setup.js` registers a browser-like
+Excel parsing, API helpers, analysis, the test helpers themselves, the
+Transactions component, AI suggestion logic and review dialog, `TagSelector`,
+and the backend router, roles, auth, sanitisation, locking, tag batches, splits,
+opening balance and the AI suggestion action. `tests/setup.js` registers a browser-like
 environment with happy-dom, so browser modules import cleanly; the backend
 harness loads the `.gs` files into a Node `vm`.
 

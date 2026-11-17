@@ -868,3 +868,69 @@ already set on `rowsById`.
 before `currentValue`), and unreachable through the app because
 `reconcileSuggestions` never proposes an already-tagged field and
 `filterStillMissing` drops it on apply. Low.
+
+## Tag selector and transactions ledger
+
+### E-076: iOS Safari outside tap vs same-gesture click handlers
+
+**Situation.** On iOS Safari, tapping non-interactive background elements
+(`div`, headings, whitespace) fires `pointerdown` and `pointerup` without a
+`click` event. Conversely, closing synchronously on `pointerup` would clear
+`isOpen` before same-gesture `click` handlers (row clicks, `.modal-overlay`,
+`toggle()`) run.
+
+**Expected.** Outside taps on non-interactive elements hide `TagSelector`, while
+same-gesture `click` handlers still observe `isOpen === true` and `> 10` px
+drags, `pointercancel`, non-primary mouse buttons and gestures starting inside
+the popover do not dismiss it.
+
+**Status.** Handled (`TagSelector` schedules `setTimeout(..., 0)` on outside
+`pointerup` guarded by `_openSeq` and clears pending timers in `show()`,
+`close()` and `destroy()`). Tested in
+`tests/shared/tag-selector.component.test.js` and
+`tests/features/transactions/transactions.component.test.js`.
+
+### E-077: Clicking a row, card, active trigger or remove button while `TagSelector` is open
+
+**Situation.** In the Transactions ledger, `TagSelector` is open on a row pill
+or `+` placeholder and the user clicks on the transaction row or mobile card,
+clicks the same trigger again, clicks a different trigger, clicks `.remove-btn`,
+or presses `Escape` with focus outside the popover.
+
+**Expected.** Clicking a row or mobile card closes `TagSelector` without opening
+`SplitTransactionModal`; clicking the active trigger toggles it closed; clicking
+a different trigger closes the previous session (firing `onClose`) and opens the
+new one; clicking `.remove-btn` closes `TagSelector` and clears the tag; and
+`Escape` or `renderTransactionsDisplay()` closes it cleanly.
+
+**Status.** Handled (`TransactionsComponent` binds tag-trigger clicks on
+`this.element` before `document`, uses `TagSelector.toggle()`, and checks
+`tagSelector.isOpen` in `handleRowClick`, `handleInteractiveTagKeydown` and
+`renderTransactionsDisplay()`; `TransactionsSuggestionsModal` and
+`SplitTransactionModal` also use `toggle()`). Tested in
+`tests/features/transactions/transactions.component.test.js` and
+`tests/features/transactions/transactions.suggestions-modal.test.js`.
+
+### E-078: Programmatic `applyFilters()` or `toggleSelectionMode(true)` while `TagSelector` is open
+
+**Situation.** `applyFilters()` (called on `expenses` store updates) and
+`toggleSelectionMode(true)` (called via `transactionParams`) rebuild the
+table/mobile rows without calling `renderTransactionsDisplay()`.
+
+**Expected.** An open `TagSelector` closes rather than staying anchored to a
+detached trigger.
+
+**Status.** Not handled. Unreachable from normal UI clicks because clicking
+filters or mode buttons dismisses `TagSelector` first; low risk.
+
+### E-079: Pressing `Escape` in `SplitTransactionModal` when focus leaves `TagSelector`
+
+**Situation.** `TagSelector` is open inside `SplitTransactionModal` and focus
+moves outside `.tag-selector-popover` before the user presses `Escape`.
+
+**Expected.** Close only `TagSelector` rather than the whole split modal,
+matching `TransactionsSuggestionsModal` (`E-073`).
+
+**Status.** Not handled. Pre-existing; `SplitTransactionModal.handleEscape` does
+not check `this.tagSelector.isOpen`, though closing the modal destroys
+`TagSelector` cleanly. Low.
