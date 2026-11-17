@@ -69,7 +69,7 @@ login or app, owns the initial load and enforces role-based routing.
 
 Pure helpers sit beside the components: `transactions.logic.js` (`filterData`,
 `sortData`, `buildTagSelectorOptions`), `transactions.suggestions.js` (row selection, the missing-tag display filter,
-batching, reconciliation, pending merge) and `tags.logic.js` (virtual
+batching, reconciliation, review-row assembly, pending merge) and `tags.logic.js` (virtual
 tag lists, stats, queue optimisation, `resolveSaveFailure`).
 `analysis.logic.js` (date ranges, filtering, aggregation, CSV) imports the
 store, so it is not pure; see `AGENTS.md` section 10.2. The AI review dialog is
@@ -78,7 +78,7 @@ its own module, `transactions.suggestions-modal.js`.
 ### Shared UI
 
 [`src/shared/`](src/shared/) holds the reusable pieces: `SortableTable`,
-`ModalComponent`, `TagSelector` (including the optional past-tags toggle),
+`ModalComponent`, `TagSelector` (including the optional past-tags toggle and close callback),
 `LoaderComponent`, `MobileDataCard`, `MobileDisclosure` and `withSearchInputAttributes`.
 There is no component framework; these are plain classes and functions.
 
@@ -158,7 +158,7 @@ The suite is in [`tests/`](tests/), which mirrors `src/`, plus
 [`tests/backend/`](tests/backend/harness.js) for the Apps Script backend. It
 covers utils, financial logic, transactions, tags, trip status, state, DOM,
 Excel parsing, API helpers, analysis, the test helpers themselves, the AI
-suggestion logic and review dialog, and the backend router, roles, auth,
+suggestion logic and review dialog, `TagSelector`, and the backend router, roles, auth,
 sanitisation, locking, tag batches, splits, opening balance and the AI
 suggestion action. `tests/setup.js` registers a browser-like
 environment with happy-dom, so browser modules import cleanly; the backend

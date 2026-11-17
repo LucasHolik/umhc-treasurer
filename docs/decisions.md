@@ -556,3 +556,36 @@ the pending-changes save means the feature adds no second write path. Proposals
 are never written anywhere until Apply, so a bad model reply costs nothing.
 
 **Decided by.** User, 2026-11-10.
+
+### D-022: Editable suggestions and manual selection for missing tags
+
+**Question.** Should the review dialog let the editor change suggested tags and
+fill in missing fields that the AI left blank, and how should rows with zero
+AI suggestions and already-tagged fields behave?
+
+**Context.** In v1 (D-021), inline editing in the review dialog was deferred,
+unsuggested missing fields were hidden, and rows where the AI proposed neither
+field were dropped. The user asked to edit any suggested tag, see "No tag" when
+the AI did not suggest one, and select tags manually in the popup.
+
+**Options.**
+
+1. Keep `reconcileSuggestions` strict and add a review-row builder plus
+   `TagSelector` editing in `TransactionsSuggestionsModal`: show all
+   still-eligible requested rows (rows with zero AI suggestions start unticked
+   with disabled ticks until a tag is chosen), show `"No tag"` for any
+   unsuggested missing field, allow editing/clearing missing/suggested fields,
+   and keep already-set (`kept`) tags read-only.
+2. Allow editing already-set (`kept`) tags inside the review dialog too, or
+   drop rows that received zero AI suggestions.
+
+**Choice.** Option 1. Proposals and manual picks in the review dialog still only
+fill tags that were blank on the row (never overwriting an already-set tag),
+and nothing is applied without a tick. Rows with zero AI suggestions appear
+unticked in the dialog and auto-tick once a tag is picked.
+
+**Reason.** Preserves D-021's safety guarantee that AI review never overwrites an
+existing tag while letting the user correct AI proposals and finish tagging all
+selected rows in one pass. Confirmed by the user on 2026-11-17.
+
+**Decided by.** User, 2026-11-17. Amends D-021.

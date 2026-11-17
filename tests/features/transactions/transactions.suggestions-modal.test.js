@@ -40,6 +40,16 @@ const proposals = () => [
   { row: 3, category: "Transport" },
 ];
 
+const TAGS = {
+  "Trip/Event": ["Winter Trip", "Summer Trip", "Old Trip"],
+  Category: ["Food", "Transport", "Gear"],
+  TripStatusMap: {
+    "Winter Trip": "Active",
+    "Summer Trip": "Active",
+    "Old Trip": "Completed",
+  },
+};
+
 const openModals = new Set();
 
 const openModal = (options = {}) => {
@@ -48,6 +58,7 @@ const openModal = (options = {}) => {
   const result = modal.open({
     suggestions: proposals(),
     rowsById: rowsById(),
+    tags: TAGS,
     ...options,
   });
   return { modal, result };
@@ -311,4 +322,276 @@ test("a second open on the same instance is refused", async () => {
 
   modal.close(null);
   await result;
+});
+
+test("editing a proposed tag via TagSelector updates the pill, keeps focus and resolves the edited value", async () => {
+  const { result } = openModal();
+
+  const trigger = q(
+    '.suggest-row[data-index="0"] [data-field="category"] .suggest-pill__trigger',
+  );
+  trigger.click();
+
+  const popover = q(".tag-selector-popover");
+  assert.ok(popover);
+  assert.equal(popover.style.display, "block");
+  assert.ok(popover.classList.contains("tag-selector-popover--split-modal"));
+
+  const gearItem = qa(".tag-selector-item").find(
+    (item) => item.textContent === "Gear",
+  );
+  assert.ok(gearItem);
+  gearItem.click();
+
+  assert.equal(popover.style.display, "none");
+  const updatedTrigger = q(
+    '.suggest-row[data-index="0"] [data-field="category"] .suggest-pill__trigger',
+  );
+  assert.equal(updatedTrigger.textContent, "Category: Gear");
+  assert.equal(document.activeElement, updatedTrigger);
+  assert.equal(qa(".suggest-row__tick")[0].checked, true);
+
+  q("#suggest-apply-btn").click();
+  assert.deepEqual(await result, [
+    { row: 2, tripEvent: "Winter Trip", category: "Gear" },
+    { row: 3, category: "Transport" },
+  ]);
+});
+
+test("editing Trip/Event hides past trips behind the See past tags toggle", async () => {
+  const { modal, result } = openModal();
+
+  q(
+    '.suggest-row[data-index="0"] [data-field="tripEvent"] .suggest-pill__trigger',
+  ).click();
+
+  assert.equal(
+    qa(".tag-selector-item").some((item) =>
+      item.textContent.includes("Old Trip"),
+    ),
+    false,
+  );
+  const pastToggle = q(".tag-selector-toggle-past");
+  assert.equal(pastToggle.textContent, "See past tags (1)");
+  pastToggle.click();
+
+  const oldTripItem = qa(".tag-selector-item").find((item) =>
+    item.textContent.includes("Old Trip"),
+  );
+  assert.ok(oldTripItem);
+  oldTripItem.click();
+
+  assert.equal(
+    q(
+      '.suggest-row[data-index="0"] [data-field="tripEvent"] .suggest-pill__trigger',
+    ).textContent,
+    "Trip/Event: Old Trip",
+  );
+
+  q("#suggest-apply-btn").click();
+  assert.deepEqual(await result, [
+    { row: 2, tripEvent: "Old Trip", category: "Food" },
+    { row: 3, category: "Transport" },
+  ]);
+  modal.close(null);
+});
+
+test("clearing a tag reverts to No tag and auto-unticks and disables when the last tag is removed", async () => {
+  const { result } = openModal();
+
+  // Row 0 has two proposed tags: clearing one keeps it ticked and focuses No tag.
+  q(
+    '.suggest-row[data-index="0"] [data-field="tripEvent"] .suggest-pill__remove',
+  ).click();
+
+  const emptyTripBtn = q(
+    '.suggest-row[data-index="0"] .suggest-pill--empty[data-field="tripEvent"]',
+  );
+  assert.ok(emptyTripBtn);
+  assert.equal(emptyTripBtn.textContent, "Trip/Event: No tag");
+  assert.equal(document.activeElement, emptyTripBtn);
+  assert.equal(qa(".suggest-row__tick")[0].disabled, false);
+  assert.equal(qa(".suggest-row__tick")[0].checked, true);
+  assert.equal(q(".suggest-count").textContent, "2 of 2 selected");
+
+  // Clearing its remaining tag unticks and disables the row.
+  q(
+    '.suggest-row[data-index="0"] [data-field="category"] .suggest-pill__remove',
+  ).click();
+
+  const tick0 = qa(".suggest-row__tick")[0];
+  assert.equal(tick0.checked, false);
+  assert.equal(tick0.disabled, true);
+  assert.equal(
+    tick0.getAttribute("title"),
+    "Select at least one tag to include this row",
+  );
+  assert.equal(q(".suggest-count").textContent, "1 of 2 selected");
+  assert.equal(q(".suggest-toggle").textContent, "Clear all");
+  assert.equal(q("#suggest-apply-btn").textContent, "Apply 1 suggestion");
+
+  // Clearing row 1 leaves zero selectable rows.
+  q(
+    '.suggest-row[data-index="1"] [data-field="category"] .suggest-pill__remove',
+  ).click();
+
+  assert.equal(q(".suggest-count").textContent, "0 of 2 selected");
+  assert.equal(q(".suggest-toggle").disabled, true);
+  assert.equal(q(".suggest-toggle").textContent, "Select all");
+  assert.equal(q("#suggest-apply-btn").disabled, true);
+
+  q(".suggest-modal-footer .modal-btn-cancel").click();
+  assert.equal(await result, null);
+});
+
+test("an empty No tag pill lets the editor pick a tag manually and auto-ticks the row", async () => {
+  const { result } = openModal({
+    suggestions: [{ row: 2 }, { row: 3 }],
+  });
+
+  const ticks = qa(".suggest-row__tick");
+  assert.ok(ticks.every((tick) => !tick.checked && tick.disabled));
+  assert.equal(q(".suggest-count").textContent, "0 of 2 selected");
+  assert.equal(q(".suggest-toggle").disabled, true);
+  assert.equal(q("#suggest-apply-btn").disabled, true);
+  assert.equal(q("#suggest-apply-btn").textContent, "Apply 0 suggestions");
+  // When every tick is disabled, focus lands on an enabled control in the modal.
+  assert.equal(document.activeElement.disabled, false);
+  assert.ok(q(".suggest-modal-content").contains(document.activeElement));
+
+  // Row 1 already has Trip/Event: Winter Trip set on the ledger row, so kept stays read-only.
+  const kept = q('.suggest-row[data-index="1"] .suggest-pill--kept');
+  assert.ok(kept);
+  assert.equal(kept.querySelector("button"), null);
+  assert.equal(
+    q(
+      '.suggest-row[data-index="1"] .suggest-pill--empty[data-field="category"]',
+    ).textContent,
+    "Category: No tag",
+  );
+
+  // Pick a manual Category on row 0.
+  q(
+    '.suggest-row[data-index="0"] .suggest-pill--empty[data-field="category"]',
+  ).click();
+  qa(".tag-selector-item")
+    .find((item) => item.textContent === "Food")
+    .click();
+
+  assert.equal(qa(".suggest-row__tick")[0].disabled, false);
+  assert.equal(qa(".suggest-row__tick")[0].checked, true);
+  assert.equal(q(".suggest-count").textContent, "1 of 2 selected");
+  assert.equal(q(".suggest-toggle").disabled, false);
+  assert.equal(q(".suggest-toggle").textContent, "Clear all");
+  assert.equal(q("#suggest-apply-btn").disabled, false);
+  assert.equal(q("#suggest-apply-btn").textContent, "Apply 1 suggestion");
+
+  q("#suggest-apply-btn").click();
+  assert.deepEqual(await result, [{ row: 2, category: "Food" }]);
+});
+
+test("Escape and overlay click while TagSelector is open close only the popover and return focus to the trigger", async () => {
+  const { modal, result } = openModal({
+    suggestions: [{ row: 2 }],
+  });
+
+  const trigger = q(
+    '.suggest-row[data-index="0"] .suggest-pill--empty[data-field="category"]',
+  );
+  trigger.click();
+
+  const popover = q(".tag-selector-popover");
+  assert.equal(popover.style.display, "block");
+  assert.equal(
+    document.activeElement,
+    popover.querySelector(".tag-selector-search"),
+  );
+
+  // Escape inside TagSelector closes only the popover.
+  document.activeElement.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+  );
+  assert.equal(popover.style.display, "none");
+  assert.ok(q(".modal-overlay"));
+  assert.equal(document.activeElement, trigger);
+
+  // Re-open and dispatch Escape on document directly: still closes only the popover.
+  trigger.click();
+  assert.equal(popover.style.display, "block");
+  document.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", cancelable: true }),
+  );
+  assert.equal(popover.style.display, "none");
+  assert.ok(q(".modal-overlay"));
+  assert.equal(document.activeElement, trigger);
+
+  // Re-open and click the modal overlay: still closes only the popover.
+  trigger.click();
+  assert.equal(popover.style.display, "block");
+  q(".modal-overlay").dispatchEvent(new MouseEvent("click"));
+  assert.equal(popover.style.display, "none");
+  assert.ok(q(".modal-overlay"));
+  assert.equal(document.activeElement, trigger);
+
+  // Next Escape closes the modal itself.
+  document.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", cancelable: true }),
+  );
+  assert.equal(await result, null);
+  assert.equal(modal.overlay, null);
+});
+
+test("Tab wraps inside TagSelector while it is open", async () => {
+  const { modal, result } = openModal();
+
+  q(
+    '.suggest-row[data-index="0"] [data-field="category"] .suggest-pill__trigger',
+  ).click();
+
+  const popover = q(".tag-selector-popover");
+  const searchInput = popover.querySelector(".tag-selector-search");
+  const items = Array.from(popover.querySelectorAll(".tag-selector-item"));
+  const lastItem = items[items.length - 1];
+
+  lastItem.focus();
+  assert.equal(document.activeElement, lastItem);
+
+  document.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Tab", cancelable: true }),
+  );
+  assert.equal(document.activeElement, searchInput);
+
+  document.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      key: "Tab",
+      shiftKey: true,
+      cancelable: true,
+    }),
+  );
+  assert.equal(document.activeElement, lastItem);
+
+  modal.close(null);
+  await result;
+});
+
+test("Cancel after edits resolves null without mutating input proposals and cleans up TagSelector", async () => {
+  const inputSuggestions = proposals();
+  const snapshot = structuredClone(inputSuggestions);
+  const { modal, result } = openModal({ suggestions: inputSuggestions });
+
+  assert.equal(qa(".tag-selector-popover").length, 1);
+
+  q(
+    '.suggest-row[data-index="0"] [data-field="category"] .suggest-pill__trigger',
+  ).click();
+  qa(".tag-selector-item")
+    .find((item) => item.textContent === "Gear")
+    .click();
+
+  q(".suggest-modal-footer .modal-btn-cancel").click();
+
+  assert.equal(await result, null);
+  assert.deepEqual(inputSuggestions, snapshot);
+  assert.equal(qa(".tag-selector-popover").length, 0);
+  assert.equal(modal.tagSelector, null);
 });

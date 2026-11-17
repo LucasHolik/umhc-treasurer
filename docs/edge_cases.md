@@ -817,3 +817,54 @@ directly. Low.
 
 **Status.** Not handled. The pure helper is tested; the component has no test
 harness. Low.
+
+### E-072: AI returns no suggestion for one missing field or for a whole row
+
+**Situation.** A selected row is missing one or both tags, and the AI suggests
+only one field or neither field.
+
+**Expected.** Keep every still-eligible requested row in the review dialog,
+show `"No tag"` for any unsuggested missing field, let the editor pick tags
+manually, and start rows with zero AI suggestions unticked with disabled ticks
+until a tag is chosen.
+
+**Status.** Handled (`buildReviewRows`, `TransactionsSuggestionsModal`, and
+`TransactionsComponent`). Tested in
+`tests/features/transactions/transactions.suggestions.test.js` and
+`tests/features/transactions/transactions.suggestions-modal.test.js` (D-022).
+
+### E-073: Pressing Escape or clicking the overlay while `TagSelector` is open in the review dialog
+
+**Situation.** The editor opens `TagSelector` on a pill inside the review dialog
+and presses `Escape` or clicks the modal overlay to dismiss the popover.
+
+**Expected.** Close only `TagSelector` and return focus to the pill trigger,
+keeping the review dialog and any unsaved edits open.
+
+**Status.** Handled (`TagSelector` stops propagation on `Escape`, and
+`TransactionsSuggestionsModal` intercepts overlay clicks and traps `Tab` inside
+the open popover). Tested in `tests/shared/tag-selector.component.test.js` and
+`tests/features/transactions/transactions.suggestions-modal.test.js`.
+
+### E-074: Clicking a non-pill control in the review dialog while `TagSelector` is open
+
+**Situation.** `TagSelector` is open on a pill and the editor clicks another
+focusable control inside the dialog, such as a row tick checkbox.
+
+**Expected.** The popover closes and focus stays on the clicked control.
+
+**Status.** Not handled. `TagSelector`'s `globalClickHandler` closes the
+popover and invokes `onClose`, which restores focus to the pill trigger. Low.
+
+### E-075: Synthetic proposal for an already-tagged field passed directly to the review dialog
+
+**Situation.** A caller passes a `suggestions` entry directly to
+`TransactionsSuggestionsModal.open` containing a value for a field that is
+already set on `rowsById`.
+
+**Expected.** Kept fields stay read-only.
+
+**Status.** Not handled in `renderRow` (`proposed !== undefined` is checked
+before `currentValue`), and unreachable through the app because
+`reconcileSuggestions` never proposes an already-tagged field and
+`filterStillMissing` drops it on apply. Low.

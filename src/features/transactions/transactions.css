@@ -921,6 +921,11 @@
   cursor: pointer;
 }
 
+.suggest-row__tick:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Override the shared .modal-body input sizing (100% width, 10px padding)
    so the row tick stays a small checkbox. */
 .suggest-modal-content .modal-body .suggest-row__tick {
@@ -986,10 +991,109 @@
   font-size: 0.85em;
 }
 
+.suggest-pill--editable {
+  padding: 0;
+  gap: 2px;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.suggest-pill--editable:hover {
+  background: rgba(240, 173, 78, 0.28);
+  border-color: rgba(240, 173, 78, 0.8);
+}
+
+.suggest-pill__trigger {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 2px 6px 2px 8px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 3px;
+}
+
+.suggest-pill__trigger:focus {
+  outline: none;
+}
+
+.suggest-pill__trigger:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 1px;
+}
+
+.suggest-pill__remove {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  font: inherit;
+  font-weight: bold;
+  font-size: 1.1em;
+  line-height: 1;
+  padding: 2px 6px 2px 4px;
+  cursor: pointer;
+  opacity: 0.75;
+  border-radius: 3px;
+  transition:
+    opacity 0.2s,
+    color 0.2s;
+}
+
+.suggest-pill--editable:hover .suggest-pill__remove,
+.suggest-pill--editable:focus-within .suggest-pill__remove,
+.suggest-pill__remove:hover {
+  opacity: 1;
+}
+
+.suggest-pill__remove:hover {
+  color: #ff8a80;
+}
+
+.suggest-pill__remove:focus {
+  outline: none;
+}
+
+.suggest-pill__remove:focus-visible {
+  outline: 2px solid #ff6b6b;
+  outline-offset: 1px;
+  opacity: 1;
+}
+
 .suggest-pill--kept {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.16);
   color: rgba(255, 255, 255, 0.62);
+}
+
+.suggest-pill--empty {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.72);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.suggest-pill--empty:hover {
+  background: rgba(240, 173, 78, 0.14);
+  border-color: rgba(240, 173, 78, 0.6);
+  color: #f7d7a0;
+}
+
+.suggest-pill--empty:focus {
+  outline: none;
+}
+
+.suggest-pill--empty:focus-visible {
+  outline: 2px solid #f0ad4e;
+  outline-offset: 2px;
+  border-color: rgba(240, 173, 78, 0.8);
+  color: #f7d7a0;
 }
 
 .suggest-modal-content .modal-footer {
@@ -1094,5 +1198,22 @@
 
   .suggest-row__amount {
     margin-left: 0;
+  }
+
+  .suggest-tags {
+    gap: 8px;
+  }
+
+  .suggest-pill__trigger,
+  .suggest-pill__remove,
+  .suggest-pill--empty {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .suggest-pill__remove {
+    min-width: 28px;
+    justify-content: center;
   }
 }

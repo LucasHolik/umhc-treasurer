@@ -109,9 +109,10 @@ export default class TagSelector {
     // Prevent closing when clicking inside
     this.element.addEventListener("click", (e) => e.stopPropagation());
 
-    // Escape to close
+    // Escape to close without bubbling to a parent modal
     this.element.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
+      if (this.isOpen && e.key === "Escape") {
+        e.stopPropagation();
         this.close();
       }
     });
@@ -126,6 +127,7 @@ export default class TagSelector {
    * @param {Object} [options]
    * @param {Array<{value: string, hint: string}>} [options.pastOptions] -
    *   Tags hidden behind a "See past tags" toggle. The hint explains why.
+   * @param {Function|null} [options.onClose] - Called once when closing an open popover.
    */
   show(
     targetElement,
@@ -133,7 +135,7 @@ export default class TagSelector {
     currentVal,
     onSelect,
     customOptions = null,
-    { pastOptions = [] } = {},
+    { pastOptions = [], onClose = null } = {},
   ) {
     this.currentConfig = {
       type,
@@ -141,6 +143,7 @@ export default class TagSelector {
       currentVal,
       customOptions,
       pastOptions: Array.isArray(pastOptions) ? pastOptions : [],
+      onClose: typeof onClose === "function" ? onClose : null,
     };
     this.targetElement = targetElement;
     this.searchTerm = "";
@@ -180,6 +183,10 @@ export default class TagSelector {
   }
 
   close() {
+    const wasOpen = this.isOpen;
+    const onClose =
+      wasOpen && this.currentConfig ? this.currentConfig.onClose : null;
+
     this.isOpen = false;
     this.element.style.display = "none";
     this.currentConfig = null;
@@ -188,6 +195,10 @@ export default class TagSelector {
 
     window.removeEventListener("scroll", this.repositionHandler, true);
     window.removeEventListener("resize", this.repositionHandler);
+
+    if (wasOpen && typeof onClose === "function") {
+      onClose();
+    }
   }
 
   destroy() {

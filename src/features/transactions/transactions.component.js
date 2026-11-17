@@ -13,6 +13,7 @@ import TransactionsSuggestionsModal from "./transactions.suggestions-modal.js";
 import * as TransactionsLogic from "./transactions.logic.js";
 import {
   buildRequestRows,
+  buildReviewRows,
   collectSuggestions,
   filterRowsMissingTags,
   filterStillMissing,
@@ -2018,37 +2019,46 @@ class TransactionsComponent {
       }
 
       const currentRowsById = this.buildRowsById();
+      const currentTags = store.getState("tags");
       const reconciled = reconcileSuggestions(
         result.suggestions,
         requestRows,
         currentRowsById,
-        store.getState("tags"),
+        currentTags,
       );
 
-      if (reconciled.length === 0) {
-        if (result.error) {
-          await new ModalComponent().alert(
-            this.describeSuggestionError(result.error),
-          );
-        } else {
-          await new ModalComponent().alert(
-            skippedText
-              ? `${skippedText} No suggestions were returned.`
-              : "No suggestions were returned.",
-          );
-        }
+      if (reconciled.length === 0 && result.error) {
+        await new ModalComponent().alert(
+          this.describeSuggestionError(result.error),
+        );
+        return;
+      }
+
+      const reviewRows = buildReviewRows(
+        reconciled,
+        requestRows,
+        currentRowsById,
+      );
+      if (reviewRows.length === 0) {
+        await new ModalComponent().alert(
+          skippedText
+            ? `${skippedText} No suggestions were returned.`
+            : "No suggestions were returned.",
+        );
         return;
       }
 
       this.toggleSelectionMode(false);
       const accepted = await this.openSuggestionReview(
-        reconciled,
+        reviewRows,
         currentRowsById,
         this.buildSuggestionNotice(
           alreadyTagged,
           missingDescription,
           result.error,
+          { noSuggestions: reconciled.length === 0 },
         ),
+        currentTags,
       );
       if (!accepted) return;
 
@@ -2142,17 +2152,30 @@ class TransactionsComponent {
   }
 
   /**
-   * Builds the review dialog's notice from the selected rows that were skipped
-   * and any partial-batch error, so neither is lost when the toolbar hides.
+   * Builds the review dialog's notice from the selected rows that were skipped,
+   * whether the AI returned zero usable proposals, and any partial-batch error,
+   * so neither is lost when the toolbar hides.
    * @param {number} alreadyTagged - rows with no missing tag
    * @param {number} missingDescription - rows with no usable description
    * @param {*} error - the first batch error, or null
+   * @param {object} [options]
+   * @param {boolean} [options.noSuggestions] - true when AI returned 0 proposals
    * @returns {string|null} the joined notice, or null when there is none
    */
-  buildSuggestionNotice(alreadyTagged, missingDescription, error) {
+  buildSuggestionNotice(
+    alreadyTagged,
+    missingDescription,
+    error,
+    options = {},
+  ) {
     const parts = [];
     const skipped = this.describeSkippedRows(alreadyTagged, missingDescription);
     if (skipped) parts.push(skipped);
+    if (options && options.noSuggestions) {
+      parts.push(
+        "The AI did not suggest any tags. You can still select tags manually below.",
+      );
+    }
     if (error) {
       const message = this.suggestionErrorMessage(error);
       parts.push(
@@ -2178,9 +2201,10 @@ class TransactionsComponent {
    * @param {Array<{row: *, tripEvent?: string, category?: string}>} suggestions
    * @param {Map<string, object>} rowsById
    * @param {string|null} notice - skipped counts and any partial-batch error
+   * @param {object} [tags] - available tags from the store
    * @returns {Promise<Array<object>|null>} ticked proposals, or null on cancel
    */
-  async openSuggestionReview(suggestions, rowsById, notice) {
+  async openSuggestionReview(suggestions, rowsById, notice, tags) {
     if (!this.suggestionsModal) {
       this.suggestionsModal = new TransactionsSuggestionsModal();
     }
@@ -2189,6 +2213,7 @@ class TransactionsComponent {
       return await this.suggestionsModal.open({
         suggestions,
         rowsById,
+        tags,
         notice,
         returnFocus: this.element.querySelector("#suggest-tags-btn"),
       });
