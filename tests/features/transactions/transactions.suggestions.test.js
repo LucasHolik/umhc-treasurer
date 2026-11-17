@@ -12,6 +12,7 @@ import {
   rowAmount,
   selectRowsForSuggestions,
   buildRequestRows,
+  buildReviewRows,
   splitIntoBatches,
   reconcileSuggestions,
   toPendingChanges,
@@ -605,6 +606,133 @@ test("reconcileSuggestions does not mutate its inputs", () => {
   assert.deepEqual(requested, before.requested);
   assert.deepEqual(rows, before.rows);
   assert.deepEqual(tags, before.tags);
+});
+
+test("buildReviewRows keeps requested order and clones reconciled entries", () => {
+  const requested = [
+    {
+      row: 2,
+      description: "TESCO",
+      amount: -12.34,
+      missing: ["Trip/Event", "Category"],
+    },
+    { row: 3, description: "ALDI", amount: -5, missing: ["Category"] },
+    { row: 4, description: "CO-OP", amount: -8, missing: ["Trip/Event"] },
+  ];
+  const rows = new Map([
+    ["2", row({ row: 2, Description: "TESCO", Expense: "12.34" })],
+    [
+      "3",
+      row({
+        row: 3,
+        Description: "ALDI",
+        Expense: "5",
+        "Trip/Event": "Winter Trip",
+      }),
+    ],
+    [
+      "4",
+      row({ row: 4, Description: "CO-OP", Expense: "8", Category: "Food" }),
+    ],
+  ]);
+  const reconciled = [
+    { row: 4, tripEvent: "Summer Trip" },
+    { row: 2, tripEvent: "Winter Trip", category: "Food" },
+  ];
+
+  const reviewRows = buildReviewRows(reconciled, requested, rows);
+
+  assert.deepEqual(reviewRows, [
+    { row: 2, tripEvent: "Winter Trip", category: "Food" },
+    { row: 3 },
+    { row: 4, tripEvent: "Summer Trip" },
+  ]);
+  assert.notEqual(reviewRows[0], reconciled[1]);
+  assert.notEqual(reviewRows[2], reconciled[0]);
+});
+
+test("buildReviewRows drops unsuggested rows that are deleted, changed or already tagged", () => {
+  const requested = [
+    { row: 2, description: "TESCO", amount: -12.34, missing: ["Trip/Event"] },
+    { row: 3, description: "ALDI", amount: -5, missing: ["Category"] },
+    { row: 4, description: "CO-OP", amount: -8, missing: ["Category"] },
+    { row: 5, description: "LIDL", amount: -6, missing: ["Category"] },
+    { row: 6, description: "M&S", amount: -10, missing: ["Category"] },
+  ];
+  const rows = new Map([
+    // Row 2 deleted
+    ["3", null],
+    ["4", row({ row: 4, Description: "CO-OP CHANGED", Expense: "8" })],
+    ["5", row({ row: 5, Description: "LIDL", Expense: "99" })],
+    [
+      "6",
+      row({
+        row: 6,
+        Description: "M&S",
+        Expense: "10",
+        "Trip/Event": "",
+        Category: "Food",
+      }),
+    ],
+  ]);
+
+  assert.deepEqual(buildReviewRows([], requested, rows), []);
+});
+
+test("buildReviewRows keeps a partial single-field row when that field is still blank", () => {
+  const requested = [
+    { row: 3, description: "ALDI", amount: -5, missing: ["Category"] },
+  ];
+  const rows = currentRows();
+
+  assert.deepEqual(buildReviewRows([], requested, rows), [{ row: 3 }]);
+});
+
+test("buildReviewRows deduplicates request and reconciled ids and preserves id types", () => {
+  const requested = [
+    null,
+    "bad",
+    { row: "S-2", description: "REFUND", amount: 10, missing: ["Trip/Event"] },
+    { row: "S-2", description: "DUPLICATE", amount: 99, missing: ["Category"] },
+    { row: 2, description: "TESCO", amount: -12.34, missing: ["Category"] },
+  ];
+  const rows = new Map([
+    [
+      "S-2",
+      row({ row: "S-2", Description: "REFUND", Income: "10", Expense: "" }),
+    ],
+    ["2", row({ row: 2, Description: "TESCO", Expense: "12.34" })],
+  ]);
+  const reconciled = [
+    { row: 2, category: "Food" },
+    { row: 2, category: "Transport" },
+  ];
+
+  const reviewRows = buildReviewRows(reconciled, requested, rows);
+
+  assert.deepEqual(reviewRows, [{ row: "S-2" }, { row: 2, category: "Food" }]);
+  assert.equal(typeof reviewRows[0].row, "string");
+  assert.equal(typeof reviewRows[1].row, "number");
+});
+
+test("buildReviewRows handles non-array inputs and does not mutate its inputs", () => {
+  assert.deepEqual(buildReviewRows(null, null, new Map()), []);
+
+  const reconciled = [{ row: 2, tripEvent: "Winter Trip" }];
+  const requested = requestedRows();
+  const rows = currentRows();
+  const before = {
+    reconciled: structuredClone(reconciled),
+    requested: structuredClone(requested),
+    rows: structuredClone(rows),
+  };
+
+  const reviewRows = buildReviewRows(reconciled, requested, rows);
+  reviewRows[0].category = "Food";
+
+  assert.deepEqual(reconciled, before.reconciled);
+  assert.deepEqual(requested, before.requested);
+  assert.deepEqual(rows, before.rows);
 });
 
 test("toPendingChanges keys changes by the string row id", () => {

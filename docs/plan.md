@@ -386,7 +386,7 @@ E-049 to E-053: focus after Apply, no mid-request cancel, a tab switch during
 the request, the Tab trap when focus is on the body, and first-open styling and
 short-viewport clipping.
 
-## Follow-up: login message, AI setup and output cap (in progress)
+## Follow-up: login message, AI setup and output cap (done, merged in PR #18)
 
 **Goal.** Fix B-010 (an undiagnosable provider fetch and a misleading setup
 guide) and B-011 (a wrong passkey shown as a network failure), harden the new
@@ -444,7 +444,118 @@ permission failure names `authorizeAi`, and a malformed `AI_BASE_URL` names the
 property without a provider call. AI selection mode shows only incomplete rows
 and restores the full list on exit. The full suite and format check pass.
 
-**Status.** Code complete and approved on 2026-11-10. The suite is 407 tests and
-the format check passes locally on macOS. The user confirmed the AI path works
-after granting the external-request permission. The live login check (a wrong
-passkey after the frontend deploys) and the merge decision remain with the user.
+**Status.** Code complete, approved on 2026-11-10, and merged in PR #18 (`1ec2577`).
+The suite is 407 tests and the format check passes locally on macOS. The user
+confirmed the AI path works after granting the external-request permission.
+
+### Part 4: editable suggestions and manual selection for missing tags
+
+**Goal.** Let an editor edit or clear any suggested tag inside the review
+dialog, show `"No tag"` for missing tag fields when the AI did not suggest one
+and let the editor select a tag manually, and include every still-eligible
+requested row in the review dialog even when the AI returned no suggestions for
+it (D-022).
+
+**Changes.**
+
+- `src/features/transactions/transactions.suggestions.js`:
+  - Add `buildReviewRows(reconciled, requested, currentRowsById)`: keeps rows in
+    `requested` order (first entry wins per string id), uses the cloned entry
+    from `reconciled` when present, and otherwise adds `{ row: requestRow.row }`
+    when the current row still exists, matches the `(description, amount)`
+    fingerprint, and still has at least one field in `requestRow.missing` blank.
+    Does not mutate inputs.
+- `src/shared/tag-selector.component.js`:
+  - Call `e.stopPropagation()` on `Escape` inside `this.element` when closing,
+    so closing the popover never bubbles `Escape` to a parent modal.
+  - Accept an optional `onClose` callback in `show`'s options object, invoked
+    when `close()` closes an open popover (before clearing `currentConfig`).
+- `src/features/transactions/transactions.suggestions-modal.js`:
+  - Accept `tags` in `open({ suggestions, rowsById, tags, notice, returnFocus })`
+    (defaulting to `store.getState("tags") || {}` only when `tags === undefined`).
+  - Clone incoming `suggestions` entries so edits never mutate caller objects.
+  - Rows with at least one tag start ticked; rows with neither tag start
+    unticked with their tick checkbox disabled and an explanatory `title`.
+  - For each field in `TAG_FIELDS`:
+    - When `proposed !== undefined`: render an interactive editable pill
+      (`.suggest-pill`, without `.suggest-pill--kept`) showing
+      `${field.label}: ${proposed}` with a trigger to open `TagSelector` and a
+      clear (`×`) button to remove the field back to `"No tag"`.
+    - When `proposed === undefined` and `row[field.rowKey]` is non-empty after
+      trimming: keep the read-only `.suggest-pill.suggest-pill--kept`
+      (`Already set`).
+    - When `proposed === undefined` and the row field is blank: render an
+      interactive `.suggest-pill.suggest-pill--empty` button showing
+      `${field.label}: No tag` that opens `TagSelector` to pick a tag manually.
+  - Choosing a tag uses `buildTagSelectorOptions(field.rowKey, this.tags)` for
+    `"Trip/Event"` (keeping the past-tags toggle) and `this.tags.Category || []`
+    for `"Category"`. Picking a tag sets the field, auto-ticks the row,
+    re-renders that row in place, updates the footer, and focuses the refreshed
+    field trigger. Clearing a field removes it, unticks and disables the row
+    tick when no field remains, re-renders that row in place, updates the footer,
+    and focuses the refreshed `"No tag"` button.
+  - `toggleAll()` and `updateFooter()` operate on selectable rows (rows with at
+    least one tag set); `toggleButton` is disabled when no row is selectable.
+  - Create a `TagSelector` (styled with `tag-selector-popover--split-modal`)
+    while the dialog is open and `destroy()` it in `close()`. Clicking the
+    overlay while the popover is open closes only the popover; while the popover
+    is open, `handleDialogKeydown` traps Tab inside `tagSelector.element` and
+    does not close the dialog on `Escape`. Closing the popover without selecting
+    returns focus to the trigger button. When all row ticks are disabled on
+    open, focus the first enabled focusable element in the dialog.
+- `src/features/transactions/transactions.component.js`:
+  - In `submitTagSuggestions()`: keep alerting `describeSuggestionError` when
+    `reconciled.length === 0 && result.error`. Otherwise build
+    `reviewRows = buildReviewRows(reconciled, requestRows, currentRowsById)`.
+    Alert `"No suggestions were returned."` only when `reviewRows.length === 0`.
+    When `reconciled.length === 0` (no error), include `"The AI did not suggest
+any tags. You can still select tags manually below."` in the dialog notice.
+    Pass `tags: store.getState("tags")` into `openSuggestionReview` and
+    `this.suggestionsModal.open(...)`.
+- `src/features/transactions/transactions.css`:
+  - Styles for editable suggestion pills, the clear button, `"No tag"` empty
+    pills, focus-visible rings and phone spacing.
+
+**Tests.**
+
+- `tests/features/transactions/transactions.suggestions.test.js`: unit tests for
+  `buildReviewRows` (order, reconciled entries kept, unsuggested rows included
+  with empty proposal, partial single-field rows kept, deleted/changed/fully
+  tagged rows dropped, duplicate request ids deduplicated, id types preserved,
+  inputs not mutated).
+- `tests/features/transactions/transactions.suggestions-modal.test.js`: tests for
+  editing a proposed tag via `TagSelector` (including past trips toggle),
+  clearing a tag back to `"No tag"` and auto-unticking/disabling when empty,
+  rendering `"No tag"` and picking a tag manually (auto-ticking and updating
+  Apply), opening with 0 AI suggestions, keeping `.suggest-pill--kept`
+  read-only, Escape and overlay-click closing only the open `TagSelector`,
+  Cancel after edits returning `null` without mutating inputs, and cleanup of
+  `.tag-selector-popover` on close.
+- `tests/shared/tag-selector.component.test.js`: tests for `Escape` stopping
+  propagation and `onClose` firing once when closing an open popover.
+
+**Acceptance criteria.**
+
+- An editor can edit or clear any suggested tag inside the review dialog, and
+  Apply saves the edited selection through the existing `updateExpenses` path.
+- Any missing field with no AI suggestion shows `"No tag"` and lets the editor
+  pick a tag manually via `TagSelector` (with past trips behind the toggle).
+- Requested rows where the AI suggested neither field appear in the dialog
+  unticked with `"No tag"` pills and auto-tick when a tag is chosen.
+- Already-set (`kept`) tags remain read-only and are never overwritten.
+- Cancelling after edits writes nothing and leaves caller data untouched.
+- Full `npm test` and `npm run format:check` pass.
+- No new dependency.
+
+**Existing tests affected.** None.
+
+**Status.** done. Reviewed and approved on 2026-11-17 on the first attempt. The
+full suite is 423 tests and the format check passes locally on macOS. Manual
+browser verification of editing, `"No tag"` manual selection, and saving remains
+with the user.
+
+**Review notes.** Approved cleanly with three minor non-blocking edge cases
+recorded as E-074 (clicking a non-pill control while `TagSelector` is open
+returns focus to the trigger via `onClose`) and E-075 (a synthetic proposal for
+an already-tagged field renders as editable before `filterStillMissing` drops
+it), plus `onClose` intentionally skipping direct pill-to-pill switches.

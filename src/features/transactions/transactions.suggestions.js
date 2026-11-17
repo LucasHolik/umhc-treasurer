@@ -145,6 +145,33 @@ export const splitIntoBatches = (items, size) => {
   return batches;
 };
 
+const getRowByKey = (rowsById, key) => {
+  if (!rowsById || typeof rowsById.get !== "function") {
+    return undefined;
+  }
+  return rowsById.get(key);
+};
+
+const indexRequestedRows = (requested) => {
+  const requestedByKey = new Map();
+  for (const requestRow of Array.isArray(requested) ? requested : []) {
+    if (
+      requestRow === null ||
+      typeof requestRow !== "object" ||
+      Array.isArray(requestRow)
+    ) {
+      continue;
+    }
+    const key = String(requestRow.row);
+    if (!requestedByKey.has(key)) requestedByKey.set(key, requestRow);
+  }
+  return requestedByKey;
+};
+
+const matchesRequestFingerprint = (currentRow, requestRow) =>
+  trimText(currentRow.Description) === trimText(requestRow.description) &&
+  rowAmount(currentRow) === requestRow.amount;
+
 /**
  * Keeps only the proposals that are still safe to apply. A proposal survives
  * when its row was requested, a current row still exists, the current row's
@@ -168,13 +195,7 @@ export const reconcileSuggestions = (
 ) => {
   if (!Array.isArray(suggestions)) return [];
 
-  const requestRows = Array.isArray(requested) ? requested : [];
-  const requestedByKey = new Map();
-  for (const requestRow of requestRows) {
-    if (requestRow === null || typeof requestRow !== "object") continue;
-    const key = String(requestRow.row);
-    if (!requestedByKey.has(key)) requestedByKey.set(key, requestRow);
-  }
+  const requestedByKey = indexRequestedRows(requested);
 
   const tags = tagsData || {};
   const allowed = {
@@ -182,13 +203,6 @@ export const reconcileSuggestions = (
       Array.isArray(tags["Trip/Event"]) ? tags["Trip/Event"] : [],
     ),
     Category: new Set(Array.isArray(tags.Category) ? tags.Category : []),
-  };
-
-  const currentRowFor = (key) => {
-    if (!currentRowsById || typeof currentRowsById.get !== "function") {
-      return undefined;
-    }
-    return currentRowsById.get(key);
   };
 
   const isAllowedTag = (value, allowedValues) =>
@@ -208,14 +222,9 @@ export const reconcileSuggestions = (
     const requestRow = requestedByKey.get(key);
     if (!requestRow) continue;
 
-    const currentRow = currentRowFor(key);
+    const currentRow = getRowByKey(currentRowsById, key);
     if (currentRow === undefined || currentRow === null) continue;
-    if (
-      trimText(currentRow.Description) !== trimText(requestRow.description) ||
-      rowAmount(currentRow) !== requestRow.amount
-    ) {
-      continue;
-    }
+    if (!matchesRequestFingerprint(currentRow, requestRow)) continue;
 
     // The request-time `missing` list is only a snapshot. A tag the row gained
     // before the reply arrived must win over a proposal, so also require the
@@ -254,6 +263,57 @@ export const reconcileSuggestions = (
 };
 
 /**
+ * Builds the review list shown in the suggestion dialog. Keeps every
+ * still-eligible requested row in request order so an editor can also pick tags
+ * manually when the AI returned nothing for a row (D-022).
+ *
+ * Uses a shallow clone of the matching entry from `reconciled` (first entry wins
+ * per string row id) when present. Otherwise includes `{ row: requestRow.row }`
+ * when the current row still exists, matches the request's description and
+ * signed amount fingerprint, and still has at least one field in
+ * `requestRow.missing` blank. Does not mutate any input.
+ *
+ * @param {Array<object>} reconciled - output of reconcileSuggestions
+ * @param {Array<object>} requested - output of buildRequestRows
+ * @param {Map<string, object>} currentRowsById - current rows keyed by String(row)
+ * @returns {Array<{row: *, tripEvent?: string, category?: string}>}
+ */
+export const buildReviewRows = (reconciled, requested, currentRowsById) => {
+  const requestedByKey = indexRequestedRows(requested);
+  const reconciledByKey = new Map();
+  for (const entry of Array.isArray(reconciled) ? reconciled : []) {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      continue;
+    }
+    const key = String(entry.row);
+    if (!reconciledByKey.has(key)) reconciledByKey.set(key, entry);
+  }
+
+  const output = [];
+  for (const [key, requestRow] of requestedByKey) {
+    const reconciledEntry = reconciledByKey.get(key);
+    if (reconciledEntry) {
+      output.push({ ...reconciledEntry });
+      continue;
+    }
+
+    const currentRow = getRowByKey(currentRowsById, key);
+    if (currentRow === undefined || currentRow === null) continue;
+    if (!matchesRequestFingerprint(currentRow, requestRow)) continue;
+
+    const missingAtRequest = Array.isArray(requestRow.missing)
+      ? requestRow.missing
+      : [];
+    const missingNow = missingTagFields(currentRow);
+    if (missingAtRequest.some((field) => missingNow.includes(field))) {
+      output.push({ row: requestRow.row });
+    }
+  }
+
+  return output;
+};
+
+/**
  * Drops proposals that are no longer safe to apply because the review dialog
  * stayed open while the ledger changed.
  *
@@ -279,21 +339,9 @@ export const filterStillMissing = (accepted, currentRowsById, requested) => {
   if (!Array.isArray(accepted)) return [];
 
   const checkFingerprint = Array.isArray(requested);
-  const requestedByKey = new Map();
-  if (checkFingerprint) {
-    for (const requestRow of requested) {
-      if (requestRow === null || typeof requestRow !== "object") continue;
-      const key = String(requestRow.row);
-      if (!requestedByKey.has(key)) requestedByKey.set(key, requestRow);
-    }
-  }
-
-  const currentRowFor = (key) => {
-    if (!currentRowsById || typeof currentRowsById.get !== "function") {
-      return undefined;
-    }
-    return currentRowsById.get(key);
-  };
+  const requestedByKey = checkFingerprint
+    ? indexRequestedRows(requested)
+    : new Map();
 
   const output = [];
   for (const proposal of accepted) {
@@ -306,18 +354,14 @@ export const filterStillMissing = (accepted, currentRowsById, requested) => {
     }
 
     const key = String(proposal.row);
-    const currentRow = currentRowFor(key);
+    const currentRow = getRowByKey(currentRowsById, key);
     if (currentRow === undefined || currentRow === null) continue;
 
     // A row can keep its id while its description or amount changes, so when
     // the request rows are supplied the original fingerprint must still match.
     if (checkFingerprint) {
       const requestRow = requestedByKey.get(key);
-      if (!requestRow) continue;
-      if (
-        trimText(currentRow.Description) !== trimText(requestRow.description) ||
-        rowAmount(currentRow) !== requestRow.amount
-      ) {
+      if (!requestRow || !matchesRequestFingerprint(currentRow, requestRow)) {
         continue;
       }
     }
