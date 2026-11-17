@@ -138,10 +138,16 @@ class TransactionsComponent {
       this.mobileMediaQuery.addListener(this.viewportChangeHandler);
     }
 
-    // Global click listener to close dropdowns
+    // Tag pill clicks on the section must run before TagSelector's document
+    // listener so active triggers toggle instead of closing and reopening.
+    this.boundSectionClickHandler = (e) => {
+      this.handleInteractiveTagClick(e);
+    };
+    this.element.addEventListener("click", this.boundSectionClickHandler);
+
+    // Global click listener to close bulk dropdowns
     this.boundGlobalClickHandler = (e) => {
       this.handleGlobalClick(e);
-      this.handleInteractiveTagClick(e);
     };
     document.addEventListener("click", this.boundGlobalClickHandler);
 
@@ -175,6 +181,9 @@ class TransactionsComponent {
     }
     if (this.manualModal && typeof this.manualModal.destroy === "function") {
       this.manualModal.destroy();
+    }
+    if (this.boundSectionClickHandler && this.element) {
+      this.element.removeEventListener("click", this.boundSectionClickHandler);
     }
     if (this.boundGlobalClickHandler) {
       document.removeEventListener("click", this.boundGlobalClickHandler);
@@ -377,6 +386,9 @@ class TransactionsComponent {
 
       if (!rowId || !type) return;
 
+      if (this.tagSelector && this.tagSelector.isOpen) {
+        this.tagSelector.close();
+      }
       this.updatePendingChange(rowId, type, "");
       return;
     }
@@ -413,6 +425,11 @@ class TransactionsComponent {
     // Ignore if we are in bulk selection mode
     if (this.selectionMode || !this.canEdit) return;
 
+    if (e.key === "Escape" && this.tagSelector && this.tagSelector.isOpen) {
+      this.tagSelector.close();
+      return;
+    }
+
     // Check for Enter (13) or Space (32)
     if (e.key === "Enter" || e.key === " ") {
       const target = e.target;
@@ -428,6 +445,9 @@ class TransactionsComponent {
 
         if (!rowId || !type) return;
 
+        if (this.tagSelector && this.tagSelector.isOpen) {
+          this.tagSelector.close();
+        }
         this.updatePendingChange(rowId, type, "");
         return;
       }
@@ -461,7 +481,7 @@ class TransactionsComponent {
         type,
         store.getState("tags") || {},
       );
-    this.tagSelector.show(
+    this.tagSelector.toggle(
       target,
       type,
       currentVal,
@@ -586,6 +606,9 @@ class TransactionsComponent {
   }
 
   renderTransactionsDisplay() {
+    if (this.tagSelector && this.tagSelector.isOpen) {
+      this.tagSelector.close();
+    }
     if (this.filtersDisclosure) {
       this.filtersDisclosure.destroy();
       this.filtersDisclosure = null;
@@ -1456,6 +1479,11 @@ class TransactionsComponent {
       e.target.closest(".add-tag-placeholder") ||
       e.target.closest(".remove-btn")
     ) {
+      return;
+    }
+
+    if (this.tagSelector && this.tagSelector.isOpen) {
+      this.tagSelector.close();
       return;
     }
 

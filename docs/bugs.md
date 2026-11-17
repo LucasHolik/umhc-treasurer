@@ -290,3 +290,36 @@ explains the passkey", "a timeout returns false with the network message",
 "a generic rejection with a server message surfaces that message") and
 `tests/services/api.service.test.js` ("_responseError marks an Unauthorized
 reply as UNAUTHORIZED", "_shouldExpireSession ignores a failed login").
+
+### B-012: Clicking outside the tag list in Transactions fails to dismiss it cleanly
+
+**Description.** When `TagSelector` was open in the Transactions section,
+clicking outside the popover could fail to hide it or cause unintended
+actions: clicking a transaction row or mobile card opened `SplitTransactionModal`
+via `handleRowClick`, clicking the active `.tag-pill` or `.add-tag-placeholder`
+kept the popover open because `TagSelector` ignored those classes and
+`TransactionsComponent` delegated on `document` after `TagSelector`, clicking
+`.remove-btn` left the popover open at stale coordinates, and iOS Safari taps on
+non-interactive page elements never fired a `document` `click`.
+
+**Steps to reproduce.** Open the Transactions screen, click `+` or a tag pill
+to display the tag list, then click on the transaction row, the same trigger,
+`.remove-btn`, or (on iOS Safari) non-interactive background space.
+
+**Severity.** Medium. Made the tag popover awkward to dismiss without picking a
+tag or clicking its `×` button.
+
+**Where.** `src/shared/tag-selector.component.js`,
+`src/features/transactions/transactions.component.js`,
+`src/features/transactions/transactions.suggestions-modal.js` and
+`src/features/transactions/split-transaction.modal.js`.
+
+**Status.** Fixed. Removed caller CSS exclusions from `TagSelector`, added
+`TagSelector.toggle()` and clean re-opening in `show()`, added a
+`pointerdown`/`pointerup` fallback for iOS Safari non-interactive taps, bound
+`TransactionsComponent`'s tag-trigger handler on `this.element` so it runs before
+`document`, guarded `handleRowClick` and `renderTransactionsDisplay` on
+`tagSelector.isOpen`, and closed `tagSelector` on `.remove-btn` and `Escape`.
+Regression tests: `tests/shared/tag-selector.component.test.js`,
+`tests/features/transactions/transactions.component.test.js` and
+`tests/features/transactions/transactions.suggestions-modal.test.js`.

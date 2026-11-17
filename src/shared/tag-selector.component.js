@@ -27,6 +27,9 @@ export default class TagSelector {
     this.searchTerm = "";
     // View state for the open box only: resets every time it opens.
     this.showPast = false;
+    this._openSeq = 0;
+    this._outsidePointer = null;
+    this._outsidePointerTimer = null;
 
     this.element = el("div", {
       className: "tag-selector-popover",
@@ -35,15 +38,71 @@ export default class TagSelector {
     document.body.appendChild(this.element);
 
     this.globalClickHandler = (e) => {
-      if (
-        this.isOpen &&
-        !this.element.contains(e.target) &&
-        !e.target.closest(".tag-interactive-area") &&
-        !e.target.closest(".tag-pill") &&
-        !e.target.closest(".add-tag-placeholder")
-      ) {
+      if (this.isOpen && !this._isInsidePopover(e.target)) {
         this.close();
       }
+    };
+
+    // iOS Safari taps on non-interactive elements fire pointerdown/pointerup
+    // without a click; defer closing by a tick so any click handler in the same
+    // gesture runs first while TagSelector is still open.
+    this.globalPointerDownHandler = (e) => {
+      if (!this.isOpen) return;
+      if (this._isInsidePopover(e.target)) {
+        this._clearOutsidePointer();
+        return;
+      }
+      if (e.pointerType === "mouse" && e.button !== 0) {
+        this._clearOutsidePointer();
+        return;
+      }
+      this._clearOutsidePointerTimer();
+      this._outsidePointer = {
+        pointerId: e.pointerId,
+        startX: Number.isFinite(e.clientX) ? e.clientX : 0,
+        startY: Number.isFinite(e.clientY) ? e.clientY : 0,
+      };
+    };
+
+    this.globalPointerMoveHandler = (e) => {
+      if (!this._isMatchingOutsidePointer(e)) return;
+      const dx =
+        (Number.isFinite(e.clientX) ? e.clientX : 0) -
+        this._outsidePointer.startX;
+      const dy =
+        (Number.isFinite(e.clientY) ? e.clientY : 0) -
+        this._outsidePointer.startY;
+      if (Math.hypot(dx, dy) > 10) {
+        this._outsidePointer = null;
+      }
+    };
+
+    this.globalPointerCancelHandler = (e) => {
+      if (this._isMatchingOutsidePointer(e)) {
+        this._outsidePointer = null;
+      }
+    };
+
+    this.globalPointerUpHandler = (e) => {
+      if (!this.isOpen || !this._isMatchingOutsidePointer(e)) return;
+      const dx =
+        (Number.isFinite(e.clientX) ? e.clientX : 0) -
+        this._outsidePointer.startX;
+      const dy =
+        (Number.isFinite(e.clientY) ? e.clientY : 0) -
+        this._outsidePointer.startY;
+      this._outsidePointer = null;
+      if (Math.hypot(dx, dy) > 10 || this._isInsidePopover(e.target)) {
+        return;
+      }
+      const seq = this._openSeq;
+      this._clearOutsidePointerTimer();
+      this._outsidePointerTimer = setTimeout(() => {
+        this._outsidePointerTimer = null;
+        if (this.isOpen && this._openSeq === seq) {
+          this.close();
+        }
+      }, 0);
     };
 
     this.repositionHandler = () => {
@@ -52,8 +111,24 @@ export default class TagSelector {
       }
     };
 
-    // Global click to close
+    // Global click and pointer listeners to close on outside taps/clicks
     document.addEventListener("click", this.globalClickHandler);
+    document.addEventListener(
+      "pointerdown",
+      this.globalPointerDownHandler,
+      true,
+    );
+    document.addEventListener(
+      "pointermove",
+      this.globalPointerMoveHandler,
+      true,
+    );
+    document.addEventListener("pointerup", this.globalPointerUpHandler, true);
+    document.addEventListener(
+      "pointercancel",
+      this.globalPointerCancelHandler,
+      true,
+    );
 
     // Render structure once
     const searchWrapper = el("div", { className: "tag-search-wrapper" });
@@ -118,6 +193,34 @@ export default class TagSelector {
     });
   }
 
+  _isInsidePopover(target) {
+    return Boolean(target instanceof Node && this.element.contains(target));
+  }
+
+  _isMatchingOutsidePointer(e) {
+    if (!this._outsidePointer) return false;
+    if (
+      e.pointerId !== undefined &&
+      this._outsidePointer.pointerId !== undefined &&
+      e.pointerId !== this._outsidePointer.pointerId
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  _clearOutsidePointerTimer() {
+    if (this._outsidePointerTimer !== null) {
+      clearTimeout(this._outsidePointerTimer);
+      this._outsidePointerTimer = null;
+    }
+  }
+
+  _clearOutsidePointer() {
+    this._outsidePointer = null;
+    this._clearOutsidePointerTimer();
+  }
+
   /**
    * @param {HTMLElement} targetElement - Element the box is anchored to.
    * @param {string} type - Tag type ("Trip/Event", "Category", ...).
@@ -137,6 +240,12 @@ export default class TagSelector {
     customOptions = null,
     { pastOptions = [], onClose = null } = {},
   ) {
+    this._clearOutsidePointer();
+    if (this.isOpen) {
+      this.close();
+    }
+    this._openSeq += 1;
+
     this.currentConfig = {
       type,
       onSelect,
@@ -164,6 +273,38 @@ export default class TagSelector {
     window.addEventListener("resize", this.repositionHandler);
   }
 
+  /**
+   * Closes the popover when already open on `targetElement`, or opens/switches
+   * to `targetElement`.
+   * @param {HTMLElement} targetElement - Element the box is anchored to.
+   * @param {string} type - Tag type ("Trip/Event", "Category", ...).
+   * @param {string} currentVal - The current value.
+   * @param {function(string)} onSelect - Called with the chosen tag.
+   * @param {string[]|null} [customOptions=null] - Tags to list; null reads the store.
+   * @param {Object} [options={}] - Options forwarded to `show()`.
+   */
+  toggle(
+    targetElement,
+    type,
+    currentVal,
+    onSelect,
+    customOptions = null,
+    options = {},
+  ) {
+    if (this.isOpen && this.targetElement === targetElement) {
+      this.close();
+      return;
+    }
+    this.show(
+      targetElement,
+      type,
+      currentVal,
+      onSelect,
+      customOptions,
+      options,
+    );
+  }
+
   updatePosition() {
     if (!this.targetElement) return;
 
@@ -183,6 +324,7 @@ export default class TagSelector {
   }
 
   close() {
+    this._clearOutsidePointer();
     const wasOpen = this.isOpen;
     const onClose =
       wasOpen && this.currentConfig ? this.currentConfig.onClose : null;
@@ -204,6 +346,26 @@ export default class TagSelector {
   destroy() {
     this.close();
     document.removeEventListener("click", this.globalClickHandler);
+    document.removeEventListener(
+      "pointerdown",
+      this.globalPointerDownHandler,
+      true,
+    );
+    document.removeEventListener(
+      "pointermove",
+      this.globalPointerMoveHandler,
+      true,
+    );
+    document.removeEventListener(
+      "pointerup",
+      this.globalPointerUpHandler,
+      true,
+    );
+    document.removeEventListener(
+      "pointercancel",
+      this.globalPointerCancelHandler,
+      true,
+    );
     if (this.element && this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);
     }
