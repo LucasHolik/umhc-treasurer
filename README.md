@@ -17,7 +17,7 @@ This project decouples the User Interface (the website) from the Data (Google Sh
 - **Tagging System:**
   - Robust categorization (Category, Trip/Event, Type).
   - "Smart" relationship mapping (e.g., specific Trips belong to specific Types).
-  - **AI Tag Suggestions (optional):** select transactions that are missing a tag and get proposed Trip/Event and Category values from an LLM provider, then review and apply them like any other tagging. Nothing is saved without approval, and the feature stays off until a provider key is configured. Editor only.
+  - **AI Tag Suggestions (optional):** select transactions that are missing a tag and get proposed Trip/Event and Category values from an LLM provider, edit suggestions or pick missing tags manually in the review popup, and apply ticked rows like any other tagging. Nothing is saved without approval, and the feature stays off until a provider key is configured. Editor only.
 - **Analysis:** Visual charts and data tables to track spending trends.
 - **Excel Upload:** Drag-and-drop support for bank statement imports (Excel/CSV).
 - **Role-Based Access:** Full-access and view-only passkeys on the same app URL.
