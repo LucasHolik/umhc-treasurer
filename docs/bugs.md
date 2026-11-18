@@ -323,3 +323,30 @@ tag or clicking its `×` button.
 Regression tests: `tests/shared/tag-selector.component.test.js`,
 `tests/features/transactions/transactions.component.test.js` and
 `tests/features/transactions/transactions.suggestions-modal.test.js`.
+
+### B-013: Passkey input and login controls stay enabled while logging in
+
+**Description.** While `AuthService.login` was in flight (`isLoading: true`),
+`LoginComponent` showed the spinner in `#login-status` but only disabled
+`#api-key` and `#login-button` during `isVerifyingSession`, leaving `#api-key`,
+`#login-button` and `#change-url-button` enabled during login. Users could
+still type in the passkey box, resubmit, or switch to the Script URL screen
+mid-request.
+
+**Steps to reproduce.** Open the login screen, enter a passkey, submit it, and
+type into the passkey input while the loading spinner is visible.
+
+**Severity.** Low. No data corruption occurs, but the user can edit the input or
+trigger duplicate login requests while one is in flight.
+
+**Where.** `src/features/login/login.component.js` and
+`src/features/login/login.css`.
+
+**Status.** Fixed. `LoginComponent.syncStatusAndControls()` disables `#api-key`,
+`#login-button` and `#change-url-button` whenever `isLoading` or
+`isVerifyingSession` is true, re-enables them when both finish while keeping
+any error alert and the entered passkey value, and `handleLogin()` and
+`#change-url-button` guard against re-entry while busy. `login.css` adds
+`#api-key:disabled` and explicit `#id:disabled` / `:hover:not(:disabled)` rules
+so ID specificity does not override `shared.css`. Regression tests:
+`tests/features/login/login.component.test.js`.

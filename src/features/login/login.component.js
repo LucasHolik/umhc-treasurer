@@ -11,29 +11,25 @@ class LoginComponent {
     this.element = element;
     this.loader = new LoaderComponent();
     this.isEditingUrl = false;
+    this.apiKeyInput = null;
+    this.loginButton = null;
+    this.changeUrlButton = null;
     this.render();
 
-    this.errorUnsubscribe = store.subscribe(
-      "error",
-      this.handleError.bind(this),
-    );
-    this.loadingUnsubscribe = store.subscribe(
-      "isLoading",
-      this.handleLoading.bind(this),
-    );
-    this.verifyingUnsubscribe = store.subscribe(
-      "isVerifyingSession",
-      this.handleVerifying.bind(this),
-    );
+    const sync = () => this.syncStatusAndControls();
+    this.subscriptions = [
+      store.subscribe("error", sync),
+      store.subscribe("isLoading", sync),
+      store.subscribe("isVerifyingSession", sync),
+    ];
 
-    // Initial check
-    this.handleVerifying(store.getState("isVerifyingSession"));
+    // Sync initial store state (isLoading, isVerifyingSession, error).
+    this.syncStatusAndControls();
   }
 
   destroy() {
-    if (this.errorUnsubscribe) this.errorUnsubscribe.unsubscribe();
-    if (this.loadingUnsubscribe) this.loadingUnsubscribe.unsubscribe();
-    if (this.verifyingUnsubscribe) this.verifyingUnsubscribe.unsubscribe();
+    this.subscriptions.forEach((sub) => sub.unsubscribe());
+    this.subscriptions = [];
   }
 
   render() {
@@ -45,6 +41,10 @@ class LoginComponent {
   }
 
   renderSetup() {
+    this.apiKeyInput = null;
+    this.loginButton = null;
+    this.changeUrlButton = null;
+
     const currentUrl = ApiService.getScriptUrl() || "";
 
     const urlInput = el("input", {
@@ -110,6 +110,7 @@ class LoginComponent {
     );
 
     replace(this.element, container);
+    this.syncStatusAndControls();
   }
 
   renderLogin() {
@@ -118,12 +119,11 @@ class LoginComponent {
       id: "api-key",
       "aria-label": "Passkey",
       placeholder: "Passkey",
-    });
-
-    this.apiKeyInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        this.handleLogin();
-      }
+      onkeydown: (e) => {
+        if (e.key === "Enter") {
+          this.handleLogin();
+        }
+      },
     });
 
     this.loginButton = el(
@@ -135,11 +135,17 @@ class LoginComponent {
       "Login",
     );
 
-    const changeUrlButton = el(
+    this.changeUrlButton = el(
       "button",
       {
         id: "change-url-button",
         onclick: () => {
+          if (
+            store.getState("isLoading") ||
+            store.getState("isVerifyingSession")
+          ) {
+            return;
+          }
           this.isEditingUrl = true;
           store.setState("error", null);
           this.render();
@@ -166,11 +172,12 @@ class LoginComponent {
         this.apiKeyInput,
         this.loginButton,
       ),
-      el("div", { className: "action-area" }, changeUrlButton),
+      el("div", { className: "action-area" }, this.changeUrlButton),
       el("div", { className: "status-container" }, this.loginStatus),
     );
 
     replace(this.element, container);
+    this.syncStatusAndControls();
   }
 
   handleSaveUrl(url) {
@@ -216,6 +223,14 @@ class LoginComponent {
   }
 
   async handleLogin() {
+    if (
+      !this.apiKeyInput ||
+      store.getState("isLoading") ||
+      store.getState("isVerifyingSession")
+    ) {
+      return;
+    }
+
     const apiKey = this.apiKeyInput.value.trim();
     if (!apiKey) {
       store.setState("error", "Please enter a passkey.");
@@ -231,16 +246,32 @@ class LoginComponent {
     }
   }
 
-  handleVerifying(isVerifying) {
+  /**
+   * Synchronises login controls and status feedback with the store's loading,
+   * session-verification, and error state.
+   */
+  syncStatusAndControls() {
+    const isLoading = Boolean(store.getState("isLoading"));
+    const isVerifying = Boolean(store.getState("isVerifyingSession"));
+    const isBusy = isLoading || isVerifying;
+    const error = store.getState("error");
+
     if (this.apiKeyInput) {
-      this.apiKeyInput.disabled = isVerifying;
+      this.apiKeyInput.disabled = isBusy;
     }
     if (this.loginButton) {
-      this.loginButton.disabled = isVerifying;
+      this.loginButton.disabled = isBusy;
       this.loginButton.textContent = isVerifying ? "Verifying..." : "Login";
     }
+    if (this.changeUrlButton) {
+      this.changeUrlButton.disabled = isBusy;
+    }
 
-    if (this.loginStatus && isVerifying) {
+    if (!this.loginStatus) return;
+
+    if (isLoading) {
+      replace(this.loginStatus, this.loader.render());
+    } else if (isVerifying) {
       replace(
         this.loginStatus,
         el(
@@ -252,47 +283,13 @@ class LoginComponent {
           "Verifying session...",
         ),
       );
-    } else if (
-      this.loginStatus &&
-      !isVerifying &&
-      !store.getState("error") &&
-      !store.getState("isLoading")
-    ) {
-      // Clear verifying message if no error/loading
+    } else if (error) {
+      replace(
+        this.loginStatus,
+        el("div", { className: "status-message error", role: "alert" }, error),
+      );
+    } else {
       replace(this.loginStatus);
-    }
-  }
-
-  handleError(error) {
-    if (this.loginStatus) {
-      if (error) {
-        replace(
-          this.loginStatus,
-          el(
-            "div",
-            { className: "status-message error", role: "alert" },
-            error,
-          ),
-        );
-      } else {
-        // Only clear if we are NOT loading
-        if (!store.getState("isLoading")) {
-          replace(this.loginStatus);
-        }
-      }
-    }
-  }
-
-  handleLoading(isLoading) {
-    if (this.loginStatus) {
-      if (isLoading) {
-        replace(this.loginStatus, this.loader.render());
-      } else {
-        // Don't clear error messages when loading is finished
-        if (!store.getState("error")) {
-          replace(this.loginStatus);
-        }
-      }
     }
   }
 }
