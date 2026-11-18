@@ -48,6 +48,12 @@
   outline: none;
 }
 
+#api-key:disabled {
+  background-color: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
 #login-button,
 #save-url-button {
   padding: 15px 25px;
@@ -61,9 +67,17 @@
   white-space: nowrap;
 }
 
-#login-button:hover,
-#save-url-button:hover {
+#login-button:hover:not(:disabled),
+#save-url-button:hover:not(:disabled) {
   background-color: #ec971f;
+}
+
+#login-button:disabled,
+#save-url-button:disabled,
+#change-url-button:disabled,
+#cancel-url-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .action-area {
@@ -131,8 +145,8 @@
   padding: 5px;
 }
 
-#change-url-button:hover,
-#cancel-url-button:hover {
+#change-url-button:hover:not(:disabled),
+#cancel-url-button:hover:not(:disabled) {
   opacity: 1;
   color: #fff;
 }

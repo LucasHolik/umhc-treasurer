@@ -934,3 +934,22 @@ matching `TransactionsSuggestionsModal` (`E-073`).
 **Status.** Not handled. Pre-existing; `SplitTransactionModal.handleEscape` does
 not check `this.tagSelector.isOpen`, though closing the modal destroys
 `TagSelector` cleanly. Low.
+
+## Login
+
+### E-080: Session verification and login loading overlap or mount while busy
+
+**Situation.** `LoginComponent` mounts while `isLoading` is already `true`,
+`isVerifyingSession` and `isLoading` overlap, `isLoading` drops to `false`
+when an `error` is already set, or the user switches to the Script URL setup
+screen.
+
+**Expected.** `#api-key`, `#login-button` and `#change-url-button` stay disabled
+whenever either flag is active, `#login-status` prioritises the loader over
+`"Verifying session..."` and keeps an active error alert after loading ends,
+duplicate submissions are ignored while busy, and switching to setup clears
+detached login control references.
+
+**Status.** Handled in `LoginComponent.syncStatusAndControls()`,
+`handleLogin()`, and `renderSetup()`. Tested in
+`tests/features/login/login.component.test.js`.
